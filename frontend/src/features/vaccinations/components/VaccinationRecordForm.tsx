@@ -1188,6 +1188,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     'mode_of_exposure',
     'body_part_affected',
     'body_part_affected_text',
+    'place_of_exposure',
     'animal_type',
     'animal_type_other',
     'animal_status',
@@ -1207,6 +1208,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     if (errorKey === 'mode_of_exposure') return 'field-mode_of_exposure';
     if (errorKey === 'body_part_affected') return 'field-body_part_affected';
     if (errorKey === 'body_part_affected_text') return 'field-body_part_affected_text';
+    if (errorKey === 'place_of_exposure') return 'field-place_of_exposure';
     if (errorKey === 'animal_type') return 'field-animal_type';
     if (errorKey === 'animal_type_other') return 'field-animal_type_other';
     if (errorKey === 'animal_status') return 'field-animal_status';
@@ -1234,6 +1236,20 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       }
       if (!Object.values(formData.body_part_affected).some(Boolean) && !formData.body_part_affected_text.trim()) {
         newFieldErrors.body_part_affected = 'Please select an option.';
+      }
+      if (expLoc.useManual) {
+        if (!expLoc.manualMun.trim() || !expLoc.manualBrgy.trim()) {
+          newFieldErrors.place_of_exposure = 'Please enter both Municipality and Barangay for Place of Exposure.';
+        }
+      } else {
+        if (!expLoc.municipality || !expLoc.barangay) {
+          if (!formData.place_of_exposure || !formData.place_of_exposure.trim()) {
+            newFieldErrors.place_of_exposure = 'Please select both Municipality and Barangay for Place of Exposure.';
+          }
+        }
+      }
+      if (!newFieldErrors.place_of_exposure && (!formData.place_of_exposure || !formData.place_of_exposure.trim())) {
+        newFieldErrors.place_of_exposure = 'Place of exposure is required.';
       }
       if (!formData.animal_type) {
         newFieldErrors.animal_type = 'Please select an option.';
@@ -1377,6 +1393,18 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     setError('');
     setSaving(true);
 
+    const currentMun = (expLoc.useManual ? expLoc.manualMun : expLoc.munName).trim();
+    const currentBrgy = (expLoc.useManual ? expLoc.manualBrgy : expLoc.brgyName).trim();
+    let composedPlace = (formData.place_of_exposure || '').trim();
+    if (currentBrgy && currentMun) {
+      const parts: string[] = [];
+      const cleanP = cleanPurok(purok);
+      if (cleanP) parts.push(cleanP);
+      parts.push(currentBrgy);
+      parts.push(currentMun);
+      composedPlace = parts.join(', ');
+    }
+
     try {
       await api.post('/vaccination-records', {
         patient_id: patientId,
@@ -1384,6 +1412,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         apply_signature: Boolean(applySignature && (signatureReady || signatureVersion)),
         signature_version: (applySignature && signatureVersion) ? signatureVersion : null,
         ...formData,
+        place_of_exposure: composedPlace || null,
         mode_of_exposure: Object.keys(formData.mode_of_exposure).filter(
           key => formData.mode_of_exposure[key as keyof typeof formData.mode_of_exposure]
         ),
@@ -1428,6 +1457,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             mappedErrors.body_part_affected = msg;
           } else if (key === 'body_part_detail') {
             mappedErrors.body_part_affected_text = msg;
+          } else if (key === 'place_of_exposure') {
+            mappedErrors.place_of_exposure = msg;
           } else if (key === 'animal_type') {
             mappedErrors.animal_type = msg;
           } else if (key === 'animal_type_other') {
@@ -1714,14 +1745,21 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         </div>
 
         {/* Place of Exposure Address */}
-        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-light, #e5e7eb)' }}>
+        <div id="field-place_of_exposure" style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-light, #e5e7eb)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-h, #374151)' }}>
-              Place of Exposure
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.place_of_exposure ? '#dc2626' : 'var(--text-h, #374151)' }}>
+              Place of Exposure <span style={{ color: '#dc2626' }}>*</span>
             </label>
             <button
               type="button"
-              onClick={() => expLoc.setUseManual(!expLoc.useManual)}
+              onClick={() => {
+                expLoc.setUseManual(!expLoc.useManual);
+                setFieldErrors(fe => {
+                  const next = { ...fe };
+                  delete next.place_of_exposure;
+                  return next;
+                });
+              }}
               disabled={clinicalAssessmentLocked}
               style={{
                 background: 'none',
@@ -1743,43 +1781,55 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-secondary, #6b7280)', marginBottom: 4 }}>
-                Municipality
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: (fieldErrors.place_of_exposure && (expLoc.useManual ? !expLoc.manualMun.trim() : !expLoc.municipality)) ? '#dc2626' : 'var(--text-secondary, #6b7280)', marginBottom: 4 }}>
+                Municipality <span style={{ color: '#dc2626' }}>*</span>
               </label>
               {expLoc.useManual ? (
                 <input
                   type="text"
                   value={expLoc.manualMun}
-                  onChange={(e) => expLoc.setManualMun(e.target.value)}
+                  onChange={(e) => {
+                    expLoc.setManualMun(e.target.value);
+                    if (fieldErrors.place_of_exposure) {
+                      setFieldErrors(fe => { const next = { ...fe }; delete next.place_of_exposure; return next; });
+                    }
+                  }}
                   placeholder="e.g. Tagoloan"
                   disabled={clinicalAssessmentLocked}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid var(--input-border, #d1d5db)',
+                    border: (fieldErrors.place_of_exposure && !expLoc.manualMun.trim()) ? '1.5px solid #ef4444' : '1px solid var(--input-border, #d1d5db)',
                     borderRadius: BORDER_RADIUS,
                     fontSize: 13,
                     backgroundColor: clinicalAssessmentLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
                     color: 'var(--input-text, #111827)',
                     boxSizing: 'border-box',
                     outline: 'none',
+                    boxShadow: (fieldErrors.place_of_exposure && !expLoc.manualMun.trim()) ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
                   }}
                 />
               ) : (
                 <select
                   value={expLoc.municipality}
-                  onChange={(e) => expLoc.setMunicipality(e.target.value)}
+                  onChange={(e) => {
+                    expLoc.setMunicipality(e.target.value);
+                    if (fieldErrors.place_of_exposure) {
+                      setFieldErrors(fe => { const next = { ...fe }; delete next.place_of_exposure; return next; });
+                    }
+                  }}
                   disabled={clinicalAssessmentLocked || expLoc.loadingMun}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid var(--input-border, #d1d5db)',
+                    border: (fieldErrors.place_of_exposure && !expLoc.municipality) ? '1.5px solid #ef4444' : '1px solid var(--input-border, #d1d5db)',
                     borderRadius: BORDER_RADIUS,
                     fontSize: 13,
                     backgroundColor: (clinicalAssessmentLocked || expLoc.loadingMun) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
                     color: 'var(--input-text, #111827)',
                     boxSizing: 'border-box',
                     outline: 'none',
+                    boxShadow: (fieldErrors.place_of_exposure && !expLoc.municipality) ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
                   }}
                 >
                   <option value="">{expLoc.loadingMun ? 'Loading…' : '— Select —'}</option>
@@ -1791,43 +1841,55 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-secondary, #6b7280)', marginBottom: 4 }}>
-                Barangay
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: (fieldErrors.place_of_exposure && (expLoc.useManual ? !expLoc.manualBrgy.trim() : !expLoc.barangay)) ? '#dc2626' : 'var(--text-secondary, #6b7280)', marginBottom: 4 }}>
+                Barangay <span style={{ color: '#dc2626' }}>*</span>
               </label>
               {expLoc.useManual ? (
                 <input
                   type="text"
                   value={expLoc.manualBrgy}
-                  onChange={(e) => expLoc.setManualBrgy(e.target.value)}
+                  onChange={(e) => {
+                    expLoc.setManualBrgy(e.target.value);
+                    if (fieldErrors.place_of_exposure) {
+                      setFieldErrors(fe => { const next = { ...fe }; delete next.place_of_exposure; return next; });
+                    }
+                  }}
                   placeholder="e.g. Poblacion"
                   disabled={clinicalAssessmentLocked}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid var(--input-border, #d1d5db)',
+                    border: (fieldErrors.place_of_exposure && !expLoc.manualBrgy.trim()) ? '1.5px solid #ef4444' : '1px solid var(--input-border, #d1d5db)',
                     borderRadius: BORDER_RADIUS,
                     fontSize: 13,
                     backgroundColor: clinicalAssessmentLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
                     color: 'var(--input-text, #111827)',
                     boxSizing: 'border-box',
                     outline: 'none',
+                    boxShadow: (fieldErrors.place_of_exposure && !expLoc.manualBrgy.trim()) ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
                   }}
                 />
               ) : (
                 <select
                   value={expLoc.barangay}
-                  onChange={(e) => expLoc.setBarangay(e.target.value)}
+                  onChange={(e) => {
+                    expLoc.setBarangay(e.target.value);
+                    if (fieldErrors.place_of_exposure) {
+                      setFieldErrors(fe => { const next = { ...fe }; delete next.place_of_exposure; return next; });
+                    }
+                  }}
                   disabled={clinicalAssessmentLocked || !expLoc.municipality || expLoc.loadingBrgy}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid var(--input-border, #d1d5db)',
+                    border: (fieldErrors.place_of_exposure && !expLoc.barangay) ? '1.5px solid #ef4444' : '1px solid var(--input-border, #d1d5db)',
                     borderRadius: BORDER_RADIUS,
                     fontSize: 13,
                     backgroundColor: (clinicalAssessmentLocked || !expLoc.municipality || expLoc.loadingBrgy) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
                     color: 'var(--input-text, #111827)',
                     boxSizing: 'border-box',
                     outline: 'none',
+                    boxShadow: (fieldErrors.place_of_exposure && !expLoc.barangay) ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
                   }}
                 >
                   <option value="">{expLoc.loadingBrgy ? 'Loading…' : '— Select —'}</option>
@@ -1862,6 +1924,12 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               />
             </div>
           </div>
+
+          {fieldErrors.place_of_exposure && (
+            <span style={{ color: '#ef4444', fontSize: 12, fontWeight: 500, marginTop: 6, display: 'block' }}>
+              {fieldErrors.place_of_exposure}
+            </span>
+          )}
 
           {formData.place_of_exposure && (
             <div style={{ marginTop: 8, padding: '8px 12px', backgroundColor: 'var(--bg-secondary, #f9fafb)', borderRadius: BORDER_RADIUS, fontSize: 12, color: 'var(--text-secondary, #6b7280)' }}>

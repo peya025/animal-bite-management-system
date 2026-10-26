@@ -10,11 +10,13 @@ use App\Models\BiteIncident;
 use App\Models\Patient;
 use App\Models\Queue;
 use App\Models\QueueHistory;
+use App\Models\Station;
 use App\Models\TreatmentRecord;
 use App\Models\User;
 use App\Services\NotificationService;
 use App\Services\PatientMembershipService;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -931,6 +933,313 @@ class PatientService
                         'queue' => $queue->load(['patient', 'biteIncident']),
                         'queue_number' => $nextQueueNumber,
                         'station' => 'Doctor Assessment',
+                    ],
+                ];
+            } finally {
+                if ($isMysql) {
+                    DB::statement("SELECT RELEASE_LOCK(?)", [$lockName]);
+                }
+            }
+        });
+    }
+
+    /**
+     * Check in an unattended patient to the Nurse queue (Station 2 / Treatment Room).
+     * Specifically designed for patients who were not attended to within 1 day (queue expired or reset)
+     * and need to be re-entered into today's Nurse treatment queue.
+     *
+     * @return array{status: int, data: array<string, mixed>}
+     */
+    public function checkInPatientToNurse(int $clinicId, int $patientId, User $user, Request $request): array
+    {
+        $patient = Patient::where('clinic_id', $clinicId)->find($patientId);
+        if (!$patient) {
+            return [
+                'status' => 404,
+                'data' => [
+                    'success' => false,
+                    'message' => 'This patient is no longer available in your clinic. Refresh the patient list and try again.',
+                    'code' => 'patient_not_found',
+                ],
+            ];
+        }
+
+        $todayDate = Carbon::now('Asia/Manila')->toDateString();
+        $activeStatuses = ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'];
+
+        // 1. Guard: Check if patient is already active in today's queue
+        $existingQueue = Queue::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->where('queue_date', $todayDate)
+            ->whereNull('deleted_at')
+            ->whereIn('status', $activeStatuses)
+            ->first();
+
+        if ($existingQueue) {
+            return [
+                'status' => 200,
+                'data' => [
+                    'success' => true,
+                    'already_checked_in' => true,
+                    'message' => "{$patient->first_name} {$patient->last_name} is already active in today's Nurse queue (Queue #{$existingQueue->queue_number})",
+                    'queue' => $existingQueue->load(['patient', 'biteIncident', 'station']),
+                    'queue_number' => $existingQueue->queue_number,
+                    'station' => $existingQueue->station?->name ?? 'Station 2 · Follow-up Doses',
+                ],
+            ];
+        }
+
+        // 2. Guard: Check if patient has already received today's scheduled dose
+        $completedTodayDose = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->whereNotNull('dose_number')
+            ->where('status', 'completed')
+            ->where(function ($q) use ($todayDate) {
+                $q->whereDate('treatment_date', $todayDate)
+                  ->orWhereDate('administered_at', $todayDate);
+            })
+            ->exists();
+
+        if ($completedTodayDose) {
+            return [
+                'status' => 422,
+                'data' => [
+                    'success' => false,
+                    'message' => "{$patient->first_name} {$patient->last_name} has already received their scheduled dose today.",
+                    'code' => 'dose_already_administered',
+                ],
+            ];
+        }
+
+        // 3. Guard: Ensure patient has completed Doctor Triage or started treatment
+        $hasCompletedConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->whereNull('dose_number')
+            ->where(function ($q) {
+                $q->where('status', 'completed')
+                  ->orWhereNotNull('nature_of_visit')
+                  ->orWhereNotNull('diagnosis');
+            })
+            ->exists();
+
+        $hasCompletedDoses = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->whereNotNull('dose_number')
+            ->where('status', 'completed')
+            ->exists();
+
+        $hasConfirmedEpisode = BiteIncident::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->where(function ($q) {
+                $q->whereNotNull('confirmed_at')
+                  ->orWhereIn('status', ['active', 'completed', 'in_progress'])
+                  ->orWhereIn('episode_type', ['primary', 're_exposure']);
+            })
+            ->exists();
+
+        if (!$hasCompletedConsultation && !$hasCompletedDoses && !$hasConfirmedEpisode) {
+            return [
+                'status' => 422,
+                'data' => [
+                    'success' => false,
+                    'message' => 'This patient has not completed Doctor Triage yet. Please check the patient in for Doctor Triage first.',
+                    'code' => 'triage_required',
+                ],
+            ];
+        }
+
+        // 4. Guard: Check if patient is completely discharged with no remaining pending doses
+        $isDischarged = in_array(strtolower($patient->status ?? ''), ['discharged'])
+            || in_array(strtolower($patient->treatment_status ?? ''), ['completed', 'discharged']);
+
+        $hasPendingAppointments = Appointment::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id)
+            ->whereIn('status', ['scheduled', 'missed'])
+            ->exists();
+
+        if ($isDischarged && !$hasPendingAppointments) {
+            return [
+                'status' => 422,
+                'data' => [
+                    'success' => false,
+                    'message' => 'This patient has completed their treatment course or has been discharged.',
+                    'code' => 'patient_discharged',
+                ],
+            ];
+        }
+
+        // 5. Transaction with atomic lock for queue number assignment
+        return DB::transaction(function () use ($clinicId, $patient, $todayDate, $user, $request, $hasCompletedDoses) {
+            app(QueueController::class)->expireStaleTickets($clinicId, $todayDate);
+
+            $lockName = "queue_checkin_{$clinicId}_{$todayDate}";
+            $lockTimeout = 5;
+            $isMysql = DB::connection()->getDriverName() === 'mysql';
+
+            if ($isMysql) {
+                DB::statement("SELECT GET_LOCK(?, ?)", [$lockName, $lockTimeout]);
+            }
+
+            try {
+                // Find matching appointment (due today or overdue/missed)
+                $appointment = Appointment::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patient->patient_id)
+                    ->whereIn('status', ['scheduled', 'missed', 'confirmed'])
+                    ->orderByRaw("CASE WHEN DATE(scheduled_date) = '{$todayDate}' OR DATE(appointment_date) = '{$todayDate}' THEN 0 WHEN scheduled_date < '{$todayDate}' OR appointment_date < '{$todayDate}' THEN 1 ELSE 2 END")
+                    ->orderBy('scheduled_date', 'asc')
+                    ->first();
+
+                // Find bite incident
+                $biteIncident = $appointment?->biteIncident ?? BiteIncident::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patient->patient_id)
+                    ->latest('bite_id')
+                    ->first();
+
+                // Determine booster / follow-up / vaccination
+                $isBooster = false;
+                if ($appointment) {
+                    $notes = strtolower($appointment->notes ?? '');
+                    $isBooster = str_contains($notes, 'booster') || ($appointment->dose_number === null && str_contains($notes, 'boost'));
+                }
+                if (!$isBooster && $biteIncident) {
+                    $planType = $biteIncident->treatmentPlan?->plan_type ?? '';
+                    if (in_array($planType, ['two_dose_booster', 'single_booster'])) {
+                        $isBooster = true;
+                    }
+                }
+
+                if ($isBooster) {
+                    $visitType = 'booster';
+                    $stationName = 'Station 2 · Boosters';
+                    $isFollowUp = true;
+                } elseif ($hasCompletedDoses || ($appointment && (int)$appointment->dose_number > 0)) {
+                    $visitType = 'follow_up';
+                    $stationName = 'Station 2 · Follow-up Doses';
+                    $isFollowUp = true;
+                } else {
+                    $visitType = 'vaccination';
+                    $stationName = 'Station 1 · Intake & Day 0';
+                    $isFollowUp = false;
+                }
+
+                // Station record lookup
+                $stationQuery = Station::where('clinic_id', $clinicId)->where('is_active', true);
+                $stationObj = $isFollowUp
+                    ? (clone $stationQuery)->where(fn($s) =>
+                        $s->where('name', 'like', '%Follow-up%')
+                          ->orWhere('name', 'like', '%Follow up%')
+                          ->orWhere('name', 'like', '%Station 2%')
+                      )->first()
+                    : (clone $stationQuery)->where(fn($s) =>
+                        $s->where('name', 'like', '%Intake%')
+                          ->orWhere('name', 'like', '%Station 1%')
+                      )->first();
+
+                if (!$stationObj) {
+                    $station1 = Station::firstOrCreate(['clinic_id' => $clinicId, 'name' => 'Station 1 - Intake'], ['is_active' => true]);
+                    $station2 = Station::firstOrCreate(['clinic_id' => $clinicId, 'name' => 'Station 2 - Follow-ups & Boosters'], ['is_active' => true]);
+                    $stationObj = $isFollowUp ? $station2 : $station1;
+                }
+
+                // Priority & Category
+                $patientDetail = $patient->details;
+                $category = 'regular';
+                if ($appointment && $appointment->booked_by_account_id) {
+                    $category = 'appointment';
+                } elseif ($patientDetail) {
+                    if ($patientDetail->fourps_member === 'yes' || $patientDetail->has_membership === 'pwd') {
+                        $category = 'pwd';
+                    } elseif ($patient->age >= 60) {
+                        $category = 'senior_citizen';
+                    } elseif ($patientDetail->has_membership === 'pregnant') {
+                        $category = 'pregnant';
+                    }
+                }
+                $priority = $request->get('priority', 'normal');
+
+                $maxNumber = DB::table('queues')
+                    ->where('clinic_id', $clinicId)
+                    ->where('queue_date', $todayDate)
+                    ->max('queue_number');
+
+                $nextQueueNumber = $maxNumber ? ($maxNumber + 1) : 1;
+
+                $doseInfo = $appointment && $appointment->dose_number !== null
+                    ? "Day {$appointment->dose_number} Dose"
+                    : ($isBooster ? 'Booster Dose' : 'Vaccination Dose');
+                $checkInNotes = "Re-checked in to Nurse queue by Registration staff ({$doseInfo})";
+
+                $queue = Queue::create([
+                    'clinic_id'      => $clinicId,
+                    'patient_id'     => $patient->patient_id,
+                    'appointment_id' => $appointment?->appointment_id,
+                    'bite_id'        => $biteIncident?->bite_id,
+                    'queue_number'   => $nextQueueNumber,
+                    'queue_date'     => $todayDate,
+                    'visit_type'     => $visitType,
+                    'priority'       => $priority,
+                    'queue_category' => $category,
+                    'status'         => 'waiting',
+                    'checked_in_at'  => now(),
+                    'checked_in_by'  => $user->id,
+                    'station_id'     => $stationObj?->id,
+                    'check_in_notes' => $checkInNotes,
+                    'call_count'     => 0,
+                ]);
+
+                if ($appointment) {
+                    $appointment->update([
+                        'status'           => 'confirmed',
+                        'appointment_date' => $todayDate,
+                        'scheduled_date'   => $todayDate,
+                        'queue_number'     => $nextQueueNumber,
+                    ]);
+                }
+
+                QueueHistory::create([
+                    'queue_id'     => $queue->queue_id,
+                    'clinic_id'    => $clinicId,
+                    'patient_id'   => $patient->patient_id,
+                    'action'       => 'checked_in',
+                    'from_status'  => null,
+                    'to_status'    => 'waiting',
+                    'call_count'   => 0,
+                    'performed_by' => $user->id,
+                    'notes'        => $checkInNotes,
+                    'occurred_at'  => now(),
+                ]);
+
+                AuditLog::create([
+                    'user_id'     => $user->id,
+                    'clinic_id'   => $clinicId,
+                    'action'      => 'nurse.check_in',
+                    'model'       => Queue::class,
+                    'model_id'    => $queue->queue_id,
+                    'old_values'  => null,
+                    'new_values'  => [
+                        'queue_number' => $nextQueueNumber,
+                        'station'      => $stationObj?->name ?? $stationName,
+                        'visit_type'   => $visitType,
+                        'patient_id'   => $patient->patient_id,
+                    ],
+                    'description' => "Patient {$patient->first_name} {$patient->last_name} re-checked in to Nurse Queue by {$user->name}",
+                    'ip_address'  => request()->ip() ?? '127.0.0.1',
+                ]);
+
+                Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
+                $this->clearPatientListCache($clinicId);
+
+                $this->notificationService->notifyQueueEvent($queue->load('patient'), 'checked_in', $user);
+
+                return [
+                    'status' => 200,
+                    'data' => [
+                        'success' => true,
+                        'message' => "{$patient->first_name} {$patient->last_name} checked in successfully to Nurse queue (Queue #{$nextQueueNumber})",
+                        'queue' => $queue->load(['patient', 'biteIncident', 'station']),
+                        'queue_number' => $nextQueueNumber,
+                        'station' => $stationObj?->name ?? $stationName,
+                        'visit_type' => $visitType,
                     ],
                 ];
             } finally {

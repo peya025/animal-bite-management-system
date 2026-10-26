@@ -156,4 +156,22 @@ class PatientController extends Controller
 
         return $this->json($result['data'], $result['status']);
     }
+
+    /**
+     * Check in an unattended patient to the Nurse queue (Station 2 / Treatment Room).
+     * For patients who were not attended to within 1 day and are no longer in the active nurse queue.
+     * POST /api/patients/{id}/check-in-nurse
+     * Access: admin, registration, developer, treatment, nurse
+     */
+    public function checkInNurse(Request $request, int|string $id): JsonResponse
+    {
+        $result = $this->patientService->checkInPatientToNurse(
+            $request->user()->clinic_id,
+            (int) $id,
+            $request->user(),
+            $request
+        );
+
+        return $this->json($result['data'], $result['status']);
+    }
 }

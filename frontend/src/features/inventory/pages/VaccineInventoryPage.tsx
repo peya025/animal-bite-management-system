@@ -85,6 +85,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const batchParam = searchParams.get('batchId') || searchParams.get('initialItemId');
   const searchUrlParam = searchParams.get('search');
   const statusFilterUrlParam = searchParams.get('statusFilter');
+  const categoryFilterUrlParam = searchParams.get('category') || searchParams.get('categoryFilter');
 
   const defaultTab = initialTab
     || (location.pathname.includes('/administrations') ? 'administrations' : undefined)
@@ -96,6 +97,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(15);
   const [search, setSearch] = useState(() => searchUrlParam || '');
+  const [categoryFilter, setCategoryFilter] = useState(() => categoryFilterUrlParam || '');
   const [statusFilter, setStatusFilter] = useState(() => statusFilterUrlParam || '');
   const [batchFilter, setBatchFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
@@ -115,6 +117,9 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
     if (statusFilterUrlParam !== null) {
       setStatusFilter(statusFilterUrlParam);
     }
+    if (categoryFilterUrlParam !== null) {
+      setCategoryFilter(categoryFilterUrlParam);
+    }
     if (tabParam === 'stockcard') {
       setView('stockcard');
     } else if (location.pathname.includes('/administrations') || initialTab === 'administrations') {
@@ -122,7 +127,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
     } else if (tabParam && ['table', 'fifo', 'administrations'].includes(tabParam)) {
       setView((isNurseRole || isAdminRole) && tabParam === 'fifo' ? 'table' : tabParam as any);
     }
-  }, [initialTab, isAdminRole, isNurseRole, location.pathname, tabParam, batchParam, searchUrlParam, statusFilterUrlParam]);
+  }, [initialTab, isAdminRole, isNurseRole, location.pathname, tabParam, batchParam, searchUrlParam, categoryFilterUrlParam, statusFilterUrlParam]);
 
   useEffect(() => {
     const handleReset = () => {
@@ -189,6 +194,13 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
     return items.filter((item) => {
       const derivedStatus = deriveInventoryStatus(item);
       const category = item.vaccine_category || presets.find((p) => p.vaccine_name.toLowerCase() === item.vaccine_type.toLowerCase())?.category;
+
+      const matchesCategory = !categoryFilter || (
+        categoryFilter === 'Not specified'
+          ? !category
+          : Boolean(category && category.toLowerCase() === categoryFilter.toLowerCase())
+      );
+
       const matchesSearch = !search || 
         item.vaccine_type.toLowerCase().includes(search.toLowerCase()) ||
         Boolean(category && category.toLowerCase().includes(search.toLowerCase()));
@@ -225,9 +237,9 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
       const matchesFrom = !expiryFrom || !expiryDate || expiryDate >= expiryFrom;
       const matchesTo = !expiryTo || !expiryDate || expiryDate <= expiryTo;
 
-      return matchesSearch && matchesBatch && matchesSource && matchesStatus && matchesFrom && matchesTo;
+      return matchesCategory && matchesSearch && matchesBatch && matchesSource && matchesStatus && matchesFrom && matchesTo;
     });
-  }, [items, search, batchFilter, sourceFilter, statusFilter, expiryFrom, expiryTo, presets]);
+  }, [items, search, categoryFilter, batchFilter, sourceFilter, statusFilter, expiryFrom, expiryTo, presets]);
 
 
   const pagedItems = useMemo(() => {
@@ -574,6 +586,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
           rowsPerPage={rowsPerPage}
           total={filteredItems.length}
           search={search}
+          categoryFilter={categoryFilter}
           statusFilter={statusFilter}
           batchFilter={batchFilter}
           sourceFilter={sourceFilter}
@@ -583,6 +596,10 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
           presets={presets}
           onSearchChange={(value) => {
             setSearch(value);
+            setPage(0);
+          }}
+          onCategoryFilterChange={(value) => {
+            setCategoryFilter(value);
             setPage(0);
           }}
           onStatusFilterChange={(value) => {

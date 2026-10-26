@@ -8,6 +8,10 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+Artisan::command('sample:nurse-unattended {action=seed : seed or remove}', function (string $action = 'seed') {
+    return $this->call(\App\Console\Commands\ManageNurseUnattendedSample::class, ['action' => $action]);
+})->purpose('Seed or remove sample unattended patient for testing Check In to Nurse');
+
 // Daily Automated Rabies PEP Reminders & Missed Dose Recalls at 8:00 AM
 Schedule::command('appointments:auto-recall')->dailyAt('08:00');
 

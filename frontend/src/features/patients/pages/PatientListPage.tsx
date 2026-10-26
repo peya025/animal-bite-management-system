@@ -88,7 +88,8 @@ export default function PatientList() {
   } | null>(null);
   const [checkInError,         setCheckInError]         = useState('');
   const [checkingInIntakeId,   setCheckingInIntakeId]   = useState<number | null>(null);
-  const [checkingInPatientId,  setCheckingInPatientId]  = useState<number | null>(null);
+  const [checkingInPatientId,      setCheckingInPatientId]      = useState<number | null>(null);
+  const [checkingInNursePatientId, setCheckingInNursePatientId] = useState<number | null>(null);
 
   const { clinic: authClinic } = useAuth();
   const userData   = localStorage.getItem('userData');
@@ -318,6 +319,105 @@ export default function PatientList() {
     } finally {
       setCheckingInPatientId(null);
     }
+  };
+
+  const handleNurseCheckIn = async (patient: Patient) => {
+    if (isPreRegisteredOnly(patient)) {
+      setCheckInError('This patient is only pre-registered from the mobile app and has not booked an appointment or submitted an intake.');
+      return;
+    }
+
+    const patientId = patient.patient_id || (patient as any).id;
+    if (!patientId) {
+      setCheckInError('The patient record could not be identified. Please refresh the page and try again.');
+      return;
+    }
+
+    setCheckingInNursePatientId(patientId);
+    try {
+      const response = await api.post(`/patients/${patientId}/check-in-nurse`);
+      const queue = response.data?.queue;
+      setCheckInModalData({
+        patientName: fullName(patient),
+        patientNumber: patient.patient_number || '',
+        queueNumber: response.data?.queue_number || queue?.queue_number || '',
+        station: response.data?.station || 'Treatment Room (Station 2)',
+      });
+      fetchPatients();
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        setCheckInError('This patient is no longer available in your clinic. The patient list has been refreshed. Please select an available patient.');
+        await fetchPatients();
+        return;
+      }
+      setCheckInError(err.response?.data?.message || 'Unable to check in this patient for the Nurse queue.');
+    } finally {
+      setCheckingInNursePatientId(null);
+    }
+  };
+
+  const isEligibleForNurseCheckIn = (p: Patient) => {
+    if (isPreRegisteredOnly(p)) return false;
+
+    // 1. Must not already be active in today's queue
+    const todayQueues: any[] = (p as any).queues || [];
+    const hasActiveQueueToday = todayQueues.some((q: any) =>
+      ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'].includes(q.status)
+    );
+    if (hasActiveQueueToday) return false;
+
+    // 2. Must not have completed a dose today
+    const latestRecord = (p as any).latest_treatment_record;
+    const today = new Date();
+    const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    if (
+      latestRecord &&
+      latestRecord.dose_number !== null &&
+      latestRecord.dose_number !== undefined &&
+      latestRecord.status === 'completed' &&
+      (String(latestRecord.treatment_date || '').slice(0, 10) === todayDateStr ||
+        String(latestRecord.administered_at || '').slice(0, 10) === todayDateStr)
+    ) {
+      return false;
+    }
+
+    // 3. Must have completed doctor triage or started treatment
+    const biteIncidentsList = (p as any).bite_incidents || (p as any).biteIncidents || [];
+    const hasConfirmedEpisode = biteIncidentsList.some((bi: any) =>
+      bi.confirmed_at || ['active', 'completed', 'in_progress'].includes(bi.status) || ['primary', 're_exposure'].includes(bi.episode_type)
+    );
+    const latestConsultation = (p as any).latest_consultation_record || (p as any).latestConsultationRecord;
+    const hasCompletedConsultation = Boolean(
+      latestConsultation && (
+        latestConsultation.status === 'completed' ||
+        Boolean(latestConsultation.nature_of_visit) ||
+        Boolean(latestConsultation.diagnosis)
+      )
+    );
+    const hasCompletedDoses = Boolean(
+      latestRecord && latestRecord.dose_number !== null && latestRecord.dose_number !== undefined
+    );
+    const hasPassedDoctorTriage = hasConfirmedEpisode || hasCompletedConsultation || hasCompletedDoses;
+    if (!hasPassedDoctorTriage) return false;
+
+    // 4. Must not be completely discharged with no remaining doses
+    const isDischarged = ['discharged', 'completed'].includes(String(p.status || '').toLowerCase()) ||
+      ['discharged', 'completed'].includes(String((p as any).treatment_status || '').toLowerCase());
+    const appointments: any[] = (p as any).appointments || [];
+    const hasPendingAppointments = appointments.some((a: any) => ['scheduled', 'missed'].includes(a.status));
+    if (isDischarged && !hasPendingAppointments) return false;
+
+    // 5. Must have an unserved appointment or prior queue, or unadministered day 0 from prior day,
+    // or pending follow-up appointment due on/before today
+    const hasDueOrOverdueAppt = appointments.some((a: any) => {
+      if (!['scheduled', 'missed'].includes(a.status)) return false;
+      const apptDateStr = String(a.scheduled_date || a.appointment_date || '').slice(0, 10);
+      return Boolean(apptDateStr && apptDateStr <= todayDateStr);
+    });
+
+    const isDay0FromPriorDay = !hasCompletedDoses && Boolean(p.created_at && p.created_at.slice(0, 10) < todayDateStr);
+
+    return hasDueOrOverdueAppt || isDay0FromPriorDay || (hasPendingAppointments && !hasActiveQueueToday);
   };
 
   const isReturningPatientAwaitingTriage = (p: Patient) => {
@@ -1155,6 +1255,12 @@ export default function PatientList() {
                       !isCat1NoTreatment &&
                       (isReturningAwaitingTriage || Boolean(requiresCheckinQueue))
                     );
+                    const canCheckInToNurse = Boolean(
+                      isAuthorizedRegistrationRole &&
+                      !canCheckInReturning &&
+                      !activeQueue &&
+                      isEligibleForNurseCheckIn(p)
+                    );
                     const patientId = p.patient_id || p.id;
 
                     return (
@@ -1271,6 +1377,37 @@ export default function PatientList() {
                                 }}
                               >
                                 {checkingInPatientId === patientId ? 'Checking in...' : 'Check In'}
+                              </button>
+                            ) : canCheckInToNurse ? (
+                              <button
+                                className="pm-btn-checkin"
+                                title="Patient was not attended to within 1 day or needs follow-up vaccination. Re-check in to today's Nurse Treatment queue."
+                                disabled={checkingInNursePatientId === patientId}
+                                style={{
+                                  fontSize: '12px',
+                                  padding: '4px 12px',
+                                  textTransform: 'none',
+                                  fontWeight: 600,
+                                  borderRadius: '6px',
+                                  backgroundColor: '#0d9488',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  cursor: checkingInNursePatientId === patientId ? 'not-allowed' : 'pointer',
+                                  opacity: checkingInNursePatientId === patientId ? 0.7 : 1,
+                                  boxShadow: '0 2px 6px rgba(13,148,136,0.3)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                }}
+                                onClick={(event) => {
+                                  (event.currentTarget as HTMLElement).blur();
+                                  handleNurseCheckIn(p);
+                                }}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M12 5v14M5 12h14" />
+                                </svg>
+                                {checkingInNursePatientId === patientId ? 'Checking in...' : 'Check In to Nurse'}
                               </button>
                             ) : canRegisterNewExposure ? (
                               <button

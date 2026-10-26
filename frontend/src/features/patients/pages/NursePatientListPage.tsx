@@ -220,8 +220,14 @@ export default function NursePatientListPage() {
     const handleVisibilityChange = () => {
       if (!document.hidden) loadPatients();
     };
+    const interval = setInterval(() => {
+      if (!document.hidden) loadPatients();
+    }, 30000);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [tab, page, rowsPerPage, doseFilter]);
 
   useEffect(() => {

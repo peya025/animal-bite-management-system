@@ -62,12 +62,14 @@ interface InventoryTableProps {
   rowsPerPage: number;
   total: number;
   search: string;
+  categoryFilter: string;
   statusFilter: string;
   batchFilter: string;
   sourceFilter: string;
   expiryFrom: string;
   expiryTo: string;
   onSearchChange: (value: string) => void;
+  onCategoryFilterChange: (value: string) => void;
   onStatusFilterChange: (value: string) => void;
   onBatchFilterChange: (value: string) => void;
   onSourceFilterChange: (value: string) => void;
@@ -109,12 +111,14 @@ export default function InventoryTable({
   rowsPerPage,
   total,
   search,
+  categoryFilter,
   statusFilter,
   batchFilter,
   sourceFilter,
   expiryFrom,
   expiryTo,
   onSearchChange,
+  onCategoryFilterChange,
   onStatusFilterChange,
   onBatchFilterChange,
   onSourceFilterChange,
@@ -148,7 +152,35 @@ export default function InventoryTable({
     allItems.map((item) => (item.received_from || '').trim()).filter(Boolean),
   )).sort(), [allItems]);
 
-  const hasFilters = Boolean(search || statusFilter || batchFilter || sourceFilter || expiryFrom || expiryTo);
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    [
+      'Anti-Rabies Vaccines (ARV)',
+      'Anti-Tetanus Serum (ATS)',
+      'Tetanus & Toxoids',
+      'Rabies Immunoglobulins (RIG)',
+      'Other Biologicals',
+    ].forEach((c) => set.add(c));
+
+    presets?.forEach((p) => {
+      if (p.category?.trim()) set.add(p.category.trim());
+    });
+
+    allItems.forEach((i) => {
+      if (i.vaccine_category?.trim()) set.add(i.vaccine_category.trim());
+    });
+
+    const hasUnspecified = allItems.some(
+      (item) => !item.vaccine_category && !presets?.some((p) => p.vaccine_name.toLowerCase() === item.vaccine_type.toLowerCase() && p.category)
+    );
+    if (hasUnspecified) {
+      set.add('Not specified');
+    }
+
+    return Array.from(set);
+  }, [presets, allItems]);
+
+  const hasFilters = Boolean(search || categoryFilter || statusFilter || batchFilter || sourceFilter || expiryFrom || expiryTo);
   const primaryText = isDark ? '#f8fafc' : '#111827';
   const secondaryText = isDark ? '#94a3b8' : '#64748b';
   const fieldSx = {
@@ -325,13 +357,52 @@ export default function InventoryTable({
   return (
     <Box>
       <Paper elevation={0} sx={{ mb: 1.5, p: 1.25, border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`, borderRadius: 2.5, bgcolor: isDark ? '#111827' : '#fff' }}>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'minmax(220px, 1.4fr) minmax(150px, .8fr) minmax(160px, .8fr) minmax(170px, 1fr) auto auto' }, gap: 1, alignItems: 'center' }}>
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, minmax(0, 1fr))',
+            md: 'repeat(3, minmax(0, 1fr))',
+            lg: 'minmax(180px, 1.3fr) minmax(180px, 1.1fr) minmax(120px, .75fr) minmax(130px, .8fr) minmax(150px, .9fr) auto auto',
+          },
+          gap: 1,
+          alignItems: 'center',
+        }}>
           <TextField fullWidth size="small" placeholder="Search vaccine" value={search} onChange={(event) => onSearchChange(event.target.value)} slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 17, color: secondaryText }} /></InputAdornment> } }} sx={fieldSx} />
+          <FormControl fullWidth size="small" sx={fieldSx}>
+            <InputLabel>Category</InputLabel>
+            <Select
+              value={categoryFilter}
+              label="Category"
+              onChange={(event) => onCategoryFilterChange(event.target.value)}
+              renderValue={(value) => value || 'All categories'}
+            >
+              <MenuItem value="">All categories</MenuItem>
+              {categoryOptions.map((cat) => {
+                const badgeStyle = getCategoryBadgeStyle(cat === 'Not specified' ? null : cat, isDark);
+                return (
+                  <MenuItem key={cat} value={cat} sx={{ fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box
+                      component="span"
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        bgcolor: badgeStyle.color,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span>{cat}</span>
+                  </MenuItem>
+                );
+              })}
+            </Select>
+          </FormControl>
           <TextField fullWidth size="small" placeholder="Batch / Lot" value={batchFilter} onChange={(event) => onBatchFilterChange(event.target.value)} sx={fieldSx} />
           <FormControl fullWidth size="small" sx={fieldSx}><InputLabel>Status</InputLabel><Select value={statusFilter} label="Status" onChange={(event) => onStatusFilterChange(event.target.value)}><MenuItem value="">All statuses</MenuItem><MenuItem value="active">Available / Active</MenuItem><MenuItem value="low-stock">Low stock (≤10)</MenuItem><MenuItem value="expiring-soon">Expiring soon</MenuItem><MenuItem value="expired">Expired</MenuItem><MenuItem value="depleted">Depleted</MenuItem><MenuItem value="discard-pending">Opened vial</MenuItem></Select></FormControl>
           <FormControl fullWidth size="small" sx={fieldSx}><InputLabel>Supplier</InputLabel><Select value={sourceFilter} label="Supplier" onChange={(event) => onSourceFilterChange(event.target.value)} renderValue={(value) => value || 'All suppliers'}><MenuItem value="">All suppliers</MenuItem>{sourceOptions.map((source) => <MenuItem key={source} value={source} sx={{ maxWidth: 380, whiteSpace: 'normal', fontSize: 12 }}>{source}</MenuItem>)}</Select></FormControl>
           <Button variant="outlined" startIcon={<DateRangeIcon sx={{ fontSize: '16px !important' }} />} onClick={(event) => setExpiryAnchor(event.currentTarget)} sx={{ height: 40, borderRadius: 2, borderColor: expiryFrom || expiryTo ? '#10b981' : isDark ? '#334155' : '#e2e8f0', color: expiryFrom || expiryTo ? '#047857' : secondaryText, textTransform: 'none', whiteSpace: 'nowrap', fontSize: 11.5 }}>{expiryFrom || expiryTo ? 'Expiry applied' : 'Expiry date'}</Button>
-          <Button disabled={!hasFilters} onClick={() => { onSearchChange(''); onStatusFilterChange(''); onBatchFilterChange(''); onSourceFilterChange(''); onExpiryFromChange(''); onExpiryToChange(''); onPageChange(0); }} sx={{ minWidth: 0, color: secondaryText, textTransform: 'none', fontSize: 11.5, whiteSpace: 'nowrap' }}>Clear filters</Button>
+          <Button disabled={!hasFilters} onClick={() => { onSearchChange(''); onCategoryFilterChange(''); onStatusFilterChange(''); onBatchFilterChange(''); onSourceFilterChange(''); onExpiryFromChange(''); onExpiryToChange(''); onPageChange(0); }} sx={{ minWidth: 0, color: secondaryText, textTransform: 'none', fontSize: 11.5, whiteSpace: 'nowrap' }}>Clear filters</Button>
         </Box>
       </Paper>
 

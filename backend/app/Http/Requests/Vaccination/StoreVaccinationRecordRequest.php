@@ -55,7 +55,7 @@ class StoreVaccinationRecordRequest extends FormRequest
             'prophylaxis_administrations.*.medication'      => 'required|distinct|string|max:100',
             'prophylaxis_administrations.*.date'            => 'required|date_format:Y-m-d|before_or_equal:today',
             'prophylaxis_administrations.*.inventory_id'    => 'required|integer|exists:vaccine_inventory,inventory_id',
-            'prophylaxis_administrations.*.inventory_units_used' => 'required|integer|min:1|max:999',
+            'prophylaxis_administrations.*.inventory_units_used' => 'required|integer|in:1',
             'prophylaxis_administrations.*.route'           => 'nullable|in:IM,wound_infiltration',
             'prophylaxis_administrations.*.injection_site'  => 'nullable|string|max:255',
             'prophylaxis_administrations.*.dosage_ml'       => 'nullable|numeric|gt:0|max:999.99',

@@ -190,6 +190,11 @@ class ProphylaxisService
                 $this->fail('Record the administered ATS dose in IU.');
             }
 
+            $unitsUsed = (int) ($item['inventory_units_used'] ?? 0);
+            if ($unitsUsed !== 1) {
+                $this->fail("The vials used for {$medication} must be 1.");
+            }
+
             $batch = VaccineInventory::where('clinic_id', $incident->clinic_id)
                 ->whereKey($item['inventory_id'])->where('status', 'active')
                 ->where('current_quantity', '>=', $item['inventory_units_used'])->lockForUpdate()->first();

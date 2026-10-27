@@ -2,6 +2,7 @@
 
 namespace App\Services\Clinical;
 
+use App\Models\Appointment;
 use App\Models\BiteIncident;
 use App\Models\Clinic;
 use App\Models\Patient;
@@ -42,7 +43,7 @@ class TagoloanTreatmentCardService
     /**
      * Smart pre-fill dataset for Tagoloan Treatment Card.
      */
-    public function getPatientCardData(int $clinicId, int $patientId, ?int $requestedBiteId = null): array
+    public function getPatientCardData(int $clinicId, int $patientId, ?int $requestedBiteId = null, ?int $requestedTreatmentId = null): array
     {
         $clinic = Clinic::find($clinicId);
         $patient = Patient::with(['details'])->where('clinic_id', $clinicId)->findOrFail($patientId);
@@ -67,6 +68,13 @@ class TagoloanTreatmentCardService
                     ->first();
         }
         $latestBite?->loadMissing(['intake', 'treatmentPlan']);
+
+        $appointments = Appointment::where('clinic_id', $clinicId)
+            ->where('patient_id', $patientId)
+            ->when($latestBite, fn($q) => $q->where('bite_id', $latestBite->bite_id))
+            ->orderBy('appointment_date', 'asc')
+            ->orderBy('dose_number', 'asc')
+            ->get();
 
         $latestIntake = $latestBite?->intake;
         $treatmentRecords = TreatmentRecord::with('administeredBy')
@@ -100,11 +108,29 @@ class TagoloanTreatmentCardService
             ->first();
 
         $latestConsultation = null;
+        $consultations = collect();
         if ($existingCard && $latestBite) {
             $existingCard->setRelation('biteIncident', $latestBite);
         }
         if ($latestBite) {
-            $latestConsultation = TreatmentRecord::with('administeredBy')
+            $consultations = TreatmentRecord::with('administeredBy')
+                ->where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->where('bite_id', $latestBite->bite_id)
+                ->whereNull('dose_number')
+                ->whereNull('medication_given')
+                ->where('status', 'completed')
+                ->where(function ($q) {
+                    $q->whereNotNull('nature_of_visit')
+                      ->orWhereNotNull('diagnosis')
+                      ->orWhereNotNull('chief_complaints');
+                })
+                ->orderBy('consultation_date', 'asc')
+                ->orderBy('treatment_id', 'asc')
+                ->get();
+
+            $targetConsult = $requestedTreatmentId ? $consultations->firstWhere('treatment_id', $requestedTreatmentId) : null;
+            $latestConsultation = $targetConsult ?? ($consultations->last() ?? TreatmentRecord::with('administeredBy')
                 ->where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->where('bite_id', $latestBite->bite_id)
@@ -114,7 +140,7 @@ class TagoloanTreatmentCardService
                 ->orderBy('consultation_date', 'desc')
                 ->orderBy('consultation_time', 'desc')
                 ->latest('treatment_id')
-                ->first();
+                ->first());
         }
         $pOrders = $latestConsultation?->prophylaxis_orders ?? [];
         $tetCat = $pOrders['tetanus_category'] ?? null;
@@ -180,6 +206,127 @@ class TagoloanTreatmentCardService
             ];
         }
 
+        $consultationHistory = $consultations->values()->map(function (TreatmentRecord $c, int $idx) use ($consultations, $latestBite, $treatmentRecords, $prophylaxisRecords) {
+            $isLatest = $idx === ($consultations->count() - 1);
+            $isReturningReassessment = $idx > 0;
+            $cOrders = is_array($c->prophylaxis_orders) ? $c->prophylaxis_orders : [];
+            $cCat = $cOrders['consultation_exposure_category'] ?? $latestBite?->exposure_category ?? $latestBite?->bite_category ?? 'II';
+            $cDecision = $cOrders['reassessment_decision'] ?? null;
+            $cNotes = $cOrders['reassessment_notes'] ?? null;
+            $noInj = in_array($cDecision, ['discontinue', 'no_injection_required'], true) || $c->outcome === 'completed_without_injection';
+
+            $tetCat = strtolower(trim((string) ($cOrders['tetanus_category'] ?? '')));
+            $prescribedTt = (!$noInj && in_array($tetCat, ['tt', 'ats_tt'], true) && !empty($cOrders['tetanus_vaccine']) && $cOrders['tetanus_vaccine'] !== 'none')
+                ? $cOrders['tetanus_vaccine']
+                : null;
+            $prescribedAts = (!$noInj && in_array($tetCat, ['ats', 'ats_tt'], true) && !empty($cOrders['tetanus_passive']) && $cOrders['tetanus_passive'] !== 'none')
+                ? $cOrders['tetanus_passive']
+                : null;
+            $prescribedRig = (!$noInj && !empty($cOrders['rig']) && $cOrders['rig'] !== 'none')
+                ? $cOrders['rig']
+                : null;
+            $prescribedPep = (!$noInj && $cCat !== 'I' && !empty($c->prescribed_vaccine_type) && $c->prescribed_vaccine_type !== 'none')
+                ? $c->prescribed_vaccine_type
+                : null;
+
+            $cDate = $c->consultation_date ? Carbon::parse($c->consultation_date)->format('Y-m-d') : null;
+            $nextConsultation = $consultations->values()->get($idx + 1);
+            $nextDate = $nextConsultation?->consultation_date ? Carbon::parse($nextConsultation->consultation_date)->format('Y-m-d') : null;
+
+            // Determine what was actually administered during this consultation's window (on or after cDate, and before nextDate if there is a later reassessment)
+            $windowDoses = $treatmentRecords->filter(function ($r) use ($cDate, $nextDate, $isLatest) {
+                if ($r->dose_number === null || (int) $r->dose_number >= 200 || $r->status !== 'completed' || empty($r->treatment_date)) {
+                    return false;
+                }
+                $tDate = Carbon::parse($r->treatment_date)->format('Y-m-d');
+                if ($cDate && $tDate < $cDate) return false;
+                if (!$isLatest && $nextDate && $tDate >= $nextDate) return false;
+                return true;
+            })->values();
+
+            $windowProphylaxis = $prophylaxisRecords->filter(function ($r) use ($cDate, $nextDate, $isLatest) {
+                if ($r->status !== 'completed' || empty($r->treatment_date)) {
+                    return false;
+                }
+                $tDate = Carbon::parse($r->treatment_date)->format('Y-m-d');
+                if ($cDate && $tDate < $cDate) return false;
+                if (!$isLatest && $nextDate && $tDate >= $nextDate) return false;
+                return true;
+            })->values();
+
+            $windowNotAdministered = $prophylaxisRecords->filter(function ($r) use ($cDate, $nextDate, $isLatest) {
+                if ($r->status !== 'cancelled') return false;
+                $sDate = $r->scheduled_date ? Carbon::parse($r->scheduled_date)->format('Y-m-d') : null;
+                if ($cDate && $sDate && $sDate < $cDate) return false;
+                if (!$isLatest && $nextDate && $sDate && $sDate >= $nextDate) return false;
+                return true;
+            })->values();
+
+            $hasAdministeredInWindow = $windowDoses->isNotEmpty() || $windowProphylaxis->isNotEmpty();
+            $hasPrescription = (bool) ($prescribedPep || $prescribedTt || $prescribedAts || $prescribedRig);
+
+            if (!$hasPrescription && ($cCat === 'I' || $noInj)) {
+                $adminStatus = 'Completed Without Injection';
+            } elseif ($hasAdministeredInWindow) {
+                $adminStatus = 'Administered';
+            } elseif (!$isLatest || $windowNotAdministered->isNotEmpty()) {
+                $adminStatus = 'Not Administered';
+            } else {
+                $adminStatus = 'Pending Administration';
+            }
+
+            $notAdminReason = $windowNotAdministered->pluck('remarks')->filter()->implode('; ') ?: null;
+            if (!$notAdminReason && !$isLatest && !$hasAdministeredInWindow && $hasPrescription) {
+                $notAdminReason = 'Patient left clinic before receiving prescribed injection; returned for reassessment.';
+            }
+
+            $administeredItems = [];
+            foreach ($windowDoses as $d) {
+                $administeredItems[] = [
+                    'type' => 'Anti-Rabies PEP (Day ' . $d->dose_number . ')',
+                    'product' => $d->vaccine_brand ?: ($d->vaccine_generic ?: $prescribedPep ?: 'PEP Vaccine'),
+                    'date_administered' => $d->treatment_date ? Carbon::parse($d->treatment_date)->format('Y-m-d') : null,
+                    'route' => $d->route,
+                    'administered_by' => $d->administeredBy?->name,
+                ];
+            }
+            foreach ($windowProphylaxis as $p) {
+                $administeredItems[] = [
+                    'type' => $p->medication_given ?: 'Prophylaxis',
+                    'product' => $p->vaccine_brand ?: ($p->medication_given ?: 'Prophylaxis'),
+                    'date_administered' => $p->treatment_date ? Carbon::parse($p->treatment_date)->format('Y-m-d') : null,
+                    'route' => $p->route,
+                    'dosage_ml' => $p->dosage_ml,
+                    'dose_iu' => $p->dose_iu,
+                    'administered_by' => $p->administeredBy?->name,
+                ];
+            }
+
+            return [
+                'treatment_id' => $c->treatment_id,
+                'is_returning_reassessment' => $isReturningReassessment,
+                'consultation_date' => $cDate,
+                'consultation_time' => $c->consultation_time,
+                'exposure_category' => $cCat,
+                'blood_pressure' => $c->blood_pressure,
+                'temperature' => $c->temperature,
+                'height' => $c->height,
+                'weight' => $c->weight,
+                'chief_complaints' => $c->chief_complaints,
+                'diagnosis' => $c->diagnosis,
+                'provider_name' => $c->provider_name ?: $c->administeredBy?->name,
+                'reassessment_decision' => $cDecision,
+                'reassessment_notes' => $cNotes,
+                'prescribed_vaccine_type' => $prescribedPep,
+                'prescribed_tt' => $prescribedTt,
+                'prescribed_ats' => $prescribedAts,
+                'prescribed_rig' => $prescribedRig,
+                'administration_status' => $adminStatus,
+                'not_administered_reason' => $notAdminReason,
+                'administered_items' => $administeredItems,
+            ];
+        })->values();
+
         return [
             'clinic' => [
                 'name' => $clinic->name ?? 'TAGOLOAN ANIMAL BITE TREATMENT CENTER',
@@ -205,10 +352,14 @@ class TagoloanTreatmentCardService
             'patient_reported_intake' => $latestIntake,
             'form3_ready' => $form3Ready,
             'form3_block_reason' => $form3BlockReason,
+            'targeted_treatment_id' => $requestedTreatmentId,
             'existing_card' => $existingCard,
             'latest_consultation' => $latestConsultation,
+            'consultation_history' => $consultationHistory,
+            'previous_consultations' => $consultationHistory->count() > 1 ? $consultationHistory->slice(0, -1)->values() : collect(),
             'treatment_records' => $treatmentRecords,
             'prophylaxis_records' => $prophylaxisRecords,
+            'appointments' => $appointments,
         ];
     }
 

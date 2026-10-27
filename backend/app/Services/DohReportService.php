@@ -55,7 +55,7 @@ class DohReportService
             $cat2 = $cases->filter(fn($c) => $c->bite_category === 'II')->count();
             $cat3 = $cases->filter(fn($c) => $c->bite_category === 'III')->count();
 
-            $tcv = $cases->filter(fn($c) => $c->treatmentRecords->count() > 0)->count();
+            $tcv = $cases->filter(fn($c) => $this->hasAdministeredVaccineDose($c))->count();
             $hrig = $cases->filter(fn($c) => ($c->intake?->rig_type ?? $c->rig_type) === 'HRIG')->count();
             $erig = $cases->filter(fn($c) => ($c->intake?->rig_type ?? $c->rig_type) === 'ERIG')->count();
 
@@ -202,7 +202,7 @@ class DohReportService
 
         $male = $cases->filter(fn($c) => strtolower($c->patient?->gender ?? '') === 'male')->count();
         $female = $cases->filter(fn($c) => strtolower($c->patient?->gender ?? '') === 'female')->count();
-        $givenPep = $cases->filter(fn($c) => $c->treatmentRecords->count() > 0)->count();
+        $givenPep = $cases->filter(fn($c) => $this->hasAdministeredVaccineDose($c))->count();
 
         $cat1 = $cases->filter(fn($c) => $c->bite_category === 'I')->count();
         $cat2 = $cases->filter(fn($c) => $c->bite_category === 'II')->count();
@@ -233,7 +233,7 @@ class DohReportService
 
             $wMale = $wCases->filter(fn($c) => strtolower($c->patient?->gender ?? '') === 'male')->count();
             $wFemale = $wCases->filter(fn($c) => strtolower($c->patient?->gender ?? '') === 'female')->count();
-            $wPep = $wCases->filter(fn($c) => $c->treatmentRecords->count() > 0)->count();
+            $wPep = $wCases->filter(fn($c) => $this->hasAdministeredVaccineDose($c))->count();
 
             $wCat1 = $wCases->filter(fn($c) => $c->bite_category === 'I')->count();
             $wCat2 = $wCases->filter(fn($c) => $c->bite_category === 'II')->count();
@@ -368,7 +368,7 @@ class DohReportService
             foreach (['I', 'II', 'III'] as $cat) {
                 $catCases = $cases->filter(fn($c) => $c->bite_category === $cat);
                 $catCasesCount = $catCases->count();
-                $catPepCount = $catCases->filter(fn($c) => $c->treatmentRecords->count() > 0)->count();
+                $catPepCount = $catCases->filter(fn($c) => $this->hasAdministeredVaccineDose($c))->count();
                 $catCompCount = $catCases->filter(fn($c) => $c->status === 'completed' || $c->patient?->has_completed_primary)->count();
                 $catRigCount = $catCases->filter(fn($c) => !empty($c->intake?->rig_type ?? $c->rig_type))->count();
 
@@ -466,11 +466,22 @@ class DohReportService
                 'animal_type' => ucfirst($c->intake?->animal_type ?? $c->animal_type ?? '—'),
                 'animal_status' => ucfirst($c->intake?->animal_status ?? $c->animal_status ?? '—'),
                 'place_of_exposure' => $c->intake?->place_of_bite ?? $c->bite_location ?? '—',
-                'pep_given' => $c->treatmentRecords->count() > 0 ? 'Yes' : 'No',
+                'pep_given' => $this->hasAdministeredVaccineDose($c) ? 'Yes' : 'No',
                 'rig_given' => ($c->intake?->rig_type ?? $c->rig_type) ?: 'None',
                 'status' => ucfirst($c->status ?? 'Active'),
             ];
         })->values()->toArray();
+    }
+
+    private function hasAdministeredVaccineDose($case): bool
+    {
+        return $case->treatmentRecords->contains(function ($r) {
+            return $r->dose_number !== null
+                && (int) $r->dose_number < 200
+                && ($r->status === 'completed' || !empty($r->treatment_date))
+                && !in_array($r->status, ['scheduled', 'cancelled'], true)
+                && $r->voided_at === null;
+        });
     }
 
     protected function getDesignation($user): string

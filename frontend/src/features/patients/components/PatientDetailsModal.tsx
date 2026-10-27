@@ -22,6 +22,8 @@ import { RegistrationDialog } from './AddPatientModal/RegistrationDialog.styles'
 import { RegistrationErrors } from './AddPatientModal/registrationAccessibility';
 import ConfirmationDialog, { SuccessModal } from '../../../components/feedback/ConfirmationDialog';
 import PatientEditModal from './PatientEditModal';
+import TagoloanTreatmentCardModal from '../../vaccinations/components/TagoloanTreatmentCardModal';
+import PatientHistoryInlineView from './PatientHistoryInlineView';
 import api from '../../../shared/services/api';
 import { isValidFourDigitYearDate, sanitizeDateInput } from '../../../shared/utils/date';
 import { useAuth } from '../../../shared/contexts/AuthContext';
@@ -58,9 +60,10 @@ function ReadOnlyBanner() {
 // ── Tab Bar ──────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'form1', label: 'Form 1', roleLabel: 'Registration', owner: 'registration' as const },
-  { key: 'form2', label: 'Form 2', roleLabel: 'Doctor',       owner: 'triage'        as const },
-  { key: 'form3', label: 'Form 3', roleLabel: 'Nurse',        owner: 'treatment'     as const },
+  { key: 'history', label: 'Patient History', roleLabel: 'Timeline & Visits', owner: 'all'          as const },
+  { key: 'form1',   label: 'Form 1',          roleLabel: 'Registration',     owner: 'registration' as const },
+  { key: 'form2',   label: 'Form 2',          roleLabel: 'Doctor',           owner: 'triage'        as const },
+  { key: 'form3',   label: 'Form 3',          roleLabel: 'Nurse',            owner: 'treatment'     as const },
 ];
 
 function TabBar({ active, onSelect }: { active: string; onSelect: (key: string) => void }) {
@@ -243,7 +246,7 @@ function Form1InlineView({ patient: p, onEdit }: { patient: any; onEdit?: () => 
             size="small"
             variant="outlined"
             onClick={onEdit}
-            startIcon={<span style={{ fontSize: 13 }}>✏️</span>}
+            startIcon={<Icon name='edit' size={13} color='#059669' />}
             sx={{
               borderColor: '#10b981',
               color: '#059669',
@@ -418,7 +421,8 @@ export default function PatientDetailsModal({
   });
 
   const [printing, setPrinting] = useState(false);
-  const [activeTab, setActiveTab] = useState('form1');
+  const [activeTab, setActiveTab] = useState('history');
+  const [cardData, setCardData] = useState<any>(null);
   const [fullPatient, setFullPatient] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [episodes, setEpisodes] = useState<any[]>([]);
@@ -426,6 +430,8 @@ export default function PatientDetailsModal({
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<number | null>(null);
   const [checkingIn, setCheckingIn] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showTreatmentCardModal, setShowTreatmentCardModal] = useState(false);
+  const [selectedTreatmentIdForCard, setSelectedTreatmentIdForCard] = useState<number | null>(null);
   const [newExposureOpen, setNewExposureOpen] = useState(false);
   const [newExposure, setNewExposure] = useState<RegistrationVitalsFields & { bite_date: string }>(getInitialNewExposure);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -715,11 +721,28 @@ export default function PatientDetailsModal({
 
   useEffect(() => {
     if (!open || !patient) {
+      setCardData(null);
+      return;
+    }
+    const patientId = (patient as any).patient_id || (patient as any).id;
+    if (!patientId) return;
+    const url = selectedEpisodeId
+      ? `/tagoloan-treatment-cards/patient/${patientId}?bite_id=${selectedEpisodeId}`
+      : `/tagoloan-treatment-cards/patient/${patientId}`;
+    api.get(url).then((res) => {
+      if (res?.data) {
+        setCardData(res.data);
+      }
+    }).catch(() => {});
+  }, [open, patient, selectedEpisodeId]);
+
+  useEffect(() => {
+    if (!open || !patient) {
       setFullPatient(null);
       setEpisodes([]);
       setHistorySummary(null);
       setSelectedEpisodeId(null);
-      setActiveTab('form1');
+      setActiveTab('history');
       setNewExposureOpen(false);
       setShowConfirmModal(false);
       setSuccessData(null);
@@ -885,6 +908,16 @@ export default function PatientDetailsModal({
     }
 
     switch (activeTab) {
+      case 'history':
+        return (
+          <PatientHistoryInlineView
+            patient={p}
+            cardData={cardData}
+            loading={loadingDetails}
+            onOpenTab={(tabKey) => setActiveTab(tabKey)}
+            onOpenTreatmentCard={(assessmentId?: number) => { setSelectedTreatmentIdForCard(assessmentId || null); setShowTreatmentCardModal(true); }}
+          />
+        );
       case 'form1':
         return (
           <Box sx={{ p: 3 }}>
@@ -993,7 +1026,7 @@ export default function PatientDetailsModal({
       {historySummary?.has_history && episodes.length > 1 && (
         <Box sx={{ px: 3, py: 1, bgcolor: 'rgba(16, 185, 129, 0.1)', borderBottom: '1px solid var(--border-glow, #a7f3d0)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Typography sx={{ fontSize: 12, color: 'var(--text-h, #065f46)', fontWeight: 600 }}>
-            🛡️ <strong>Immunization History Verified</strong>: Patient has documented rabies vaccination ({historySummary.confidence_label}).
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="security" size={14} color="#065f46" /> <strong>Immunization History Verified</strong></span>: Patient has documented rabies vaccination ({historySummary.confidence_label}).
           </Typography>
           <Chip
             label={historySummary.can_receive_booster ? 'Booster Eligible (RIG Withheld)' : 'Primary PEP Required'}
@@ -1065,6 +1098,18 @@ export default function PatientDetailsModal({
             </Button>
           )}
           <Button
+            variant="outlined"
+            onClick={() => setShowTreatmentCardModal(true)}
+            startIcon={<Icon name="reports" size={15} color="#0284c7" />}
+            sx={{
+              borderColor: '#0284c7', color: '#0284c7', fontWeight: 600, fontSize: 13,
+              textTransform: 'none', fontFamily: 'inherit',
+              '&:hover': { bgcolor: 'rgba(2, 132, 199, 0.08)', borderColor: '#0369a1' },
+            }}
+          >
+            Official Treatment Card
+          </Button>
+          <Button
             onClick={onClose}
             sx={{ color: 'var(--text-m, #6b7280)', textTransform: 'none', fontWeight: 600, fontFamily: 'inherit' }}
           >
@@ -1092,6 +1137,20 @@ export default function PatientDetailsModal({
         if (onEdit) onEdit(updatedPatient);
       }}
     />
+
+    {/* ── Official Animal Bite Treatment Card Modal ── */}
+    {showTreatmentCardModal && (
+      <TagoloanTreatmentCardModal
+        open={showTreatmentCardModal}
+        onClose={() => {
+          setShowTreatmentCardModal(false);
+          setSelectedTreatmentIdForCard(null);
+        }}
+        patientId={p.patient_id || p.id}
+        biteId={selectedEpisodeId || p.bite_id}
+        treatmentId={selectedTreatmentIdForCard}
+      />
+    )}
 
     <Dialog
       open={newExposureOpen}
@@ -1127,7 +1186,7 @@ export default function PatientDetailsModal({
                     marginBottom: 18,
                   }}
                 >
-                  <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>📋</span>
+                  <span style={{ display: "flex", alignItems: "center", flexShrink: 0, marginTop: 1 }}><Icon name="reports" size={16} color="#1d4ed8" /></span>
                   <span>
                     <strong>Station 1 Registration Check-In:</strong> Record the re-exposure incident date and fill in{' '}
                     <strong>Section III. Consultation Details &amp; Vitals</strong> before booking to proceed to the Doctor.
@@ -1153,7 +1212,7 @@ export default function PatientDetailsModal({
                       gap: 10,
                     }}
                   >
-                    <span style={{ fontSize: 16 }}>⚠️</span>
+                    <span style={{ display: "flex", alignItems: "center", flexShrink: 0 }}><Icon name="warning" size={16} color="#991b1b" /></span>
                     <span>{submitError}</span>
                   </div>
                 )}
@@ -1375,7 +1434,7 @@ export default function PatientDetailsModal({
                     borderRadius: 999,
                   }}
                 >
-                  <span>🩺 Assigned: {successData.station}</span>
+                  <span>Assigned: {successData.station}</span>
                 </div>
               </div>
             </div>

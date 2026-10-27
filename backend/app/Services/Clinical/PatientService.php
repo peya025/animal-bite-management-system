@@ -69,7 +69,10 @@ class PatientService
                       })
                       ->where('status', '!=', 'cancelled')
                       ->latest('queue_id');
-                }
+                },
+                'treatmentRecords' => function ($q) {
+                    $q->whereNull('voided_at')->orderBy('treatment_id', 'asc');
+                },
             ]);
 
         switch ($tab) {
@@ -666,11 +669,12 @@ class PatientService
     }
 
     /**
-     * Check in a returning patient who missed their initial triage schedule.
+     * Check in a returning patient who missed their initial triage schedule,
+     * OR check in a returning patient with pending unadministered treatment for Doctor Reassessment.
      *
      * @return array{status: int, data: array<string, mixed>}
      */
-    public function checkInReturningPatient(int $clinicId, int $id, User $user): array
+    public function checkInReturningPatient(int $clinicId, int $id, User $user, array $payload = []): array
     {
         $patient = Patient::where('clinic_id', $clinicId)->find($id);
         if (!$patient) {
@@ -704,6 +708,11 @@ class PatientService
                 ],
             ];
         }
+
+        $statusSummary = $patient->resolveEpisodeStatusSummary();
+        $pendingSummary = $statusSummary['pending_treatment_summary'] ?? null;
+        $isPendingTreatmentReassessment = !empty($pendingSummary['has_pending_treatment'])
+            && !empty($pendingSummary['can_check_in_for_reassessment']);
 
         $hasCompletedDoses = TreatmentRecord::where('clinic_id', $clinicId)
             ->where('patient_id', $patient->patient_id)
@@ -739,13 +748,40 @@ class PatientService
             ];
         }
 
-        if ($hasCompletedDoses || $hasCompletedConsultation || $hasConfirmedEpisode) {
+        if (($statusSummary['treatment_status'] ?? '') === 'completed_without_injection') {
+            return [
+                'status' => 422,
+                'data' => [
+                    'message' => 'Doctor assessment is completed (No Injection Required). This patient cannot enter the treatment queue.',
+                ],
+            ];
+        }
+
+        if (!$isPendingTreatmentReassessment && ($hasCompletedDoses || $hasCompletedConsultation || $hasConfirmedEpisode)) {
             return [
                 'status' => 422,
                 'data' => [
                     'message' => 'This patient has already proceeded to Doctor Triage or started treatment.',
                 ],
             ];
+        }
+
+        if ($isPendingTreatmentReassessment) {
+            $bp = trim((string) ($payload['blood_pressure'] ?? ''));
+            $temp = trim((string) ($payload['temperature'] ?? ''));
+            $weight = trim((string) ($payload['weight'] ?? ''));
+            $height = trim((string) ($payload['height'] ?? ''));
+
+            if ($bp === '' || $temp === '' || $weight === '' || $height === '') {
+                return [
+                    'status' => 422,
+                    'data' => [
+                        'message' => 'Updated vital signs (Blood Pressure, Temperature, Weight, and Height) are required when checking in a returning patient for reassessment.',
+                        'requires_vitals' => true,
+                        'pending_treatment_summary' => $pendingSummary,
+                    ],
+                ];
+            }
         }
 
         $isMobileOrAccount = ($patient->registration_source === 'mobile') || $patient->accounts()->exists();
@@ -796,7 +832,8 @@ class PatientService
         $isReturningOnLaterDate = ($regDate < $todayDate)
             || ($pastAppointment !== null)
             || ($pastConsultationRecord !== null)
-            || ($pastQueue !== null);
+            || ($pastQueue !== null)
+            || $isPendingTreatmentReassessment;
 
         if (!$isReturningOnLaterDate && !$hasRequiresCheckinToday) {
             return [
@@ -807,7 +844,7 @@ class PatientService
             ];
         }
 
-        return DB::transaction(function () use ($clinicId, $patient, $todayDate, $pastAppointment, $hasRequiresCheckinToday, $user) {
+        return DB::transaction(function () use ($clinicId, $patient, $todayDate, $pastAppointment, $hasRequiresCheckinToday, $isPendingTreatmentReassessment, $pendingSummary, $payload, $user) {
             app(QueueController::class)->expireStaleTickets($clinicId, $todayDate);
 
             $lockName = "queue_checkin_{$clinicId}_{$todayDate}";
@@ -840,11 +877,17 @@ class PatientService
                     }
                 }
 
-                $biteIncident = BiteIncident::where('clinic_id', $clinicId)
-                    ->where('patient_id', $patient->patient_id)
-                    ->whereIn('status', ['awaiting_assessment', 'pending_assessment'])
-                    ->latest('bite_id')
-                    ->first();
+                if ($isPendingTreatmentReassessment && !empty($pendingSummary['bite_id'])) {
+                    $biteIncident = BiteIncident::where('clinic_id', $clinicId)
+                        ->where('patient_id', $patient->patient_id)
+                        ->find($pendingSummary['bite_id']);
+                } else {
+                    $biteIncident = BiteIncident::where('clinic_id', $clinicId)
+                        ->where('patient_id', $patient->patient_id)
+                        ->whereIn('status', ['awaiting_assessment', 'pending_assessment', 'active'])
+                        ->latest('bite_id')
+                        ->first();
+                }
 
                 $appointment = $pastAppointment ?? Appointment::where('clinic_id', $clinicId)
                     ->where('patient_id', $patient->patient_id)
@@ -852,7 +895,7 @@ class PatientService
                     ->orderBy('scheduled_date', 'asc')
                     ->first();
 
-                if ($appointment) {
+                if ($appointment && !$isPendingTreatmentReassessment) {
                     $appointment->update([
                         'status' => 'confirmed',
                         'appointment_date' => $todayDate,
@@ -873,24 +916,73 @@ class PatientService
                     }
                 }
 
-                $treatmentRecord = TreatmentRecord::where('clinic_id', $clinicId)
-                    ->where('patient_id', $patient->patient_id)
-                    ->whereNull('dose_number')
-                    ->where('status', 'scheduled')
-                    ->latest('treatment_id')
-                    ->first();
+                $reassessmentVitalsRecord = null;
+                if ($isPendingTreatmentReassessment && $biteIncident) {
+                    $reassessmentDate = !empty($payload['consultation_date']) ? $payload['consultation_date'] : $todayDate;
+                    $reassessmentTime = !empty($payload['consultation_time']) ? $payload['consultation_time'] : Carbon::now('Asia/Manila')->format('H:i');
 
-                if ($treatmentRecord) {
-                    $treatmentRecord->update([
-                        'consultation_date' => $todayDate,
-                        'treatment_date' => $todayDate,
-                        'consultation_time' => Carbon::now('Asia/Manila')->format('H:i'),
-                    ]);
+                    $existingScheduledReassessment = TreatmentRecord::where('clinic_id', $clinicId)
+                        ->where('patient_id', $patient->patient_id)
+                        ->where('bite_id', $biteIncident->bite_id)
+                        ->whereNull('dose_number')
+                        ->whereNull('medication_given')
+                        ->where('status', 'scheduled')
+                        ->latest('treatment_id')
+                        ->first();
+
+                    $vitalsPayload = [
+                        'clinic_id' => $clinicId,
+                        'patient_id' => $patient->patient_id,
+                        'bite_id' => $biteIncident->bite_id,
+                        'status' => 'scheduled',
+                        'scheduled_date' => $reassessmentDate,
+                        'treatment_date' => $reassessmentDate,
+                        'consultation_date' => $reassessmentDate,
+                        'consultation_time' => $reassessmentTime,
+                        'mode_of_transaction' => in_array($payload['mode_of_transaction'] ?? '', ['walk-in', 'visited', 'referral'], true)
+                            ? $payload['mode_of_transaction']
+                            : 'walk-in',
+                        'blood_pressure' => trim((string) $payload['blood_pressure']),
+                        'temperature' => trim((string) $payload['temperature']),
+                        'height' => trim((string) $payload['height']),
+                        'weight' => trim((string) $payload['weight']),
+                        'attending_provider' => $payload['attending_provider'] ?? $user->name,
+                        'referred_by' => $payload['referred_by'] ?? null,
+                        'scheduled_by' => $user->id,
+                        'remarks' => !empty($payload['reassessment_reason'])
+                            ? 'Returned for reassessment: ' . trim((string) $payload['reassessment_reason'])
+                            : 'Returned for reassessment of pending treatment',
+                    ];
+
+                    if ($existingScheduledReassessment) {
+                        unset($vitalsPayload['administered_by']);
+                        $existingScheduledReassessment->update($vitalsPayload);
+                        $reassessmentVitalsRecord = $existingScheduledReassessment;
+                    } else {
+                        $reassessmentVitalsRecord = TreatmentRecord::create($vitalsPayload);
+                    }
+                } else {
+                    $treatmentRecord = TreatmentRecord::where('clinic_id', $clinicId)
+                        ->where('patient_id', $patient->patient_id)
+                        ->whereNull('dose_number')
+                        ->where('status', 'scheduled')
+                        ->latest('treatment_id')
+                        ->first();
+
+                    if ($treatmentRecord) {
+                        $treatmentRecord->update([
+                            'consultation_date' => $todayDate,
+                            'treatment_date' => $todayDate,
+                            'consultation_time' => Carbon::now('Asia/Manila')->format('H:i'),
+                        ]);
+                    }
                 }
 
-                $checkInNotes = $hasRequiresCheckinToday
-                    ? 'Patient re-checked in at Registration after 3 missed triage calls'
-                    : 'Returning patient checked in for Triage Doctor assessment';
+                $checkInNotes = $isPendingTreatmentReassessment
+                    ? 'Returned for reassessment — pending treatment from previous consultation'
+                    : ($hasRequiresCheckinToday
+                        ? 'Patient re-checked in at Registration after 3 missed triage calls'
+                        : 'Returning patient checked in for Triage Doctor assessment');
 
                 $queue = Queue::create([
                     'clinic_id'      => $clinicId,
@@ -922,6 +1014,20 @@ class PatientService
                     'occurred_at'  => now(),
                 ]);
 
+                if ($isPendingTreatmentReassessment && $biteIncident) {
+                    \App\Models\AuditLog::log('patient.returned_for_reassessment', 'BiteIncident', $biteIncident->bite_id, [
+                        'metadata' => [
+                            'patient_id' => $patient->patient_id,
+                            'bite_id' => $biteIncident->bite_id,
+                            'queue_id' => $queue->queue_id,
+                            'reassessment_vitals_treatment_id' => $reassessmentVitalsRecord?->treatment_id,
+                            'pending_items' => $pendingSummary['pending_items'] ?? [],
+                            'previous_consultation_date' => $pendingSummary['consultation_date'] ?? null,
+                        ],
+                        'description' => "Returning patient checked in for Doctor Reassessment of pending treatment on Case {$biteIncident->case_number}.",
+                    ]);
+                }
+
                 Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
 
                 $this->notificationService->notifyQueueEvent($queue->load('patient'), 'checked_in', $user);
@@ -929,10 +1035,15 @@ class PatientService
                 return [
                     'status' => 200,
                     'data' => [
-                        'message' => "{$patient->first_name} {$patient->last_name} checked in successfully to Doctor Triage (Queue #{$nextQueueNumber})",
+                        'message' => $isPendingTreatmentReassessment
+                            ? "{$patient->first_name} {$patient->last_name} checked in for Doctor Reassessment (Queue #{$nextQueueNumber})"
+                            : "{$patient->first_name} {$patient->last_name} checked in successfully to Doctor Triage (Queue #{$nextQueueNumber})",
                         'queue' => $queue->load(['patient', 'biteIncident']),
                         'queue_number' => $nextQueueNumber,
-                        'station' => 'Doctor Assessment',
+                        'station' => $isPendingTreatmentReassessment ? 'Doctor Reassessment' : 'Doctor Assessment',
+                        'reassessment_vitals_record' => $reassessmentVitalsRecord,
+                        'is_reassessment_checkin' => $isPendingTreatmentReassessment,
+                        'is_pending_treatment_reassessment' => $isPendingTreatmentReassessment,
                     ],
                 ];
             } finally {

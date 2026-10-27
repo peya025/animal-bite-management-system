@@ -8,6 +8,7 @@ import AddPatientModal from '../components/AddPatientModal';
 import InvitePatientModal from '../components/InvitePatientModal';
 import PatientEditModal from '../components/PatientEditModal';
 import PatientDetailsModal from '../components/PatientDetailsModal';
+import ReturningPatientCheckInModal from '../components/ReturningPatientCheckInModal';
 import { PatientListRoot } from '../styles/PatientList.styles';
 import PrintPreviewModal from '../../../components/print/PrintPreviewModal';
 import { printDocument } from '../../../components/print/printDocument';
@@ -90,6 +91,9 @@ export default function PatientList() {
   const [checkingInIntakeId,   setCheckingInIntakeId]   = useState<number | null>(null);
   const [checkingInPatientId,      setCheckingInPatientId]      = useState<number | null>(null);
   const [checkingInNursePatientId, setCheckingInNursePatientId] = useState<number | null>(null);
+
+  // Returning Patient Reassessment Check-In state
+  const [reassessmentCheckInPatient, setReassessmentCheckInPatient] = useState<Patient | null>(null);
 
   const { clinic: authClinic } = useAuth();
   const userData   = localStorage.getItem('userData');
@@ -321,6 +325,10 @@ export default function PatientList() {
     }
   };
 
+  const handleOpenReassessmentCheckIn = (patient: Patient) => {
+    setReassessmentCheckInPatient(patient);
+  };
+
   const handleNurseCheckIn = async (patient: Patient) => {
     if (isPreRegisteredOnly(patient)) {
       setCheckInError('This patient is only pre-registered from the mobile app and has not booked an appointment or submitted an intake.');
@@ -358,6 +366,10 @@ export default function PatientList() {
 
   const isEligibleForNurseCheckIn = (p: Patient) => {
     if (isPreRegisteredOnly(p)) return false;
+
+    // Returning patients with unadministered Day 0 from a prior visit must undergo Doctor Reassessment first
+    if ((p as any).pending_treatment_summary?.can_check_in_for_reassessment) return false;
+    if ((p as any).treatment_status === 'completed_without_injection') return false;
 
     // 1. Must not already be active in today's queue
     const todayQueues: any[] = (p as any).queues || [];
@@ -402,22 +414,21 @@ export default function PatientList() {
 
     // 4. Must not be completely discharged with no remaining doses
     const isDischarged = ['discharged', 'completed'].includes(String(p.status || '').toLowerCase()) ||
-      ['discharged', 'completed'].includes(String((p as any).treatment_status || '').toLowerCase());
+      ['discharged', 'completed', 'completed_without_injection'].includes(String((p as any).treatment_status || '').toLowerCase());
     const appointments: any[] = (p as any).appointments || [];
     const hasPendingAppointments = appointments.some((a: any) => ['scheduled', 'missed'].includes(a.status));
     if (isDischarged && !hasPendingAppointments) return false;
 
-    // 5. Must have an unserved appointment or prior queue, or unadministered day 0 from prior day,
-    // or pending follow-up appointment due on/before today
+    // 5. Must have an unserved appointment or prior queue, or pending follow-up appointment due on/before today
     const hasDueOrOverdueAppt = appointments.some((a: any) => {
       if (!['scheduled', 'missed'].includes(a.status)) return false;
       const apptDateStr = String(a.scheduled_date || a.appointment_date || '').slice(0, 10);
       return Boolean(apptDateStr && apptDateStr <= todayDateStr);
     });
 
-    const isDay0FromPriorDay = !hasCompletedDoses && Boolean(p.created_at && p.created_at.slice(0, 10) < todayDateStr);
+    const isSameDayPendingAdmin = !hasCompletedDoses && Boolean((p as any).pending_treatment_summary?.has_pending_treatment && !(p as any).pending_treatment_summary?.is_returning_from_prior_visit);
 
-    return hasDueOrOverdueAppt || isDay0FromPriorDay || (hasPendingAppointments && !hasActiveQueueToday);
+    return hasDueOrOverdueAppt || isSameDayPendingAdmin || (hasPendingAppointments && !hasActiveQueueToday);
   };
 
   const isReturningPatientAwaitingTriage = (p: Patient) => {
@@ -651,14 +662,16 @@ export default function PatientList() {
     const latestQueue = sortedTodayQueues[0];
 
     const isCat1NoTreatment = isCategory1NoTreatmentRequired(p);
+    const treatmentStatus = String((p as any).treatment_status || '').toLowerCase();
+    const pendingSummary = (p as any).pending_treatment_summary;
 
-    // 0. Finalized Category I with No Treatment Required
-    if (isCat1NoTreatment) {
+    // 0. Finalized Category I or Reassessment with No Treatment Required
+    if (isCat1NoTreatment || treatmentStatus === 'completed_without_injection') {
       const qNum = latestQueue?.queue_number;
       return {
         label: qNum
-          ? `Queue #${qNum} (Assessment Completed — No Treatment Required)`
-          : 'Assessment Completed — No Treatment Required',
+          ? `Queue #${qNum} (Completed Without Injection)`
+          : 'Completed Without Injection',
         icon: CheckmarkCircle02Icon,
         bg: '#ecfdf5',
         color: '#059669',
@@ -678,6 +691,14 @@ export default function PatientList() {
 
     // 1. Active Queue Status (Highest priority)
     if (activeQueue) {
+      if (treatmentStatus === 'returned_for_reassessment' && activeQueue.visit_type === 'new_case') {
+        return {
+          label: `Queue #${activeQueue.queue_number || ''} (Returned for Reassessment)`,
+          icon: Stethoscope02Icon,
+          bg: '#fef3c7',
+          color: '#b45309',
+        };
+      }
       if (activeQueue.status === 'waiting') {
         const station = activeQueue.visit_type === 'new_case'
           ? 'Waiting in Triage'
@@ -693,6 +714,34 @@ export default function PatientList() {
       if (activeQueue.status === 'second_chance' || activeQueue.status === 'final_recall') {
         return { label: `Queue #${activeQueue.queue_number || ''} (Recall at Triage)`, icon: AlertCircleIcon, bg: '#fef3c7', color: '#92400e', isPastAppt: true };
       }
+    }
+
+    // 1b. Pending / Unadministered Treatment from Prior or Current Consultation
+    if (!activeQueue && pendingSummary?.has_pending_treatment) {
+      if (treatmentStatus === 'not_administered') {
+        return {
+          label: 'Not Administered — Pending Reassessment',
+          icon: AlertCircleIcon,
+          bg: '#fef2f2',
+          color: '#b91c1c',
+          isPastAppt: true,
+        };
+      }
+      if (pendingSummary.is_returning_from_prior_visit) {
+        return {
+          label: 'Pending Administration (Unfinished Prior Visit)',
+          icon: AlertCircleIcon,
+          bg: '#fef3c7',
+          color: '#92400e',
+          isPastAppt: true,
+        };
+      }
+      return {
+        label: 'Consultation Completed — Pending Administration',
+        icon: Clock01Icon,
+        bg: '#fffbeb',
+        color: '#b45309',
+      };
     }
 
     if (requiresCheckinQueue && !activeQueue) {
@@ -1248,15 +1297,24 @@ export default function PatientList() {
                       mobileIntakeForCheckIn && isMobileIntakeDueForCheckIn(p, mobileIntakeForCheckIn)
                     );
                     const isReturningAwaitingTriage = isReturningPatientAwaitingTriage(p);
+                    const canCheckInForReassessment = Boolean(
+                      isAuthorizedRegistrationRole &&
+                      !isPreRegistered &&
+                      !activeQueue &&
+                      !isCat1NoTreatment &&
+                      (p as any).pending_treatment_summary?.can_check_in_for_reassessment
+                    );
                     const canCheckInReturning = Boolean(
                       isAuthorizedRegistrationRole &&
                       !isPreRegistered &&
                       !activeQueue &&
                       !isCat1NoTreatment &&
+                      !canCheckInForReassessment &&
                       (isReturningAwaitingTriage || Boolean(requiresCheckinQueue))
                     );
                     const canCheckInToNurse = Boolean(
                       isAuthorizedRegistrationRole &&
+                      !canCheckInForReassessment &&
                       !canCheckInReturning &&
                       !activeQueue &&
                       isEligibleForNurseCheckIn(p)
@@ -1346,6 +1404,34 @@ export default function PatientList() {
                               >
                                 Booked — Awaiting Check-In
                               </span>
+                            ) : canCheckInForReassessment ? (
+                              <button
+                                className="pm-btn-checkin"
+                                title="Patient returned with pending unadministered treatment from a previous visit. Collect updated vitals and route to Doctor Reassessment Queue."
+                                disabled={checkingInPatientId === patientId}
+                                style={{
+                                  fontSize: '12px',
+                                  padding: '4px 12px',
+                                  textTransform: 'none',
+                                  fontWeight: 600,
+                                  borderRadius: '6px',
+                                  backgroundColor: '#d97706',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  cursor: checkingInPatientId === patientId ? 'not-allowed' : 'pointer',
+                                  opacity: checkingInPatientId === patientId ? 0.7 : 1,
+                                  boxShadow: '0 2px 6px rgba(217,119,6,0.3)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                }}
+                                onClick={(event) => {
+                                  (event.currentTarget as HTMLElement).blur();
+                                  handleOpenReassessmentCheckIn(p);
+                                }}
+                              >
+                                {checkingInPatientId === patientId ? 'Checking in...' : 'Check In for Reassessment'}
+                              </button>
                             ) : canCheckInReturning ? (
                               <button
                                 className="pm-btn-checkin"
@@ -1728,6 +1814,20 @@ export default function PatientList() {
           cancelLabel="Cancel"
           onConfirm={handleConfirmBulkInvite}
           onCancel={() => setShowBulkConfirm(false)}
+        />
+      )}
+
+      {/* ── Returning Patient Reassessment Check-In Modal (Updated Vitals Required) ── */}
+      {reassessmentCheckInPatient && (
+        <ReturningPatientCheckInModal
+          open={Boolean(reassessmentCheckInPatient)}
+          patient={reassessmentCheckInPatient}
+          onClose={() => setReassessmentCheckInPatient(null)}
+          onSuccess={(modalData) => {
+            setReassessmentCheckInPatient(null);
+            setCheckInModalData(modalData);
+            fetchPatients();
+          }}
         />
       )}
 

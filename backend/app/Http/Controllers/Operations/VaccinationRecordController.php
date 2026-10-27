@@ -244,7 +244,8 @@ class VaccinationRecordController extends Controller
         if (collect($validated['additional_meds'] ?? [])->contains(fn($given) => (bool) $given)) {
             throw ValidationException::withMessages(['additional_meds' => 'Use the prescribed prophylaxis administration fields, including dose, date, batch and site.']);
         }
-        if (empty($validated['doses']) && empty($validated['prophylaxis_administrations'])) {
+        $isNotAdministeredVisit = ($validated['visit_outcome'] ?? null) === 'not_administered';
+        if (empty($validated['doses']) && empty($validated['prophylaxis_administrations']) && !$isNotAdministeredVisit) {
             throw ValidationException::withMessages(['doses' => 'Record a vaccine dose or a prescribed prophylaxis administration before saving.']);
         }
 

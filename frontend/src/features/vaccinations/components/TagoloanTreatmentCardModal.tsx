@@ -15,11 +15,17 @@ interface Props {
   onClose: () => void;
   patientId: number | null;
   biteId?: number | null;
+  treatmentId?: number | null;
   onSaved?: () => void;
   initialExposureCategory?: 'I' | 'II' | 'III' | '';
 }
 
-export default function TagoloanTreatmentCardModal({ open, onClose, patientId, biteId }: Props) {
+export default function TagoloanTreatmentCardModal({ open, onClose, patientId, biteId, treatmentId }: Props) {
+  const [selectedTreatmentId, setSelectedTreatmentId] = useState<number | null>(treatmentId || null);
+
+  useEffect(() => {
+    setSelectedTreatmentId(treatmentId || null);
+  }, [treatmentId, open]);
   const { clinic: authClinic } = useAuth();
   const [loading, setLoading] = useState(false);
   const [cardData, setCardData] = useState<any>(null);
@@ -62,7 +68,10 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
   const loadCardData = async () => {
     setLoading(true);
     try {
-      const episodeQuery = biteId ? `?bite_id=${biteId}` : '';
+      const params = new URLSearchParams();
+      if (biteId) params.append('bite_id', String(biteId));
+      if (selectedTreatmentId) params.append('treatment_id', String(selectedTreatmentId));
+      const episodeQuery = params.toString() ? `?${params.toString()}` : '';
       const res = await api.get(`/tagoloan-treatment-cards/patient/${patientId}${episodeQuery}`);
       setCardData(res.data);
 
@@ -135,7 +144,10 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
   const bite = cardData?.bite_incident;
   const records = cardData?.treatment_records || [];
   const prophylaxisRecords = cardData?.prophylaxis_records || [];
-  const latestConsultation = cardData?.latest_consultation || null;
+  const consultList: any[] = cardData?.consultation_history || cardData?.previous_consultations || [];
+  const activeConsultation = (selectedTreatmentId
+    ? consultList.find((c: any) => c.treatment_id === selectedTreatmentId)
+    : null) || cardData?.latest_consultation || (consultList.length > 0 ? consultList[consultList.length - 1] : null);
   const globalLogos = getGlobalPrintLogos(clinic || authClinic);
 
   const printableRecord: PrintableFormRecord = {
@@ -143,11 +155,11 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
     logos: globalLogos,
     patient,
     bite,
-    cardDate,
+    cardDate: activeConsultation?.consultation_date ? String(activeConsultation.consultation_date).slice(0, 10) : cardDate,
     registryNo,
     hospitalNo,
     referredBy,
-    exposureCategory,
+    exposureCategory: activeConsultation?.exposure_category || exposureCategory,
     modeOfExposure,
     bodyPartExposed,
     animalType,
@@ -158,7 +170,9 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
     icd10Code,
     treatment_records: records,
     prophylaxis_records: prophylaxisRecords,
-    latest_consultation: latestConsultation,
+    latest_consultation: activeConsultation,
+    consultation_history: consultList,
+    selected_consultation_id: activeConsultation?.treatment_id || selectedTreatmentId,
   };
 
   return (
@@ -373,6 +387,37 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
                 </button>
               </div>
             </div>
+
+            {consultList && consultList.length > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Assessment Form:
+                </span>
+                <select
+                  value={activeConsultation?.treatment_id || ''}
+                  onChange={(e) => setSelectedTreatmentId(Number(e.target.value))}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: '#0f172a',
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {consultList.map((c: any, i: number) => {
+                    const isReassess = i > 0 || Boolean(c.is_returning_reassessment);
+                    return (
+                      <option key={c.treatment_id} value={c.treatment_id}>
+                        {isReassess ? `Assessment ${i + 1} (Reassessment)` : `Assessment ${i + 1} (Initial)`} — {c.consultation_date || 'Date N/A'} ({c.administration_status || 'Pending'})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
 
             <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />

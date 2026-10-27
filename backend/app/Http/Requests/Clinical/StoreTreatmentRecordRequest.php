@@ -86,6 +86,10 @@ class StoreTreatmentRecordRequest extends FormRequest
             // Provider Details
             'provider_name' => 'nullable|string|max:255',
             'attending_provider' => 'nullable|string|max:255',
+
+            // Returning Patient Reassessment Decision & Clinical Documentation
+            'reassessment_decision' => 'nullable|in:continue,modify,discontinue,no_injection_required',
+            'reassessment_notes' => 'nullable|string|max:2000',
         ];
     }
 
@@ -97,11 +101,20 @@ class StoreTreatmentRecordRequest extends FormRequest
         $validator->after(function (\Illuminate\Validation\Validator $validator) {
             $category = $this->input('exposure_category');
             $prescribed = trim((string) $this->input('prescribed_vaccine_type', ''));
+            $reassessmentDecision = $this->input('reassessment_decision');
+            $reassessmentNotes = trim((string) $this->input('reassessment_notes', ''));
 
             if ($category === 'I' && $prescribed !== '' && strtolower($prescribed) !== 'none') {
                 $validator->errors()->add(
                     'prescribed_vaccine_type',
                     'Category I exposures do not require Rabies PEP vaccination. Prescribed PEP vaccine must be empty.'
+                );
+            }
+
+            if (in_array($reassessmentDecision, ['modify', 'discontinue', 'no_injection_required'], true) && $reassessmentNotes === '') {
+                $validator->errors()->add(
+                    'reassessment_notes',
+                    'Please document the clinical reason when modifying, discontinuing, or determining no injection is required for a previous prescription.'
                 );
             }
         });

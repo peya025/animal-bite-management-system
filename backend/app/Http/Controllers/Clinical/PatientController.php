@@ -151,7 +151,8 @@ class PatientController extends Controller
         $result = $this->patientService->checkInReturningPatient(
             $request->user()->clinic_id,
             (int) $id,
-            $request->user()
+            $request->user(),
+            $request->all()
         );
 
         return $this->json($result['data'], $result['status']);

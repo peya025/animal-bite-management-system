@@ -96,6 +96,9 @@ export function useGeneralTreatmentForm({
   const [treatmentPlan, setTreatmentPlan] = useState('');
   const [episodeHistory, setEpisodeHistory] = useState<any[]>([]);
   const [patientReportedIntake, setPatientReportedIntake] = useState<PatientReportedIntake | null>(null);
+  const [previousConsultations, setPreviousConsultations] = useState<any[]>([]);
+  const [isPendingTreatmentReassessment, setIsPendingTreatmentReassessment] = useState(false);
+  const [pendingTreatmentSummary, setPendingTreatmentSummary] = useState<any>(null);
 
   const [checkedDiagnoses, setCheckedDiagnoses] = useState<string[]>([]);
   const [checkedHistory, setCheckedHistory] = useState<string[]>([]);
@@ -232,6 +235,9 @@ export function useGeneralTreatmentForm({
     setIsReturningNewBite(false);
     setRequiresReExposureDecision(false);
     setPatientReportedIntake(null);
+    setPreviousConsultations([]);
+    setIsPendingTreatmentReassessment(false);
+    setPendingTreatmentSummary(null);
 
     const initialIncident = selectedIncident;
     if (initialIncident) {
@@ -246,6 +252,12 @@ export function useGeneralTreatmentForm({
       .then((data) => {
         const category = data?.exposure_category ?? data?.active_bite_incident?.exposure_category ?? '';
         const record = data?.latest_treatment ? { ...data.latest_treatment, exposure_category: category } : null;
+        const prevConsults = Array.isArray(data?.previous_consultations) ? data.previous_consultations : [];
+        const isReassessment = Boolean(data?.is_pending_treatment_reassessment);
+        setPreviousConsultations(prevConsults);
+        setIsPendingTreatmentReassessment(isReassessment);
+        setPendingTreatmentSummary(data?.pending_treatment_summary || null);
+
         setFormData(prev => ({
           ...prev,
           exposure_category: category,
@@ -259,6 +271,8 @@ export function useGeneralTreatmentForm({
         setRequiresReExposureDecision(needsReExposureDecision);
         if (needsReExposureDecision) {
           setFormData((prev) => ({ ...prev, nature_of_visit: 'new_consultation' }));
+        } else if (isReassessment) {
+          setFormData((prev) => ({ ...prev, nature_of_visit: 'follow_up' }));
         }
         setEpisodeHistory(data?.episode_history || []);
 
@@ -281,7 +295,7 @@ export function useGeneralTreatmentForm({
           record.status === 'scheduled' &&
           !record.chief_complaints;
 
-        if (record && !isRegistrationStaffPrefill && (record.treatment_id || record.chief_complaints || record.consultation_date)) {
+        if (record && !isRegistrationStaffPrefill && !isReassessment && (record.treatment_id || record.chief_complaints || record.consultation_date)) {
           setHasExistingRecord(true);
           setIsEditing(false);
           setExistingRecord(record);
@@ -290,15 +304,15 @@ export function useGeneralTreatmentForm({
             setFormData((prev) => ({ ...prev, nature_of_visit: 'new_consultation' }));
           }
         } else {
-          // Either no record at all, or a Registration Staff pre-fill.
+          // Either no record at all, a Registration Staff pre-fill, or a Returning Patient Pending Treatment Reassessment.
           // Open in new-entry mode. Still populate vitals from the pre-fill
           // so the Doctor sees them read-only in Section III.
+          // Importantly, for returning patient reassessment, do NOT automatically copy the old prescription
+          // into a new active order without explicit doctor review/selection.
           setHasExistingRecord(false);
           setIsEditing(true);
           setExistingRecord(isRegistrationStaffPrefill ? record : null);
-          // If this is a Registration Staff pre-fill, populate vitals fields into
-          // formData so VitalsConsultationSection can display them read-only.
-          if (isRegistrationStaffPrefill && record) {
+          if ((isRegistrationStaffPrefill || isReassessment) && record) {
             setFormData((prev) => ({
               ...prev,
               mode_of_transaction:  record.mode_of_transaction || prev.mode_of_transaction || 'walk-in',
@@ -308,6 +322,7 @@ export function useGeneralTreatmentForm({
               temperature:          record.temperature || prev.temperature,
               height:               record.height || prev.height,
               weight:               record.weight || prev.weight,
+              nature_of_visit:      isReassessment ? (record.nature_of_visit || 'follow_up') : prev.nature_of_visit,
               name_of_attending_provider: record.attending_provider || prev.name_of_attending_provider,
               referred_by:          record.referred_by || prev.referred_by,
             }));
@@ -552,6 +567,71 @@ export function useGeneralTreatmentForm({
     }
   };
 
+  const handleReassessmentDecisionChange = (
+    decision: 'continue' | 'modify' | 'discontinue' | 'no_injection_required' | ''
+  ) => {
+    const lastPrev = previousConsultations.length > 0 ? previousConsultations[previousConsultations.length - 1] : null;
+    setFormData((prev) => {
+      let next: TreatmentFormData = { ...prev, reassessment_decision: decision };
+
+      if ((decision === 'continue' || decision === 'modify') && lastPrev) {
+        const prevCat = (lastPrev.exposure_category || prev.exposure_category) as 'I' | 'II' | 'III' | '';
+        const prevOrders = normalizeProphylaxisOrders(lastPrev.prophylaxis_orders);
+        next = {
+          ...next,
+          exposure_category: prevCat,
+          chief_complaints: prev.chief_complaints || lastPrev.chief_complaints || 'Returned for continuation of pending treatment',
+          diagnosis: prev.diagnosis || lastPrev.diagnosis || '',
+          prescribed_vaccine_type: prevCat === 'I' ? '' : (lastPrev.prescribed_vaccine_type || ''),
+          medication_treatment: prevCat === 'I'
+            ? 'No PEP vaccine prescribed'
+            : (lastPrev.prescribed_vaccine_type || lastPrev.medication_treatment || ''),
+          prophylaxis_orders: prevOrders,
+        };
+      } else if (decision === 'discontinue' || decision === 'no_injection_required') {
+        next = {
+          ...next,
+          chief_complaints: prev.chief_complaints || 'Returned for reassessment — no injection required',
+          prescribed_vaccine_type: '',
+          medication_treatment: decision === 'discontinue'
+            ? 'Previous prescription discontinued upon reassessment'
+            : 'No injection required upon reassessment',
+          prophylaxis_orders: {
+            ...prev.prophylaxis_orders,
+            tetanus_category: 'up_to_date',
+            tetanus_vaccine: 'none',
+            tetanus_passive: 'none',
+            rig: 'none',
+          },
+        };
+      }
+
+      saveDraftSnapshot(next);
+      return next;
+    });
+
+    if (fieldErrors.reassessment_decision && decision) {
+      setFieldErrors((errs) => {
+        const next = { ...errs };
+        delete next.reassessment_decision;
+        if (decision === 'continue') {
+          delete next.reassessment_notes;
+        }
+        if (decision === 'discontinue' || decision === 'no_injection_required') {
+          delete next.tetanus_category;
+          delete next.tetanus_passive;
+          delete next.tetanus_vaccine;
+        }
+        if (Object.keys(next).length === 0) {
+          setError('');
+        } else {
+          setError(`Required: ${Object.values(next).join(' • ')}`);
+        }
+        return next;
+      });
+    }
+  };
+
   const handleSaveAddendum = async () => {
     const patientId = entry?.patient?.patient_id || entry?.patient?.id;
     if (!patientId || !addendumNote.trim()) return;
@@ -610,26 +690,45 @@ export function useGeneralTreatmentForm({
       newFieldErrors.treatment_plan = 'Please select a Doctor treatment decision.';
     }
 
+    const isNoInjectionReassessment =
+      isPendingTreatmentReassessment &&
+      (formData.reassessment_decision === 'discontinue' || formData.reassessment_decision === 'no_injection_required');
+
+    if (isPendingTreatmentReassessment) {
+      if (!formData.reassessment_decision) {
+        newFieldErrors.reassessment_decision = 'Please select a Doctor Reassessment decision for the returning patient.';
+      } else if (
+        ['modify', 'discontinue', 'no_injection_required'].includes(formData.reassessment_decision) &&
+        !formData.reassessment_notes?.trim()
+      ) {
+        newFieldErrors.reassessment_notes = 'Please provide the clinical reason for modifying, discontinuing, or determining no injection is required.';
+      }
+    }
+
     // Tetanus Prophylaxis Order Validation
     const pOrders = formData.prophylaxis_orders;
-    const tetanusCat = pOrders?.tetanus_category || getTetanusCategoryFromOrders(pOrders);
+    const tetanusCat = isNoInjectionReassessment
+      ? 'up_to_date'
+      : (pOrders?.tetanus_category || getTetanusCategoryFromOrders(pOrders));
 
-    if (!tetanusCat) {
-      newFieldErrors.tetanus_category = 'Please select the tetanus prophylaxis assessment.';
-    } else if (tetanusCat === 'ats') {
-      if (!pOrders.tetanus_passive || pOrders.tetanus_passive === 'none') {
-        newFieldErrors.tetanus_passive = 'Please select an available ATS product.';
-      }
-    } else if (tetanusCat === 'tt') {
-      if (!pOrders.tetanus_vaccine || pOrders.tetanus_vaccine === 'none') {
-        newFieldErrors.tetanus_vaccine = 'Please select an available TT vaccine product.';
-      }
-    } else if (tetanusCat === 'ats_tt') {
-      if (!pOrders.tetanus_passive || pOrders.tetanus_passive === 'none') {
-        newFieldErrors.tetanus_passive = 'Please select an available ATS product.';
-      }
-      if (!pOrders.tetanus_vaccine || pOrders.tetanus_vaccine === 'none') {
-        newFieldErrors.tetanus_vaccine = 'Please select an available TT vaccine product.';
+    if (!isNoInjectionReassessment) {
+      if (!tetanusCat) {
+        newFieldErrors.tetanus_category = 'Please select the tetanus prophylaxis assessment.';
+      } else if (tetanusCat === 'ats') {
+        if (!pOrders.tetanus_passive || pOrders.tetanus_passive === 'none') {
+          newFieldErrors.tetanus_passive = 'Please select an available ATS product.';
+        }
+      } else if (tetanusCat === 'tt') {
+        if (!pOrders.tetanus_vaccine || pOrders.tetanus_vaccine === 'none') {
+          newFieldErrors.tetanus_vaccine = 'Please select an available TT vaccine product.';
+        }
+      } else if (tetanusCat === 'ats_tt') {
+        if (!pOrders.tetanus_passive || pOrders.tetanus_passive === 'none') {
+          newFieldErrors.tetanus_passive = 'Please select an available ATS product.';
+        }
+        if (!pOrders.tetanus_vaccine || pOrders.tetanus_vaccine === 'none') {
+          newFieldErrors.tetanus_vaccine = 'Please select an available TT vaccine product.';
+        }
       }
     }
 
@@ -661,8 +760,8 @@ export function useGeneralTreatmentForm({
       setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints', 'treatment_plan', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'treatment_plan', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose'];
+        ? ['nature_of_visit', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {
@@ -681,7 +780,9 @@ export function useGeneralTreatmentForm({
         patient_id: patientId,
         queue_id: entry.queue_id || null,
         bite_id: entry.bite_id || entry.incident?.bite_id || entry.bite_incident?.bite_id || entry.biteIncident?.bite_id || null,
-        treatment_plan: formData.exposure_category === 'I' ? 'no_vaccine' : (treatmentPlan || null),
+        treatment_plan: (formData.exposure_category === 'I' || isNoInjectionReassessment) ? 'no_vaccine' : (treatmentPlan || null),
+        reassessment_decision: formData.reassessment_decision || null,
+        reassessment_notes: formData.reassessment_notes?.trim() || null,
         consultation_date: formData.date_of_consultation,
         consultation_time: formData.consultation_time,
         mode_of_transaction: formData.mode_of_transaction || 'walk-in',
@@ -704,10 +805,11 @@ export function useGeneralTreatmentForm({
         chief_complaints: formData.chief_complaints,
         diagnosis: formData.diagnosis,
         medication_treatment: formData.exposure_category === 'I' ? 'No PEP vaccine prescribed' : formData.medication_treatment,
-        prescribed_vaccine_type: formData.exposure_category === 'I' ? null : (formData.prescribed_vaccine_type || null),
+        prescribed_vaccine_type: (formData.exposure_category === 'I' || isNoInjectionReassessment) ? null : (formData.prescribed_vaccine_type || null),
         prophylaxis_orders: {
           ...formData.prophylaxis_orders,
           tetanus_category: tetanusCat,
+          ...(isNoInjectionReassessment ? { tetanus_vaccine: 'none', tetanus_passive: 'none', rig: 'none' } : {}),
         },
         laboratory_findings: formData.laboratory_findings,
         performed_lab_test: formData.performed_lab_test,
@@ -769,6 +871,9 @@ export function useGeneralTreatmentForm({
     setTreatmentPlan: handleTreatmentPlanChange,
     episodeHistory,
     patientReportedIntake,
+    previousConsultations,
+    isPendingTreatmentReassessment,
+    pendingTreatmentSummary,
     checkedDiagnoses,
     checkedHistory,
     fieldErrors,
@@ -800,6 +905,7 @@ export function useGeneralTreatmentForm({
     toggleHistory,
     handlePrescribedVaccineChange,
     handleProphylaxisChange,
+    handleReassessmentDecisionChange,
     handleSaveAddendum,
     handleSubmit,
     handleCancelEdit,

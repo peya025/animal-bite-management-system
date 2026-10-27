@@ -37,7 +37,8 @@ class TagoloanTreatmentCardController extends Controller
         $data = $this->cardService->getPatientCardData(
             $request->user()->clinic_id,
             $patientId,
-            $request->query('bite_id') ? (int) $request->query('bite_id') : null
+            $request->query('bite_id') ? (int) $request->query('bite_id') : null,
+            $request->query('treatment_id') ? (int) $request->query('treatment_id') : null
         );
 
         return $this->json($data);

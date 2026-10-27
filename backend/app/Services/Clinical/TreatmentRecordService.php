@@ -51,15 +51,46 @@ class TreatmentRecordService
         $activeIncident?->loadMissing('intake');
 
         $latestTreatment = null;
+        $completedConsultations = collect();
+        $scheduledConsultation = null;
         if ($activeIncident) {
-            $latestTreatment = TreatmentRecord::with('administeredBy')
+            $completedConsultations = TreatmentRecord::with('administeredBy')
                 ->where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->where('bite_id', $activeIncident->bite_id)
                 ->whereNull('dose_number')->whereNull('medication_given')
-                ->latest('consultation_date')
+                ->where('status', 'completed')
+                ->where(function ($q) {
+                    $q->whereNotNull('nature_of_visit')
+                      ->orWhereNotNull('diagnosis')
+                      ->orWhereNotNull('chief_complaints');
+                })
+                ->orderBy('consultation_date', 'asc')
+                ->orderBy('treatment_id', 'asc')
+                ->get();
+
+            $scheduledConsultation = TreatmentRecord::with('administeredBy')
+                ->where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->where('bite_id', $activeIncident->bite_id)
+                ->whereNull('dose_number')->whereNull('medication_given')
+                ->where('status', 'scheduled')
                 ->latest('treatment_id')
                 ->first();
+
+            $latestCompleted = $completedConsultations->last();
+            if ($scheduledConsultation && (!$latestCompleted || (int) $scheduledConsultation->treatment_id > (int) $latestCompleted->treatment_id)) {
+                $latestTreatment = $scheduledConsultation;
+            } else {
+                $latestTreatment = $latestCompleted ?? TreatmentRecord::with('administeredBy')
+                    ->where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)
+                    ->where('bite_id', $activeIncident->bite_id)
+                    ->whereNull('dose_number')->whereNull('medication_given')
+                    ->latest('consultation_date')
+                    ->latest('treatment_id')
+                    ->first();
+            }
         }
         if (!$activeIncident && !$latestTreatment) {
             $latestTreatment = TreatmentRecord::with('administeredBy')
@@ -135,10 +166,70 @@ class TreatmentRecordService
             && $activeIncident->isAwaitingAssessment()
             && $this->hasCompletedPrimaryDayZeroToSeven($clinicId, $patientId, $activeIncident);
 
+        $statusSummary = $patient->resolveEpisodeStatusSummary();
+        $pendingSummary = $statusSummary['pending_treatment_summary'] ?? null;
+
+        $previousConsultationsSummary = $completedConsultations->map(function (TreatmentRecord $c) use ($activeIncident) {
+            $pOrders = is_array($c->prophylaxis_orders) ? $c->prophylaxis_orders : [];
+            $cat = $pOrders['consultation_exposure_category'] ?? $activeIncident?->exposure_category ?? $activeIncident?->bite_category ?? 'II';
+            $tetCat = strtolower(trim((string) ($pOrders['tetanus_category'] ?? '')));
+            $prescribedTt = in_array($tetCat, ['tt', 'ats_tt'], true) && !empty($pOrders['tetanus_vaccine']) && $pOrders['tetanus_vaccine'] !== 'none'
+                ? $pOrders['tetanus_vaccine']
+                : null;
+            $prescribedAts = in_array($tetCat, ['ats', 'ats_tt'], true) && !empty($pOrders['tetanus_passive']) && $pOrders['tetanus_passive'] !== 'none'
+                ? $pOrders['tetanus_passive']
+                : null;
+            $prescribedRig = !empty($pOrders['rig']) && $pOrders['rig'] !== 'none'
+                ? $pOrders['rig']
+                : null;
+
+            return [
+                'treatment_id' => $c->treatment_id,
+                'consultation_date' => $c->consultation_date ? Carbon::parse($c->consultation_date)->toDateString() : null,
+                'consultation_time' => $c->consultation_time,
+                'exposure_category' => $cat,
+                'blood_pressure' => $c->blood_pressure,
+                'temperature' => $c->temperature,
+                'height' => $c->height,
+                'weight' => $c->weight,
+                'nature_of_visit' => $c->nature_of_visit,
+                'chief_complaints' => $c->chief_complaints,
+                'diagnosis' => $c->diagnosis,
+                'medication_treatment' => $c->medication_treatment,
+                'prescribed_vaccine_type' => $c->prescribed_vaccine_type,
+                'prophylaxis_orders' => $pOrders,
+                'prescribed_tt' => $prescribedTt,
+                'prescribed_ats' => $prescribedAts,
+                'prescribed_rig' => $prescribedRig,
+                'provider_name' => $c->provider_name ?: $c->administeredBy?->name,
+                'attending_provider' => $c->attending_provider,
+                'actions_taken' => $c->actions_taken,
+                'pertinent_history' => $c->pertinent_history,
+                'reassessment_decision' => $pOrders['reassessment_decision'] ?? null,
+                'reassessment_notes' => $pOrders['reassessment_notes'] ?? null,
+                'outcome' => $c->outcome,
+            ];
+        })->values();
+
+        $latestCompleted = $completedConsultations->last();
+        $isPendingTreatmentReassessment = $completedConsultations->isNotEmpty()
+            && !$hasAdministeredVaccine
+            && (
+                ($scheduledConsultation && $latestCompleted && (int) $scheduledConsultation->treatment_id > (int) $latestCompleted->treatment_id)
+                || ($statusSummary['treatment_status'] ?? '') === 'returned_for_reassessment'
+                || !empty($pendingSummary['is_returning_from_prior_visit'])
+            );
+
         return [
             'patient' => $patient,
             'latest_treatment' => $latestTreatment,
             'treatments' => $treatments,
+            'previous_consultations' => $previousConsultationsSummary,
+            'is_pending_treatment_reassessment' => $isPendingTreatmentReassessment,
+            'pending_treatment_summary' => $pendingSummary,
+            'case_status' => $statusSummary['case_status'] ?? null,
+            'visit_status' => $statusSummary['visit_status'] ?? null,
+            'treatment_status' => $statusSummary['treatment_status'] ?? null,
             'has_administered_vaccine' => $hasAdministeredVaccine,
             'is_returning_new_bite' => (bool) ($activeIncident?->isReExposure()),
             'requires_re_exposure_decision' => $requiresReExposureDecision,
@@ -286,31 +377,136 @@ class TreatmentRecordService
             }
         }
 
-        $this->prophylaxisService->validateOrders(
-            $validated['prophylaxis_orders'] ?? [], $validated['treatment_plan'] ?? 'full_pep'
-        );
+        $reassessmentDecision = $validated['reassessment_decision'] ?? null;
+        $reassessmentNotes = !empty($validated['reassessment_notes']) ? trim((string) $validated['reassessment_notes']) : null;
+
+        $priorCompletedConsultations = TreatmentRecord::where('clinic_id', $clinicId)
+            ->where('patient_id', $validated['patient_id'])
+            ->where('bite_id', $activeIncident->bite_id)
+            ->whereNull('dose_number')->whereNull('medication_given')
+            ->where('status', 'completed')
+            ->where(function ($q) {
+                $q->whereNotNull('nature_of_visit')
+                  ->orWhereNotNull('diagnosis')
+                  ->orWhereNotNull('chief_complaints');
+            })
+            ->orderBy('consultation_date', 'asc')
+            ->orderBy('treatment_id', 'asc')
+            ->get();
+
+        $latestPriorCompleted = $priorCompletedConsultations->last();
 
         $existingScheduled = TreatmentRecord::where('clinic_id', $clinicId)
             ->where('patient_id', $validated['patient_id'])
             ->where('bite_id', $activeIncident->bite_id)
             ->whereNull('dose_number')->whereNull('medication_given')
+            ->where('status', 'scheduled')
             ->latest('treatment_id')
             ->first();
+
+        $submittedConsultationDate = $validated['consultation_date'] ?? Carbon::now('Asia/Manila')->toDateString();
+        $isLaterDateConsultation = $latestPriorCompleted
+            && $latestPriorCompleted->consultation_date
+            && Carbon::parse($latestPriorCompleted->consultation_date)->toDateString() !== Carbon::parse($submittedConsultationDate)->toDateString();
+        $hasScheduledReassessmentRow = $latestPriorCompleted
+            && $existingScheduled
+            && (int) $existingScheduled->treatment_id > (int) $latestPriorCompleted->treatment_id;
+
+        $isReassessmentSubmission = !empty($reassessmentDecision)
+            || $isLaterDateConsultation
+            || $hasScheduledReassessmentRow;
+
+        if ($reassessmentDecision === 'continue' && $latestPriorCompleted) {
+            if (!isset($validated['exposure_category'])) {
+                $priorOrders = is_array($latestPriorCompleted->prophylaxis_orders) ? $latestPriorCompleted->prophylaxis_orders : [];
+                $validated['exposure_category'] = $priorOrders['consultation_exposure_category'] ?? $activeIncident->exposure_category;
+            }
+            if (empty($validated['prescribed_vaccine_type']) && !empty($latestPriorCompleted->prescribed_vaccine_type)) {
+                $validated['prescribed_vaccine_type'] = $latestPriorCompleted->prescribed_vaccine_type;
+                $validated['medication_treatment'] = $latestPriorCompleted->medication_treatment ?: $latestPriorCompleted->prescribed_vaccine_type;
+            }
+            if (empty($validated['prophylaxis_orders']) && !empty($latestPriorCompleted->prophylaxis_orders)) {
+                $validated['prophylaxis_orders'] = $latestPriorCompleted->prophylaxis_orders;
+            }
+        } elseif (in_array($reassessmentDecision, ['discontinue', 'no_injection_required'], true)) {
+            $validated['prescribed_vaccine_type'] = null;
+            $validated['medication_treatment'] = $reassessmentDecision === 'discontinue'
+                ? 'Previous prescription discontinued upon reassessment'
+                : 'No injection required upon reassessment';
+            $validated['treatment_plan'] = 'no_vaccine';
+            $validated['prophylaxis_orders'] = array_merge($validated['prophylaxis_orders'] ?? [], [
+                'tetanus_category' => 'not_indicated',
+                'tetanus_vaccine' => 'none',
+                'tetanus_passive' => 'none',
+                'rig' => 'none',
+            ]);
+        }
+
+        $cleanOrdersForValidation = is_array($validated['prophylaxis_orders'] ?? null)
+            ? collect($validated['prophylaxis_orders'])->only([
+                'tetanus_category', 'tetanus_vaccine', 'tetanus_passive', 'rig',
+                'tetanus_history', 'tetanus_last_dose', 'rig_weight_kg', 'rig_indication', 'notes',
+            ])->toArray()
+            : [];
+
+        $this->prophylaxisService->validateOrders(
+            $cleanOrdersForValidation, $validated['treatment_plan'] ?? 'full_pep'
+        );
 
         $submittedCategory = $validated['exposure_category'] ?? null;
         $effectiveCategory = $submittedCategory ?? $activeIncident->exposure_category;
         $isCategory1 = ($effectiveCategory === 'I');
 
-        $pOrders = $validated['prophylaxis_orders'] ?? [];
+        $pOrders = $cleanOrdersForValidation;
         $tetCat = $pOrders['tetanus_category'] ?? null;
-        $hasTetanusOrder = in_array($tetCat, ['ats', 'tt', 'ats_tt'], true)
+        $hasTetanusOrder = !in_array($reassessmentDecision, ['discontinue', 'no_injection_required'], true)
+            && in_array($tetCat, ['ats', 'tt', 'ats_tt'], true)
             && (
                 (!empty($pOrders['tetanus_passive']) && $pOrders['tetanus_passive'] !== 'none') ||
                 (!empty($pOrders['tetanus_vaccine']) && $pOrders['tetanus_vaccine'] !== 'none')
             );
+        $hasRigOrder = !in_array($reassessmentDecision, ['discontinue', 'no_injection_required'], true)
+            && !empty($pOrders['rig']) && $pOrders['rig'] !== 'none';
 
-        $prescribedVaccine = $isCategory1 ? null : ($validated['prescribed_vaccine_type'] ?? null);
-        $medicationTreatment = $isCategory1 ? 'No PEP vaccine prescribed' : ($validated['medication_treatment'] ?? null);
+        $noInjectionDecision = in_array($reassessmentDecision, ['discontinue', 'no_injection_required'], true);
+        $prescribedVaccine = ($isCategory1 || $noInjectionDecision) ? null : ($validated['prescribed_vaccine_type'] ?? null);
+        $medicationTreatment = $noInjectionDecision
+            ? ($reassessmentDecision === 'discontinue' ? 'Previous prescription discontinued upon reassessment' : 'No injection required upon reassessment')
+            : ($isCategory1 ? 'No PEP vaccine prescribed' : ($validated['medication_treatment'] ?? null));
+
+        $referredToFacility = trim((string) ($validated['referred_to'] ?? ''));
+        $isReferralOut = ($validated['mode_of_transaction'] ?? '') === 'referral'
+            && TreatmentRecord::isExternalReferralDestination($referredToFacility);
+
+        if ($isCategory1 || $noInjectionDecision) {
+            $planType = 'no_vaccine';
+        } else {
+            $planType = $validated['treatment_plan'] ?? null;
+            if (!$planType && !$isReferralOut) {
+                $planType = 'full_pep';
+            }
+        }
+
+        $noInjectionRequired = ($planType === 'no_vaccine' && !$hasTetanusOrder && !$hasRigOrder) || $noInjectionDecision;
+
+        $enrichedProphylaxisOrders = array_merge($pOrders, array_filter([
+            'consultation_exposure_category' => $effectiveCategory,
+            'consultation_treatment_plan' => $planType,
+            'reassessment_decision' => $reassessmentDecision,
+            'reassessment_notes' => $reassessmentNotes,
+        ], fn ($v) => $v !== null));
+
+        $actionsTakenText = $validated['actions_taken'] ?? null;
+        if ($reassessmentNotes) {
+            $decisionLabel = match ($reassessmentDecision) {
+                'continue' => 'Continued Previous Prescription',
+                'modify' => 'Modified Prescription',
+                'discontinue' => 'Discontinued Previous Prescription',
+                'no_injection_required' => 'Completed Without Injection',
+                default => 'Reassessment Note',
+            };
+            $actionsTakenText = trim(($actionsTakenText ? $actionsTakenText . ' | ' : '') . "[Reassessment — {$decisionLabel}]: {$reassessmentNotes}");
+        }
 
         $recordPayload = [
             'clinic_id' => $clinicId,
@@ -319,7 +515,7 @@ class TreatmentRecordService
             'treatment_date' => !empty($validated['consultation_date'])
                 ? Carbon::parse($validated['consultation_date'])
                 : Carbon::now('Asia/Manila'),
-            'consultation_date' => $validated['consultation_date'] ?? Carbon::now('Asia/Manila')->toDateString(),
+            'consultation_date' => $submittedConsultationDate,
             'consultation_time' => $validated['consultation_time'] ?? Carbon::now('Asia/Manila')->format('H:i'),
             'mode_of_transaction' => in_array($validated['mode_of_transaction'] ?? '', ['walk-in', 'visited', 'referral'], true)
                 ? $validated['mode_of_transaction']
@@ -329,7 +525,7 @@ class TreatmentRecordService
             'referred_by' => $validated['referred_by'] ?? null,
             'pertinent_history' => $validated['pertinent_history'] ?? null,
             'reason_for_referral' => $validated['reason_for_referral'] ?? null,
-            'actions_taken' => $validated['actions_taken'] ?? null,
+            'actions_taken' => $actionsTakenText,
             'blood_pressure' => $validated['blood_pressure'] ?? null,
             'temperature' => $validated['temperature'] ?? null,
             'height' => $validated['height'] ?? null,
@@ -340,11 +536,12 @@ class TreatmentRecordService
             'diagnosis' => $validated['diagnosis'] ?? null,
             'medication_treatment' => $medicationTreatment,
             'prescribed_vaccine_type' => $prescribedVaccine,
-            'prophylaxis_orders' => $validated['prophylaxis_orders'] ?? null,
+            'prophylaxis_orders' => $enrichedProphylaxisOrders,
             'laboratory_findings' => $validated['laboratory_findings'] ?? null,
             'performed_lab_test' => $validated['performed_lab_test'] ?? null,
             'provider_name' => $validated['provider_name'] ?? $user->name,
             'attending_provider' => $validated['attending_provider'] ?? null,
+            'outcome' => $noInjectionRequired ? 'completed_without_injection' : null,
             'status' => 'completed',
             'administered_by' => $user->id,
         ];
@@ -353,8 +550,30 @@ class TreatmentRecordService
             unset($recordPayload['administered_by']);
             $existingScheduled->update($recordPayload);
             $treatmentRecord = $existingScheduled;
+        } elseif ($isReassessmentSubmission) {
+            // Preserve previous completed consultation records untouched; create a new consultation record for the reassessment visit.
+            $treatmentRecord = TreatmentRecord::create($recordPayload);
+        } elseif ($latestPriorCompleted) {
+            unset($recordPayload['administered_by']);
+            $latestPriorCompleted->update($recordPayload);
+            $treatmentRecord = $latestPriorCompleted;
         } else {
             $treatmentRecord = TreatmentRecord::create($recordPayload);
+        }
+
+        if ($isReassessmentSubmission && $latestPriorCompleted) {
+            \App\Models\AuditLog::log('consultation.reassessed', 'TreatmentRecord', $treatmentRecord->treatment_id, [
+                'metadata' => [
+                    'bite_id' => $activeIncident->bite_id,
+                    'previous_consultation_id' => $latestPriorCompleted->treatment_id,
+                    'new_consultation_id' => $treatmentRecord->treatment_id,
+                    'reassessment_decision' => $reassessmentDecision ?? 'reassessed',
+                    'reassessment_notes' => $reassessmentNotes,
+                    'previous_exposure_category' => $latestPriorCompleted->prophylaxis_orders['consultation_exposure_category'] ?? null,
+                    'new_exposure_category' => $effectiveCategory,
+                ],
+                'description' => "Doctor recorded reassessment consultation for Case {$activeIncident->case_number}.",
+            ]);
         }
 
         if (isset($validated['exposure_category'])) {
@@ -370,19 +589,6 @@ class TreatmentRecordService
             ]);
         }
 
-        $referredToFacility = trim((string) ($validated['referred_to'] ?? ''));
-        $isReferralOut = ($validated['mode_of_transaction'] ?? '') === 'referral'
-            && TreatmentRecord::isExternalReferralDestination($referredToFacility);
-        
-        if ($isCategory1) {
-            $planType = 'no_vaccine';
-        } else {
-            $planType = $validated['treatment_plan'] ?? null;
-            if (!$planType && !$isReferralOut) {
-                $planType = 'full_pep';
-            }
-        }
-
         if ($planType) {
             $orderedDoseDays = match ($planType) {
                 'full_pep' => [0, 3, 7],
@@ -391,7 +597,7 @@ class TreatmentRecordService
                 default => [],
             };
 
-            $planStatus = ($planType === 'no_vaccine' && !$hasTetanusOrder) ? 'completed' : 'approved';
+            $planStatus = $noInjectionRequired ? 'completed' : 'approved';
 
             TreatmentPlan::updateOrCreate(
                 ['bite_id' => $activeIncident->bite_id],
@@ -401,13 +607,13 @@ class TreatmentRecordService
                     'plan_type' => $planType,
                     'status' => $planStatus,
                     'ordered_dose_days' => $orderedDoseDays,
-                    'doctor_decision_notes' => $validated['diagnosis'] ?? $validated['chief_complaints'],
+                    'doctor_decision_notes' => $reassessmentNotes ?: ($validated['diagnosis'] ?? $validated['chief_complaints']),
                     'decided_by' => $user->id,
                     'decided_at' => now(),
                 ]
             );
 
-            $incidentStatus = ($planType === 'no_vaccine' && !$hasTetanusOrder) ? 'completed' : 'active';
+            $incidentStatus = $noInjectionRequired ? 'completed' : 'active';
             $incidentUpdates = [
                 'episode_type' => in_array($planType, ['single_booster', 'two_dose_booster'], true) ? 're_exposure' : 'primary',
                 'is_previously_vaccinated' => in_array($planType, ['single_booster', 'two_dose_booster', 'continue_existing_schedule'], true),
@@ -416,7 +622,7 @@ class TreatmentRecordService
 
             $activeIncident->update($incidentUpdates);
 
-            if ($isCategory1 && !$hasTetanusOrder) {
+            if ($noInjectionRequired) {
                 $intake = $activeIncident->intake;
                 $intakeMode = is_array($intake?->exposure_modes) ? ($intake->exposure_modes[0] ?? null) : null;
                 $intakeSite = is_array($intake?->exposure_sites) ? implode(', ', $intake->exposure_sites) : null;
@@ -427,9 +633,9 @@ class TreatmentRecordService
                         'bite_id' => $activeIncident->bite_id,
                     ],
                     [
-                        'card_date' => $validated['consultation_date'] ?? Carbon::today()->toDateString(),
+                        'card_date' => $submittedConsultationDate,
                         'registry_no' => $activeIncident->case_number,
-                        'exposure_category' => 'I',
+                        'exposure_category' => $effectiveCategory ?: 'I',
                         'mode_of_exposure' => $activeIncident->exposure_mode ?? $intakeMode,
                         'body_part_exposed' => $activeIncident->body_part_exposed ?? $activeIncident->site_number ?? $intakeSite,
                         'animal_type' => $activeIncident->animal_type ?? $intake?->animal_species,
@@ -447,7 +653,8 @@ class TreatmentRecordService
         }
 
         $todayQueue = null;
-        $planStopsImmediateTreatment = in_array($planType, ['continue_existing_schedule', 'no_vaccine'], true) && !$hasTetanusOrder;
+        $planStopsImmediateTreatment = (in_array($planType, ['continue_existing_schedule', 'no_vaccine'], true) && !$hasTetanusOrder && !$hasRigOrder)
+            || $noInjectionRequired;
 
         if (!empty($validated['queue_id'])) {
             $todayQueue = Queue::where('clinic_id', $clinicId)

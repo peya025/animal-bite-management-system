@@ -163,6 +163,7 @@ class ProphylaxisService
                     ->where('bite_id', $incident->bite_id)
                     ->where('medication_given', $medication)
                     ->where('status', 'cancelled')
+                    ->whereDate('scheduled_date', $item['date'])
                     ->live()
                     ->first();
 
@@ -254,6 +255,7 @@ class ProphylaxisService
                 ->where('bite_id', $incident->bite_id)
                 ->where('medication_given', $medication)
                 ->where('status', 'cancelled')
+                ->whereDate('scheduled_date', $item['date'])
                 ->delete();
 
             $record = TreatmentRecord::create([

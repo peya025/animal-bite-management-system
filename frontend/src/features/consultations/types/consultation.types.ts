@@ -63,6 +63,10 @@ export interface TreatmentFormData {
   // Provider Details
   name_of_attending_provider: string;
   referred_by: string;
+
+  // Returning Patient Reassessment Decision
+  reassessment_decision?: 'continue' | 'modify' | 'discontinue' | 'no_injection_required' | '';
+  reassessment_notes?: string;
 }
 
 export interface PatientReportedIntake {
@@ -162,4 +166,6 @@ export interface TreatmentRecordPayload {
   provider_name?: string | null;
   attending_provider: string;
   referred_by: string;
+  reassessment_decision?: 'continue' | 'modify' | 'discontinue' | 'no_injection_required' | null;
+  reassessment_notes?: string | null;
 }

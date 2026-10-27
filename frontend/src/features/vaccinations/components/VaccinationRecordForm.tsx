@@ -591,6 +591,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   // Doctor's prescribed vaccine from Form 2 — hard-locks nurse's vaccine dropdown
   const [prescribedVaccineType, setPrescribedVaccineType] = useState('');
   const [latestConsultation, setLatestConsultation] = useState<any>(null);
+  const [previousConsultations, setPreviousConsultations] = useState<any[]>([]);
+  const [visitOutcome, setVisitOutcome] = useState<'administered' | 'not_administered'>('administered');
+  const [notAdministeredReason, setNotAdministeredReason] = useState('');
   const [patientReportedIntake, setPatientReportedIntake] = useState<any>(null);
   const [showHistoricalPEP, setShowHistoricalPEP] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
@@ -605,6 +608,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   useEffect(() => {
     if (open && entry?.patient) {
       setSelectedPeriod('');
+      setVisitOutcome('administered');
+      setNotAdministeredReason('');
+      setPreviousConsultations([]);
       const pObj = entry.patient;
       const dObj = entry.patient.details || {};
       const isMember = Boolean(
@@ -711,6 +717,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       setPatientReportedIntake(intake || null);
       const consultation = cardRes?.data?.latest_consultation;
       setLatestConsultation(consultation || null);
+      setPreviousConsultations(cardRes?.data?.previous_consultations || []);
       setDoctorPlanType(incidentRes?.data?.incident?.treatment_plan?.plan_type || consultation?.treatment_plan || bite?.treatment_plan?.plan_type || '');
       const appointments = apptRes?.data?.data || [];
       const records: ExistingVaccinationRecord[] = vacRes?.data?.vaccination_records || [];
@@ -726,15 +733,17 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
       // 1. Resolve Day 0 and Exposure dates
       const day0Record = records.find((item) => item.dose_number === 0);
-      const day0AdministeredDate = formatDateForInput(day0Record?.treatment_date || day0Record?.scheduled_date);
+      const day0AdministeredDate = (day0Record && (day0Record.status === 'completed' || day0Record.treatment_date) && day0Record.status !== 'scheduled')
+        ? formatDateForInput(day0Record.treatment_date)
+        : '';
       const cardDate = formatDateForInput(card?.card_date);
       const biteExposureDate = formatDateForInput(bite?.bite_date || intake?.date_of_exposure || intake?.bite_date);
 
       // Date of Exposure is from bite incident (or fallback to card if any)
       const resolvedExposureDate = biteExposureDate || cardDate || '';
 
-      // Date Treatment Started is from Day 0 dose record, or saved treatment card date, or exposure date, or today for new unsaved forms
-      const treatmentStartDate = day0AdministeredDate || cardDate || biteExposureDate || (readOnly ? '' : getLocalDateString());
+      // Date Treatment Started is from actual Day 0 administration date, or today when Day 0 is not yet administered
+      const treatmentStartDate = day0AdministeredDate || (readOnly ? (cardDate || biteExposureDate || '') : getLocalDateString());
 
       // 2. Set Form Metadata
       const mode = card?.mode_of_exposure || bite?.mode_of_exposure || intake?.reported_mode_of_exposure || intake?.exposure_type || '';
@@ -900,6 +909,18 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             signature_path: '',
             vaccine_type: activeDose.vaccine_type || preferredVaccine,
           };
+
+          // When Day 0 is being administered today, ensure Day 3, Day 7, and Day 28
+          // follow-up dates are calculated from today's actual Day 0 administration date,
+          // never from an earlier unadministered consultation date.
+          if (activeIdx === 0) {
+            const recalculated = calculateDoseDates(todayStr, mappedDoses);
+            for (let i = 1; i < mappedDoses.length; i++) {
+              if (!mappedDoses[i].is_completed && !mappedDoses[i].inventory_linked) {
+                mappedDoses[i] = { ...mappedDoses[i], date: recalculated[i].date };
+              }
+            }
+          }
 
           // If preferred vaccine is available and batch is not yet set, trigger FIFO batch fetch
           if (preferredVaccine && !activeDose.batch_number) {
@@ -1283,10 +1304,15 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       || currentIncident?.severity === 'minor'
       || doctorPlanType === 'no_vaccine';
 
-    const activeDose = isCat1OrNoVaccine
+    const activeDose = (isCat1OrNoVaccine || visitOutcome === 'not_administered')
       ? undefined
       : candidateDoses.find(d => !d.is_completed && !d.inventory_linked && !isDosePrerequisiteLocked(d.period));
     const targetPeriod = activeDose ? activeDose.period : activeUnlockedPeriod;
+
+    if (visitOutcome === 'not_administered' && !notAdministeredReason.trim()) {
+      setError('Please provide the reason why no injection was administered during this visit.');
+      return;
+    }
 
     if (activeDose && prophylaxisAdministrations.length === 0) {
       if (!activeDose.vaccine_type) {
@@ -1354,12 +1380,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       return;
     }
 
-    if (filledDoses.length === 0 && prophylaxisAdministrations.length === 0) {
+    if (visitOutcome !== 'not_administered' && filledDoses.length === 0 && prophylaxisAdministrations.length === 0) {
       setError("Select a vaccine dose or record a prescribed prophylaxis administration before saving.");
       return;
     }
 
-    const invalidYearDose = filledDoses.find(d => d.date && !isValidFourDigitYearDate(d.date));
+    const effectiveFilledDoses = visitOutcome === 'not_administered' ? [] : filledDoses;
+
+    const invalidYearDose = effectiveFilledDoses.find(d => d.date && !isValidFourDigitYearDate(d.date));
     if (invalidYearDose) {
       newFieldErrors[`dose_${invalidYearDose.period}_date`] = 'Please enter a valid 4-digit year.';
       newFieldErrors.dose_date = 'Please enter a valid 4-digit year.';
@@ -1368,7 +1396,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       return;
     }
 
-    const futureDose = filledDoses.find(d => d.date && d.date > todayStr);
+    const futureDose = effectiveFilledDoses.find(d => d.date && d.date > todayStr);
     if (futureDose) {
       newFieldErrors[`dose_${futureDose.period}_date`] = 'Date cannot be a future date.';
       newFieldErrors.dose_date = 'Date cannot be a future date.';
@@ -1391,7 +1419,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       return;
     }
 
-    for (const d of filledDoses) {
+    for (const d of effectiveFilledDoses) {
       const units = parseInt(d.inventory_units_used, 10);
       if (isNaN(units) || units < 0) {
         setError(`Please enter valid Stock Units Used (0 for shared open vial, or 1+ for new vial) for ${d.period}.`);
@@ -1440,7 +1468,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         animal_status: formData.animal_status || 'unknown',
         animal_available: formData.animal_available || 'unknown',
         animal_condition: formData.animal_condition || 'unknown',
-        doses: filledDoses.map(d => ({
+        doses: effectiveFilledDoses.map(d => ({
           period: d.period,
           route: d.route || null,
           date: d.date || todayStr,
@@ -1453,6 +1481,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         bite_id: currentIncident?.bite_id || entry?.bite_id || entry?.incident?.bite_id || entry?.bite_incident?.bite_id || entry?.biteIncident?.bite_id || null,
         episode_type: manualReExposure ? 're_exposure' : (currentIncident?.episode_type || entry?.incident?.episode_type || 'primary'),
         prophylaxis_administrations: prophylaxisAdministrations,
+        visit_outcome: visitOutcome === 'not_administered' ? 'not_administered' : 'administered',
+        not_administered_reason: visitOutcome === 'not_administered' ? notAdministeredReason.trim() : null,
         icd_code: icdCode || null,
       });
 
@@ -1636,6 +1666,62 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   const formContent = (
     <div style={{ padding: inline ? '0' : '24px 32px' }}>
+      {/* Returning Consultation vs Previous Consultation Prescription Banner */}
+      {previousConsultations.length > 1 && (
+        <div style={{
+          backgroundColor: 'var(--bg-secondary, #fffbeb)',
+          border: '1px solid #f59e0b',
+          borderLeft: '4px solid #d97706',
+          borderRadius: BORDER_RADIUS,
+          padding: '12px 16px',
+          marginBottom: 18,
+          fontSize: 12.5,
+        }}>
+          <div style={{ fontWeight: 700, color: '#92400e', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>📋 Returning Patient — Previous vs. Current Reassessment Prescriptions</span>
+            <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600 }}>
+              Record only what is actually administered today
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+            {previousConsultations.map((c: any, idx: number) => {
+              const isLatest = idx === previousConsultations.length - 1;
+              return (
+                <div
+                  key={c.treatment_id || idx}
+                  style={{
+                    backgroundColor: isLatest ? '#fef3c7' : 'var(--card-bg-solid, #ffffff)',
+                    border: isLatest ? '1px solid #f59e0b' : '1px solid #cbd5e1',
+                    borderRadius: 6,
+                    padding: '8px 12px',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: 12, color: isLatest ? '#92400e' : '#334155', marginBottom: 4 }}>
+                    {isLatest ? `Current Reassessment (${c.consultation_date || 'Today'})` : `Previous Consultation #${idx + 1} (${c.consultation_date || '—'})`}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: '#475569' }}>
+                    <strong>Category:</strong> {c.exposure_category || '—'} ·{' '}
+                    <strong>Prescribed:</strong>{' '}
+                    {[
+                      c.prescribed_vaccine_type ? `PEP: ${c.prescribed_vaccine_type}` : (c.exposure_category === 'I' ? 'PEP: Not Indicated' : null),
+                      c.prescribed_tt ? `TT: ${c.prescribed_tt}` : null,
+                      c.prescribed_ats ? `ATS: ${c.prescribed_ats}` : null,
+                      c.prescribed_rig ? `ERIG: ${c.prescribed_rig}` : null,
+                    ].filter(Boolean).join(' • ') || 'None'}
+                  </div>
+                  {c.reassessment_decision && (
+                    <div style={{ fontSize: 11, color: '#78350f', marginTop: 3 }}>
+                      <strong>Doctor Decision:</strong> {String(c.reassessment_decision).replace(/_/g, ' ')}
+                      {c.reassessment_notes ? ` — "${c.reassessment_notes}"` : ''}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Category I Locked Alert - When Doctor confirmed Category I without nurse administration */}
       {!form3Ready && (
         <div style={{
@@ -2373,6 +2459,56 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         </div>
       )}
 
+      {/* UNADMINISTERED VISIT OUTCOME OPTION (Patient Left / Deferred Treatment) */}
+      {!readOnly && !hasCompletedDoseInCurrentIncident && form3Ready && (
+        <div
+          style={{
+            marginTop: 20,
+            padding: '12px 16px',
+            borderRadius: BORDER_RADIUS,
+            border: visitOutcome === 'not_administered' ? '1.5px solid #dc2626' : '1px solid var(--border-color, #e5e7eb)',
+            backgroundColor: visitOutcome === 'not_administered' ? '#fef2f2' : 'var(--bg-secondary, #f8fafc)',
+          }}
+        >
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: visitOutcome === 'not_administered' ? '#b91c1c' : '#334155' }}>
+            <input
+              type="checkbox"
+              checked={visitOutcome === 'not_administered'}
+              onChange={(e) => {
+                setVisitOutcome(e.target.checked ? 'not_administered' : 'administered');
+                if (!e.target.checked) setNotAdministeredReason('');
+              }}
+              disabled={saving}
+            />
+            Record Visit Outcome as Not Administered (Patient left clinic / deferred injection without receiving any dose today)
+          </label>
+          {visitOutcome === 'not_administered' && (
+            <div style={{ marginTop: 10 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#991b1b', marginBottom: 4 }}>
+                Reason Treatment Was Not Administered *
+              </label>
+              <input
+                type="text"
+                value={notAdministeredReason}
+                onChange={(e) => setNotAdministeredReason(e.target.value)}
+                placeholder="e.g., Patient left clinic before nurse administration / deferred due to elevated BP..."
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  fontSize: 13,
+                  borderRadius: 6,
+                  border: '1px solid #fca5a5',
+                  backgroundColor: '#ffffff',
+                }}
+              />
+              <div style={{ fontSize: 11.5, color: '#7f1d1d', marginTop: 4 }}>
+                Saving this outcome preserves the visit record and marks the prescribed treatment as Not Administered without deducting inventory stock.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Sticky footer for inline mode */}
       {inline && (
         <div
@@ -2426,7 +2562,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 fontWeight: 600,
                 borderRadius: BORDER_RADIUS,
                 border: 'none',
-                background: '#047857',
+                background: visitOutcome === 'not_administered' ? '#dc2626' : '#047857',
                 color: '#ffffff',
                 cursor: (saving || currentUser?.role === 'triage' || !form3Ready) ? 'not-allowed' : 'pointer',
                 opacity: (saving || currentUser?.role === 'triage' || !form3Ready) ? 0.6 : 1,
@@ -2434,7 +2570,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
               }}
             >
-              {saving ? 'Saving…' : (isCategory1 || doctorPlanType === 'no_vaccine') ? 'Save prophylaxis administration' : `Save and record ${activeUnlockedPeriod}`}
+              {saving
+                ? 'Saving…'
+                : visitOutcome === 'not_administered'
+                  ? 'Save Unadministered Visit Outcome'
+                  : (isCategory1 || doctorPlanType === 'no_vaccine')
+                    ? 'Save prophylaxis administration'
+                    : `Save and record ${activeUnlockedPeriod}`}
             </button>
           )}
         </div>
@@ -2465,7 +2607,13 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>{readOnly ? 'Close' : 'Cancel'}</button>
           {!readOnly && (
             <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving || currentUser?.role === 'triage' || !form3Ready}>
-              {saving ? 'Saving…' : (isCategory1 || doctorPlanType === 'no_vaccine') ? 'Save prophylaxis administration' : `Save and record ${activeUnlockedPeriod}`}
+              {saving
+                ? 'Saving…'
+                : visitOutcome === 'not_administered'
+                  ? 'Save Unadministered Visit Outcome'
+                  : (isCategory1 || doctorPlanType === 'no_vaccine')
+                    ? 'Save prophylaxis administration'
+                    : `Save and record ${activeUnlockedPeriod}`}
             </button>
           )}
         </>

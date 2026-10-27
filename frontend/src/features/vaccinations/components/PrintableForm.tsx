@@ -87,7 +87,9 @@ export interface PrintableFormRecord {
     diagnosis?: string | null;
     remarks?: string | null;
   } | null;
+  consultation_history?: any[];
   doses?: PrintableTreatmentRecord[];
+  selected_consultation_id?: number | null;
 }
 
 export interface PrintableFormProps {
@@ -110,7 +112,12 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
       records.push(pr);
     }
   });
-  const latestConsultation = record?.latest_consultation || null;
+  const consultationHistory = Array.isArray(record?.consultation_history) ? record!.consultation_history! : [];
+  const selectedConsultationId = (record as any)?.selected_consultation_id;
+  const targetedConsultation = selectedConsultationId
+    ? consultationHistory.find((c: any) => c.treatment_id === selectedConsultationId)
+    : null;
+  const latestConsultation = targetedConsultation || record?.latest_consultation || (consultationHistory.length > 0 ? consultationHistory[consultationHistory.length - 1] : null);
 
   const clinicName = clinic?.name || 'TAGOLOAN ANIMAL BITE TREATMENT CENTER';
   const dohAccredNo = clinic?.doh_accreditation_no || '2022-10-037';
@@ -145,7 +152,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
     : bite?.severity === 'severe'
     ? 'III'
     : '';
-  const rawCat = record?.exposureCategory || bite?.exposure_category || severityFallback || '';
+  const rawCat = record?.exposureCategory || (latestConsultation as any)?.exposure_category || bite?.exposure_category || severityFallback || '';
   const normalizedCat = rawCat.replace(/^category\s*/i, '').trim().toUpperCase();
   const isCat1 = normalizedCat === 'I';
   const formattedCat = normalizedCat
@@ -239,7 +246,14 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
   const rigGiven = isRecordGiven(rigRec);
   const rigNotAdmin = isRecordNotAdministered(rigRec);
 
-  const antiRabiesStatusLabel = rabiesAdministeredRecords.length > 0
+  const consultAdminStatus = (latestConsultation as any)?.administration_status;
+  const isConsultUnadministered = consultAdminStatus === 'Not Administered' || (consultAdminStatus && String(consultAdminStatus).toLowerCase() === 'not_administered');
+  const isConsultAdministered = consultAdminStatus === 'Administered' || (consultAdminStatus && String(consultAdminStatus).toLowerCase() === 'administered');
+  const isConsultNoInj = consultAdminStatus === 'Completed Without Injection' || (!prescribedRabiesProduct && !isTtPrescribed && !isAtsPrescribed && isCat1);
+
+  const antiRabiesStatusLabel = isConsultUnadministered && !isCat1
+    ? (prescribedRabiesProduct ? 'Not Administered' : 'Not Prescribed')
+    : rabiesAdministeredRecords.length > 0
     ? 'Administered'
     : isCat1
     ? 'Not Indicated'
@@ -249,22 +263,26 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
     ? 'Not Prescribed'
     : 'Not Indicated';
 
-  const ttStatusLabel = ttGiven
+  const ttStatusLabel = isConsultUnadministered
+    ? (isTtPrescribed ? 'Not Administered' : 'Not Prescribed')
+    : ttGiven
     ? 'Administered'
     : ttNotAdmin
     ? 'Not Administered'
     : isTtPrescribed
-    ? 'Prescribed – Pending Administration'
+    ? (isConsultAdministered ? 'Administered' : 'Prescribed – Pending Administration')
     : atsGiven
     ? 'Not Administered'
     : 'Not Prescribed';
 
-  const atsStatusLabel = atsGiven
+  const atsStatusLabel = isConsultUnadministered
+    ? (isAtsPrescribed ? 'Not Administered' : 'Not Prescribed')
+    : atsGiven
     ? 'Administered'
     : atsNotAdmin
     ? 'Not Administered'
     : isAtsPrescribed
-    ? 'Prescribed – Pending Administration'
+    ? (isConsultAdministered ? 'Administered' : 'Prescribed – Pending Administration')
     : ttGiven
     ? 'Not Administered'
     : 'Not Prescribed';
@@ -289,7 +307,13 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
     (isRigPrescribed && !rigGiven && !rigNotAdmin);
 
   const overallTreatmentStatus =
-    isCat1 && !isTtPrescribed && !isAtsPrescribed && allAdministeredRecords.length === 0 && allNotAdministeredRecords.length === 0
+    isConsultUnadministered
+      ? 'Not Administered'
+      : isConsultNoInj
+      ? 'No Injection Required'
+      : isConsultAdministered
+      ? 'Administered'
+      : isCat1 && !isTtPrescribed && !isAtsPrescribed && allAdministeredRecords.length === 0 && allNotAdministeredRecords.length === 0
       ? 'No Injection Required'
       : hasPendingOrders
       ? 'Prescribed – Pending Administration'
@@ -711,7 +735,15 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             Treatment Start
           </span>
           <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank ? '____________________' : formatDate(record?.cardDate)}
+            {isBlank
+              ? '____________________'
+              : allAdministeredRecords.length > 0 && allAdministeredRecords[0]?.treatment_date
+              ? formatDate(allAdministeredRecords[0].treatment_date)
+              : hasPendingOrders
+              ? 'Pending Administration'
+              : overallTreatmentStatus === 'No Injection Required'
+              ? 'No Injection Required'
+              : 'Not Administered'}
           </span>
         </div>
       </section>
@@ -822,6 +854,11 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             }}
           >
             Treatment / Vaccine Administration Details
+            {latestConsultation && consultationHistory.length > 1 && (
+              <span style={{ fontSize: '8.5pt', fontWeight: 600, color: '#0284c7', marginLeft: '8px', textTransform: 'none' }}>
+                (Assessment #{consultationHistory.indexOf(latestConsultation) + 1}: {(latestConsultation as any)?.is_returning_reassessment ? 'Doctor Reassessment' : 'Initial Consultation'})
+              </span>
+            )}
           </span>
           {!isBlank && (
             <span
@@ -944,6 +981,78 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             </span>
           </div>
         </div>
+
+        {/* PREVIOUS vs RETURNING CONSULTATION BREAKDOWN */}
+        {!isBlank && consultationHistory.length > 1 && (
+          <div
+            style={{
+              marginTop: '8px',
+              paddingTop: '8px',
+              borderTop: '1px solid #d1d5db',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '8px',
+            }}
+          >
+            {consultationHistory.map((c: any, idx: number) => {
+              const isReturningVisit = idx > 0 || Boolean(c.is_reassessment);
+              const prescribedItems = [
+                c.prescribed_vaccine_type ? `PEP: ${c.prescribed_vaccine_type}` : (c.exposure_category === 'I' ? 'Anti-Rabies: Not Indicated' : null),
+                c.prescribed_tt ? `TT: ${c.prescribed_tt}` : null,
+                c.prescribed_ats ? `ATS: ${c.prescribed_ats}` : null,
+                c.prescribed_rig ? `ERIG: ${c.prescribed_rig}` : null,
+              ].filter(Boolean).join(' · ') || 'No Injection Prescribed';
+
+              const adminItems = Array.isArray(c.administered_items) && c.administered_items.length > 0
+                ? c.administered_items.map((a: any) => `${a.medication} (${a.date ? formatDate(a.date) : '—'}${a.administered_by ? ` by ${a.administered_by}` : ''})`).join(', ')
+                : null;
+
+              const statusText =
+                c.administration_status === 'administered'
+                  ? `Administered${adminItems ? `: ${adminItems}` : ''}`
+                  : c.administration_status === 'completed_without_injection'
+                  ? 'Completed Without Injection'
+                  : c.administration_status === 'not_administered'
+                  ? `Not Administered${c.not_administered_reason ? ` (${c.not_administered_reason})` : ''}`
+                  : 'Pending Treatment / Not Administered';
+
+              return (
+                <div
+                  key={c.treatment_id || idx}
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #d1d5db',
+                    padding: '6px 8px',
+                    fontSize: '8.5pt',
+                    lineHeight: 1.35,
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: '#111827', marginBottom: '2px', textTransform: 'uppercase' }}>
+                    {isReturningVisit ? `Returning Consultation (Reassessment)` : `Previous Consultation`} — {c.consultation_date ? formatDate(c.consultation_date) : '—'}
+                  </div>
+                  <div>
+                    <strong>Exposure Category:</strong> Category {c.exposure_category || '—'}
+                    {isReturningVisit && (c.blood_pressure || c.temperature || c.weight) && (
+                      <span> · <strong>Updated Vitals:</strong> BP {c.blood_pressure || '—'}, {c.temperature ? `${c.temperature}°C` : '—'}, {c.weight ? `${c.weight}kg` : '—'}</span>
+                    )}
+                  </div>
+                  {c.reassessment_decision && (
+                    <div>
+                      <strong>Doctor Reassessment:</strong> {String(c.reassessment_decision).replace(/_/g, ' ')}
+                      {c.reassessment_notes ? ` (${c.reassessment_notes})` : ''}
+                    </div>
+                  )}
+                  <div>
+                    <strong>Prescribed:</strong> {prescribedItems}
+                  </div>
+                  <div>
+                    <strong>Administration Status:</strong> {statusText}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* 6. VACCINATION RECORD (ONE MERGED TABLE) */}

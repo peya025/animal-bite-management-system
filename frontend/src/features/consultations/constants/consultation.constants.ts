@@ -136,6 +136,8 @@ export const INITIAL_FORM_DATA: TreatmentFormData = {
   performed_lab_test: '',
   name_of_attending_provider: '',
   referred_by: '',
+  reassessment_decision: '',
+  reassessment_notes: '',
 };
 
 export function getInitialTreatmentFormData(): TreatmentFormData {

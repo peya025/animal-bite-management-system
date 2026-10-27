@@ -50,7 +50,263 @@ class Patient extends Model
         'age',
         'has_completed_primary',
         'is_category1_no_treatment',
+        'case_status',
+        'visit_status',
+        'treatment_status',
+        'queue_status',
+        'pending_treatment_summary',
     ];
+
+    protected ?array $cachedEpisodeStatusSummary = null;
+
+    /**
+     * Resolve differentiated Case Status, Visit Status, Treatment Status, Queue Status,
+     * and Pending Treatment Summary for the patient's latest/active bite case.
+     */
+    public function resolveEpisodeStatusSummary(): array
+    {
+        if ($this->cachedEpisodeStatusSummary !== null) {
+            return $this->cachedEpisodeStatusSummary;
+        }
+
+        $todayStr = now('Asia/Manila')->toDateString();
+
+        $todayQueues = $this->relationLoaded('queues')
+            ? $this->queues->sortByDesc('queue_id')->values()
+            : $this->queues()->where('queue_date', $todayStr)->orderByDesc('queue_id')->get();
+
+        $activeQueue = $todayQueues->first(fn ($q) => in_array($q->status, [
+            'waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall',
+        ], true));
+        $latestTodayQueue = $todayQueues->first();
+        $queueStatus = $activeQueue ? $activeQueue->status : ($latestTodayQueue ? $latestTodayQueue->status : 'not_in_today_queue');
+
+        $incident = $this->relationLoaded('biteIncidents')
+            ? $this->biteIncidents->first()
+            : $this->biteIncidents()->with('treatmentPlan')->latest('bite_date')->latest('bite_id')->first();
+
+        if (!$incident) {
+            return $this->cachedEpisodeStatusSummary = [
+                'case_status' => 'awaiting_assessment',
+                'visit_status' => 'awaiting_triage',
+                'treatment_status' => 'awaiting_consultation',
+                'queue_status' => $queueStatus,
+                'pending_treatment_summary' => null,
+            ];
+        }
+
+        $episodeRecords = $this->relationLoaded('treatmentRecords')
+            ? $this->treatmentRecords->where('bite_id', $incident->bite_id)->whereNull('voided_at')->sortBy('treatment_id')->values()
+            : $this->treatmentRecords()->where('bite_id', $incident->bite_id)->whereNull('voided_at')->orderBy('treatment_id', 'asc')->get();
+
+        $completedConsultations = $episodeRecords->filter(fn ($r) =>
+            $r->dose_number === null &&
+            $r->medication_given === null &&
+            $r->status === 'completed' &&
+            (!empty($r->nature_of_visit) || !empty($r->diagnosis) || !empty($r->chief_complaints))
+        )->values();
+
+        $latestConsultation = $completedConsultations->last();
+
+        if (!$latestConsultation) {
+            return $this->cachedEpisodeStatusSummary = [
+                'case_status' => $incident->status ?: 'awaiting_assessment',
+                'visit_status' => 'awaiting_triage',
+                'treatment_status' => 'awaiting_consultation',
+                'queue_status' => $queueStatus,
+                'pending_treatment_summary' => null,
+            ];
+        }
+
+        $scheduledReassessment = $episodeRecords->first(fn ($r) =>
+            $r->dose_number === null &&
+            $r->medication_given === null &&
+            $r->status === 'scheduled' &&
+            (int) $r->treatment_id > (int) $latestConsultation->treatment_id
+        );
+
+        $administeredDoses = $episodeRecords->filter(fn ($r) =>
+            $r->dose_number !== null &&
+            (int) $r->dose_number < 200 &&
+            ($r->status === 'completed' || !empty($r->treatment_date)) &&
+            !in_array($r->status, ['scheduled', 'cancelled'], true)
+        )->values();
+
+        $administeredProphylaxis = $episodeRecords->filter(fn ($r) =>
+            (!empty($r->medication_given) || in_array((int) $r->dose_number, [200, 201, 300, 400, 401], true)) &&
+            $r->status === 'completed'
+        )->values();
+
+        $notAdministeredRecords = $episodeRecords->filter(fn ($r) =>
+            $r->status === 'cancelled' &&
+            ($r->outcome === 'not_administered' || !empty($r->medication_given) || !empty($r->vaccine_brand))
+        )->values();
+
+        $pOrders = is_array($latestConsultation->prophylaxis_orders) ? $latestConsultation->prophylaxis_orders : [];
+        $reassessmentDecision = $pOrders['reassessment_decision'] ?? null;
+        $consultationCategory = $pOrders['consultation_exposure_category'] ?? $incident->exposure_category ?? $incident->bite_category ?? 'II';
+        $plan = $incident->relationLoaded('treatmentPlan') ? $incident->treatmentPlan : $incident->treatmentPlan()->first();
+        $planType = $pOrders['consultation_treatment_plan'] ?? $plan?->plan_type ?? ($consultationCategory === 'I' ? 'no_vaccine' : 'full_pep');
+
+        $noInjectionDecision = in_array($reassessmentDecision, ['discontinue', 'no_injection_required'], true)
+            || $latestConsultation->outcome === 'completed_without_injection';
+
+        $prescribedPep = (!$noInjectionDecision && $consultationCategory !== 'I' && $planType !== 'no_vaccine' && !empty($latestConsultation->prescribed_vaccine_type) && $latestConsultation->prescribed_vaccine_type !== 'none')
+            ? $latestConsultation->prescribed_vaccine_type
+            : null;
+
+        $tetCat = strtolower(trim((string) ($pOrders['tetanus_category'] ?? '')));
+        $prescribedTt = (!$noInjectionDecision && in_array($tetCat, ['tt', 'ats_tt'], true) && !empty($pOrders['tetanus_vaccine']) && $pOrders['tetanus_vaccine'] !== 'none')
+            ? $pOrders['tetanus_vaccine']
+            : null;
+        $prescribedAts = (!$noInjectionDecision && in_array($tetCat, ['ats', 'ats_tt'], true) && !empty($pOrders['tetanus_passive']) && $pOrders['tetanus_passive'] !== 'none')
+            ? $pOrders['tetanus_passive']
+            : null;
+        $prescribedRig = (!$noInjectionDecision && !empty($pOrders['rig']) && $pOrders['rig'] !== 'none')
+            ? $pOrders['rig']
+            : null;
+
+        $hasAnyPrescription = (bool) ($prescribedPep || $prescribedTt || $prescribedAts || $prescribedRig);
+
+        if (!$hasAnyPrescription && ($consultationCategory === 'I' || $planType === 'no_vaccine' || $noInjectionDecision) && $administeredDoses->isEmpty() && $administeredProphylaxis->isEmpty()) {
+            return $this->cachedEpisodeStatusSummary = [
+                'case_status' => 'completed',
+                'visit_status' => 'completed',
+                'treatment_status' => 'completed_without_injection',
+                'queue_status' => $queueStatus,
+                'pending_treatment_summary' => null,
+            ];
+        }
+
+        $hasAdministeredPep = $administeredDoses->isNotEmpty();
+        $hasAdministeredTt = $administeredProphylaxis->contains(fn ($r) =>
+            \App\Services\ProphylaxisService::isTetanusBrand((string) ($r->medication_given ?? $r->vaccine_brand ?? ''), array_filter([$prescribedTt])) ||
+            (int) $r->dose_number === 300
+        );
+        $hasAdministeredAts = $administeredProphylaxis->contains(fn ($r) =>
+            \App\Services\ProphylaxisService::isAtsBrand((string) ($r->medication_given ?? $r->vaccine_brand ?? ''), array_filter([$prescribedAts])) ||
+            in_array((int) $r->dose_number, [400, 401], true)
+        );
+        $hasAdministeredRig = $administeredProphylaxis->contains(fn ($r) =>
+            in_array(strtoupper((string) $r->medication_given), ['ERIG', 'HRIG'], true) ||
+            in_array((int) $r->dose_number, [200, 201], true)
+        );
+
+        $pendingItems = [];
+        if ($prescribedPep && !$hasAdministeredPep) {
+            $pendingItems[] = "Anti-Rabies PEP ({$prescribedPep})";
+        }
+        if ($prescribedTt && !$hasAdministeredTt) {
+            $pendingItems[] = "TT ({$prescribedTt})";
+        }
+        if ($prescribedAts && !$hasAdministeredAts) {
+            $pendingItems[] = "ATS ({$prescribedAts})";
+        }
+        if ($prescribedRig && !$hasAdministeredRig) {
+            $pendingItems[] = "RIG ({$prescribedRig})";
+        }
+
+        if (empty($pendingItems) && ($hasAdministeredPep || $hasAdministeredTt || $hasAdministeredAts || $hasAdministeredRig)) {
+            return $this->cachedEpisodeStatusSummary = [
+                'case_status' => $incident->status === 'completed' ? 'completed' : 'active',
+                'visit_status' => 'completed',
+                'treatment_status' => 'administered',
+                'queue_status' => $queueStatus,
+                'pending_treatment_summary' => null,
+            ];
+        }
+
+        $isReturnedForReassessment = $scheduledReassessment !== null
+            || ($activeQueue && in_array($activeQueue->visit_type, ['new_case', 'consultation'], true));
+
+        $consultationDateStr = $latestConsultation->consultation_date
+            ? \Carbon\Carbon::parse($latestConsultation->consultation_date)->toDateString()
+            : null;
+
+        $recentNotAdministered = $notAdministeredRecords->filter(function ($r) use ($consultationDateStr) {
+            if (!$consultationDateStr || !$r->scheduled_date) {
+                return true;
+            }
+            return \Carbon\Carbon::parse($r->scheduled_date)->toDateString() >= $consultationDateStr;
+        })->values();
+
+        $treatmentStatus = $isReturnedForReassessment
+            ? 'returned_for_reassessment'
+            : ($recentNotAdministered->isNotEmpty() ? 'not_administered' : 'pending_administration');
+
+        $visitStatus = $isReturnedForReassessment ? 'awaiting_reassessment' : 'consultation_completed';
+
+        $isConsultationFromPriorDay = $consultationDateStr && $consultationDateStr < $todayStr;
+        $canCheckInForReassessment = !$isReturnedForReassessment && (
+            $isConsultationFromPriorDay ||
+            $recentNotAdministered->isNotEmpty() ||
+            !$activeQueue
+        );
+
+        $notAdministeredReasons = $recentNotAdministered
+            ->pluck('remarks')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        return $this->cachedEpisodeStatusSummary = [
+            'case_status' => 'active',
+            'visit_status' => $visitStatus,
+            'treatment_status' => $treatmentStatus,
+            'queue_status' => $queueStatus,
+            'pending_treatment_summary' => [
+                'has_pending_treatment' => true,
+                'can_check_in_for_reassessment' => $canCheckInForReassessment,
+                'is_returning_from_prior_visit' => (bool) ($isConsultationFromPriorDay || $recentNotAdministered->isNotEmpty()),
+                'bite_id' => $incident->bite_id,
+                'case_number' => $incident->case_number,
+                'consultation_id' => $latestConsultation->treatment_id,
+                'consultation_date' => $consultationDateStr,
+                'consultation_time' => $latestConsultation->consultation_time,
+                'exposure_category' => $consultationCategory,
+                'chief_complaints' => $latestConsultation->chief_complaints,
+                'diagnosis' => $latestConsultation->diagnosis,
+                'prescribed_vaccine_type' => $prescribedPep,
+                'prescribed_tt' => $prescribedTt,
+                'prescribed_ats' => $prescribedAts,
+                'prescribed_rig' => $prescribedRig,
+                'pending_items' => $pendingItems,
+                'not_administered_reasons' => $notAdministeredReasons,
+                'blood_pressure' => $latestConsultation->blood_pressure,
+                'temperature' => $latestConsultation->temperature,
+                'weight' => $latestConsultation->weight,
+                'height' => $latestConsultation->height,
+                'provider_name' => $latestConsultation->provider_name,
+                'treatment_status' => $treatmentStatus,
+            ],
+        ];
+    }
+
+    public function getCaseStatusAttribute(): string
+    {
+        return $this->resolveEpisodeStatusSummary()['case_status'];
+    }
+
+    public function getVisitStatusAttribute(): string
+    {
+        return $this->resolveEpisodeStatusSummary()['visit_status'];
+    }
+
+    public function getTreatmentStatusAttribute(): string
+    {
+        return $this->resolveEpisodeStatusSummary()['treatment_status'];
+    }
+
+    public function getQueueStatusAttribute(): string
+    {
+        return $this->resolveEpisodeStatusSummary()['queue_status'];
+    }
+
+    public function getPendingTreatmentSummaryAttribute(): ?array
+    {
+        return $this->resolveEpisodeStatusSummary()['pending_treatment_summary'];
+    }
 
     /**
      * Determine if patient has completed the primary 3-dose anti-rabies PEP series (Days 0, 3, 7).

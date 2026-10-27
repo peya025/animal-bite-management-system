@@ -62,6 +62,8 @@ class StoreVaccinationRecordRequest extends FormRequest
             'prophylaxis_administrations.*.injection_site'  => 'nullable|string|max:255',
             'prophylaxis_administrations.*.dosage_ml'       => 'nullable|numeric|gt:0|max:999.99',
             'prophylaxis_administrations.*.dose_iu'         => 'nullable|numeric|gt:0|max:99999999',
+            'visit_outcome'                                 => 'nullable|in:administered,not_administered',
+            'not_administered_reason'                       => 'nullable|required_if:visit_outcome,not_administered|string|max:500',
             'icd_code'                                      => 'nullable|string|max:20',
         ];
     }

@@ -112,7 +112,9 @@ class VaccinationRecordService
                         (!empty($pOrders['tetanus_vaccine']) && $pOrders['tetanus_vaccine'] !== 'none')
                     );
 
-                if (!$hasTetanusOrder || empty($validated['prophylaxis_administrations'])) {
+                $isNotAdministeredVisit = ($validated['visit_outcome'] ?? null) === 'not_administered';
+
+                if (!$hasTetanusOrder || (empty($validated['prophylaxis_administrations']) && !$isNotAdministeredVisit)) {
                     throw ValidationException::withMessages([
                         'bite_id' => 'Form 3 administration is not permitted because no treatment was prescribed by the doctor.',
                     ]);
@@ -241,6 +243,43 @@ class VaccinationRecordService
                     throw ValidationException::withMessages([
                         'doses' => 'The Doctor ordered a 2-dose booster regimen (Day 0 and Day 3). Day 7 is not indicated.',
                     ]);
+                }
+            }
+
+            $isNotAdministeredVisit = ($validated['visit_outcome'] ?? null) === 'not_administered';
+            if ($isNotAdministeredVisit) {
+                $doses = [];
+                $notAdminReason = trim((string) ($validated['not_administered_reason'] ?? 'Patient did not receive prescribed injection on this visit.'));
+                $latestConsultationForVisit = TreatmentRecord::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)
+                    ->where('bite_id', $biteId)
+                    ->whereNull('dose_number')
+                    ->where('status', 'completed')
+                    ->latest('treatment_id')
+                    ->first();
+
+                $visitDate = $validated['date_treatment_started'] ?? Carbon::today()->toDateString();
+                $medLabel = $latestConsultationForVisit?->prescribed_vaccine_type ?: 'PRESCRIBED_TREATMENT';
+
+                if (empty($validated['prophylaxis_administrations'])) {
+                    TreatmentRecord::updateOrCreate(
+                        [
+                            'clinic_id' => $clinicId,
+                            'patient_id' => $patientId,
+                            'bite_id' => $biteId,
+                            'medication_given' => $medLabel,
+                            'status' => 'cancelled',
+                            'scheduled_date' => $visitDate,
+                        ],
+                        [
+                            'vaccine_brand' => $latestConsultationForVisit?->prescribed_vaccine_type,
+                            'treatment_date' => null,
+                            'administered_by' => $userId,
+                            'administered_at' => null,
+                            'outcome' => 'not_administered',
+                            'remarks' => $notAdminReason,
+                        ]
+                    );
                 }
             }
 
@@ -427,8 +466,13 @@ class VaccinationRecordService
 
             // ── Auto-complete today's queue ──────────────────────────────────────
             $todayQueue = null;
-            $hasProphylaxisAdministered = !empty($validated['prophylaxis_administrations'] ?? []);
-            if (!empty($savedDoseNumbers) || $hasProphylaxisAdministered) {
+            $prophylaxisItems = collect($validated['prophylaxis_administrations'] ?? []);
+            $hasConfirmedProphylaxis = $prophylaxisItems->contains(fn ($item) => ($item['status'] ?? 'administered') === 'administered');
+            $hasNotAdministeredProphylaxis = $prophylaxisItems->contains(fn ($item) => ($item['status'] ?? 'administered') === 'not_administered');
+            $hasProphylaxisAdministered = $hasConfirmedProphylaxis;
+            $hasAnyVisitActivity = !empty($savedDoseNumbers) || $hasConfirmedProphylaxis || $hasNotAdministeredProphylaxis || $isNotAdministeredVisit;
+
+            if ($hasAnyVisitActivity) {
                 if (!empty($validated['queue_id'] ?? null)) {
                     $todayQueue = Queue::where('clinic_id', $clinicId)
                         ->where('queue_id', $validated['queue_id'])
@@ -445,7 +489,9 @@ class VaccinationRecordService
                 if ($todayQueue) {
                     $completionNotes = !empty($savedDoseNumbers)
                         ? 'Vaccination administered (Form 3 completed by Nurse) — Visit Completed.'
-                        : 'Prescribed prophylaxis administered (Form 3 completed by Nurse) — Visit Completed.';
+                        : ($hasConfirmedProphylaxis
+                            ? 'Prescribed prophylaxis administered (Form 3 completed by Nurse) — Visit Completed.'
+                            : 'Visit recorded as Not Administered (no injection given) — Pending Reassessment.');
                     QueueHistory::create([
                         'queue_id'     => $todayQueue->queue_id,
                         'clinic_id'    => $todayQueue->clinic_id,
@@ -468,23 +514,27 @@ class VaccinationRecordService
                     ]);
                     Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
                 }
+            }
 
+            if (!empty($savedDoseNumbers) || $hasConfirmedProphylaxis || $hasNotAdministeredProphylaxis) {
                 // Mark related appointments completed
-                Appointment::where('clinic_id', $clinicId)->where('patient_id', $patientId)->where('bite_id', $biteId)
-                    ->whereIn('status', ['scheduled', 'confirmed', 'missed'])
-                    ->where(function ($q) use ($savedDoseNumbers) {
-                        $q->whereIn('dose_number', $savedDoseNumbers)
-                          ->orWhere(function ($sub) use ($savedDoseNumbers) {
-                              $hasBoosterDose = !empty(array_intersect([90, 365, 100, 101], $savedDoseNumbers));
-                              if ($hasBoosterDose) {
-                                  $sub->whereDate('scheduled_date', '<=', Carbon::today())
-                                      ->where(fn($t) => $t->where('appointment_type', 'booster')->orWhere('notes', 'like', '%booster%'));
-                              } else {
-                                  $sub->whereRaw('0 = 1');
-                              }
-                          })
-                          ->orWhereNull('dose_number');
-                    })->update(['status' => 'completed']);
+                if (!empty($savedDoseNumbers) || $hasConfirmedProphylaxis) {
+                    Appointment::where('clinic_id', $clinicId)->where('patient_id', $patientId)->where('bite_id', $biteId)
+                        ->whereIn('status', ['scheduled', 'confirmed', 'missed'])
+                        ->where(function ($q) use ($savedDoseNumbers) {
+                            $q->whereIn('dose_number', $savedDoseNumbers)
+                              ->orWhere(function ($sub) use ($savedDoseNumbers) {
+                                  $hasBoosterDose = !empty(array_intersect([90, 365, 100, 101], $savedDoseNumbers));
+                                  if ($hasBoosterDose) {
+                                      $sub->whereDate('scheduled_date', '<=', Carbon::today())
+                                          ->where(fn($t) => $t->where('appointment_type', 'booster')->orWhere('notes', 'like', '%booster%'));
+                                  } else {
+                                      $sub->whereRaw('0 = 1');
+                                  }
+                              })
+                              ->orWhereNull('dose_number');
+                        })->update(['status' => 'completed']);
+                }
 
                 // Reset incorrectly completed future dose rows
                 TreatmentRecord::where('clinic_id', $clinicId)->where('patient_id', $patientId)->where('bite_id', $biteId)
@@ -499,21 +549,23 @@ class VaccinationRecordService
                     ->update(['status' => 'scheduled', 'treatment_date' => null, 'administered_at' => null]);
 
                 // Auto-complete appointments for administered doses
-                Appointment::where('clinic_id', $clinicId)->where('patient_id', $patientId)->where('bite_id', $biteId)
-                    ->whereIn('status', ['scheduled', 'confirmed', 'in_progress'])
-                    ->where(function ($q) use ($savedDoseNumbers) {
-                        $q->whereIn('dose_number', $savedDoseNumbers);
-                        if (in_array(0, $savedDoseNumbers)) {
-                            $q->orWhereNull('dose_number')->orWhere('appointment_type', 'consultation');
-                        }
-                    })->update(['status' => 'completed']);
+                if (!empty($savedDoseNumbers)) {
+                    Appointment::where('clinic_id', $clinicId)->where('patient_id', $patientId)->where('bite_id', $biteId)
+                        ->whereIn('status', ['scheduled', 'confirmed', 'in_progress'])
+                        ->where(function ($q) use ($savedDoseNumbers) {
+                            $q->whereIn('dose_number', $savedDoseNumbers);
+                            if (in_array(0, $savedDoseNumbers)) {
+                                $q->orWhereNull('dose_number')->orWhere('appointment_type', 'consultation');
+                            }
+                        })->update(['status' => 'completed']);
+                }
 
                 // BiteIncident completion
                 $incident = BiteIncident::find($biteId);
                 if ($incident && $incident->status !== 'completed') {
                     $finalPlanType = TreatmentPlan::where('clinic_id', $clinicId)->where('bite_id', $incident->bite_id)->value('plan_type');
                     $isBooster     = $incident->isReExposure();
-                    if ($finalPlanType === 'no_vaccine' && $hasProphylaxisAdministered) {
+                    if ($finalPlanType === 'no_vaccine' && ($hasConfirmedProphylaxis || $hasNotAdministeredProphylaxis)) {
                         $incident->update(['status' => 'completed']);
                         TreatmentPlan::where('clinic_id', $clinicId)->where('bite_id', $incident->bite_id)->update(['status' => 'completed']);
                     } elseif ($finalPlanType === 'single_booster' && in_array(0, $savedDoseNumbers)) {
@@ -568,11 +620,13 @@ class VaccinationRecordService
     ): void {
         $hasDay0 = false;
         $day0Date = null;
+        $isAdministeringDay0Now = false;
 
         foreach ($doses as $dose) {
-            if (!empty($dose['date']) && in_array($dose['period'], ['Day 0'])) {
+            if (!empty($dose['date']) && !empty($dose['vaccine_type']) && in_array($dose['period'], ['Day 0', 'day_0'], true)) {
                 $hasDay0  = true;
                 $day0Date = Carbon::parse($dose['date']);
+                $isAdministeringDay0Now = true;
                 break;
             }
         }
@@ -660,7 +714,9 @@ class VaccinationRecordService
             $standardDay0Ideal  = $day0Date->copy()->addDays($daysAfterDay0);
             $minIntervalIdeal   = $previousResolvedDate->copy()->addDays($intervalFromPrev);
             $calculatedIdeal    = $minIntervalIdeal->greaterThan($standardDay0Ideal) ? $minIntervalIdeal : $standardDay0Ideal;
-            $idealDate          = $formSpecifiedDate ?: $calculatedIdeal;
+            $idealDate          = ($formSpecifiedDate && !$isAdministeringDay0Now && $formSpecifiedDate->gte($standardDay0Ideal))
+                ? $formSpecifiedDate
+                : $calculatedIdeal;
             $resolution         = $this->scheduleService->resolveScheduleDate($clinicId, $idealDate, $doseNum);
             $resolvedDate       = $resolution['scheduled_date'];
             $previousResolvedDate = $resolvedDate->copy();

@@ -3,22 +3,9 @@ import { Box, Chip, Typography, CircularProgress, Collapse, Button } from '@mui/
 import { Icon } from '../../../shared/components/ui/Icon';
 
 /**
- * Patient History — Treatment Assessment Architecture.
- *
- * Each doctor diagnosis / treatment assessment has its OWN distinct record
- * and its OWN printable Official Animal Bite Treatment Form, regardless of
- * whether an injection was administered.
- *
- * Layout:
- *   1. Initial Exposure Baseline [Collapsible]
- *        • Incident date, location, biting animal, body part, wound washing, episode type
- *        • Direct action to switch to the dedicated Form 1 Registration tab for full demographics
- *   2. Treatment Assessments List (Assessment #1, Assessment #2, etc.) [Each Collapsible]:
- *        • Doctor Diagnosis, Vitals, Exposure Category
- *        • Referenced prescription (when continued on reassessment)
- *        • Actual administration status (Administered, Not Administered + reason, No Injection Required)
- *        • Dedicated "Print Form (Assessment #X)" action with SVG printer icon
- *   3. Follow-up Routine Vaccination Schedule (Day 3, Day 7, Day 28, Booster)
+ * One summary card per assessment, with its own administration status and
+ * printable treatment form. Full clinical details are collapsed initially;
+ * exposure information and follow-up schedules remain below the card list.
  */
 
 interface PatientHistoryInlineViewProps {
@@ -80,7 +67,7 @@ function StatusChip({ label, tone }: { label: string; tone: Tone }) {
     <Chip
       label={label}
       size="small"
-      sx={{ bgcolor: t.bg, color: t.fg, border: `1px solid ${t.bd}`, fontWeight: 700, fontSize: 11, height: 22 }}
+      sx={{ bgcolor: t.bg, color: t.fg, border: `1px solid ${t.bd}`, fontWeight: 500, fontSize: 13, height: 25 }}
     />
   );
 }
@@ -179,7 +166,7 @@ export function PatientHistoryInlineView({
 
   const p = patient || {};
   const cData = cardData || {};
-  const bite = p.bite_incidents?.[0] || p.biteIncidents?.[0] || cData.bite_incident || null;
+  const bite = cData.bite_incident || p.bite_incidents?.[0] || p.biteIncidents?.[0] || null;
   const isReExposure = bite?.is_reexposure || bite?.exposure_type === 're_exposure';
 
   // Consultations derived from the treatment card service (each doctor consultation is its own discrete record)
@@ -216,77 +203,451 @@ export function PatientHistoryInlineView({
 
   const expectedDoses = [0, 3, 7];
 
-  const handleExpandAll = () => {
-    const updated: Record<string, boolean> = { form1: true, followups: true };
-    consultations.forEach((c: any, idx: number) => {
-      const k = `assessment-${c.treatment_id || idx}`;
-      updated[k] = true;
-      updated[`${k}:doctor`] = true;
-      updated[`${k}:treatment`] = true;
-    });
-    setOpenSections(updated);
-  };
-
-  const handleCollapseAll = () => {
-    const updated: Record<string, boolean> = { form1: false, followups: false };
-    consultations.forEach((c: any, idx: number) => {
-      const k = `assessment-${c.treatment_id || idx}`;
-      updated[k] = false;
-      updated[`${k}:doctor`] = false;
-      updated[`${k}:treatment`] = false;
-    });
-    setOpenSections(updated);
-  };
-
   return (
-    <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
-      {/* ── Top Bar: Title & Global Actions ── */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
-        <Box>
-          <Typography sx={{ fontWeight: 800, fontSize: 17, color: 'var(--text-h, #0f172a)' }}>
-            Treatment History &amp; Official Forms
+    <Box sx={{ p: { xs: 1.5, sm: 2.5 }, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box sx={{ p: { xs: 1.5, sm: 2 }, border: '1px solid var(--border-glow, #e2e8f0)', borderRadius: '20px', display: 'flex', flexDirection: 'column', gap: 2, bgcolor: 'var(--card-bg-solid, #ffffff)' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <Typography component="h2" sx={{ fontWeight: 600, fontSize: 19, color: 'var(--text-h, #0f172a)' }}>
+            Patient Treatment History
           </Typography>
-          <Typography sx={{ fontSize: 12.5, color: 'var(--text-m, #64748b)', mt: 0.25 }}>
-            {consultations.length} doctor {consultations.length === 1 ? 'assessment' : 'assessments'} recorded. Each assessment maintains its own diagnosis, administration status, and printable form.
-          </Typography>
+          <Chip label={bite ? '1 Bite Case' : 'No Bite Case'} size="small" sx={{ fontWeight: 500, bgcolor: 'var(--card-bg, #f1f5f9)', color: 'var(--text-h, #0f172a)' }} />
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={handleExpandAll}
-            sx={{ fontSize: 11.5, textTransform: 'none', fontWeight: 600, color: '#64748b', borderColor: '#cbd5e1' }}
-          >
-            Expand All
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={handleCollapseAll}
-            sx={{ fontSize: 11.5, textTransform: 'none', fontWeight: 600, color: '#64748b', borderColor: '#cbd5e1' }}
-          >
-            Collapse All
-          </Button>
-          {onOpenTreatmentCard && (
-            <Button
-              size="small"
-              variant="contained"
-              startIcon={<Icon name="print" size={14} color="#ffffff" />}
-              onClick={() => onOpenTreatmentCard()}
-              sx={{
-                fontSize: 11.5,
-                fontWeight: 700,
-                textTransform: 'none',
-                bgcolor: '#059669',
-                '&:hover': { bgcolor: '#047857' },
-                color: '#ffffff',
-              }}
-            >
-              Latest Treatment Card
-            </Button>
-          )}
-        </Box>
+        {/* ── Group 2: Doctor Treatment Assessments (One Record per Assessment) ── */}
+        {consultations.length === 0 ? (
+          <Notice tone="gray" title="No Doctor Assessments Recorded Yet">
+            Patient is registered in Form 1 and is currently in the Doctor Triage Queue awaiting initial clinical examination.
+          </Notice>
+        ) : (
+          consultations.map((c: any, idx: number) => {
+            const isReassessment = idx > 0 || Boolean(c.is_returning_reassessment || c.reassessment_decision);
+            const adminStatus = c.administration_status || 'Pending Administration';
+            const notAdminReason = c.not_administered_reason;
+            const administeredItems: any[] = c.administered_items || [];
+            const k = `assessment-${c.treatment_id || idx}`;
+            const isAssOpen = isOpen(k, false);
+            const isDocOpen = isOpen(`${k}:doctor`);
+            const isTreatOpen = isOpen(`${k}:treatment`);
+
+            let tone: Tone = 'amber';
+            let accent = '#f59e0b';
+            let statusBadgeText = 'Pending Administration';
+
+            if (adminStatus === 'Administered') {
+              tone = 'green';
+              accent = '#10b981';
+              statusBadgeText = 'Administered';
+            } else if (adminStatus === 'Not Administered') {
+              tone = 'amber';
+              accent = '#f59e0b';
+              statusBadgeText = 'Not Administered';
+            } else if (adminStatus === 'Completed Without Injection') {
+              tone = 'gray';
+              accent = '#94a3b8';
+              statusBadgeText = 'Completed Without Injection';
+            }
+
+            const hasOrders = Boolean(c.prescribed_vaccine_type || c.prescribed_tt || c.prescribed_ats || c.prescribed_rig);
+
+            const cardNumber = String(idx + 1).padStart(3, '0');
+            const orders = [
+              c.prescribed_vaccine_type ? 'Anti-rabies vaccine' : null,
+              c.prescribed_tt ? 'TT' : null,
+              c.prescribed_ats ? 'ATS' : null,
+              c.prescribed_rig ? 'RIG' : null,
+            ].filter(Boolean).join(', ');
+            const orderSummary = c.reassessment_decision === 'continue'
+              ? `Previous ${orders || 'treatment'} order confirmed`
+              : orders ? `${orders} prescribed` : null;
+            const given = [...new Set(administeredItems.map(item => item.type || item.product).filter(Boolean))].join(', ');
+            const administrationSummary = adminStatus === 'Administered'
+              ? given ? `${given} administered` : 'Treatment administered'
+              : adminStatus === 'Not Administered' ? 'Injection not administered'
+              : adminStatus === 'Completed Without Injection' ? 'Completed without injection'
+              : 'Awaiting administration';
+
+            return (
+              <Box
+                component="article"
+                aria-labelledby={`${k}-title`}
+                key={c.treatment_id || idx}
+                sx={{
+                  bgcolor: 'var(--card-bg-solid, #ffffff)',
+                  border: '1px solid var(--border-glow, #e2e8f0)',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                }}
+              >
+                <Box sx={{ p: { xs: 1.75, sm: 2 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
+                    <Typography id={`${k}-title`} component="h3" sx={{ fontWeight: 600, fontSize: 19, color: 'var(--text-h, #0f172a)' }}>
+                      Treatment Card #{cardNumber}
+                    </Typography>
+                    <StatusChip tone={tone} label={statusBadgeText} />
+                  </Box>
+                  <Typography sx={{ mt: 1.25, fontSize: 14, color: 'var(--text-m, #64748b)' }}>
+                    {fmtDay(toDay(c.consultation_date))} &bull; {isReassessment ? 'Reassessment' : 'Initial diagnosis'}
+                  </Typography>
+                  <Typography sx={{ mt: 1.25, fontSize: 16, lineHeight: 1.6, color: 'var(--text-h, #0f172a)' }}>
+                    {[c.exposure_category ? `Category ${c.exposure_category}` : 'Category not recorded', orderSummary, administrationSummary].filter(Boolean).join(' \u2022 ')}
+                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mt: 1.25, flexWrap: 'wrap' }}>
+                    <Button
+                      size="small"
+                      onClick={() => toggle(k, false)}
+                      aria-expanded={isAssOpen}
+                      aria-controls={`${k}-details`}
+                      sx={{ textTransform: 'none', color: 'var(--text-m, #64748b)', fontSize: 12, px: 0.5 }}
+                    >
+                      {isAssOpen ? 'Hide details' : 'View details'}
+                    </Button>
+                    {onOpenTreatmentCard && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={!c.treatment_id}
+                        aria-label={`Print treatment card ${cardNumber}`}
+                        startIcon={<Icon name="print" size={18} color="currentColor" />}
+                        onClick={() => onOpenTreatmentCard(c.treatment_id)}
+                        sx={{ borderRadius: '999px', px: 1.75, py: 0.4, fontSize: 14, fontWeight: 500, textTransform: 'none', color: 'var(--text-h, #0f172a)', borderColor: 'var(--border-glow, #d1d5db)' }}
+                      >
+                        Print card
+                      </Button>
+                    )}
+                  </Box>
+                </Box>
+
+                {/* Assessment Body (Collapsible) */}
+                <Collapse id={`${k}-details`} in={isAssOpen} unmountOnExit>
+                  <Box
+                    sx={{
+                      borderTop: '1px solid var(--border-glow, #e2e8f0)',
+                      p: 2,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1.75,
+                      bgcolor: 'var(--bg-secondary, #f9fafb)',
+                    }}
+                  >
+                    {/* ── Sub-card 1: Doctor Diagnosis & Assessment ── */}
+                    <Box
+                      sx={{
+                        bgcolor: 'var(--card-bg-solid, #ffffff)',
+                        border: '1px solid #bfdbfe',
+                        borderRadius: 2,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <Box
+                        {...clickableProps(() => toggle(`${k}:doctor`))}
+                        aria-expanded={isDocOpen}
+                        sx={{
+                          px: 1.75,
+                          py: 1.1,
+                          bgcolor: '#eff6ff',
+                          borderBottom: isDocOpen ? '1px solid #bfdbfe' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          '&:hover': { bgcolor: '#dbeafe' },
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Icon name="reports" size={16} color="#1e40af" />
+                          <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#1e40af' }}>
+                            Clinical Examination &amp; Doctor Diagnosis
+                          </Typography>
+                          <Chip
+                            label={`Dr. ${c.provider_name || 'Physician'}`}
+                            size="small"
+                            sx={{ height: 20, fontSize: 10.5, bgcolor: '#dbeafe', color: '#1d4ed8', fontWeight: 600 }}
+                          />
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <span style={{ fontSize: 11.5, color: '#1e40af', fontWeight: 700 }}>
+                            {isDocOpen ? 'Hide Diagnosis' : 'Show Diagnosis'}
+                          </span>
+                          <ToggleArrow open={isDocOpen} />
+                        </Box>
+                      </Box>
+
+                      <Collapse in={isDocOpen} unmountOnExit>
+                        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                          {/* Vitals Grid */}
+                          <Box
+                            sx={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                              gap: 1.25,
+                              p: 1.25,
+                              bgcolor: '#f8fafc',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: 1.5,
+                            }}
+                          >
+                            <Field
+                              label="Blood Pressure"
+                              value={c.blood_pressure || (c.vital_signs_sbp ? `${c.vital_signs_sbp}/${c.vital_signs_dbp}` : '—')}
+                            />
+                            <Field
+                              label="Heart Rate"
+                              value={c.heart_rate || c.vital_signs_heart_rate ? `${c.heart_rate || c.vital_signs_heart_rate} bpm` : '—'}
+                            />
+                            <Field
+                              label="Respiratory Rate"
+                              value={c.respiratory_rate || c.vital_signs_respiratory_rate ? `${c.respiratory_rate || c.vital_signs_respiratory_rate} /min` : '—'}
+                            />
+                            <Field
+                              label="Temperature"
+                              value={c.temperature || c.vital_signs_temperature ? `${c.temperature || c.vital_signs_temperature} °C` : '—'}
+                            />
+                            <Field
+                              label="Weight"
+                              value={c.weight || c.vital_signs_weight ? `${c.weight || c.vital_signs_weight} kg` : '—'}
+                            />
+                          </Box>
+
+                          {/* Diagnosis & Findings */}
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <Field
+                              label="Doctor Diagnosis"
+                              value={
+                                c.diagnosis ||
+                                (c.exposure_category
+                                  ? `Animal Bite Exposure — Category ${c.exposure_category}`
+                                  : 'Pending Doctor Notes')
+                              }
+                            />
+
+                            {c.doctor_notes && (
+                              <Field label="Clinical Notes / Findings" value={c.doctor_notes} />
+                            )}
+
+                            {c.assessment_summary && (
+                              <Field label="Assessment Summary" value={c.assessment_summary} />
+                            )}
+                          </Box>
+
+                          {/* Reassessment Continuity Banner */}
+                          {isReassessment && (
+                            <Notice
+                              tone="blue"
+                              title="Reassessment Visit Linked to Bite Case"
+                            >
+                              {c.reassessment_decision === 'continue' ? (
+                                <span>
+                                  Doctor confirmed continuation of the previous prescription orders. The previous assessment form is preserved intact in medical history.
+                                </span>
+                              ) : c.reassessment_decision === 'modify' ? (
+                                <span>
+                                  Doctor modified the treatment plan during this reassessment.
+                                </span>
+                              ) : c.reassessment_decision === 'no_treatment' ? (
+                                <span>
+                                  Reassessment determined no further injections are required.
+                                </span>
+                              ) : (
+                                <span>
+                                  Reassessment conducted for returning patient without creating a duplicate bite case.
+                                </span>
+                              )}
+                            </Notice>
+                          )}
+
+                          {/* Prescribed Orders Summary */}
+                          <Box sx={{ mt: 0.5, p: 1.25, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 1.5 }}>
+                            <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.75 }}>
+                              Doctor Treatment Orders (Prescription)
+                            </Typography>
+                            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 1 }}>
+                              <div>
+                                <span style={{ fontSize: 10.5, color: '#166534', fontWeight: 600, display: 'block' }}>Anti-Rabies Vaccine:</span>
+                                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#14532d' }}>
+                                  {c.prescribed_vaccine_type ? `Prescribed (${c.prescribed_vaccine_type})` : c.exposure_category === 'I' ? 'Not Indicated (Cat I)' : '—'}
+                                </span>
+                              </div>
+                              <div>
+                                <span style={{ fontSize: 10.5, color: '#166534', fontWeight: 600, display: 'block' }}>Tetanus Toxoid (TT):</span>
+                                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#14532d' }}>
+                                  {c.prescribed_tt ? `Prescribed (${c.prescribed_tt})` : 'None'}
+                                </span>
+                              </div>
+                              <div>
+                                <span style={{ fontSize: 10.5, color: '#166534', fontWeight: 600, display: 'block' }}>Anti-Tetanus Serum (ATS):</span>
+                                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#14532d' }}>
+                                  {c.prescribed_ats ? `Prescribed (${c.prescribed_ats})` : 'None'}
+                                </span>
+                              </div>
+                              <div>
+                                <span style={{ fontSize: 10.5, color: '#166534', fontWeight: 600, display: 'block' }}>Rabies Immunoglobulin (RIG):</span>
+                                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#14532d' }}>
+                                  {c.prescribed_rig ? `Prescribed (${c.prescribed_rig})` : c.exposure_category === 'III' ? 'Indicated' : 'Not Indicated'}
+                                </span>
+                              </div>
+                            </Box>
+                          </Box>
+                        </Box>
+                      </Collapse>
+                    </Box>
+
+                    {/* ── Sub-card 2: Treatment Card & Administration Status ── */}
+                    <Box
+                      sx={{
+                        bgcolor: 'var(--card-bg-solid, #ffffff)',
+                        border: `1px solid ${accent}`,
+                        borderRadius: 2,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <Box
+                        {...clickableProps(() => toggle(`${k}:treatment`))}
+                        aria-expanded={isTreatOpen}
+                        sx={{
+                          px: 1.75,
+                          py: 1.1,
+                          bgcolor: adminStatus === 'Administered' ? '#ecfdf5' : adminStatus === 'Not Administered' ? '#fef2f2' : '#f8fafc',
+                          borderBottom: isTreatOpen ? `1px solid ${accent}` : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          '&:hover': { opacity: 0.95 },
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Icon name="vaccinations" size={16} color="#047857" />
+                          <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#047857' }}>
+                            Treatment Card &amp; Actual Administration Status
+                          </Typography>
+                          <StatusChip tone={tone} label={statusBadgeText} />
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <span style={{ fontSize: 11.5, color: '#047857', fontWeight: 700 }}>
+                            {isTreatOpen ? 'Hide Treatment Card' : 'Show Treatment Card'}
+                          </span>
+                          <ToggleArrow open={isTreatOpen} />
+                        </Box>
+                      </Box>
+
+                      <Collapse in={isTreatOpen} unmountOnExit>
+                        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                          {/* Status Alert Banner */}
+                          {adminStatus === 'Administered' && (
+                            <Notice tone="green" title={`Confirmed Administered by Nurse on ${fmtDay(c.consultation_date)}`}>
+                              Injections were administered and verified in Form 3. Stock deductions were recorded.
+                            </Notice>
+                          )}
+
+                          {adminStatus === 'Not Administered' && (
+                            <Notice tone="red" title="Prescribed Treatment Was Not Administered">
+                              {notAdminReason || 'Patient left clinic prior to injection. The treatment card preserves this unadministered assessment.'}
+                            </Notice>
+                          )}
+
+                          {adminStatus === 'Completed Without Injection' && (
+                            <Notice tone="gray" title="Case Completed Without Injection">
+                              {c.exposure_category === 'I'
+                                ? 'Category I Exposure — Anti-rabies vaccine is not medically indicated.'
+                                : 'Doctor determined that no injections were needed for this assessment.'}
+                            </Notice>
+                          )}
+
+                          {/* Administered Injections Table (if administered) */}
+                          {administeredItems.length > 0 && (
+                            <Box sx={{ mt: 0.5 }}>
+                              <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#047857', textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.5 }}>
+                                Administered Medications in this Assessment Session
+                              </Typography>
+                              <Box
+                                component="table"
+                                sx={{
+                                  width: '100%',
+                                  borderCollapse: 'collapse',
+                                  fontSize: 12,
+                                  '& th': { textAlign: 'left', p: '6px 10px', bgcolor: '#f1f5f9', color: '#475569', fontWeight: 700, borderBottom: '1px solid #cbd5e1' },
+                                  '& td': { p: '7px 10px', borderBottom: '1px solid #f1f5f9', color: '#1e293b' },
+                                }}
+                              >
+                                <thead>
+                                  <tr>
+                                    <th>Treatment / Vaccine</th>
+                                    <th>Product</th>
+                                    <th>Dose · Route</th>
+                                    <th>Date</th>
+                                    <th>Administered By</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {administeredItems.map((it: any, i: number) => (
+                                    <tr key={i}>
+                                      <td style={{ fontWeight: 700 }}>{it.type || it.product}</td>
+                                      <td>{it.product || it.type}</td>
+                                      <td>{[it.dosage_ml ? `${it.dosage_ml} mL` : null, it.dose_iu ? `${it.dose_iu} IU` : null, it.route || 'IM'].filter(Boolean).join(' · ')}</td>
+                                      <td>{fmtDay(it.date_administered || c.consultation_date)}</td>
+                                      <td>{it.administered_by || 'Staff Nurse'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </Box>
+                            </Box>
+                          )}
+
+                          {/* Printable Card Callout & Button */}
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: 1,
+                              p: 1.25,
+                              bgcolor: '#f8fafc',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: 1.5,
+                              mt: 0.5,
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Icon name="reports" size={15} color="#0369a1" />
+                              <Typography sx={{ fontSize: 12, color: '#475569' }}>
+                                <strong>Official Animal Bite Treatment Form (Assessment #{idx + 1}):</strong> displays diagnosis, exposure category, prescribed treatment, and actual administration status.
+                              </Typography>
+                            </Box>
+
+                            {onOpenTreatmentCard && (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                startIcon={<Icon name="print" size={14} color="#ffffff" />}
+                                onClick={() => onOpenTreatmentCard(c.treatment_id)}
+                                sx={{
+                                  textTransform: 'none',
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  bgcolor: '#0284c7',
+                                  '&:hover': { bgcolor: '#0369a1' },
+                                  py: 0.4,
+                                  px: 1.5,
+                                  fontFamily: 'inherit',
+                                }}
+                              >
+                                Open Printable Form →
+                              </Button>
+                            )}
+                          </Box>
+                        </Box>
+                      </Collapse>
+                    </Box>
+                  </Box>
+                </Collapse>
+              </Box>
+            );
+          })
+        )}
+
       </Box>
 
       {/* ── Dose Progress Strip (For Category II/III) ── */}
@@ -450,468 +811,6 @@ export function PatientHistoryInlineView({
           </Box>
         </Collapse>
       </Box>
-
-      {/* ── Group 2: Doctor Treatment Assessments (One Record per Assessment) ── */}
-      {consultations.length === 0 ? (
-        <Notice tone="gray" title="No Doctor Assessments Recorded Yet">
-          Patient is registered in Form 1 and is currently in the Doctor Triage Queue awaiting initial clinical examination.
-        </Notice>
-      ) : (
-        consultations.map((c: any, idx: number) => {
-          const isReassessment = idx > 0 || Boolean(c.is_returning_reassessment || c.reassessment_decision);
-          const adminStatus = c.administration_status || 'Pending Administration';
-          const notAdminReason = c.not_administered_reason;
-          const administeredItems: any[] = c.administered_items || [];
-          const k = `assessment-${c.treatment_id || idx}`;
-          const isAssOpen = isOpen(k);
-          const isDocOpen = isOpen(`${k}:doctor`);
-          const isTreatOpen = isOpen(`${k}:treatment`);
-
-          let tone: Tone = 'amber';
-          let accent = '#f59e0b';
-          let statusBadgeText = 'Prescribed – Pending Administration';
-
-          if (adminStatus === 'Administered') {
-            tone = 'green';
-            accent = '#10b981';
-            statusBadgeText = 'Administered';
-          } else if (adminStatus === 'Not Administered') {
-            tone = 'red';
-            accent = '#ef4444';
-            statusBadgeText = 'Not Administered';
-          } else if (adminStatus === 'Completed Without Injection') {
-            tone = 'gray';
-            accent = '#94a3b8';
-            statusBadgeText = 'Completed Without Injection';
-          }
-
-          const hasOrders = Boolean(c.prescribed_vaccine_type || c.prescribed_tt || c.prescribed_ats || c.prescribed_rig);
-
-          return (
-            <Box
-              key={c.treatment_id || idx}
-              sx={{
-                bgcolor: 'var(--card-bg-solid, #ffffff)',
-                border: '1px solid var(--border-glow, #e2e8f0)',
-                borderLeft: `4px solid ${accent}`,
-                borderRadius: 2.5,
-                overflow: 'hidden',
-                boxShadow: isAssOpen ? '0 2px 6px rgba(0,0,0,0.05)' : 'none',
-              }}
-            >
-              {/* Outer Header: Assessment Summary & Print Button */}
-              <Box
-                {...clickableProps(() => toggle(k))}
-                aria-expanded={isAssOpen}
-                sx={{
-                  px: 2,
-                  py: 1.5,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 1.5,
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                  bgcolor: isAssOpen ? 'var(--card-bg, #f8fafc)' : 'transparent',
-                  '&:hover': { bgcolor: 'var(--card-bg, #f1f5f9)' },
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
-                  <Box
-                    sx={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: '50%',
-                      bgcolor: accent,
-                      color: '#ffffff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 13,
-                      fontWeight: 800,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {idx + 1}
-                  </Box>
-
-                  <Box sx={{ minWidth: 0 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                      <Typography sx={{ fontWeight: 700, fontSize: 14.5, color: 'var(--text-h, #0f172a)' }}>
-                        Assessment {idx + 1}: {isReassessment ? 'Doctor Reassessment (Returning Visit)' : 'Initial Doctor Consultation'}
-                      </Typography>
-                      <span style={{ fontSize: 12, color: 'var(--text-m, #64748b)' }}>
-                        • {fmtDay(c.consultation_date)} {c.consultation_time ? `(${c.consultation_time})` : ''}
-                      </span>
-                    </Box>
-                    <Typography sx={{ fontSize: 12, color: 'var(--text-m, #64748b)', mt: 0.25 }}>
-                      Attending: Dr. {c.provider_name || 'Physician'} · Exposure: <strong>Category {c.exposure_category || '—'}</strong>
-                      {c.reassessment_decision && ` · Decision: ${String(c.reassessment_decision).replace(/_/g, ' ')}`}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <StatusChip tone={tone} label={statusBadgeText} />
-                  {onOpenTreatmentCard && (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<Icon name="print" size={14} color="#0284c7" />}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenTreatmentCard(c.treatment_id);
-                      }}
-                      sx={{
-                        fontSize: 11.5,
-                        fontWeight: 700,
-                        textTransform: 'none',
-                        fontFamily: 'inherit',
-                        py: 0.35,
-                        px: 1.25,
-                        borderColor: '#0284c7',
-                        color: '#0284c7',
-                        bgcolor: 'rgba(2, 132, 199, 0.06)',
-                        '&:hover': { bgcolor: 'rgba(2, 132, 199, 0.12)', borderColor: '#0369a1' },
-                      }}
-                    >
-                      Print Form (Assessment #{idx + 1})
-                    </Button>
-                  )}
-                  <ToggleArrow open={isAssOpen} />
-                </Box>
-              </Box>
-
-              {/* Assessment Body (Collapsible) */}
-              <Collapse in={isAssOpen} unmountOnExit>
-                <Box
-                  sx={{
-                    borderTop: '1px solid var(--border-glow, #e2e8f0)',
-                    p: 2,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 1.75,
-                    bgcolor: 'var(--bg-secondary, #f9fafb)',
-                  }}
-                >
-                  {/* ── Sub-card 1: Doctor Diagnosis & Assessment ── */}
-                  <Box
-                    sx={{
-                      bgcolor: 'var(--card-bg-solid, #ffffff)',
-                      border: '1px solid #bfdbfe',
-                      borderRadius: 2,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <Box
-                      {...clickableProps(() => toggle(`${k}:doctor`))}
-                      aria-expanded={isDocOpen}
-                      sx={{
-                        px: 1.75,
-                        py: 1.1,
-                        bgcolor: '#eff6ff',
-                        borderBottom: isDocOpen ? '1px solid #bfdbfe' : 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: 'pointer',
-                        userSelect: 'none',
-                        '&:hover': { bgcolor: '#dbeafe' },
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Icon name="reports" size={16} color="#1e40af" />
-                        <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#1e40af' }}>
-                          Clinical Examination &amp; Doctor Diagnosis
-                        </Typography>
-                        <Chip
-                          label={`Dr. ${c.provider_name || 'Physician'}`}
-                          size="small"
-                          sx={{ height: 20, fontSize: 10.5, bgcolor: '#dbeafe', color: '#1d4ed8', fontWeight: 600 }}
-                        />
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span style={{ fontSize: 11.5, color: '#1e40af', fontWeight: 700 }}>
-                          {isDocOpen ? 'Hide Diagnosis' : 'Show Diagnosis'}
-                        </span>
-                        <ToggleArrow open={isDocOpen} />
-                      </Box>
-                    </Box>
-
-                    <Collapse in={isDocOpen} unmountOnExit>
-                      <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                        {/* Vitals Grid */}
-                        <Box
-                          sx={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                            gap: 1.25,
-                            p: 1.25,
-                            bgcolor: '#f8fafc',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: 1.5,
-                          }}
-                        >
-                          <Field
-                            label="Blood Pressure"
-                            value={c.blood_pressure || (c.vital_signs_sbp ? `${c.vital_signs_sbp}/${c.vital_signs_dbp}` : '—')}
-                          />
-                          <Field
-                            label="Heart Rate"
-                            value={c.heart_rate || c.vital_signs_heart_rate ? `${c.heart_rate || c.vital_signs_heart_rate} bpm` : '—'}
-                          />
-                          <Field
-                            label="Respiratory Rate"
-                            value={c.respiratory_rate || c.vital_signs_respiratory_rate ? `${c.respiratory_rate || c.vital_signs_respiratory_rate} /min` : '—'}
-                          />
-                          <Field
-                            label="Temperature"
-                            value={c.temperature || c.vital_signs_temperature ? `${c.temperature || c.vital_signs_temperature} °C` : '—'}
-                          />
-                          <Field
-                            label="Weight"
-                            value={c.weight || c.vital_signs_weight ? `${c.weight || c.vital_signs_weight} kg` : '—'}
-                          />
-                        </Box>
-
-                        {/* Diagnosis & Findings */}
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                          <Field
-                            label="Doctor Diagnosis"
-                            value={
-                              c.diagnosis ||
-                              (c.exposure_category
-                                ? `Animal Bite Exposure — Category ${c.exposure_category}`
-                                : 'Pending Doctor Notes')
-                            }
-                          />
-
-                          {c.doctor_notes && (
-                            <Field label="Clinical Notes / Findings" value={c.doctor_notes} />
-                          )}
-
-                          {c.assessment_summary && (
-                            <Field label="Assessment Summary" value={c.assessment_summary} />
-                          )}
-                        </Box>
-
-                        {/* Reassessment Continuity Banner */}
-                        {isReassessment && (
-                          <Notice
-                            tone="blue"
-                            title="Reassessment Visit Linked to Bite Case"
-                          >
-                            {c.reassessment_decision === 'continue' ? (
-                              <span>
-                                Doctor confirmed continuation of the previous prescription orders. The previous assessment form is preserved intact in medical history.
-                              </span>
-                            ) : c.reassessment_decision === 'modify' ? (
-                              <span>
-                                Doctor modified the treatment plan during this reassessment.
-                              </span>
-                            ) : c.reassessment_decision === 'no_treatment' ? (
-                              <span>
-                                Reassessment determined no further injections are required.
-                              </span>
-                            ) : (
-                              <span>
-                                Reassessment conducted for returning patient without creating a duplicate bite case.
-                              </span>
-                            )}
-                          </Notice>
-                        )}
-
-                        {/* Prescribed Orders Summary */}
-                        <Box sx={{ mt: 0.5, p: 1.25, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 1.5 }}>
-                          <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.75 }}>
-                            Doctor Treatment Orders (Prescription)
-                          </Typography>
-                          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 1 }}>
-                            <div>
-                              <span style={{ fontSize: 10.5, color: '#166534', fontWeight: 600, display: 'block' }}>Anti-Rabies Vaccine:</span>
-                              <span style={{ fontSize: 12.5, fontWeight: 700, color: '#14532d' }}>
-                                {c.prescribed_vaccine_type ? `Prescribed (${c.prescribed_vaccine_type})` : c.exposure_category === 'I' ? 'Not Indicated (Cat I)' : '—'}
-                              </span>
-                            </div>
-                            <div>
-                              <span style={{ fontSize: 10.5, color: '#166534', fontWeight: 600, display: 'block' }}>Tetanus Toxoid (TT):</span>
-                              <span style={{ fontSize: 12.5, fontWeight: 700, color: '#14532d' }}>
-                                {c.prescribed_tt ? `Prescribed (${c.prescribed_tt})` : 'None'}
-                              </span>
-                            </div>
-                            <div>
-                              <span style={{ fontSize: 10.5, color: '#166534', fontWeight: 600, display: 'block' }}>Anti-Tetanus Serum (ATS):</span>
-                              <span style={{ fontSize: 12.5, fontWeight: 700, color: '#14532d' }}>
-                                {c.prescribed_ats ? `Prescribed (${c.prescribed_ats})` : 'None'}
-                              </span>
-                            </div>
-                            <div>
-                              <span style={{ fontSize: 10.5, color: '#166534', fontWeight: 600, display: 'block' }}>Rabies Immunoglobulin (RIG):</span>
-                              <span style={{ fontSize: 12.5, fontWeight: 700, color: '#14532d' }}>
-                                {c.prescribed_rig ? `Prescribed (${c.prescribed_rig})` : c.exposure_category === 'III' ? 'Indicated' : 'Not Indicated'}
-                              </span>
-                            </div>
-                          </Box>
-                        </Box>
-                      </Box>
-                    </Collapse>
-                  </Box>
-
-                  {/* ── Sub-card 2: Treatment Card & Administration Status ── */}
-                  <Box
-                    sx={{
-                      bgcolor: 'var(--card-bg-solid, #ffffff)',
-                      border: `1px solid ${accent}`,
-                      borderRadius: 2,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <Box
-                      {...clickableProps(() => toggle(`${k}:treatment`))}
-                      aria-expanded={isTreatOpen}
-                      sx={{
-                        px: 1.75,
-                        py: 1.1,
-                        bgcolor: adminStatus === 'Administered' ? '#ecfdf5' : adminStatus === 'Not Administered' ? '#fef2f2' : '#f8fafc',
-                        borderBottom: isTreatOpen ? `1px solid ${accent}` : 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: 'pointer',
-                        userSelect: 'none',
-                        '&:hover': { opacity: 0.95 },
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Icon name="vaccinations" size={16} color="#047857" />
-                        <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#047857' }}>
-                          Treatment Card &amp; Actual Administration Status
-                        </Typography>
-                        <StatusChip tone={tone} label={statusBadgeText} />
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span style={{ fontSize: 11.5, color: '#047857', fontWeight: 700 }}>
-                          {isTreatOpen ? 'Hide Treatment Card' : 'Show Treatment Card'}
-                        </span>
-                        <ToggleArrow open={isTreatOpen} />
-                      </Box>
-                    </Box>
-
-                    <Collapse in={isTreatOpen} unmountOnExit>
-                      <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                        {/* Status Alert Banner */}
-                        {adminStatus === 'Administered' && (
-                          <Notice tone="green" title={`Confirmed Administered by Nurse on ${fmtDay(c.consultation_date)}`}>
-                            Injections were administered and verified in Form 3. Stock deductions were recorded.
-                          </Notice>
-                        )}
-
-                        {adminStatus === 'Not Administered' && (
-                          <Notice tone="red" title="Prescribed Treatment Was Not Administered">
-                            {notAdminReason || 'Patient left clinic prior to injection. The treatment card preserves this unadministered assessment.'}
-                          </Notice>
-                        )}
-
-                        {adminStatus === 'Completed Without Injection' && (
-                          <Notice tone="gray" title="Case Completed Without Injection">
-                            {c.exposure_category === 'I'
-                              ? 'Category I Exposure — Anti-rabies vaccine is not medically indicated.'
-                              : 'Doctor determined that no injections were needed for this assessment.'}
-                          </Notice>
-                        )}
-
-                        {/* Administered Injections Table (if administered) */}
-                        {administeredItems.length > 0 && (
-                          <Box sx={{ mt: 0.5 }}>
-                            <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#047857', textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.5 }}>
-                              Administered Medications in this Assessment Session
-                            </Typography>
-                            <Box
-                              component="table"
-                              sx={{
-                                width: '100%',
-                                borderCollapse: 'collapse',
-                                fontSize: 12,
-                                '& th': { textAlign: 'left', p: '6px 10px', bgcolor: '#f1f5f9', color: '#475569', fontWeight: 700, borderBottom: '1px solid #cbd5e1' },
-                                '& td': { p: '7px 10px', borderBottom: '1px solid #f1f5f9', color: '#1e293b' },
-                              }}
-                            >
-                              <thead>
-                                <tr>
-                                  <th>Treatment / Vaccine</th>
-                                  <th>Product</th>
-                                  <th>Dose · Route</th>
-                                  <th>Date</th>
-                                  <th>Administered By</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {administeredItems.map((it: any, i: number) => (
-                                  <tr key={i}>
-                                    <td style={{ fontWeight: 700 }}>{it.type || it.product}</td>
-                                    <td>{it.product || it.type}</td>
-                                    <td>{[it.dosage_ml ? `${it.dosage_ml} mL` : null, it.dose_iu ? `${it.dose_iu} IU` : null, it.route || 'IM'].filter(Boolean).join(' · ')}</td>
-                                    <td>{fmtDay(it.date_administered || c.consultation_date)}</td>
-                                    <td>{it.administered_by || 'Staff Nurse'}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </Box>
-                          </Box>
-                        )}
-
-                        {/* Printable Card Callout & Button */}
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            gap: 1,
-                            p: 1.25,
-                            bgcolor: '#f8fafc',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: 1.5,
-                            mt: 0.5,
-                          }}
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Icon name="reports" size={15} color="#0369a1" />
-                            <Typography sx={{ fontSize: 12, color: '#475569' }}>
-                              <strong>Official Animal Bite Treatment Form (Assessment #{idx + 1}):</strong> displays diagnosis, exposure category, prescribed treatment, and actual administration status.
-                            </Typography>
-                          </Box>
-
-                          {onOpenTreatmentCard && (
-                            <Button
-                              size="small"
-                              variant="contained"
-                              startIcon={<Icon name="print" size={14} color="#ffffff" />}
-                              onClick={() => onOpenTreatmentCard(c.treatment_id)}
-                              sx={{
-                                textTransform: 'none',
-                                fontSize: 12,
-                                fontWeight: 700,
-                                bgcolor: '#0284c7',
-                                '&:hover': { bgcolor: '#0369a1' },
-                                py: 0.4,
-                                px: 1.5,
-                                fontFamily: 'inherit',
-                              }}
-                            >
-                              Open Printable Form →
-                            </Button>
-                          )}
-                        </Box>
-                      </Box>
-                    </Collapse>
-                  </Box>
-                </Box>
-              </Collapse>
-            </Box>
-          );
-        })
-      )}
 
       {/* ── Group 3: Follow-up Routine PEP Schedule & Upcoming Doses (Collapsible) ── */}
       {!isCategory1 && upcomingAppointments.length > 0 && (

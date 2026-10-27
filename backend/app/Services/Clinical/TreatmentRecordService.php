@@ -125,7 +125,7 @@ class TreatmentRecordService
                 ->where(function($q) {
                     $q->where('status', 'completed')
                       ->orWhere(function($sub) {
-                          $sub->whereNotNull('treatment_date')->where('status', '!=', 'scheduled');
+                          $sub->whereNotNull('treatment_date')->whereNotIn('status', ['scheduled', 'cancelled']);
                       });
                 })
                 ->exists();
@@ -190,6 +190,15 @@ class TreatmentRecordService
                 ->whereIn('status', ['active', 'awaiting_assessment'])
                 ->latest('bite_id')
                 ->first();
+
+            if (!$activeIncident && (!$queueForEpisode || $queueForEpisode->bite_id !== null)) {
+                $activeIncident = BiteIncident::where('clinic_id', $clinicId)
+                    ->where('patient_id', $validated['patient_id'])
+                    ->where('status', 'completed')
+                    ->where('severity', 'minor')
+                    ->latest('bite_id')
+                    ->first();
+            }
         }
 
         if (!$activeIncident && $queueForEpisode && $queueForEpisode->visit_type === 'new_case') {
@@ -254,7 +263,7 @@ class TreatmentRecordService
             ->where(function($q) {
                 $q->where('status', 'completed')
                   ->orWhere(function($sub) {
-                      $sub->whereNotNull('treatment_date')->where('status', '!=', 'scheduled');
+                      $sub->whereNotNull('treatment_date')->whereNotIn('status', ['scheduled', 'cancelled']);
                   });
             })
             ->exists();
@@ -285,7 +294,7 @@ class TreatmentRecordService
             ->where('patient_id', $validated['patient_id'])
             ->where('bite_id', $activeIncident->bite_id)
             ->whereNull('dose_number')->whereNull('medication_given')
-            ->where('status', 'scheduled')
+            ->latest('treatment_id')
             ->first();
 
         $submittedCategory = $validated['exposure_category'] ?? null;
@@ -406,6 +415,30 @@ class TreatmentRecordService
             ];
 
             $activeIncident->update($incidentUpdates);
+
+            if ($isCategory1 && !$hasTetanusOrder) {
+                $intake = $activeIncident->intake;
+                $intakeMode = is_array($intake?->exposure_modes) ? ($intake->exposure_modes[0] ?? null) : null;
+                $intakeSite = is_array($intake?->exposure_sites) ? implode(', ', $intake->exposure_sites) : null;
+                TagoloanTreatmentCard::firstOrCreate(
+                    [
+                        'clinic_id' => $clinicId,
+                        'patient_id' => $validated['patient_id'],
+                        'bite_id' => $activeIncident->bite_id,
+                    ],
+                    [
+                        'card_date' => $validated['consultation_date'] ?? Carbon::today()->toDateString(),
+                        'registry_no' => $activeIncident->case_number,
+                        'exposure_category' => 'I',
+                        'mode_of_exposure' => $activeIncident->exposure_mode ?? $intakeMode,
+                        'body_part_exposed' => $activeIncident->body_part_exposed ?? $activeIncident->site_number ?? $intakeSite,
+                        'animal_type' => $activeIncident->animal_type ?? $intake?->animal_species,
+                        'animal_type_others' => $activeIncident->animal_type_others ?? $intake?->animal_species_other,
+                        'referred_by' => $validated['referred_by'] ?? $validated['referred_from'] ?? $activeIncident->referred_from,
+                        'created_by' => $user->id,
+                    ]
+                );
+            }
         } elseif ($activeIncident->isAwaitingAssessment()) {
             $activeIncident->update([
                 'episode_type' => 'primary',
@@ -438,6 +471,17 @@ class TreatmentRecordService
                 ->where('queue_date', Carbon::today()->toDateString())
                 ->whereIn('status', ['waiting', 'called', 'in_consultation', 'serving', 'second_chance', 'final_recall'])
                 ->whereIn('visit_type', ['new_case', 'follow_up', 'observation', 'consultation'])
+                ->whereNull('deleted_at')
+                ->latest('queue_id')
+                ->first();
+        }
+
+        if (!$todayQueue && !$isReferralOut && !$planStopsImmediateTreatment) {
+            $todayQueue = Queue::where('clinic_id', $clinicId)
+                ->where('patient_id', $validated['patient_id'])
+                ->where('bite_id', $activeIncident->bite_id)
+                ->where('queue_date', Carbon::today()->toDateString())
+                ->where('status', 'completed')
                 ->whereNull('deleted_at')
                 ->latest('queue_id')
                 ->first();

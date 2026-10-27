@@ -6,6 +6,9 @@ export interface PrintableTreatmentRecord {
   dose_number?: number;
   period?: string;
   route?: string;
+  injection_site?: string;
+  dosage_ml?: string | number;
+  dose_iu?: string | number;
   treatment_date?: string;
   scheduled_date?: string;
   vaccine_type?: string;
@@ -18,6 +21,8 @@ export interface PrintableTreatmentRecord {
   signature?: string;
   treatment_id?: number | string;
   status?: string;
+  outcome?: string;
+  remarks?: string;
   voided_at?: string | null;
   medication_given?: string;
 }
@@ -47,6 +52,7 @@ export interface PrintableFormRecord {
     bite_date?: string;
     bite_place?: string;
     exposure_category?: string;
+    severity?: string;
     case_number?: string;
     referred_from?: string;
     mode_of_exposure?: string;
@@ -67,6 +73,20 @@ export interface PrintableFormRecord {
   pastPepCompleted?: boolean;
   icd10Code?: string;
   treatment_records?: PrintableTreatmentRecord[];
+  prophylaxis_records?: PrintableTreatmentRecord[];
+  latest_consultation?: {
+    prescribed_vaccine_type?: string | null;
+    medication_treatment?: string | null;
+    prophylaxis_orders?: {
+      tetanus_category?: string | null;
+      tetanus_vaccine?: string | null;
+      tetanus_passive?: string | null;
+      rig?: string | null;
+      notes?: string | null;
+    } | null;
+    diagnosis?: string | null;
+    remarks?: string | null;
+  } | null;
   doses?: PrintableTreatmentRecord[];
 }
 
@@ -82,7 +102,15 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
   const logos = record?.logos;
   const patient = record?.patient;
   const bite = record?.bite;
-  const records = record?.treatment_records || record?.doses || [];
+  const baseRecords = record?.treatment_records || record?.doses || [];
+  const extraProphylaxis = record?.prophylaxis_records || [];
+  const records: PrintableTreatmentRecord[] = [...baseRecords];
+  extraProphylaxis.forEach((pr) => {
+    if (!records.some((r) => (r.treatment_id && pr.treatment_id && r.treatment_id === pr.treatment_id) || r === pr)) {
+      records.push(pr);
+    }
+  });
+  const latestConsultation = record?.latest_consultation || null;
 
   const clinicName = clinic?.name || 'TAGOLOAN ANIMAL BITE TREATMENT CENTER';
   const dohAccredNo = clinic?.doh_accreditation_no || '2022-10-037';
@@ -110,11 +138,18 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
     : '—';
 
   // Format Exposure Category
-  const rawCat = record?.exposureCategory || bite?.exposure_category || '';
-  const formattedCat = rawCat
-    ? rawCat.toUpperCase().startsWith('CAT')
-      ? rawCat
-      : `Category ${rawCat}`
+  const severityFallback = bite?.severity === 'minor'
+    ? 'I'
+    : bite?.severity === 'moderate'
+    ? 'II'
+    : bite?.severity === 'severe'
+    ? 'III'
+    : '';
+  const rawCat = record?.exposureCategory || bite?.exposure_category || severityFallback || '';
+  const normalizedCat = rawCat.replace(/^category\s*/i, '').trim().toUpperCase();
+  const isCat1 = normalizedCat === 'I';
+  const formattedCat = normalizedCat
+    ? `Category ${normalizedCat}`
     : '—';
 
   // Format Animal Type
@@ -136,57 +171,266 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
     formattedPastBite = `No / PEP completed: ${pepCompleted ? 'Yes' : 'No'}`;
   }
 
+  // Prescriptions from Doctor Form 2
+  const pOrders = latestConsultation?.prophylaxis_orders || {};
+  const tetCat = (pOrders.tetanus_category || '').toLowerCase();
+  const orderedTtProduct = pOrders.tetanus_vaccine && pOrders.tetanus_vaccine !== 'none' ? pOrders.tetanus_vaccine : null;
+  const orderedAtsProduct = pOrders.tetanus_passive && pOrders.tetanus_passive !== 'none' ? pOrders.tetanus_passive : null;
+  const orderedRigProduct = pOrders.rig && pOrders.rig !== 'none' ? pOrders.rig : null;
+  const isTtPrescribed = Boolean(orderedTtProduct && (tetCat === 'tt' || tetCat === 'ats_tt' || !tetCat));
+  const isAtsPrescribed = Boolean(orderedAtsProduct && (tetCat === 'ats' || tetCat === 'ats_tt' || !tetCat));
+  const isRigPrescribed = Boolean(orderedRigProduct);
+  const prescribedRabiesProduct = !isCat1 && latestConsultation?.prescribed_vaccine_type && latestConsultation.prescribed_vaccine_type !== 'none'
+    ? latestConsultation.prescribed_vaccine_type
+    : null;
+
+  const isRecordGiven = (r?: PrintableTreatmentRecord) =>
+    Boolean(r && !r.voided_at && r.status !== 'cancelled' && r.outcome !== 'not_administered' && (r.status === 'completed' || Boolean(r.treatment_date)));
+
+  const isRecordNotAdministered = (r?: PrintableTreatmentRecord) =>
+    Boolean(r && !r.voided_at && (r.status === 'cancelled' || r.outcome === 'not_administered'));
+
+  const findTtRecord = () =>
+    records.find((r) => {
+      if (r.voided_at) return false;
+      const med = (r.medication_given || '').trim();
+      const medUpper = med.toUpperCase();
+      if (r.dose_number === 300 || r.period === 'TT') return true;
+      if (['TT', 'TD', 'TDAP', 'DTAP'].includes(medUpper)) return true;
+      if (orderedTtProduct && medUpper === orderedTtProduct.toUpperCase()) return true;
+      if (/tetan|toxoid|tetav/i.test(med) && !/anti[- ]?tetanus|serum|\bATS\b/i.test(med)) return true;
+      return false;
+    });
+
+  const findAtsRecord = () =>
+    records.find((r) => {
+      if (r.voided_at) return false;
+      const med = (r.medication_given || '').trim();
+      const medUpper = med.toUpperCase();
+      if (r.dose_number === 400 || r.dose_number === 401 || r.period === 'ATS') return true;
+      if (['ATS', 'TIG'].includes(medUpper)) return true;
+      if (orderedAtsProduct && medUpper === orderedAtsProduct.toUpperCase()) return true;
+      if (/anti[- ]?tetanus|tetanus serum|\bATS\b/i.test(med)) return true;
+      return false;
+    });
+
+  const findRigRecord = () =>
+    records.find(
+      (r) =>
+        !r.voided_at &&
+        (r.dose_number === 200 ||
+          r.dose_number === 201 ||
+          (r.medication_given ? ['ERIG', 'HRIG', 'RIG'].includes(r.medication_given.toUpperCase()) : false) ||
+          r.period === 'ERIG')
+    );
+
+  const d0Rec = records.find((r) => !r.voided_at && (r.dose_number === 0 || r.period === 'Day 0'));
+  const d3Rec = records.find((r) => !r.voided_at && (r.dose_number === 3 || r.period === 'Day 3'));
+  const d7Rec = records.find((r) => !r.voided_at && (r.dose_number === 7 || r.period === 'Day 7'));
+  const rigRec = findRigRecord();
+  const ttRec = findTtRecord();
+  const atsRec = findAtsRecord();
+
+  const rabiesAdministeredRecords = [d0Rec, d3Rec, d7Rec].filter((r): r is PrintableTreatmentRecord => isRecordGiven(r));
+  const ttGiven = isRecordGiven(ttRec);
+  const ttNotAdmin = isRecordNotAdministered(ttRec);
+  const atsGiven = isRecordGiven(atsRec);
+  const atsNotAdmin = isRecordNotAdministered(atsRec);
+  const rigGiven = isRecordGiven(rigRec);
+  const rigNotAdmin = isRecordNotAdministered(rigRec);
+
+  const antiRabiesStatusLabel = rabiesAdministeredRecords.length > 0
+    ? 'Administered'
+    : isCat1
+    ? 'Not Indicated'
+    : prescribedRabiesProduct
+    ? 'Prescribed – Pending Administration'
+    : normalizedCat === 'II' || normalizedCat === 'III'
+    ? 'Not Prescribed'
+    : 'Not Indicated';
+
+  const ttStatusLabel = ttGiven
+    ? 'Administered'
+    : ttNotAdmin
+    ? 'Not Administered'
+    : isTtPrescribed
+    ? 'Prescribed – Pending Administration'
+    : atsGiven
+    ? 'Not Administered'
+    : 'Not Prescribed';
+
+  const atsStatusLabel = atsGiven
+    ? 'Administered'
+    : atsNotAdmin
+    ? 'Not Administered'
+    : isAtsPrescribed
+    ? 'Prescribed – Pending Administration'
+    : ttGiven
+    ? 'Not Administered'
+    : 'Not Prescribed';
+
+  const allAdministeredRecords: PrintableTreatmentRecord[] = [
+    ...rabiesAdministeredRecords,
+    ...(rigGiven && rigRec ? [rigRec] : []),
+    ...(ttGiven && ttRec ? [ttRec] : []),
+    ...(atsGiven && atsRec ? [atsRec] : []),
+  ];
+
+  const allNotAdministeredRecords: PrintableTreatmentRecord[] = [
+    ...(rigNotAdmin && rigRec ? [rigRec] : []),
+    ...(ttNotAdmin && ttRec ? [ttRec] : []),
+    ...(atsNotAdmin && atsRec ? [atsRec] : []),
+  ];
+
+  const hasPendingOrders =
+    (!isCat1 && Boolean(prescribedRabiesProduct) && rabiesAdministeredRecords.length === 0) ||
+    (isTtPrescribed && !ttGiven && !ttNotAdmin) ||
+    (isAtsPrescribed && !atsGiven && !atsNotAdmin) ||
+    (isRigPrescribed && !rigGiven && !rigNotAdmin);
+
+  const overallTreatmentStatus =
+    isCat1 && !isTtPrescribed && !isAtsPrescribed && allAdministeredRecords.length === 0 && allNotAdministeredRecords.length === 0
+      ? 'No Injection Required'
+      : hasPendingOrders
+      ? 'Prescribed – Pending Administration'
+      : allAdministeredRecords.length > 0
+      ? 'Administered'
+      : allNotAdministeredRecords.length > 0
+      ? 'Not Administered'
+      : 'No Injection Required';
+
+  const getStaffDisplay = (r?: PrintableTreatmentRecord) => {
+    if (!r) return '';
+    const staff = r.administered_by || r.administeredBy;
+    const name = typeof staff === 'object' ? staff?.name : r.administered_by || '';
+    const lic = typeof staff === 'object' ? staff?.professional_license_no : r.professional_license_no || '';
+    if (!name) return '';
+    return lic ? `${name} (PRC: ${lic})` : String(name);
+  };
+
+  const administeredProductSummary = allAdministeredRecords.length > 0
+    ? Array.from(
+        new Set(
+          allAdministeredRecords.map(
+            (r) => r.vaccine_brand || r.vaccine_type || r.medication_given || 'Administered Vaccine'
+          )
+        )
+      ).join(', ')
+    : hasPendingOrders
+    ? `Pending (${[prescribedRabiesProduct, isTtPrescribed ? orderedTtProduct : null, isAtsPrescribed ? orderedAtsProduct : null, isRigPrescribed ? orderedRigProduct : null].filter(Boolean).join(', ')})`
+    : allNotAdministeredRecords.length > 0
+    ? `Not Administered (${allNotAdministeredRecords.map((r) => r.medication_given).filter(Boolean).join(', ')})`
+    : 'None (No Injection Required)';
+
+  const administeredDateSummary = allAdministeredRecords.length > 0
+    ? Array.from(
+        new Set(
+          allAdministeredRecords
+            .map((r) => (r.treatment_date ? formatDate(r.treatment_date) : ''))
+            .filter(Boolean)
+        )
+      ).join(', ')
+    : hasPendingOrders
+    ? 'Pending Administration'
+    : 'N/A';
+
+  const administeredDoseRouteSummary = allAdministeredRecords.length > 0
+    ? allAdministeredRecords
+        .map((r) => {
+          const parts: string[] = [];
+          if (r.dose_iu) parts.push(`${r.dose_iu} IU`);
+          if (r.dosage_ml) parts.push(`${r.dosage_ml} mL`);
+          if (r.route) parts.push(r.route.replaceAll('_', ' '));
+          if (r.injection_site) parts.push(`(${r.injection_site})`);
+          return parts.join(' ') || r.route || 'IM';
+        })
+        .join(' · ')
+    : hasPendingOrders
+    ? 'Pending Administration'
+    : 'N/A';
+
+  const administeredBySummary = allAdministeredRecords.length > 0
+    ? Array.from(new Set(allAdministeredRecords.map((r) => getStaffDisplay(r) || 'Staff Nurse'))).join(', ')
+    : allNotAdministeredRecords.length > 0
+    ? Array.from(new Set(allNotAdministeredRecords.map((r) => getStaffDisplay(r) || 'Staff Nurse'))).join(', ')
+    : 'N/A';
+
+  const remarksSummary = (() => {
+    const reasons = allNotAdministeredRecords
+      .map((r) => (r.remarks ? `${r.medication_given}: ${r.remarks}` : `${r.medication_given}: Not administered`))
+      .filter(Boolean);
+    if (reasons.length > 0) return reasons.join(' | ');
+    if (isCat1 && overallTreatmentStatus === 'No Injection Required') {
+      return 'Category I exposure — Anti-rabies PEP not indicated; no injection required.';
+    }
+    if (hasPendingOrders) {
+      return pOrders.notes
+        ? `Prescribed — Pending nurse administration (${pOrders.notes})`
+        : 'Prescribed by physician — Pending nurse administration.';
+    }
+    if (pOrders.notes) return pOrders.notes;
+    return latestConsultation?.diagnosis || 'Administered as prescribed.';
+  })();
+
   // Row definition for the unified vaccination table
   const unifiedRows = [
     {
       item: 'Day 0',
-      rec: records.find((r) => !r.voided_at && (r.dose_number === 0 || r.period === 'Day 0')),
+      rec: d0Rec,
       defaultRoute: 'IM',
+      fallbackStatus: isCat1
+        ? 'Not Indicated'
+        : prescribedRabiesProduct
+        ? `Prescribed (${prescribedRabiesProduct}) – Pending Administration`
+        : '',
     },
     {
       item: 'Day 3',
-      rec: records.find((r) => !r.voided_at && (r.dose_number === 3 || r.period === 'Day 3')),
+      rec: d3Rec,
       defaultRoute: 'IM',
+      fallbackStatus: isCat1 ? 'Not Indicated' : '',
     },
     {
       item: 'Day 7',
-      rec: records.find((r) => !r.voided_at && (r.dose_number === 7 || r.period === 'Day 7')),
+      rec: d7Rec,
       defaultRoute: 'IM',
+      fallbackStatus: isCat1 ? 'Not Indicated' : '',
     },
     {
       item: 'ERIG',
-      rec: records.find(
-        (r) =>
-          !r.voided_at &&
-          (r.dose_number === 200 ||
-            (r.medication_given ? ['ERIG', 'HRIG', 'RIG', 'TIG'].includes(r.medication_given.toUpperCase()) : false) ||
-            r.period === 'ERIG')
-      ),
+      rec: rigRec,
       defaultRoute: 'Infiltration / IM',
+      fallbackStatus: rigNotAdmin
+        ? `Not Administered${rigRec?.remarks ? ` (${rigRec.remarks})` : ''}`
+        : isRigPrescribed
+        ? `Prescribed (${orderedRigProduct}) – Pending Administration`
+        : isCat1 || normalizedCat === 'II'
+        ? 'Not Indicated'
+        : 'Not Prescribed',
     },
     {
       item: 'Tetanus vaccine',
-      rec: records.find(
-        (r) =>
-          !r.voided_at &&
-          (r.dose_number === 300 ||
-            (r.medication_given ? ['TT', 'TD', 'TDAP', 'DTAP'].includes(r.medication_given.toUpperCase()) : false) ||
-            r.period === 'TT' ||
-            Boolean(r.medication_given?.toLowerCase().includes('tetanus')))
-      ),
+      rec: ttRec,
       defaultRoute: 'IM',
+      fallbackStatus: ttNotAdmin
+        ? `Not Administered${ttRec?.remarks ? ` (${ttRec.remarks})` : ''}`
+        : isTtPrescribed
+        ? `Prescribed (${orderedTtProduct}) – Pending Administration`
+        : atsGiven
+        ? 'Not Administered'
+        : 'Not Prescribed',
     },
     {
       item: 'ATS',
-      rec: records.find(
-        (r) =>
-          !r.voided_at &&
-          (r.dose_number === 400 ||
-            r.medication_given === 'ATS' ||
-            r.period === 'ATS' ||
-            Boolean(r.medication_given?.toLowerCase().includes('anti-tetanus')))
-      ),
+      rec: atsRec,
       defaultRoute: 'IM',
+      fallbackStatus: atsNotAdmin
+        ? `Not Administered${atsRec?.remarks ? ` (${atsRec.remarks})` : ''}`
+        : isAtsPrescribed
+        ? `Prescribed (${orderedAtsProduct}) – Pending Administration`
+        : ttGiven
+        ? 'Not Administered'
+        : 'Not Prescribed',
     },
   ];
 
@@ -549,7 +793,160 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
         </div>
       </section>
 
-      {/* 5. VACCINATION RECORD (ONE MERGED TABLE) */}
+      {/* 5. TREATMENT / VACCINE ADMINISTRATION DETAILS */}
+      <section
+        style={{
+          padding: '10px 12px',
+          border: '1px solid #ccc',
+          backgroundColor: '#fafafa',
+          marginBottom: '14px',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid #d1d5db',
+            paddingBottom: '6px',
+            marginBottom: '8px',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '9.5pt',
+              fontWeight: 700,
+              color: '#111827',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+            }}
+          >
+            Treatment / Vaccine Administration Details
+          </span>
+          {!isBlank && (
+            <span
+              style={{
+                fontSize: '9pt',
+                fontWeight: 700,
+                color:
+                  overallTreatmentStatus === 'Administered'
+                    ? '#047857'
+                    : overallTreatmentStatus === 'No Injection Required'
+                    ? '#1e40af'
+                    : overallTreatmentStatus === 'Not Administered'
+                    ? '#b45309'
+                    : '#4b5563',
+              }}
+            >
+              Treatment Status: {overallTreatmentStatus}
+            </span>
+          )}
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            columnGap: '14px',
+            rowGap: '8px',
+            marginBottom: '8px',
+          }}
+        >
+          <div>
+            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
+              Exposure Category
+            </span>
+            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 600 }}>
+              {isBlank ? 'Cat. I / II / III' : formattedCat}
+            </span>
+          </div>
+
+          <div>
+            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
+              Anti-Rabies Vaccine
+            </span>
+            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 600 }}>
+              {isBlank ? '☐ Administered ☐ Not Indicated' : antiRabiesStatusLabel}
+            </span>
+          </div>
+
+          <div>
+            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
+              TT (Tetanus Toxoid)
+            </span>
+            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 600 }}>
+              {isBlank ? '☐ Administered ☐ Not Administered' : ttStatusLabel}
+            </span>
+          </div>
+
+          <div>
+            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
+              ATS (Anti-Tetanus Serum)
+            </span>
+            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 600 }}>
+              {isBlank ? '☐ Administered ☐ Not Administered' : atsStatusLabel}
+            </span>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1.4fr 0.9fr 1.1fr 1.1fr',
+            columnGap: '14px',
+            rowGap: '6px',
+            paddingTop: '6px',
+            borderTop: '1px dashed #d1d5db',
+          }}
+        >
+          <div>
+            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
+              Vaccine / Medicine Name
+            </span>
+            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 500 }}>
+              {isBlank ? '________________________' : administeredProductSummary}
+            </span>
+          </div>
+
+          <div>
+            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
+              Date Administered
+            </span>
+            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 500 }}>
+              {isBlank ? '________________' : administeredDateSummary}
+            </span>
+          </div>
+
+          <div>
+            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
+              Dose / Route
+            </span>
+            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 500 }}>
+              {isBlank ? '________________' : administeredDoseRouteSummary}
+            </span>
+          </div>
+
+          <div>
+            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
+              Administered By
+            </span>
+            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 500 }}>
+              {isBlank ? '________________' : administeredBySummary}
+            </span>
+          </div>
+
+          <div style={{ gridColumn: '1 / -1', marginTop: '2px' }}>
+            <span style={{ fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600, marginRight: '6px' }}>
+              Remarks:
+            </span>
+            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 500 }}>
+              {isBlank ? '________________________________________________________________________' : remarksSummary}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* 6. VACCINATION RECORD (ONE MERGED TABLE) */}
       <section style={{ marginBottom: '16px' }}>
         <table
           style={{
@@ -585,7 +982,8 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           <tbody>
             {unifiedRows.map((row) => {
               const rec = row.rec;
-              const isGiven = Boolean(rec && (rec.status === 'completed' || rec.treatment_date));
+              const isGiven = isRecordGiven(rec);
+              const isNotAdmin = isRecordNotAdministered(rec);
               const staff = rec?.administered_by || (rec as any)?.administeredBy;
               const staffName = typeof staff === 'object' ? staff?.name : rec?.administered_by || null;
               const staffLicense = typeof staff === 'object' ? staff?.professional_license_no : null;
@@ -604,15 +1002,21 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
                         {row.item === 'ATS' || row.item === 'Tetanus vaccine' ? '☐ IM' : '☐ ID  ☐ IM'}
                       </span>
                     ) : isGiven ? (
-                      rec?.route || 'IM'
+                      rec?.route ? rec.route.replaceAll('_', ' ') : 'IM'
                     ) : (
-                      ''
+                      '—'
                     )}
                   </td>
 
                   {/* 3. Date */}
                   <td style={{ padding: '6px 8px', border: '1px solid #ccc', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    {isBlank ? '' : isGiven && rec?.treatment_date ? formatDate(rec.treatment_date) : ''}
+                    {isBlank
+                      ? ''
+                      : isGiven && rec?.treatment_date
+                      ? formatDate(rec.treatment_date)
+                      : isNotAdmin && (rec?.scheduled_date || rec?.treatment_date)
+                      ? formatDate(rec.scheduled_date || rec.treatment_date)
+                      : '—'}
                   </td>
 
                   {/* 4. Vaccine / Lot */}
@@ -621,7 +1025,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
                       ''
                     ) : isGiven ? (
                       <span>
-                        {rec?.vaccine_type || rec?.vaccine_brand || '—'}
+                        {rec?.vaccine_type || rec?.vaccine_brand || rec?.medication_given || '—'}
                         {(rec?.batch_number || rec?.batch_no) && (
                           <span style={{ color: '#4b5563', fontSize: '9pt' }}>
                             {` · Lot: ${rec.batch_number || rec.batch_no}`}
@@ -629,7 +1033,9 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
                         )}
                       </span>
                     ) : (
-                      ''
+                      <span style={{ color: '#6b7280', fontSize: '9pt' }}>
+                        {row.fallbackStatus || '—'}
+                      </span>
                     )}
                   </td>
 
@@ -647,7 +1053,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
                         )}
                       </span>
                     ) : (
-                      ''
+                      '—'
                     )}
                   </td>
 

@@ -115,7 +115,11 @@ class VaccinationJourneyService
                 return true; // legacy null bite_id belongs to primary
             })->keyBy('dose_number');
 
-            $standardDoses  = [0, 3, 7];
+            $isPrimaryCat1 = $primaryIncident && (
+                $primaryIncident->severity === 'minor' ||
+                $primaryIncident->treatmentPlan?->plan_type === 'no_vaccine'
+            );
+            $standardDoses  = $isPrimaryCat1 ? [] : [0, 3, 7];
             $dosesMatrix    = [];
             $hasAnyDose     = $allTreatmentRecords->isNotEmpty();
             $hasForm2       = (bool) $primaryIncident;
@@ -285,7 +289,8 @@ class VaccinationJourneyService
             }
 
             // Overall patient compliance status
-            if ($p->is_category1_no_treatment || ($maxPrimaryDoseDone >= 7 && !$hasBoosterDueOrMissed)) {
+            $isCompletedCat1 = $isPrimaryCat1 && $primaryIncident->status === 'completed';
+            if ($p->is_category1_no_treatment || ($isCompletedCat1 && !$hasBoosterDueOrMissed) || ($maxPrimaryDoseDone >= 7 && !$hasBoosterDueOrMissed)) {
                 $patientStatus = 'completed';
                 $kpi['completed']++;
             } elseif (!$hasForm2 && !$hasAnyDose) {

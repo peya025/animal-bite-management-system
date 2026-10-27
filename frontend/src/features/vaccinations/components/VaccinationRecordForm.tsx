@@ -1278,7 +1278,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       return true;
     });
 
-    const activeDose = candidateDoses.find(d => !d.is_completed && !d.inventory_linked && !isDosePrerequisiteLocked(d.period));
+    const isCat1OrNoVaccine = exposureCategory === 'I'
+      || currentIncident?.exposure_category === 'I'
+      || currentIncident?.severity === 'minor'
+      || doctorPlanType === 'no_vaccine';
+
+    const activeDose = isCat1OrNoVaccine
+      ? undefined
+      : candidateDoses.find(d => !d.is_completed && !d.inventory_linked && !isDosePrerequisiteLocked(d.period));
     const targetPeriod = activeDose ? activeDose.period : activeUnlockedPeriod;
 
     if (activeDose && prophylaxisAdministrations.length === 0) {
@@ -1373,6 +1380,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     const invalidProphDate = prophylaxisAdministrations.find(p => p.date && !isValidFourDigitYearDate(p.date));
     if (invalidProphDate) {
       setError('Please enter a valid 4-digit year for prophylaxis administration date.');
+      return;
+    }
+
+    const missingNotAdminReason = prophylaxisAdministrations.find(
+      p => p.status === 'not_administered' && !p.not_administered_reason?.trim()
+    );
+    if (missingNotAdminReason) {
+      setError(`Please provide a reason why ${missingNotAdminReason.medication} was not administered.`);
       return;
     }
 

@@ -56,9 +56,15 @@ class TagoloanTreatmentCardService
         } else {
             $latestBite = BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
+                ->whereIn('severity', ['minor', 'moderate', 'severe'])
                 ->orderBy('bite_date', 'desc')
                 ->latest('bite_id')
-                ->first();
+                ->first()
+                ?? BiteIncident::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)
+                    ->orderBy('bite_date', 'desc')
+                    ->latest('bite_id')
+                    ->first();
         }
         $latestBite?->loadMissing(['intake', 'treatmentPlan']);
 
@@ -69,6 +75,23 @@ class TagoloanTreatmentCardService
             ->when($latestBite, fn($q) => $q->where('bite_id', $latestBite->bite_id))
             ->orderBy('dose_number', 'asc')
             ->get();
+
+        $prophylaxisRecords = $latestBite
+            ? TreatmentRecord::with(['administeredBy', 'inventory'])
+                ->where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->where('bite_id', $latestBite->bite_id)
+                ->where(fn ($q) => $q->whereNotNull('medication_given')->orWhereIn('dose_number', [200, 201, 300, 400, 401]))
+                ->whereIn('status', ['completed', 'cancelled'])
+                ->live()
+                ->orderBy('treatment_id', 'asc')
+                ->get()
+                ->map(function ($r) {
+                    $r->medication_given ??= [200 => 'ERIG', 201 => 'HRIG', 300 => 'TT', 400 => 'ATS', 401 => 'TIG'][$r->dose_number] ?? null;
+                    return $r;
+                })
+                ->values()
+            : collect();
 
         $existingCard = TagoloanTreatmentCard::where('clinic_id', $clinicId)
             ->where('patient_id', $patientId)
@@ -81,9 +104,12 @@ class TagoloanTreatmentCardService
             $existingCard->setRelation('biteIncident', $latestBite);
         }
         if ($latestBite) {
-            $latestConsultation = TreatmentRecord::where('clinic_id', $clinicId)
+            $latestConsultation = TreatmentRecord::with('administeredBy')
+                ->where('clinic_id', $clinicId)
                 ->where('patient_id', $patientId)
                 ->where('bite_id', $latestBite->bite_id)
+                ->whereNull('dose_number')
+                ->whereNull('medication_given')
                 ->whereNotNull('nature_of_visit')
                 ->orderBy('consultation_date', 'desc')
                 ->orderBy('consultation_time', 'desc')
@@ -122,28 +148,35 @@ class TagoloanTreatmentCardService
 
         $biteData = null;
         if ($latestBite) {
+            $intakeModes = is_array($latestIntake?->exposure_modes) ? ($latestIntake->exposure_modes[0] ?? null) : null;
+            $intakeSites = is_array($latestIntake?->exposure_sites) ? implode(', ', $latestIntake->exposure_sites) : null;
             $biteData = [
                 'bite_id' => $latestBite->bite_id,
                 'case_number' => $latestBite->case_number,
-                'bite_date' => $latestBite->bite_date ? Carbon::parse($latestBite->bite_date)->format('Y-m-d') : null,
-                'bite_place' => $latestBite->bite_place,
-                'animal_type' => $latestBite->animal_type,
-                'animal_status' => $latestBite->animal_status,
-                'animal_type_others' => $latestBite->animal_type_others,
+                'bite_date' => $latestBite->bite_date
+                    ? Carbon::parse($latestBite->bite_date)->format('Y-m-d')
+                    : ($latestIntake?->exposure_date ? Carbon::parse($latestIntake->exposure_date)->format('Y-m-d') : null),
+                'bite_place' => $latestBite->bite_place ?? $latestIntake?->exposure_place,
+                'animal_type' => $latestBite->animal_type ?? $existingCard?->animal_type ?? $latestIntake?->animal_species,
+                'animal_status' => $latestBite->animal_status ?? $latestIntake?->animal_ownership,
+                'animal_type_others' => $latestBite->animal_type_others ?? $existingCard?->animal_type_others ?? $latestIntake?->animal_species_other,
                 'animal_available' => $latestBite->animal_available,
-                'animal_observation_status' => $latestBite->animal_observation_status,
-                'animal_condition_reported' => $latestBite->animal_condition_reported,
-                'referred_from' => $latestBite->referred_from,
-                'mode_of_exposure' => $latestBite->exposure_mode,
+                'animal_observation_status' => $latestBite->animal_observation_status ?? $latestIntake?->animal_condition,
+                'animal_condition_reported' => $latestBite->animal_condition_reported ?? $latestIntake?->animal_condition,
+                'referred_from' => $latestBite->referred_from ?? $existingCard?->referred_by ?? $latestConsultation?->referred_from,
+                'mode_of_exposure' => $latestBite->exposure_mode ?? $existingCard?->mode_of_exposure ?? $intakeModes,
                 'exposure_type' => $latestBite->exposure_type,
                 'exposure_category' => $latestBite->exposure_category ?? $existingCard?->exposure_category,
                 'severity' => $latestBite->severity,
                 'site_washed' => $latestBite->site_washed,
-                'body_part_exposed' => $latestBite->body_part_exposed ?? $latestBite->site_number,
-                'body_part_detail' => $latestBite->site_number,
+                'body_part_exposed' => $latestBite->body_part_exposed ?? $latestBite->site_number ?? $existingCard?->body_part_exposed ?? $intakeSites,
+                'body_part_detail' => $latestBite->site_number ?? $intakeSites,
                 'wound_description' => $latestBite->wound_description,
                 'episode_number' => $latestBite->episode_number,
                 'episode_type' => $latestBite->episode_type,
+                'status' => $latestBite->status,
+                'plan_type' => $latestBite->treatmentPlan?->plan_type,
+                'plan_status' => $latestBite->treatmentPlan?->status,
             ];
         }
 
@@ -175,6 +208,7 @@ class TagoloanTreatmentCardService
             'existing_card' => $existingCard,
             'latest_consultation' => $latestConsultation,
             'treatment_records' => $treatmentRecords,
+            'prophylaxis_records' => $prophylaxisRecords,
         ];
     }
 

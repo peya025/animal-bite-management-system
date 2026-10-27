@@ -77,6 +77,8 @@ export function isProphylaxisInventoryName(name: string): boolean {
 
 export interface ProphylaxisAdministration {
   medication: string;
+  status?: 'administered' | 'not_administered';
+  not_administered_reason?: string;
   date: string;
   inventory_id: string;
   inventory_units_used: string;

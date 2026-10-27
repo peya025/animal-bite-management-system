@@ -37,8 +37,10 @@ class VaccinationRecordController extends Controller
 
         $activeIncident = $requestedBiteId
             ? BiteIncident::where('clinic_id', $clinicId)->where('patient_id', $patientId)->findOrFail($requestedBiteId)
-            : BiteIncident::where('clinic_id', $clinicId)->where('patient_id', $patientId)
-                ->where('status', '!=', 'completed')->latest('bite_id')->first();
+            : (BiteIncident::where('clinic_id', $clinicId)->where('patient_id', $patientId)
+                ->where('status', '!=', 'completed')->latest('bite_id')->first()
+                ?? BiteIncident::where('clinic_id', $clinicId)->where('patient_id', $patientId)
+                    ->latest('bite_id')->first());
 
         $activeIncident?->loadMissing('intake');
 
@@ -67,7 +69,7 @@ class VaccinationRecordController extends Controller
                 ? TreatmentRecord::where('clinic_id', $clinicId)->where('patient_id', $patientId)
                     ->where('bite_id', $activeIncident->bite_id)
                     ->where(fn($q) => $q->whereNotNull('medication_given')->orWhereIn('dose_number', [200, 201, 300, 400, 401]))
-                    ->where('status', 'completed')->live()->with('administeredBy')->get()
+                    ->whereIn('status', ['completed', 'cancelled'])->live()->with('administeredBy')->get()
                     ->map(function ($r) {
                         $r->medication_given ??= [200 => 'ERIG', 201 => 'HRIG', 300 => 'TT', 400 => 'ATS', 401 => 'TIG'][$r->dose_number] ?? null;
                         return $r;

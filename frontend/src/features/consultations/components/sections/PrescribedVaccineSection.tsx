@@ -92,7 +92,7 @@ export default function PrescribedVaccineSection({
           </div>
           <span className="registration-field-hint" style={{ marginBottom: 8, display: 'block', color: isCategory1 ? '#b45309' : undefined, fontWeight: isCategory1 ? 600 : undefined }}>
             {isCategory1
-              ? 'Category I exposures'
+              ? 'Anti-rabies PEP is not indicated for Category I exposures. If rabies vaccination is clinically warranted upon review, update the Exposure Category above (or document pre-exposure vaccination separately).'
               : 'Select the vaccine to prescribe for PEP. This will pre-fill and lock the nurse\'s Form 3 vaccine selection.'}
           </span>
 

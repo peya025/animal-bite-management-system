@@ -151,6 +151,50 @@ class ProphylaxisService
             if ($incident->bite_date && $date->lt($incident->bite_date->copy()->startOfDay())) {
                 $this->fail('Prophylaxis administration cannot precede the exposure date.');
             }
+
+            if (($item['status'] ?? 'administered') === 'not_administered') {
+                $reason = trim((string) ($item['not_administered_reason'] ?? $item['remarks'] ?? ''));
+                if ($reason === '') {
+                    $this->fail("Please document the reason why {$medication} was not administered.");
+                }
+
+                $existingNotAdministered = TreatmentRecord::where('clinic_id', $incident->clinic_id)
+                    ->where('patient_id', $incident->patient_id)
+                    ->where('bite_id', $incident->bite_id)
+                    ->where('medication_given', $medication)
+                    ->where('status', 'cancelled')
+                    ->live()
+                    ->first();
+
+                if ($existingNotAdministered) {
+                    $existingNotAdministered->update([
+                        'scheduled_date' => $item['date'],
+                        'treatment_date' => null,
+                        'outcome' => 'not_administered',
+                        'remarks' => $reason,
+                    ]);
+                } else {
+                    TreatmentRecord::create([
+                        'clinic_id' => $incident->clinic_id,
+                        'patient_id' => $incident->patient_id,
+                        'bite_id' => $incident->bite_id,
+                        'medication_given' => $medication,
+                        'scheduled_date' => $item['date'],
+                        'treatment_date' => null,
+                        'administered_by' => $userId,
+                        'administered_at' => null,
+                        'status' => 'cancelled',
+                        'outcome' => 'not_administered',
+                        'remarks' => $reason,
+                    ]);
+                }
+                continue;
+            }
+
+            if (empty($item['inventory_id']) || empty($item['inventory_units_used']) || (int) $item['inventory_units_used'] < 1) {
+                $this->fail("{$medication} requires a matching, unexpired clinic inventory batch with enough stock.");
+            }
+
             if ($group === 'rig') {
                 $category = $incident->severity;
                 $immuneException = ($orders['rig_indication'] ?? '') === 'immunocompromised';
@@ -204,6 +248,13 @@ class ProphylaxisService
 
             $dosageML = (isset($item['dosage_ml']) && $item['dosage_ml'] !== '' && $item['dosage_ml'] !== null) ? $item['dosage_ml'] : null;
             $doseIU = (isset($item['dose_iu']) && $item['dose_iu'] !== '' && $item['dose_iu'] !== null) ? $item['dose_iu'] : null;
+
+            TreatmentRecord::where('clinic_id', $incident->clinic_id)
+                ->where('patient_id', $incident->patient_id)
+                ->where('bite_id', $incident->bite_id)
+                ->where('medication_given', $medication)
+                ->where('status', 'cancelled')
+                ->delete();
 
             $record = TreatmentRecord::create([
                 'clinic_id' => $incident->clinic_id, 'patient_id' => $incident->patient_id,

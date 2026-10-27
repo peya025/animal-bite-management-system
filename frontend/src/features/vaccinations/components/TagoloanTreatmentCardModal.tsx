@@ -35,7 +35,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
   const [hospitalNo, setHospitalNo] = useState('');
   const [referredBy, setReferredBy] = useState('');
   const savedExposureCategory = useSavedExposureCategory(open, patientId, biteId);
-  const exposureCategory = savedExposureCategory ?? cardData?.bite_incident?.exposure_category ?? cardData?.existing_card?.exposure_category ?? '';
+  const exposureCategory = savedExposureCategory || cardData?.bite_incident?.exposure_category || cardData?.existing_card?.exposure_category || '';
   const [modeOfExposure, setModeOfExposure] = useState<string>('transdermal_bite');
   const [bodyPartExposed, setBodyPartExposed] = useState<string>('other_parts');
   const [animalType, setAnimalType] = useState('Dog');
@@ -134,6 +134,8 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
   const clinic = cardData?.clinic;
   const bite = cardData?.bite_incident;
   const records = cardData?.treatment_records || [];
+  const prophylaxisRecords = cardData?.prophylaxis_records || [];
+  const latestConsultation = cardData?.latest_consultation || null;
   const globalLogos = getGlobalPrintLogos(clinic || authClinic);
 
   const printableRecord: PrintableFormRecord = {
@@ -155,6 +157,8 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
     pastPepCompleted,
     icd10Code,
     treatment_records: records,
+    prophylaxis_records: prophylaxisRecords,
+    latest_consultation: latestConsultation,
   };
 
   return (

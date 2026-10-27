@@ -658,4 +658,158 @@ class CategoryITreatmentLogicTest extends TestCase
         $this->assertSame('waiting', $cat2Queue->status);
         $this->assertSame('vaccination', $cat2Queue->visit_type);
     }
+
+    private function form2Payload(array $overrides = []): array
+    {
+        return array_replace([
+            'patient_id' => $this->patient->patient_id,
+            'bite_id' => $this->incident->bite_id,
+            'queue_id' => $this->queue->queue_id,
+            'exposure_category' => 'I',
+            'nature_of_visit' => 'new_consultation',
+            'consultation_types' => ['general'],
+            'chief_complaints' => 'Minor dog lick on intact skin',
+            'consultation_date' => '2026-10-26',
+        ], $overrides);
+    }
+
+    public function test_category_1_with_ats_prescribed_and_administered_deducts_stock_and_updates_official_card(): void
+    {
+        $atsBatch = VaccineInventory::create([
+            'clinic_id' => $this->clinic->id,
+            'vaccine_type' => 'Anti-Tetanus Serum (ATS)',
+            'batch_number' => 'ATS-001',
+            'current_quantity' => 10,
+            'expiration_date' => '2027-12-31',
+            'status' => 'active',
+        ]);
+
+        Sanctum::actingAs($this->doctor);
+        $this->postJson('/api/treatment-records', $this->form2Payload([
+            'exposure_category' => 'I',
+            'prophylaxis_orders' => [
+                'tetanus_category' => 'ats',
+                'tetanus_passive' => 'ATS',
+                'tetanus_vaccine' => 'none',
+                'notes' => 'ATS 1500 IU IM after negative skin test',
+            ],
+        ]))->assertCreated();
+
+        Sanctum::actingAs($this->nurse);
+        $this->postJson('/api/vaccination-records', [
+            'patient_id' => $this->patient->patient_id,
+            'bite_id' => $this->incident->bite_id,
+            'queue_id' => $this->queue->queue_id,
+            'doses' => [],
+            'prophylaxis_administrations' => [
+                [
+                    'medication' => 'ATS',
+                    'status' => 'administered',
+                    'date' => '2026-10-26',
+                    'inventory_id' => $atsBatch->inventory_id,
+                    'inventory_units_used' => 1,
+                    'route' => 'IM',
+                    'injection_site' => 'Right deltoid',
+                    'dosage_ml' => '1.0',
+                    'dose_iu' => '1500',
+                ],
+            ],
+        ])->assertCreated();
+
+        $this->assertSame(9, $atsBatch->fresh()->current_quantity);
+        $this->assertSame('completed', $this->incident->fresh()->status);
+
+        $cardRes = $this->getJson("/api/tagoloan-treatment-cards/patient/{$this->patient->patient_id}")->assertOk();
+        $this->assertSame('I', $cardRes->json('bite_incident.exposure_category'));
+        $this->assertSame('ATS', $cardRes->json('prophylaxis_records.0.medication_given'));
+        $this->assertSame('completed', $cardRes->json('prophylaxis_records.0.status'));
+    }
+
+    public function test_category_1_prescription_recorded_as_not_administered_preserves_stock_and_records_reason(): void
+    {
+        Sanctum::actingAs($this->doctor);
+        $this->postJson('/api/treatment-records', $this->form2Payload([
+            'exposure_category' => 'I',
+            'prophylaxis_orders' => [
+                'tetanus_category' => 'tt',
+                'tetanus_vaccine' => 'TT',
+                'tetanus_passive' => 'none',
+            ],
+        ]))->assertCreated();
+
+        Sanctum::actingAs($this->nurse);
+        $this->postJson('/api/vaccination-records', [
+            'patient_id' => $this->patient->patient_id,
+            'bite_id' => $this->incident->bite_id,
+            'queue_id' => $this->queue->queue_id,
+            'doses' => [],
+            'prophylaxis_administrations' => [
+                [
+                    'medication' => 'TT',
+                    'status' => 'not_administered',
+                    'not_administered_reason' => 'Patient verified booster within past 3 years',
+                    'date' => '2026-10-26',
+                    'inventory_id' => null,
+                    'inventory_units_used' => 0,
+                ],
+            ],
+        ])->assertCreated();
+
+        // Zero inventory deducted
+        $ttBatch = VaccineInventory::where('batch_number', 'TT-CAT1-01')->first();
+        $this->assertSame(20, $ttBatch->current_quantity);
+        $this->assertSame('completed', $this->incident->fresh()->status);
+        $this->assertSame('completed', $this->queue->fresh()->status);
+
+        $cardRes = $this->getJson("/api/tagoloan-treatment-cards/patient/{$this->patient->patient_id}")->assertOk();
+        $this->assertSame('I', $cardRes->json('bite_incident.exposure_category'));
+        $this->assertSame('TT', $cardRes->json('prophylaxis_records.0.medication_given'));
+        $this->assertSame('cancelled', $cardRes->json('prophylaxis_records.0.status'));
+        $this->assertSame('not_administered', $cardRes->json('prophylaxis_records.0.outcome'));
+        $this->assertSame('Patient verified booster within past 3 years', $cardRes->json('prophylaxis_records.0.remarks'));
+    }
+
+    public function test_doctor_reassesses_category_1_to_category_2_without_duplicate_consultation_and_routes_to_nurse(): void
+    {
+        Sanctum::actingAs($this->doctor);
+
+        // Initial Category I assessment with no injection
+        $this->postJson('/api/treatment-records', $this->form2Payload([
+            'exposure_category' => 'I',
+            'prophylaxis_orders' => ['tetanus_category' => 'not_indicated'],
+        ]))->assertCreated();
+
+        $this->assertSame('completed', $this->incident->fresh()->status);
+        $this->assertSame('completed', $this->queue->fresh()->status);
+
+        // Doctor reassesses and reclassifies to Category II with Speeda PEP
+        $this->postJson('/api/treatment-records', $this->form2Payload([
+            'exposure_category' => 'II',
+            'prescribed_vaccine_type' => 'Speeda',
+            'treatment_plan' => 'full_pep',
+            'diagnosis' => 'Reassessed: superficial scratch on hand — upgraded to Category II',
+        ]))->assertCreated();
+
+        // No duplicate consultation record created
+        $consultationCount = TreatmentRecord::where('clinic_id', $this->clinic->id)
+            ->where('patient_id', $this->patient->patient_id)
+            ->where('bite_id', $this->incident->bite_id)
+            ->whereNull('dose_number')
+            ->whereNull('medication_given')
+            ->count();
+        $this->assertSame(1, $consultationCount);
+
+        // Episode and queue reopened and routed to Nurse Treatment Queue
+        $this->incident->refresh();
+        $this->assertSame('moderate', $this->incident->severity);
+        $this->assertSame('active', $this->incident->status);
+
+        $this->queue->refresh();
+        $this->assertSame('waiting', $this->queue->status);
+        $this->assertSame('vaccination', $this->queue->visit_type);
+
+        $plan = TreatmentPlan::where('bite_id', $this->incident->bite_id)->first();
+        $this->assertSame('full_pep', $plan->plan_type);
+        $this->assertSame('approved', $plan->status);
+    }
 }

@@ -16,12 +16,17 @@ export interface ProphylaxisRecord {
   treatment_id: number;
   medication_given: string;
   treatment_date: string;
+  scheduled_date?: string;
+  status?: string;
+  outcome?: string;
+  remarks?: string;
   dosage_ml?: string;
   dose_iu?: string;
   vaccine_brand?: string;
   batch_no?: string;
   route?: string;
   injection_site?: string;
+  administered_by?: any;
 }
 
 interface ProphylaxisAdministrationSectionProps {
@@ -85,13 +90,14 @@ export default function ProphylaxisAdministrationSection({
         const firstBatch = batches[0];
         const newItem: ProphylaxisAdministration = {
           medication: product,
+          status: 'administered',
           date: today,
           inventory_id: firstBatch ? String(firstBatch.inventory_id) : '',
           inventory_units_used: '1',
           route: group === 'rig' ? 'wound_infiltration' : 'IM',
           injection_site: group === 'rig' ? 'Wound infiltration sites' : 'Right deltoid',
           dosage_ml: group === 'tetanus_vaccine' ? '0.5' : group === 'rig' ? '' : '1.0',
-          dose_iu: '',
+          dose_iu: group === 'tetanus_passive' ? '1500' : '',
         };
         onChange([...value, newItem]);
       }
@@ -103,7 +109,7 @@ export default function ProphylaxisAdministrationSection({
     if (!stock || !value.length) return;
     let updated = false;
     const nextValue = value.map((item) => {
-      if (!item.inventory_id) {
+      if (!item.inventory_id && item.status !== 'not_administered') {
         const batches = stock[item.medication] || stock['TT'] || [];
         if (batches.length > 0) {
           updated = true;
@@ -203,7 +209,8 @@ export default function ProphylaxisAdministrationSection({
 
           const batches = stock?.[product as keyof ProphylaxisStock] || (isTetanus ? stock?.[defaultProduct] : []) || [];
           const item = value.find((record) => record.medication === product);
-          const isChecked = Boolean(item);
+          const isNotAdministered = item?.status === 'not_administered';
+          const isChecked = Boolean(item) && !isNotAdministered;
 
           return (
             <div
@@ -225,17 +232,41 @@ export default function ProphylaxisAdministrationSection({
                 </strong>
               </div>
 
-              {previous.map((record) => (
-                <p key={record.treatment_id} style={{ fontSize: 12, color: '#475569', background: '#f8fafc', padding: '8px 12px', borderRadius: 6, marginBottom: 8 }}>
-                  Recorded: {record.medication_given} — {record.treatment_date?.slice(0, 10)}
-                  {record.dose_iu && ` · ${record.dose_iu} IU`}
-                  {record.dosage_ml && ` · ${record.dosage_ml} mL`}
-                  {record.vaccine_brand && ` · ${record.vaccine_brand}`}
-                  {record.batch_no && ` · Batch ${record.batch_no}`}
-                  {record.route && ` · ${record.route.replaceAll('_', ' ')}`}
-                  {record.injection_site && ` · ${record.injection_site}`}
-                </p>
-              ))}
+              {previous.map((record) => {
+                const prevNotAdmin = record.status === 'cancelled' || record.outcome === 'not_administered';
+                return (
+                  <p
+                    key={record.treatment_id}
+                    style={{
+                      fontSize: 12,
+                      color: prevNotAdmin ? '#92400e' : '#475569',
+                      background: prevNotAdmin ? '#fffbeb' : '#f8fafc',
+                      border: prevNotAdmin ? '1px solid #fde68a' : undefined,
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      marginBottom: 8,
+                    }}
+                  >
+                    {prevNotAdmin ? (
+                      <>
+                        <strong>Not Administered:</strong> {record.medication_given}
+                        {(record.scheduled_date || record.treatment_date) && ` — ${(record.scheduled_date || record.treatment_date).slice(0, 10)}`}
+                        {record.remarks && ` · Reason: ${record.remarks}`}
+                      </>
+                    ) : (
+                      <>
+                        Recorded: {record.medication_given} — {record.treatment_date?.slice(0, 10)}
+                        {record.dose_iu && ` · ${record.dose_iu} IU`}
+                        {record.dosage_ml && ` · ${record.dosage_ml} mL`}
+                        {record.vaccine_brand && ` · ${record.vaccine_brand}`}
+                        {record.batch_no && ` · Batch ${record.batch_no}`}
+                        {record.route && ` · ${record.route.replaceAll('_', ' ')}`}
+                        {record.injection_site && ` · ${record.injection_site}`}
+                      </>
+                    )}
+                  </p>
+                );
+              })}
 
               {isOrdered && previous.length === 0 && (
                 <>
@@ -246,7 +277,7 @@ export default function ProphylaxisAdministrationSection({
                   ) : (
                     batches.length === 0 && (
                       <p role="status" style={{ fontSize: 12, color: '#d97706', marginBottom: 8 }}>
-                        No active {product} inventory batch. Obtain stock or refer the patient before recording administration.
+                        No active {product} inventory batch. Obtain stock, refer the patient, or document as not administered below.
                       </p>
                     )
                   )}
@@ -257,63 +288,131 @@ export default function ProphylaxisAdministrationSection({
                     </p>
                   )}
 
-                  {/* Soft Green Administered Checkbox Container */}
-                  <div
-                    onClick={() => {
-                      if (disabled || batches.length === 0) return;
-                      const key = `${group}_${product}`;
-                      if (isChecked) {
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: item ? 12 : 0 }}>
+                    {/* Soft Green Administered Checkbox Container */}
+                    <div
+                      onClick={() => {
+                        if (disabled || batches.length === 0) return;
+                        const key = `${group}_${product}`;
                         hasAutoInitializedRef.current[key] = true;
-                        onChange(value.filter((record) => record.medication !== product));
-                      } else {
-                        const firstBatch = batches[0];
-                        onChange([
-                          ...value,
-                          {
+                        if (isChecked) {
+                          onChange(value.filter((record) => record.medication !== product));
+                        } else {
+                          const firstBatch = batches[0];
+                          const nextItem: ProphylaxisAdministration = {
                             medication: product,
+                            status: 'administered',
+                            not_administered_reason: '',
                             date: today,
                             inventory_id: firstBatch ? String(firstBatch.inventory_id) : '',
                             inventory_units_used: '1',
                             route: group === 'rig' ? 'wound_infiltration' : 'IM',
                             injection_site: group === 'rig' ? 'Wound infiltration sites' : 'Right deltoid',
                             dosage_ml: group === 'tetanus_vaccine' ? '0.5' : group === 'rig' ? '' : '1.0',
-                            dose_iu: '',
-                          },
-                        ]);
-                      }
-                    }}
-                    style={{
-                      background: isChecked ? '#ecfdf5' : '#f8fafc',
-                      border: `1.5px solid ${isChecked ? '#10b981' : '#cbd5e1'}`,
-                      borderRadius: 8,
-                      padding: '8px 12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      cursor: disabled || batches.length === 0 ? 'not-allowed' : 'pointer',
-                      transition: 'all 0.15s ease',
-                      marginBottom: isChecked ? 12 : 0,
-                    }}
-                  >
-                    <div
+                            dose_iu: group === 'tetanus_passive' ? '1500' : '',
+                          };
+                          onChange([
+                            ...value.filter((record) => record.medication !== product),
+                            nextItem,
+                          ]);
+                        }
+                      }}
                       style={{
-                        width: 18,
-                        height: 18,
-                        borderRadius: 4,
-                        background: isChecked ? '#059669' : '#ffffff',
-                        border: `1.5px solid ${isChecked ? '#059669' : '#94a3b8'}`,
+                        flex: 1,
+                        minWidth: 210,
+                        background: isChecked ? '#ecfdf5' : '#f8fafc',
+                        border: `1.5px solid ${isChecked ? '#10b981' : '#cbd5e1'}`,
+                        borderRadius: 8,
+                        padding: '8px 12px',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#ffffff',
-                        flexShrink: 0,
+                        gap: 10,
+                        cursor: disabled || batches.length === 0 ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.15s ease',
                       }}
                     >
-                      {isChecked && <HugeiconsIcon icon={Tick02Icon} size={13} strokeWidth={3} />}
+                      <div
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderRadius: 4,
+                          background: isChecked ? '#059669' : '#ffffff',
+                          border: `1.5px solid ${isChecked ? '#059669' : '#94a3b8'}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#ffffff',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {isChecked && <HugeiconsIcon icon={Tick02Icon} size={13} strokeWidth={3} />}
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: isChecked ? '#047857' : '#334155' }}>
+                        Record {product} as administered
+                      </span>
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: isChecked ? '#047857' : '#334155' }}>
-                      Record {product} as administered
-                    </span>
+
+                    {/* Soft Amber Not Administered Checkbox Container */}
+                    <div
+                      onClick={() => {
+                        if (disabled) return;
+                        const key = `${group}_${product}`;
+                        hasAutoInitializedRef.current[key] = true;
+                        if (isNotAdministered) {
+                          onChange(value.filter((record) => record.medication !== product));
+                        } else {
+                          const nextItem: ProphylaxisAdministration = {
+                            medication: product,
+                            status: 'not_administered',
+                            not_administered_reason: item?.not_administered_reason || '',
+                            date: item?.date || today,
+                            inventory_id: '',
+                            inventory_units_used: '0',
+                            route: group === 'rig' ? 'wound_infiltration' : 'IM',
+                            injection_site: '',
+                            dosage_ml: '',
+                            dose_iu: '',
+                          };
+                          onChange([
+                            ...value.filter((record) => record.medication !== product),
+                            nextItem,
+                          ]);
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        minWidth: 210,
+                        background: isNotAdministered ? '#fffbeb' : '#f8fafc',
+                        border: `1.5px solid ${isNotAdministered ? '#f59e0b' : '#cbd5e1'}`,
+                        borderRadius: 8,
+                        padding: '8px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        cursor: disabled ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderRadius: 4,
+                          background: isNotAdministered ? '#d97706' : '#ffffff',
+                          border: `1.5px solid ${isNotAdministered ? '#d97706' : '#94a3b8'}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#ffffff',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {isNotAdministered && <HugeiconsIcon icon={Tick02Icon} size={13} strokeWidth={3} />}
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: isNotAdministered ? '#b45309' : '#334155' }}>
+                        Record {product} as not administered
+                      </span>
+                    </div>
                   </div>
 
                   {group === 'rig' && (
@@ -322,8 +421,63 @@ export default function ProphylaxisAdministrationSection({
                     </p>
                   )}
 
-                  {/* 2-Column Inputs Grid */}
-                  {item && (
+                  {/* Not Administered Inputs */}
+                  {item && isNotAdministered && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                      <label className="fm-field" style={{ margin: 0, gridColumn: '1 / -1' }}>
+                        <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
+                          Reason not administered / Remarks <span style={{ color: '#ef4444' }}>*</span>
+                        </span>
+                        <input
+                          className="fm-input"
+                          type="text"
+                          value={item.not_administered_reason || ''}
+                          disabled={disabled}
+                          required
+                          placeholder="e.g. Patient declined, prior TT booster verified, positive ATS skin test, deferred..."
+                          onChange={(e) => update(product, 'not_administered_reason', e.target.value)}
+                          style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
+                        />
+                      </label>
+
+                      <label className="fm-field" style={{ margin: 0 }}>
+                        <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
+                          Date documented
+                        </span>
+                        <input
+                          className="fm-input"
+                          type="date"
+                          value={item.date}
+                          disabled={disabled}
+                          required
+                          min="1000-01-01"
+                          max={today}
+                          onChange={(e) => update(product, 'date', sanitizeDateInput(e.target.value))}
+                          style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
+                        />
+                      </label>
+
+                      {onIcdCodeChange ? (
+                        <label className="fm-field" style={{ margin: 0 }}>
+                          <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
+                            ICD-10 Code
+                          </span>
+                          <input
+                            className="fm-input"
+                            type="text"
+                            value={icdCode || ''}
+                            disabled={disabled}
+                            placeholder="e.g. W54.0"
+                            onChange={(e) => onIcdCodeChange(e.target.value)}
+                            style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
+                          />
+                        </label>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {/* 2-Column Administered Inputs Grid */}
+                  {item && !isNotAdministered && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
                       <label className="fm-field" style={{ margin: 0 }}>
                         <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
@@ -409,40 +563,40 @@ export default function ProphylaxisAdministrationSection({
                         </label>
                       ) : null}
 
-                      {group === 'rig' && (
-                        <>
-                          <label className="fm-field" style={{ margin: 0 }}>
-                            <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
-                              Administered dose (IU)
-                            </span>
-                            <input
-                              className="fm-input"
-                              type="number"
-                              step="0.01"
-                              min="0.01"
-                              value={item.dose_iu}
-                              disabled={disabled}
-                              required
-                              onChange={(e) => update(product, 'dose_iu', e.target.value)}
-                              style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
-                            />
-                          </label>
+                      {(group === 'rig' || group === 'tetanus_passive') && (
+                        <label className="fm-field" style={{ margin: 0 }}>
+                          <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
+                            Administered dose (IU)
+                          </span>
+                          <input
+                            className="fm-input"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            value={item.dose_iu}
+                            disabled={disabled}
+                            required
+                            onChange={(e) => update(product, 'dose_iu', e.target.value)}
+                            style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
+                          />
+                        </label>
+                      )}
 
-                          <label className="fm-field" style={{ margin: 0 }}>
-                            <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
-                              Wound infiltration sites
-                            </span>
-                            <input
-                              className="fm-input"
-                              type="text"
-                              value={item.injection_site}
-                              disabled={disabled}
-                              required
-                              onChange={(e) => update(product, 'injection_site', e.target.value)}
-                              style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
-                            />
-                          </label>
-                        </>
+                      {group === 'rig' && (
+                        <label className="fm-field" style={{ margin: 0 }}>
+                          <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
+                            Wound infiltration sites
+                          </span>
+                          <input
+                            className="fm-input"
+                            type="text"
+                            value={item.injection_site}
+                            disabled={disabled}
+                            required
+                            onChange={(e) => update(product, 'injection_site', e.target.value)}
+                            style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
+                          />
+                        </label>
                       )}
                     </div>
                   )}

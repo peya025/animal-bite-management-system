@@ -334,5 +334,52 @@ class ProphylaxisWorkflowTest extends TestCase
         ]);
         $this->assertSame(9, $batch->fresh()->current_quantity);
     }
+
+    public function test_vials_used_cannot_be_bypassed_via_request(): void
+    {
+        // Attempting to bypass read-only vials used by sending 2 vials for TT
+        $this->submit([
+            $this->administration([
+                'medication' => 'TT',
+                'route' => 'IM',
+                'dose_iu' => null,
+                'dosage_ml' => '0.5',
+                'inventory_units_used' => 2,
+            ]),
+        ])->assertUnprocessable();
+
+        // Attempting to send 0 vials for TT
+        $this->submit([
+            $this->administration([
+                'medication' => 'TT',
+                'route' => 'IM',
+                'dose_iu' => null,
+                'dosage_ml' => '0.5',
+                'inventory_units_used' => 0,
+            ]),
+        ])->assertUnprocessable();
+
+        // Verify stock is untouched
+        $this->assertSame(5, $this->stock['TT']->fresh()->current_quantity);
+
+        // Submitting with the correct vial quantity of 1 succeeds
+        $this->submit([
+            $this->administration([
+                'medication' => 'TT',
+                'route' => 'IM',
+                'dose_iu' => null,
+                'dosage_ml' => '0.5',
+                'inventory_units_used' => 1,
+            ]),
+        ])->assertCreated();
+
+        // Stock is deducted by exactly 1 vial
+        $this->assertSame(4, $this->stock['TT']->fresh()->current_quantity);
+        $this->assertDatabaseHas('treatment_records', [
+            'medication_given' => 'TT',
+            'inventory_units_used' => 1,
+            'inventory_id' => $this->stock['TT']->inventory_id,
+        ]);
+    }
 }
 

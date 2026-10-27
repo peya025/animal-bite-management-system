@@ -507,14 +507,20 @@ export default function ProphylaxisAdministrationSection({
                         <input
                           className="fm-input"
                           type="number"
-                          min="1"
-                          step="1"
+                          readOnly
                           required
                           disabled={disabled}
-                          max={batches.find((batch) => String(batch.inventory_id) === item.inventory_id)?.current_quantity}
-                          value={item.inventory_units_used}
-                          onChange={(e) => update(product, 'inventory_units_used', e.target.value)}
-                          style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
+                          value={item.inventory_units_used || '1'}
+                          style={{
+                            width: '100%',
+                            borderRadius: 6,
+                            padding: '5px 8px',
+                            fontSize: 12.5,
+                            height: 34,
+                            backgroundColor: '#f8fafc',
+                            color: '#475569',
+                            cursor: 'default',
+                          }}
                         />
                         <span className="registration-field-hint" style={{ fontSize: 11, color: '#64748b', marginTop: 2, display: 'block' }}>
                           Confirm vial count on package. System stores vial count, not mL/IU.

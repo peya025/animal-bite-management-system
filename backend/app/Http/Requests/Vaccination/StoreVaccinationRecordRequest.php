@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Vaccination;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\ValidationException;
 
 class StoreVaccinationRecordRequest extends FormRequest
 {
@@ -56,8 +55,25 @@ class StoreVaccinationRecordRequest extends FormRequest
             'prophylaxis_administrations.*.status'          => 'nullable|in:administered,not_administered',
             'prophylaxis_administrations.*.not_administered_reason' => 'nullable|required_if:prophylaxis_administrations.*.status,not_administered|string|max:500',
             'prophylaxis_administrations.*.date'            => 'required|date_format:Y-m-d|before_or_equal:today',
-            'prophylaxis_administrations.*.inventory_id'    => 'nullable|integer|exists:vaccine_inventory,inventory_id',
-            'prophylaxis_administrations.*.inventory_units_used' => 'nullable|integer|min:0|max:999',
+            'prophylaxis_administrations.*.inventory_id'    => 'required_unless:prophylaxis_administrations.*.status,not_administered|nullable|integer|exists:vaccine_inventory,inventory_id',
+            'prophylaxis_administrations.*.inventory_units_used' => [
+                'required_unless:prophylaxis_administrations.*.status,not_administered',
+                'nullable',
+                'integer',
+                function ($attribute, $value, $fail) {
+                    preg_match('/prophylaxis_administrations\.(\d+)\.inventory_units_used/', $attribute, $matches);
+                    $index = $matches[1] ?? null;
+                    if ($index !== null) {
+                        $itemStatus = $this->input("prophylaxis_administrations.{$index}.status");
+                        if ($itemStatus === 'not_administered') {
+                            return;
+                        }
+                    }
+                    if ((int) $value !== 1) {
+                        $fail('The ' . $attribute . ' must be 1.');
+                    }
+                },
+            ],
             'prophylaxis_administrations.*.route'           => 'nullable|in:IM,wound_infiltration',
             'prophylaxis_administrations.*.injection_site'  => 'nullable|string|max:255',
             'prophylaxis_administrations.*.dosage_ml'       => 'nullable|numeric|gt:0|max:999.99',

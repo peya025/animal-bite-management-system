@@ -148,10 +148,11 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
   const activeConsultation = (selectedTreatmentId
     ? consultList.find((c: any) => c.treatment_id === selectedTreatmentId)
     : null) || cardData?.latest_consultation || (consultList.length > 0 ? consultList[consultList.length - 1] : null);
-  const globalLogos = getGlobalPrintLogos(clinic || authClinic);
+  const mergedClinic = { ...authClinic, ...clinic };
+  const globalLogos = getGlobalPrintLogos(mergedClinic);
 
   const printableRecord: PrintableFormRecord = {
-    clinic,
+    clinic: mergedClinic,
     logos: globalLogos,
     patient,
     bite,

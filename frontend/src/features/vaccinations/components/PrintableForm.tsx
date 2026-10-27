@@ -1,6 +1,7 @@
 import React from 'react';
 import SignatureImage from '../../../shared/components/SignatureImage';
 import { formatDate, formatBodyPart, formatModeOfExposure } from '../utils/printHelpers';
+import { getGlobalPrintLogos, resolveStorageUrl } from '../../../components/print';
 
 export interface PrintableTreatmentRecord {
   dose_number?: number;
@@ -33,6 +34,15 @@ export interface PrintableFormRecord {
     doh_accreditation_no?: string;
     philhealth_accreditation_no?: string;
     hospital_no?: string;
+    province?: string;
+    municipality?: string;
+    address?: string;
+    contact_number?: string;
+    phone?: string;
+    left_print_logo_url?: string | null;
+    right_print_logo_url?: string | null;
+    left_print_logo_path?: string | null;
+    right_print_logo_path?: string | null;
   };
   logos?: {
     leftLogoUrl?: string | null;
@@ -119,10 +129,31 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
     : null;
   const latestConsultation = targetedConsultation || record?.latest_consultation || (consultationHistory.length > 0 ? consultationHistory[consultationHistory.length - 1] : null);
 
-  const clinicName = clinic?.name || 'TAGOLOAN ANIMAL BITE TREATMENT CENTER';
+  const globalLogos = getGlobalPrintLogos(clinic as any);
+  const leftLogoUrl = resolveStorageUrl(logos?.leftLogoUrl || clinic?.left_print_logo_url, clinic?.left_print_logo_path) || globalLogos.leftLogoUrl;
+  const rightLogoUrl = resolveStorageUrl(logos?.rightLogoUrl || clinic?.right_print_logo_url, clinic?.right_print_logo_path) || globalLogos.rightLogoUrl;
+
+  const clinicName = (clinic?.name || 'TAGOLOAN').trim();
   const dohAccredNo = clinic?.doh_accreditation_no || '2022-10-037';
   const philhealthAccredNo = clinic?.philhealth_accreditation_no || 'B10034377';
   const philhealthPin = patient?.philhealth_no || '—';
+
+  const resolvedProvince = (clinic?.province || '').trim();
+  const resolvedMunicipality = (clinic?.municipality || '').trim();
+  const resolvedAddress = (clinic?.address || '').trim();
+  const resolvedPhone = (clinic?.contact_number || (clinic as any)?.phone || '').trim();
+
+  const geoSubtitle = [resolvedProvince, resolvedMunicipality].filter(Boolean).join(' • ');
+  const contactParts = [
+    'Animal Bite Treatment Center',
+    resolvedPhone ? `Tel. ${resolvedPhone}` : '',
+    resolvedAddress,
+  ].filter(Boolean);
+  const facilitySubtitle = contactParts.length > 1
+    ? contactParts.join(' | ')
+    : dohAccredNo
+    ? `Animal Bite Treatment Center | DOH Accred. No. ${dohAccredNo}`
+    : 'Animal Bite Treatment Center';
 
   // Format Patient Sex
   const rawGender = (patient?.gender || '').toLowerCase();
@@ -481,6 +512,10 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           margin: 12mm;
         }
         @media print {
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           html, body {
             margin: 0 !important;
             padding: 0 !important;
@@ -523,55 +558,63 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
       {/* 1. HEADER */}
       <section
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '16px',
-          paddingBottom: '8px',
-          borderBottom: '1px solid #111827',
-          marginBottom: '16px',
+          marginBottom: '14px',
         }}
       >
-        <div style={{ width: '48px', height: '48px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {logos?.leftLogoUrl ? (
-            <img
-              src={logos.leftLogoUrl}
-              alt="Seal"
-              style={{ maxHeight: '44px', maxWidth: '44px', objectFit: 'contain' }}
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            />
-          ) : (
-            <div style={{ width: '44px', height: '44px' }} />
-          )}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+            marginBottom: '6px',
+          }}
+        >
+          {/* Left Seal */}
+          <div style={{ width: '60px', height: '60px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {leftLogoUrl ? (
+              <img
+                src={leftLogoUrl}
+                alt="Left Seal"
+                style={{ maxHeight: '60px', maxWidth: '60px', width: 'auto', height: 'auto', objectFit: 'contain' }}
+                onError={(e) => { (e.currentTarget as HTMLElement).style.visibility = 'hidden'; }}
+              />
+            ) : (
+              <div style={{ width: '60px', height: '60px' }} />
+            )}
+          </div>
+
+          {/* Center Details */}
+          <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
+            <div style={{ fontSize: '8.5pt', color: '#111827', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+              Republic of the Philippines{geoSubtitle ? ` • ${geoSubtitle}` : ' • Department of Health'}
+            </div>
+            <h1 style={{ fontSize: '13.5pt', fontWeight: 800, color: '#111827', margin: '2px 0 2px 0', textTransform: 'uppercase', letterSpacing: '0.5px', lineHeight: 1.2 }}>
+              {clinicName}
+            </h1>
+            <div style={{ fontSize: '8.5pt', color: '#374151', lineHeight: 1.3 }}>
+              {facilitySubtitle}
+            </div>
+          </div>
+
+          {/* Right Seal */}
+          <div style={{ width: '60px', height: '60px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {rightLogoUrl ? (
+              <img
+                src={rightLogoUrl}
+                alt="Right Seal"
+                style={{ maxHeight: '60px', maxWidth: '60px', width: 'auto', height: 'auto', objectFit: 'contain' }}
+                onError={(e) => { (e.currentTarget as HTMLElement).style.visibility = 'hidden'; }}
+              />
+            ) : (
+              <div style={{ width: '60px', height: '60px' }} />
+            )}
+          </div>
         </div>
 
-        <div style={{ flex: 1, textAlign: 'center' }}>
-          <div style={{ fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
-            Republic of the Philippines • Department of Health
-          </div>
-          <h1 style={{ fontSize: '13pt', fontWeight: 700, color: '#111827', margin: '2px 0 0 0', lineHeight: 1.2 }}>
-            {clinicName}
-          </h1>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '130px', justifyContent: 'flex-end', flexShrink: 0 }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
-              DOH Accred No.
-            </div>
-            <div style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 600, marginTop: '1px' }}>
-              {dohAccredNo}
-            </div>
-          </div>
-          {logos?.rightLogoUrl && (
-            <img
-              src={logos.rightLogoUrl}
-              alt="Logo"
-              style={{ maxHeight: '44px', maxWidth: '44px', objectFit: 'contain' }}
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            />
-          )}
-        </div>
+        {/* Double Separator Line */}
+        <div style={{ borderTop: '2px solid #000000', marginBottom: '2px' }} />
+        <div style={{ borderTop: '1px solid #000000' }} />
       </section>
 
       {/* 2. REGISTRY BLOCK */}

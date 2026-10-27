@@ -504,48 +504,49 @@ class VaccineInventoryController extends Controller
     // ────────────────────────────────────────────────────────────────────────
     public function publicAvailability(Request $request): JsonResponse
     {
-        $presets = VaccineTypePreset::orderBy('category')->orderBy('vaccine_name')->get();
+        // The public page represents the same facility named in this response.
+        $clinic = \App\Models\Clinic::orderBy('id')->first();
+        $inventory = $clinic
+            ? VaccineInventory::where('clinic_id', $clinic->id)->get()
+            : collect();
+        $presets = VaccineTypePreset::where(function ($query) use ($clinic) {
+            $query->whereNull('clinic_id');
+            if ($clinic) {
+                $query->orWhere('clinic_id', $clinic->id);
+            }
+        })->orderBy('clinic_id')->get()
+            ->keyBy(fn ($preset) => strtolower(trim($preset->vaccine_name)));
 
-        if ($presets->isEmpty()) {
-            $this->presets($request);
-            $presets = VaccineTypePreset::orderBy('category')->orderBy('vaccine_name')->get();
-        }
+        $catalog = $inventory->groupBy(fn ($batch) => strtolower(trim($batch->vaccine_type)))
+            ->map(function ($batches, $name) use ($presets) {
+                $preset = $presets->get($name);
+                $available = $batches->filter(fn ($batch) => $batch->status === 'active'
+                    && $batch->current_quantity > 0
+                    && $batch->expiration_date
+                    && $batch->expiration_date->toDateString() >= now()->toDateString());
+                $totalVials = (int) $available->sum('current_quantity');
+                $status = $totalVials === 0 ? 'Out of Stock' : ($totalVials <= 10 ? 'Limited Stock' : 'In Stock');
 
-        $activeInventory = VaccineInventory::where('status', 'active')->where('current_quantity', '>', 0)->get();
-
-        $catalog = $presets->map(function ($preset) use ($activeInventory) {
-            $matches      = $activeInventory->filter(fn($inv) => strcasecmp($inv->vaccine_type, $preset->vaccine_name) === 0);
-            $totalVials   = $matches->sum('current_quantity');
-
-            $status      = $totalVials === 0 ? 'Available on Demand' : ($totalVials <= 5 ? 'Limited Stock' : 'In Stock');
-            $statusColor = $totalVials === 0 ? 'info' : ($totalVials <= 5 ? 'warning' : 'success');
-
-            return [
-                'id'                         => $preset->id,
-                'vaccine_name'               => $preset->vaccine_name,
-                'category'                   => $preset->category ?? 'Anti-Rabies Vaccines (ARV)',
-                'administration_route'       => $preset->administration_route ?? 'Intradermal / Intramuscular',
-                'dosing_regimen_notes'       => $preset->dosing_regimen_notes,
-                'storage_temperature_notes'  => $preset->storage_temperature_notes ?? 'Store at +2°C to +8°C. Monitored Cold-Chain.',
-                'shelf_life_months'          => $preset->default_shelf_life_months,
-                'open_vial_hours'            => $preset->default_open_vial_hours,
-                'is_multidose'               => $preset->is_multidose,
-                'availability_status'        => $status,
-                'status_color'               => $statusColor,
-                'in_stock'                   => $totalVials > 0,
-            ];
-        });
-
-        $clinic = \App\Models\Clinic::first();
+                return [
+                    'id' => $name,
+                    'vaccine_name' => $preset?->vaccine_name ?? trim($batches->first()->vaccine_type),
+                    'category' => $preset?->category ?? 'Other Biologicals',
+                    'administration_route' => $preset?->administration_route,
+                    'storage_temperature_notes' => $preset?->storage_temperature_notes,
+                    'availability_status' => $status,
+                    'status_color' => $totalVials === 0 ? 'error' : ($totalVials <= 10 ? 'warning' : 'success'),
+                    'in_stock' => $totalVials > 0,
+                    'available_vials' => $totalVials,
+                    'active_batches' => $available->count(),
+                ];
+            })->sortBy('vaccine_name')->values();
 
         return response()->json([
-            'facility_name'       => $clinic?->name ?? 'Tagoloan Animal Bite Treatment Center',
-            'facility_address'    => $clinic?->address ?? 'Poblacion, Tagoloan, Misamis Oriental',
-            'operating_schedule'  => 'Mondays & Thursdays (8:00 AM – 5:00 PM)',
-            'cold_chain_status'   => 'Certified (+2°C to +8°C Active)',
-            'who_pep_compliant'   => true,
-            'vaccines'            => $catalog,
-            'categories'          => $catalog->groupBy('category'),
-        ]);
+            'facility_name' => $clinic?->name ?? 'Tagoloan Animal Bite Treatment Center',
+            'facility_address' => $clinic?->address,
+            'updated_at' => now()->toIso8601String(),
+            'vaccines' => $catalog,
+            'categories' => $catalog->groupBy('category'),
+        ])->header('Cache-Control', 'no-store');
     }
 }

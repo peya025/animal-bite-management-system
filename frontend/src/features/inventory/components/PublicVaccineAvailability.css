@@ -1,0 +1,51 @@
+.public-stock { max-width: 1300px; margin: 0 auto; padding: 4rem 1.5rem; scroll-margin-top: 150px; }
+.public-stock-heading { display: flex; justify-content: space-between; align-items: center; gap: 2rem; margin-bottom: 2rem; }
+.public-stock .public-stock-eyebrow { color: var(--primary-dark); font-size: .75rem; letter-spacing: .16em; font-weight: 800; margin-bottom: .8rem; }
+.public-stock h2 { color: var(--gray-900); font-size: clamp(1.8rem, 3vw, 2.7rem); line-height: 1.2; letter-spacing: -.04em; margin-bottom: 1rem; }
+.public-stock h2 span { color: var(--primary-dark); }
+.public-stock-heading p { max-width: 650px; color: var(--gray-600); }
+.public-stock-sync { flex-shrink: 0; display: grid; gap: .4rem; font-size: .8rem; color: var(--gray-600); }
+.public-stock-sync > span { font-weight: 700; color: var(--gray-900); }
+.public-stock button { font: inherit; cursor: pointer; }
+.public-stock-sync button { margin-top: .4rem; border: 1px solid var(--gray-200); padding: .65rem 1rem; border-radius: 10px; background: var(--white); color: var(--gray-900); }
+.public-stock button:disabled { cursor: wait; opacity: .65; }
+.public-stock .ready { --stock-color: #047857; --stock-bg: #ecfdf5; }
+.public-stock .limited { --stock-color: #92400e; --stock-bg: #fffbeb; }
+.public-stock .empty { --stock-color: #b91c1c; --stock-bg: #fef2f2; }
+.public-stock-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+.public-stock-stat { display: flex; gap: .8rem; align-items: center; padding: 1.25rem; background: var(--white); border: 1px solid var(--gray-200); border-radius: 14px; }
+.public-stock-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--stock-color); flex-shrink: 0; }
+.public-stock-stat > div > span { color: var(--gray-900); font-weight: 700; }
+.public-stock-stat small { display: block; color: var(--gray-500); font-size: .7rem; font-weight: 400; }
+.public-stock-stat > strong { margin-left: auto; color: var(--gray-900); font-size: 1.8rem; text-align: right; line-height: 1.3; }
+.public-stock-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 1.5rem; margin-bottom: 1.25rem; }
+.public-stock-filters { display: flex; flex-wrap: wrap; gap: .5rem; }
+.public-stock-filters button { border: 1px solid var(--gray-200); background: var(--white); color: var(--gray-600); border-radius: 999px; padding: .6rem .9rem; font-size: .8rem; }
+.public-stock-filters button[aria-pressed='true'] { background: #065f46; color: #fff; border-color: #065f46; }
+.public-stock-search { display: grid; gap: .35rem; min-width: 230px; font-size: .75rem; color: var(--gray-600); }
+.public-stock-search input { width: 100%; background: var(--white); color: var(--gray-900); padding: .7rem 1rem; border: 1px solid var(--gray-300); border-radius: 10px; font: inherit; font-size: .85rem; }
+.public-stock :is(button,input,summary):focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+.public-stock-results { font-size: .8rem; color: var(--gray-500); margin-bottom: 1rem; }
+.public-stock-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+.public-stock-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 18px; padding: 1.5rem; box-shadow: 0 4px 16px #00000004; }
+.public-stock-card-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: 1.5rem; }
+.public-stock-symbol { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--primary-light); color: var(--primary-dark); font-size: 1.4rem; }
+.public-stock-badge { display: inline-flex; align-items: center; gap: .4rem; padding: .35rem .65rem; border-radius: 999px; font-size: .72rem; font-weight: 700; color: var(--stock-color); background: var(--stock-bg); }
+.public-stock-category { font-size: .72rem; color: var(--gray-500); margin-bottom: .35rem; }
+.public-stock-card h3 { color: var(--gray-900); font-size: 1.1rem; line-height: 1.45; min-height: 3.2rem; overflow-wrap: anywhere; }
+.public-stock-quantity { display: flex; align-items: center; gap: .8rem; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--gray-200); }
+.public-stock-quantity > strong { font-size: 2.5rem; line-height: 1.2; letter-spacing: -.05em; color: var(--gray-900); }
+.public-stock-quantity > span { color: var(--gray-600); font-size: .85rem; }
+.public-stock-quantity small { display: block; color: var(--gray-500); font-size: .7rem; }
+.public-stock details { margin-top: 1.25rem; font-size: .8rem; color: var(--gray-600); }
+.public-stock summary { cursor: pointer; font-weight: 600; }
+.public-stock details p { margin-top: .6rem; }
+.public-stock-visit { display: flex; justify-content: space-between; gap: 1.5rem; background: var(--primary-light); padding: 1.25rem 1.5rem; border-radius: 14px; margin-top: 2rem; }
+.public-stock-visit strong, .public-stock-visit span { display: block; font-size: .8rem; color: var(--gray-700); }
+.public-stock-visit strong { margin-bottom: .25rem; color: var(--gray-900); }
+.public-stock-footnote { margin-top: .8rem; color: var(--gray-500); font-size: .75rem; }
+.public-stock-placeholder { padding: 3rem 1rem; text-align: center; border: 1px dashed var(--gray-300); border-radius: 14px; color: var(--gray-600); }
+.public-stock-notice { padding: 1rem; border: 1px solid #f59e0b; border-radius: 10px; margin-bottom: 1rem; color: var(--gray-900); }
+[data-theme='dark'] .public-stock h2 span, [data-theme='dark'] .public-stock .public-stock-eyebrow, [data-theme='dark'] .public-stock-symbol { color: #6ee7b7; }
+@media (max-width: 1000px) { .public-stock-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .public-stock-toolbar { align-items: stretch; flex-direction: column; } .public-stock-stat { flex-wrap: wrap; } }
+@media (max-width: 640px) { .public-stock { padding: 2.5rem 1rem; } .public-stock-heading, .public-stock-visit { flex-direction: column; align-items: stretch; } .public-stock-summary, .public-stock-grid { grid-template-columns: 1fr; } .public-stock-stat { padding: 1rem; } .public-stock-sync { justify-items: start; } .public-stock-card h3 { min-height: 0; } }

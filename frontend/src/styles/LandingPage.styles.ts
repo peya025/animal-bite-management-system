@@ -7,6 +7,64 @@
  */
 export const landingPageStyles = String.raw`/* Landing Page Styles - Modern Green Theme */
 
+/* Tutorial placeholders */
+.landing-page .tutorials-section {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+  scroll-margin-top: 160px;
+}
+.landing-page .tutorials-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+.landing-page .tutorial-card {
+  overflow: hidden;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 18px;
+  box-shadow: var(--shadow-sm);
+}
+.landing-page .tutorial-preview {
+  aspect-ratio: 16 / 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: var(--primary-light);
+  color: var(--gray-900);
+  font-weight: 600;
+}
+.landing-page .tutorial-content { padding: 1.5rem; }
+.landing-page .tutorial-status {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.landing-page .tutorial-content h3 { margin: 1rem 0 0.5rem; color: var(--gray-900); }
+.landing-page .tutorial-content p { color: var(--gray-600); }
+.landing-page .tutorial-watch {
+  width: 100%;
+  margin-top: 1.5rem;
+  padding: 0.8rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: not-allowed;
+}
+@media (max-width: 900px) {
+  .landing-page .tutorials-grid { grid-template-columns: 1fr; }
+}
+
 /* ===== Variables ===== */
 :root {
   --primary: #10b981;

@@ -174,6 +174,7 @@ export interface TreatmentRecordPayload {
   referred_by: string;
   reassessment_decision?: 'continue' | 'modify' | 'discontinue' | 'no_injection_required' | null;
   reassessment_notes?: string | null;
+  outcome?: string | null;
   // Referral transfer fields
   is_referral?: boolean;
   complete_referral?: boolean;

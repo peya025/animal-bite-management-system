@@ -108,6 +108,33 @@ class Patient extends Model
 
         $latestConsultation = $completedConsultations->last();
 
+        $isTransferredReferral = false;
+        if ($incident && ($incident->status === 'transferred_out' || !empty($incident->transferred_to_facility))) {
+            $isTransferredReferral = true;
+        } elseif ($latestConsultation) {
+            $isTransferredReferral = $latestConsultation->outcome === 'Transferred/Referred'
+                || (!empty($latestConsultation->referred_to) && TreatmentRecord::isExternalReferralDestination($latestConsultation->referred_to))
+                || ($latestConsultation->mode_of_transaction === 'referral' && !empty($latestConsultation->referred_to))
+                || (!empty($latestConsultation->actions_taken) && str_contains(strtolower($latestConsultation->actions_taken), 'transferred/referred'));
+        }
+
+        if ($isTransferredReferral) {
+            if ($latestConsultation && $latestConsultation->outcome !== 'Transferred/Referred') {
+                $latestConsultation->update(['outcome' => 'Transferred/Referred']);
+            }
+            if ($incident && $incident->status !== 'transferred_out' && !empty($incident->transferred_to_facility)) {
+                $incident->update(['status' => 'transferred_out']);
+            }
+
+            return $this->cachedEpisodeStatusSummary = [
+                'case_status' => 'transferred_out',
+                'visit_status' => 'completed',
+                'treatment_status' => 'transferred_referred',
+                'queue_status' => $queueStatus,
+                'pending_treatment_summary' => null,
+            ];
+        }
+
         if (!$latestConsultation) {
             return $this->cachedEpisodeStatusSummary = [
                 'case_status' => $incident->status ?: 'awaiting_assessment',
@@ -346,6 +373,23 @@ class Patient extends Model
             : $this->biteIncidents()->latest('bite_date')->latest('bite_id')->first();
 
         if (!$incident) {
+            return false;
+        }
+
+        if ($incident->status === 'transferred_out' || !empty($incident->transferred_to_facility)) {
+            return false;
+        }
+
+        $consultation = $this->relationLoaded('latestConsultationRecord')
+            ? $this->latestConsultationRecord
+            : $this->latestConsultationRecord()->first();
+
+        if ($consultation && (
+            $consultation->outcome === 'Transferred/Referred'
+            || (!empty($consultation->referred_to) && TreatmentRecord::isExternalReferralDestination($consultation->referred_to))
+            || ($consultation->mode_of_transaction === 'referral' && !empty($consultation->referred_to))
+            || (!empty($consultation->actions_taken) && str_contains(strtolower($consultation->actions_taken), 'transferred/referred'))
+        )) {
             return false;
         }
 

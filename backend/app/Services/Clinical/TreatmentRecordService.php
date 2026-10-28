@@ -210,7 +210,12 @@ class TreatmentRecordService
                 'reason_for_referral' => $c->reason_for_referral,
                 'reassessment_decision' => $pOrders['reassessment_decision'] ?? null,
                 'reassessment_notes' => $pOrders['reassessment_notes'] ?? null,
-                'outcome' => $c->outcome,
+                'outcome' => ($c->outcome === 'Transferred/Referred'
+                    || (!empty($c->referred_to) && TreatmentRecord::isExternalReferralDestination($c->referred_to))
+                    || ($c->mode_of_transaction === 'referral' && !empty($c->referred_to))
+                    || (!empty($c->actions_taken) && str_contains(strtolower($c->actions_taken), 'transferred/referred')))
+                    ? 'Transferred/Referred'
+                    : $c->outcome,
             ];
         })->values();
 
@@ -487,9 +492,10 @@ class TreatmentRecordService
 
         $isReferralOut = $isCompleteReferral
             || (!empty($validated['is_referral']) && $isExternalDestination)
-            || (($validated['mode_of_transaction'] ?? '') === 'referral' && $isExternalDestination);
+            || (($validated['mode_of_transaction'] ?? '') === 'referral' && $isExternalDestination)
+            || (($validated['outcome'] ?? null) === 'Transferred/Referred');
 
-        if ($isCompleteReferral) {
+        if ($isReferralOut) {
             $planType = 'no_vaccine';
         } elseif ($isCategory1 || $noInjectionDecision) {
             $planType = 'no_vaccine';
@@ -500,7 +506,9 @@ class TreatmentRecordService
             }
         }
 
-        $noInjectionRequired = ($planType === 'no_vaccine' && !$hasTetanusOrder && !$hasRigOrder) || $noInjectionDecision || $isCompleteReferral;
+        $noInjectionRequired = !$isReferralOut && (
+            ($planType === 'no_vaccine' && !$hasTetanusOrder && !$hasRigOrder) || $noInjectionDecision
+        );
 
         $enrichedProphylaxisOrders = array_merge($pOrders, array_filter([
             'consultation_exposure_category' => $effectiveCategory,
@@ -532,13 +540,13 @@ class TreatmentRecordService
             'consultation_time' => $validated['consultation_time'] ?? Carbon::now('Asia/Manila')->format('H:i'),
             'mode_of_transaction' => in_array($validated['mode_of_transaction'] ?? '', ['walk-in', 'visited', 'referral'], true)
                 ? $validated['mode_of_transaction']
-                : ($isCompleteReferral ? 'referral' : 'walk-in'),
+                : ($isReferralOut ? 'referral' : 'walk-in'),
             'referred_from' => $validated['referred_from'] ?? null,
             'referred_to' => $referredToFacility ?: ($validated['referred_to'] ?? null),
             'referred_by' => $validated['referred_by'] ?? null,
             'pertinent_history' => $validated['pertinent_history'] ?? null,
             'reason_for_referral' => $referralReasonInput ?: ($validated['reason_for_referral'] ?? null),
-            'actions_taken' => $isCompleteReferral
+            'actions_taken' => $isReferralOut
                 ? trim(($actionsTakenText ? $actionsTakenText . ' | ' : '') . "Transferred/Referred to {$referredToFacility}" . ($referralReasonInput ? " ({$referralReasonInput})" : ''))
                 : $actionsTakenText,
             'blood_pressure' => $validated['blood_pressure'] ?? null,
@@ -556,7 +564,7 @@ class TreatmentRecordService
             'performed_lab_test' => $validated['performed_lab_test'] ?? null,
             'provider_name' => $validated['provider_name'] ?? $user->name,
             'attending_provider' => $validated['attending_provider'] ?? null,
-            'outcome' => $isCompleteReferral ? 'Transferred/Referred' : ($noInjectionRequired ? 'completed_without_injection' : null),
+            'outcome' => $isReferralOut ? 'Transferred/Referred' : ($noInjectionRequired ? 'completed_without_injection' : ($validated['outcome'] ?? null)),
             'status' => 'completed',
             'administered_by' => $user->id,
         ];
@@ -628,14 +636,14 @@ class TreatmentRecordService
                 ]
             );
 
-            $incidentStatus = $isCompleteReferral ? 'transferred_out' : ($noInjectionRequired ? 'completed' : 'active');
+            $incidentStatus = $isReferralOut ? 'transferred_out' : ($noInjectionRequired ? 'completed' : 'active');
             $incidentUpdates = [
                 'episode_type' => in_array($planType, ['single_booster', 'two_dose_booster'], true) ? 're_exposure' : 'primary',
                 'is_previously_vaccinated' => in_array($planType, ['single_booster', 'two_dose_booster', 'continue_existing_schedule'], true),
                 'status' => $incidentStatus,
             ];
 
-            if ($isCompleteReferral) {
+            if ($isReferralOut) {
                 $incidentUpdates['transferred_to_facility'] = $referredToFacility;
                 $incidentUpdates['transferred_at'] = $transferDate;
                 $incidentUpdates['transfer_reason'] = $referralReasonInput;
@@ -643,7 +651,7 @@ class TreatmentRecordService
 
             $activeIncident->update($incidentUpdates);
 
-            if ($isCompleteReferral) {
+            if ($isReferralOut) {
                 Appointment::where('bite_id', $activeIncident->bite_id)
                     ->where('status', 'scheduled')
                     ->where('appointment_date', '>=', $transferDate->toDateString())
@@ -651,15 +659,9 @@ class TreatmentRecordService
                         'status' => 'cancelled',
                         'cancellation_reason' => "Patient Transferred/Referred to {$referredToFacility}",
                     ]);
-            } elseif (!empty($referredToFacility) && $isExternalDestination) {
-                $activeIncident->update([
-                    'transferred_to_facility' => $referredToFacility,
-                    'transfer_reason' => $referralReasonInput,
-                    'transferred_at' => $transferDate,
-                ]);
             }
 
-            if ($noInjectionRequired) {
+            if ($noInjectionRequired || $isReferralOut) {
                 $intake = $activeIncident->intake;
                 $intakeMode = is_array($intake?->exposure_modes) ? ($intake->exposure_modes[0] ?? null) : null;
                 $intakeSite = is_array($intake?->exposure_sites) ? implode(', ', $intake->exposure_sites) : null;
@@ -733,10 +735,8 @@ class TreatmentRecordService
 
         if ($isReferralOut || $planStopsImmediateTreatment) {
             if ($todayQueue) {
-                if ($isCompleteReferral) {
+                if ($isReferralOut) {
                     $referralNotes = "Doctor completed referral — Transferred/Referred to {$referredToFacility}. Visit completed.";
-                } elseif ($isReferralOut) {
-                    $referralNotes = "Referred to external facility: {$referredToFacility} — Visit Completed.";
                 } elseif ($isCategory1) {
                     $referralNotes = 'Doctor decision: Category I — No treatment required.';
                 } elseif ($planType === 'no_vaccine') {
@@ -754,7 +754,7 @@ class TreatmentRecordService
                     'to_status'    => 'completed',
                     'call_count'   => $todayQueue->call_count ?? 0,
                     'performed_by' => $user->id,
-                    'notes'        => $isCompleteReferral
+                    'notes'        => $isReferralOut
                         ? "Transferred/Referred: {$referredToFacility}" . ($referralReasonInput ? " — {$referralReasonInput}" : '')
                         : $referralNotes,
                     'occurred_at'  => now(),
@@ -843,13 +843,15 @@ class TreatmentRecordService
         return [
             'status' => 201,
             'data' => [
-                'message' => $isCompleteReferral
+                'message' => $isReferralOut
                     ? 'Doctor referral completed. Patient status set to Transferred/Referred.'
-                    : 'Treatment record saved successfully',
+                    : ($noInjectionRequired
+                        ? 'Consultation saved. Assessment finalized (No injection required).'
+                        : 'Treatment record saved successfully'),
                 'treatment_record' => $treatmentRecord->load('patient'),
                 'queue' => $todayQueue?->fresh(),
                 'incident' => $activeIncident?->fresh(),
-                'is_referral_completed' => $isCompleteReferral,
+                'is_referral_completed' => $isReferralOut,
             ],
         ];
     }

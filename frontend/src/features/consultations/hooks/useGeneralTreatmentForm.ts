@@ -781,8 +781,6 @@ export function useGeneralTreatmentForm({
         reason_for_referral: transferReason,
         laboratory_findings: formData.laboratory_findings || '',
         performed_lab_test: formData.performed_lab_test || '',
-        laboratory_findings: formData.laboratory_findings || null,
-        performed_lab_test: formData.performed_lab_test || null,
         provider_name: formData.name_of_provider || currentUserName || null,
         attending_provider: formData.name_of_attending_provider,
         referred_by: formData.referred_by,
@@ -857,10 +855,9 @@ export function useGeneralTreatmentForm({
         referred_to: facilityName,
         reason_for_referral: transferReason,
         actions_taken: `Transferred/Referred to ${facilityName} (${transferReason})`,
+        outcome: 'Transferred/Referred',
         laboratory_findings: formData.laboratory_findings || '',
         performed_lab_test: formData.performed_lab_test || '',
-        laboratory_findings: formData.laboratory_findings || null,
-        performed_lab_test: formData.performed_lab_test || null,
         provider_name: formData.name_of_provider || currentUserName || null,
         attending_provider: formData.name_of_attending_provider,
         referred_by: formData.referred_by,
@@ -1055,6 +1052,9 @@ export function useGeneralTreatmentForm({
         transfer_date: formData.is_referral ? formData.transfer_date : null,
         is_referral: formData.is_referral,
         complete_referral: false,
+        outcome: (formData.is_referral && formData.transferred_to_facility && !formData.transferred_to_facility.toLowerCase().includes('tagoloan rural health unit'))
+          ? 'Transferred/Referred'
+          : (existingRecord?.outcome || null),
       };
 
       const res = await submitTreatmentRecord(payload);

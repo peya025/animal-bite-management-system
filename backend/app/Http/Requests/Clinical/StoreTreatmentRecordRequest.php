@@ -97,6 +97,9 @@ class StoreTreatmentRecordRequest extends FormRequest
             // Returning Patient Reassessment Decision & Clinical Documentation
             'reassessment_decision' => 'nullable|in:continue,modify,discontinue,no_injection_required',
             'reassessment_notes' => 'nullable|string|max:2000',
+
+            // Outcome
+            'outcome' => 'nullable|string|max:100',
         ];
     }
 

@@ -748,6 +748,15 @@ class PatientService
             ];
         }
 
+        if ($patient->treatment_status === 'transferred_referred' || ($statusSummary['treatment_status'] ?? '') === 'transferred_referred' || $patient->case_status === 'transferred_out') {
+            return [
+                'status' => 422,
+                'data' => [
+                    'message' => 'Doctor assessment is completed (Transferred/Referred). This patient cannot enter the treatment queue.',
+                ],
+            ];
+        }
+
         if (($statusSummary['treatment_status'] ?? '') === 'completed_without_injection') {
             return [
                 'status' => 422,

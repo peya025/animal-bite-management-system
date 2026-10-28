@@ -1053,7 +1053,9 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
               const statusText =
                 c.administration_status === 'administered'
                   ? `Administered${adminItems ? `: ${adminItems}` : ''}`
-                  : c.administration_status === 'completed_without_injection'
+                  : (c.administration_status === 'Transferred/Referred' || c.administration_status === 'transferred_referred' || c.outcome === 'Transferred/Referred')
+                  ? `Transferred/Referred${c.referred_to ? ` to ${c.referred_to}` : ''}`
+                  : (c.administration_status === 'completed_without_injection' || c.administration_status === 'Completed Without Injection')
                   ? 'Completed Without Injection'
                   : c.administration_status === 'not_administered'
                   ? `Not Administered${c.not_administered_reason ? ` (${c.not_administered_reason})` : ''}`

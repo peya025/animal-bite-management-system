@@ -574,6 +574,14 @@ export function PatientHistoryInlineView({
                             </Notice>
                           )}
 
+                          {adminStatus === 'Transferred/Referred' && (
+                            <Notice tone="blue" title="Patient Transferred / Referred to External Facility">
+                              {c.referred_to
+                                ? `Transferred/Referred to ${c.referred_to}${c.reason_for_referral ? ` — Reason: ${c.reason_for_referral}` : ''}. Form 3 administration was not required and this visit is completed.`
+                                : 'Patient transferred / referred to external facility. Form 3 administration was not required and this visit is completed.'}
+                            </Notice>
+                          )}
+
                           {/* Administered Injections Table (if administered) */}
                           {administeredItems.length > 0 && (
                             <Box sx={{ mt: 0.5 }}>

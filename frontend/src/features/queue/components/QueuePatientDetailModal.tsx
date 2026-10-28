@@ -35,6 +35,7 @@ import {
   Stethoscope02Icon,
   Pulse01Icon,
   Medicine01Icon,
+  PrinterIcon,
 } from '@hugeicons/core-free-icons';
 import api from '../../../shared/services/api';
 import { useQueueEntry } from '../hooks';
@@ -42,6 +43,7 @@ import { STATUS_CFG, PRIORITY_CFG, VISIT_LABEL, getPriorityDisplayLabel, waitTim
 import { cancelQueueEntry, markNoResponse, recallQueuePatient, markAbsent, returnQueuePatientToQueue } from '../services';
 import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
+import DohTransferSlipModal from '../../vaccinations/components/DohTransferSlipModal';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { CompleteDialog } from './CompleteDialog';
 import { getMembershipByType, getPatientMemberships } from '../../patients/utils/memberships';
@@ -149,6 +151,29 @@ function Category1NoTreatmentBanner() {
         </Typography>
         <Typography sx={{ fontSize: 12, color: '#15803d' }}>
           Doctor assessment confirmed Category I exposure with no nurse-administered treatment required. Form 3 administration is locked. The completed consultation and episode record are preserved in history.
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+function TransferredOutBanner({ facility }: { facility?: string }) {
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 1.5,
+      px: 2.5, py: 2,
+      mb: 3,
+      bgcolor: '#eff6ff',
+      border: '1px solid #bfdbfe',
+      borderRadius: 2,
+    }}>
+      <CheckCircleIcon sx={{ fontSize: 18, color: '#2563eb', flexShrink: 0 }} />
+      <Box>
+        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#1e40af', mb: 0.25 }}>
+          Patient Transferred / Referred Out {facility ? `to ${facility}` : ''}
+        </Typography>
+        <Typography sx={{ fontSize: 12, color: '#1d4ed8' }}>
+          Doctor assessment finalized this consultation as Transferred/Referred to an external hospital. Form 3 administration was not required and the patient visit is completed. The referral details and printable slip are preserved in history.
         </Typography>
       </Box>
     </Box>
@@ -344,6 +369,7 @@ function TabBar({ active, onSelect, userRole }: {
 // ─── Patient Consultation History Tab ───────────────────────────────────────
 export function PatientConsultationHistoryTab({ patientId }: { patientId?: number }) {
   const [loading, setLoading] = useState(false);
+  const [reprintTreatment, setReprintTreatment] = useState<any | null>(null);
   const [treatments, setTreatments] = useState<any[]>([]);
   const [searchFilter, setSearchFilter] = useState('');
 
@@ -483,6 +509,34 @@ export function PatientConsultationHistoryTab({ patientId }: { patientId?: numbe
               </Typography>
             </Box>
 
+            {(t.referred_to || t.outcome === 'Transferred/Referred') && (
+              <Box sx={{ mt: 1.5, p: 1.25, bgcolor: '#eff6ff', borderRadius: 1.5, border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+                <Box>
+                  <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#1e40af', textTransform: 'uppercase' }}>
+                    Transferred / Referred Out
+                  </Typography>
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#1d4ed8' }}>
+                    🏥 {t.referred_to || 'External Hospital / ABTC'}
+                  </Typography>
+                  {t.reason_for_referral && (
+                    <Typography sx={{ fontSize: 11.5, color: '#2563eb' }}>
+                      Reason: {t.reason_for_referral}
+                    </Typography>
+                  )}
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<HugeiconsIcon icon={PrinterIcon} size={13} />}
+                  onClick={() => setReprintTreatment(t)}
+                  sx={{ textTransform: 'none', fontWeight: 700 }}
+                >
+                  Reprint Slip
+                </Button>
+              </Box>
+            )}
+
             {(t.prescribed_vaccine_type || t.medication_treatment) && (
               <Box sx={{ mt: 1.5, p: 1.25, bgcolor: '#f8fafc', borderRadius: 1.5, border: '1px solid #e2e8f0' }}>
                 {t.prescribed_vaccine_type && (
@@ -505,6 +559,25 @@ export function PatientConsultationHistoryTab({ patientId }: { patientId?: numbe
             )}
           </Paper>
         ))}
+      {reprintTreatment && (
+        <DohTransferSlipModal
+          open={Boolean(reprintTreatment)}
+          onClose={() => setReprintTreatment(null)}
+          patient={{ patient_id: patientId }}
+          incident={{
+            case_number: reprintTreatment.registry_no || reprintTreatment.case_number,
+            exposure_category: reprintTreatment.exposure_category,
+            diagnosis: reprintTreatment.diagnosis,
+            transferred_to_facility: reprintTreatment.referred_to,
+            transfer_reason: reprintTreatment.reason_for_referral,
+          }}
+          treatmentRecords={[reprintTreatment]}
+          transferredToFacility={reprintTreatment.referred_to}
+          transferReason={reprintTreatment.reason_for_referral}
+          transferDate={reprintTreatment.consultation_date}
+          diagnosis={reprintTreatment.diagnosis}
+        />
+      )}
       </Stack>
     </Box>
   );
@@ -512,6 +585,14 @@ export function PatientConsultationHistoryTab({ patientId }: { patientId?: numbe
 
 type EpisodeSummary = {
   bite_id: number;
+  transferred_to_facility?: string;
+  transfer_reason?: string;
+  transferred_at?: string;
+  case_number?: string;
+  exposure_category?: string;
+  severity?: string;
+  exposure_type?: string;
+  diagnosis?: string;
   episode_number?: number;
   episode_type?: string;
   bite_date?: string;
@@ -538,6 +619,7 @@ function EpisodeHistoryTab({
   onOpenEpisode: (episode: EpisodeSummary, form: 'form2' | 'form3') => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const [reprintEpisode, setReprintEpisode] = useState<EpisodeSummary | null>(null);
   const [episodes, setEpisodes] = useState<EpisodeSummary[]>([]);
 
   useEffect(() => {
@@ -571,6 +653,7 @@ function EpisodeHistoryTab({
           const records = episode.treatment_records || episode.treatmentRecords || [];
           const completedDoses = records.filter((record: any) => record.dose_number !== null && record.dose_number !== undefined && record.status === 'completed').length;
           const plan = episode.treatment_plan || episode.treatmentPlan;
+          const isTransferred = episode.status === 'transferred_out' || Boolean(episode.transferred_to_facility);
           return (
             <Paper key={episode.bite_id} elevation={0} sx={{ p: 2, border: isCurrent ? '1.5px solid #6ee7b7' : '1px solid #e2e8f0', borderRadius: 2.5, bgcolor: isCurrent ? '#f0fdf4' : '#fff' }}>
               <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
@@ -578,6 +661,9 @@ function EpisodeHistoryTab({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                     <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a' }}>Episode #{episode.episode_number || '—'}</Typography>
                     <Chip label={isCurrent ? 'Current episode' : (episode.status || 'recorded')} size="small" color={isCurrent ? 'success' : 'default'} sx={{ height: 20, fontSize: 10.5, fontWeight: 700 }} />
+                    {isTransferred && (
+                      <Chip label={`Transferred: ${episode.transferred_to_facility || 'External Facility'}`} size="small" sx={{ height: 20, fontSize: 10.5, fontWeight: 700, bgcolor: '#dbeafe', color: '#1e40af' }} />
+                    )}
                   </Box>
                   <Typography sx={{ mt: 0.55, fontSize: 12, color: '#475569' }}>
                     {episodeLabel(episode)} · Bite date: {episode.bite_date || 'Not recorded'}
@@ -586,7 +672,10 @@ function EpisodeHistoryTab({
                     {plan?.plan_type ? `Plan: ${plan.plan_type.replaceAll('_', ' ')}` : 'Treatment plan not recorded'} · {completedDoses} completed dose{completedDoses === 1 ? '' : 's'}
                   </Typography>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  {isTransferred && (
+                    <Button size="small" variant="outlined" color="success" startIcon={<HugeiconsIcon icon={PrinterIcon} size={13} />} onClick={() => setReprintEpisode(episode)} sx={{ textTransform: 'none', fontWeight: 700 }}>Reprint Slip</Button>
+                  )}
                   <Button size="small" variant="outlined" onClick={() => onOpenEpisode(episode, 'form2')} sx={{ textTransform: 'none', fontWeight: 700 }}>View Form 2</Button>
                   <Button size="small" variant="outlined" onClick={() => onOpenEpisode(episode, 'form3')} sx={{ textTransform: 'none', fontWeight: 700 }}>View Form 3</Button>
                 </Box>
@@ -594,6 +683,18 @@ function EpisodeHistoryTab({
             </Paper>
           );
         })}
+      {reprintEpisode && (
+        <DohTransferSlipModal
+          open={Boolean(reprintEpisode)}
+          onClose={() => setReprintEpisode(null)}
+          patient={{ patient_id: patientId }}
+          incident={reprintEpisode}
+          treatmentRecords={reprintEpisode.treatment_records || reprintEpisode.treatmentRecords || []}
+          transferredToFacility={reprintEpisode.transferred_to_facility}
+          transferReason={reprintEpisode.transfer_reason}
+          transferDate={reprintEpisode.transferred_at}
+        />
+      )}
       </Stack>
     </Box>
   );
@@ -791,8 +892,11 @@ export default function QueuePatientDetailModal({
               onClose={onClose}
               onSave={(savedData: any) => {
                 const notes = (savedData as any)?.queue?.consultation_notes || '';
+                const isReferralCompleted = Boolean((savedData as any)?.is_referral_completed);
                 const isNoTreatment = savedData?.queue?.status === 'completed' || notes.includes('No treatment required');
-                if (isNoTreatment) {
+                if (isReferralCompleted) {
+                  toast('Patient successfully Transferred/Referred · Queue visit completed');
+                } else if (isNoTreatment) {
                   toast('Form 2 saved · Category I consultation finalized (No treatment required)');
                 } else if (notes.includes('Tetanus prophylaxis prescribed')) {
                   toast('Form 2 saved · Category I referred to Treatment for Tetanus Prophylaxis');
@@ -814,7 +918,12 @@ export default function QueuePatientDetailModal({
         const isNewCaseAwaitingTriage = !historicalEpisode && entry.visit_type === 'new_case' && !entry.consultation_notes?.includes('Form 2');
         const isBoosterRequest = !historicalEpisode && entry.check_in_notes?.toLowerCase().includes('booster request');
         const isReExposure = !historicalEpisode && isReExposureAssessment(entry);
-        const isCategory1NoTreatment = !historicalEpisode && (
+        const isTransferredOut = !historicalEpisode && (
+          Boolean(entry.consultation_notes?.includes('Transferred')) ||
+          (entry.biteIncident as any)?.status === 'transferred_out' ||
+          (entry as any).incident?.status === 'transferred_out'
+        );
+        const isCategory1NoTreatment = !historicalEpisode && !isTransferredOut && (
           Boolean(entry.consultation_notes?.includes('Category I — No treatment required')) ||
           (((entry.biteIncident as any)?.exposure_category === 'I' || (entry as any).incident?.exposure_category === 'I' || entry.biteIncident?.severity === 'minor') && entry.status === 'completed')
         );
@@ -823,6 +932,8 @@ export default function QueuePatientDetailModal({
             {episodeContext}
             {isNewCaseAwaitingTriage ? (
               <AwaitingTriageBanner isBoosterRequest={isBoosterRequest} isReExposure={isReExposure} />
+            ) : isTransferredOut ? (
+              <TransferredOutBanner facility={(entry.biteIncident as any)?.transferred_to_facility || (entry as any).incident?.transferred_to_facility} />
             ) : isCategory1NoTreatment ? (
               <Category1NoTreatmentBanner />
             ) : !editable ? (
@@ -837,7 +948,7 @@ export default function QueuePatientDetailModal({
                 onSaved?.();
                 onClose();
               }}
-              readOnly={!editable || isNewCaseAwaitingTriage || isCategory1NoTreatment}
+              readOnly={!editable || isNewCaseAwaitingTriage || isCategory1NoTreatment || isTransferredOut}
               inline={true}
             />
           </Box>

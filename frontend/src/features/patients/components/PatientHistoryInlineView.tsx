@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Box, Chip, Typography, CircularProgress, Collapse, Button } from '@mui/material';
 import { Icon } from '../../../shared/components/ui/Icon';
+import DohTransferSlipModal from '../../vaccinations/components/DohTransferSlipModal';
 
 /**
  * One summary card per assessment, with its own administration status and
@@ -140,6 +141,7 @@ export function PatientHistoryInlineView({
   onOpenTab,
   onOpenTreatmentCard,
 }: PatientHistoryInlineViewProps) {
+  const [selectedReferralSlip, setSelectedReferralSlip] = useState<any | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     form1: false, // Default collapsed to keep focus on clinical assessments
     followups: true,
@@ -245,6 +247,10 @@ export function PatientHistoryInlineView({
               tone = 'gray';
               accent = '#94a3b8';
               statusBadgeText = 'Completed Without Injection';
+            } else if (adminStatus === 'Transferred/Referred') {
+              tone = 'blue';
+              accent = '#2563eb';
+              statusBadgeText = 'Transferred/Referred';
             }
 
             const hasOrders = Boolean(c.prescribed_vaccine_type || c.prescribed_tt || c.prescribed_ats || c.prescribed_rig);
@@ -264,6 +270,7 @@ export function PatientHistoryInlineView({
               ? given ? `${given} administered` : 'Treatment administered'
               : adminStatus === 'Not Administered' ? 'Injection not administered'
               : adminStatus === 'Completed Without Injection' ? 'Completed without injection'
+              : adminStatus === 'Transferred/Referred' ? `Transferred/Referred to ${c.referred_to || 'External Facility'}`
               : 'Awaiting administration';
 
             return (
@@ -315,6 +322,18 @@ export function PatientHistoryInlineView({
                       </Button>
                     )}
                   </Box>
+                    {(c.referred_to || adminStatus === 'Transferred/Referred' || c.outcome === 'Transferred/Referred') && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                        startIcon={<Icon name="print" size={16} color="currentColor" />}
+                        onClick={() => setSelectedReferralSlip(c)}
+                        sx={{ borderRadius: '999px', px: 1.75, py: 0.4, fontSize: 13, fontWeight: 600, textTransform: 'none' }}
+                      >
+                        Print Referral Slip
+                      </Button>
+                    )}
                 </Box>
 
                 {/* Assessment Body (Collapsible) */}
@@ -919,6 +938,25 @@ export function PatientHistoryInlineView({
             </Box>
           </Collapse>
         </Box>
+      )}
+      {selectedReferralSlip && (
+        <DohTransferSlipModal
+          open={Boolean(selectedReferralSlip)}
+          onClose={() => setSelectedReferralSlip(null)}
+          patient={p}
+          incident={bite || {
+            case_number: selectedReferralSlip.registry_no || p.case_number,
+            exposure_category: selectedReferralSlip.exposure_category || latestCategory,
+            diagnosis: selectedReferralSlip.diagnosis,
+            transferred_to_facility: selectedReferralSlip.referred_to,
+            transfer_reason: selectedReferralSlip.reason_for_referral,
+          }}
+          treatmentRecords={cData.administered_doses || []}
+          transferredToFacility={selectedReferralSlip.referred_to}
+          transferReason={selectedReferralSlip.reason_for_referral}
+          transferDate={selectedReferralSlip.consultation_date}
+          diagnosis={selectedReferralSlip.diagnosis}
+        />
       )}
     </Box>
   );

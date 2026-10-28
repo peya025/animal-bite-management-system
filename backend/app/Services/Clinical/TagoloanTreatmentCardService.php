@@ -265,7 +265,9 @@ class TagoloanTreatmentCardService
             $hasAdministeredInWindow = $windowDoses->isNotEmpty() || $windowProphylaxis->isNotEmpty();
             $hasPrescription = (bool) ($prescribedPep || $prescribedTt || $prescribedAts || $prescribedRig);
 
-            if (!$hasPrescription && ($cCat === 'I' || $noInj)) {
+            if ($c->outcome === 'Transferred/Referred' || (!empty($c->referred_to) && TreatmentRecord::isExternalReferralDestination($c->referred_to))) {
+                $adminStatus = 'Transferred/Referred';
+            } elseif (!$hasPrescription && ($cCat === 'I' || $noInj)) {
                 $adminStatus = 'Completed Without Injection';
             } elseif ($hasAdministeredInWindow) {
                 $adminStatus = 'Administered';
@@ -323,6 +325,9 @@ class TagoloanTreatmentCardService
                 'prescribed_rig' => $prescribedRig,
                 'administration_status' => $adminStatus,
                 'not_administered_reason' => $notAdminReason,
+                'referred_to' => $c->referred_to,
+                'reason_for_referral' => $c->reason_for_referral,
+                'outcome' => $c->outcome,
                 'administered_items' => $administeredItems,
             ];
         })->values();

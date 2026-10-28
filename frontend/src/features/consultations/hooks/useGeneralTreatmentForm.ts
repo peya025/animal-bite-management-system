@@ -100,6 +100,9 @@ export function useGeneralTreatmentForm({
   const [isPendingTreatmentReassessment, setIsPendingTreatmentReassessment] = useState(false);
   const [pendingTreatmentSummary, setPendingTreatmentSummary] = useState<any>(null);
 
+  // Referral Modal & Slip state
+  const [transferSlipOpen, setTransferSlipOpen] = useState(false);
+
   const [checkedDiagnoses, setCheckedDiagnoses] = useState<string[]>([]);
   const [checkedHistory, setCheckedHistory] = useState<string[]>([]);
 
@@ -111,6 +114,13 @@ export function useGeneralTreatmentForm({
   // OR if an existing record exists and we are not in edit mode.
   const isFormDisabled = readOnly || hasAdministeredVaccine || (hasExistingRecord && !isEditing);
   const isNatureOfVisitAutomatic = requiresReExposureDecision;
+
+  const isReferralCompleted = Boolean(
+    existingRecord?.outcome === 'Transferred/Referred' ||
+    existingRecord?.status === 'transferred_out' ||
+    selectedIncident?.status === 'transferred_out' ||
+    (entry?.status === 'completed' && Boolean(formData.transferred_to_facility && formData.is_referral))
+  );
 
   // Fetch available vaccine names and live inventory stock
   useEffect(() => {
@@ -184,6 +194,10 @@ export function useGeneralTreatmentForm({
       name_of_attending_provider: resolveAttendingProvider(entryRef.current, record) || prev.name_of_attending_provider,
       laboratory_findings: record.laboratory_findings || '',
       performed_lab_test: record.performed_lab_test || '',
+      is_referral: Boolean(record.is_referral || record.transferred_to_facility || record.referred_to),
+      transferred_to_facility: record.transferred_to_facility || record.referred_to || '',
+      transfer_reason: record.transfer_reason || record.reason_for_referral || '',
+      transfer_date: record.transfer_date || record.transferred_at || (record.consultation_date || prev.transfer_date),
     }));
 
     const matchedDiag = ANIMAL_BITE_DIAGNOSES.filter((d) => diagText.includes(d));
@@ -214,6 +228,7 @@ export function useGeneralTreatmentForm({
       ...INITIAL_FORM_DATA,
       date_of_consultation: manilaDate,
       consultation_time: manilaTime,
+      transfer_date: manilaDate,
       last_name: currentEntry?.patient?.last_name || '',
       first_name: currentEntry?.patient?.first_name || '',
       middle_name: currentEntry?.patient?.middle_name || '',
@@ -280,6 +295,15 @@ export function useGeneralTreatmentForm({
         if (activeInc) {
           const intake = activeInc.intake || null;
           setPatientReportedIntake(intake);
+          if (activeInc.transferred_to_facility || activeInc.status === 'transferred_out') {
+            setFormData((prev) => ({
+              ...prev,
+              is_referral: true,
+              transferred_to_facility: prev.transferred_to_facility || activeInc.transferred_to_facility || '',
+              transfer_reason: prev.transfer_reason || activeInc.transfer_reason || '',
+              transfer_date: prev.transfer_date || (activeInc.transferred_at ? String(activeInc.transferred_at).split('T')[0] : getManilaCurrentDateTime().date),
+            }));
+          }
         }
 
         const isNewSession =
@@ -288,8 +312,6 @@ export function useGeneralTreatmentForm({
         // A TreatmentRecord created by Registration Staff has status='scheduled'
         // and no chief_complaints. It is NOT a completed Doctor Form 2 entry —
         // the Doctor must still fill in all clinical fields.
-        // Treat it as a vitals-pre-filled new session so the form opens in
-        // entry mode ("Save Patient Record") rather than view mode ("Edit Record").
         const isRegistrationStaffPrefill =
           record &&
           record.status === 'scheduled' &&
@@ -304,11 +326,6 @@ export function useGeneralTreatmentForm({
             setFormData((prev) => ({ ...prev, nature_of_visit: 'new_consultation' }));
           }
         } else {
-          // Either no record at all, a Registration Staff pre-fill, or a Returning Patient Pending Treatment Reassessment.
-          // Open in new-entry mode. Still populate vitals from the pre-fill
-          // so the Doctor sees them read-only in Section III.
-          // Importantly, for returning patient reassessment, do NOT automatically copy the old prescription
-          // into a new active order without explicit doctor review/selection.
           setHasExistingRecord(false);
           setIsEditing(true);
           setExistingRecord(isRegistrationStaffPrefill ? record : null);
@@ -325,6 +342,10 @@ export function useGeneralTreatmentForm({
               nature_of_visit:      isReassessment ? (record.nature_of_visit || 'follow_up') : prev.nature_of_visit,
               name_of_attending_provider: record.attending_provider || prev.name_of_attending_provider,
               referred_by:          record.referred_by || prev.referred_by,
+              is_referral:          Boolean(record.transferred_to_facility || record.is_referral || prev.is_referral),
+              transferred_to_facility: record.transferred_to_facility || prev.transferred_to_facility || '',
+              transfer_reason:      record.transfer_reason || prev.transfer_reason || '',
+              transfer_date:        record.transfer_date || prev.transfer_date || getManilaCurrentDateTime().date,
             }));
           }
           const resolvedAttending = resolveAttendingProvider(entryRef.current, null, data?.patient);
@@ -332,8 +353,7 @@ export function useGeneralTreatmentForm({
             setFormData((prev) => ({ ...prev, name_of_attending_provider: resolvedAttending }));
           }
 
-          // Restore draft for a new (unsaved) record after the server
-          // population is complete so draft values win over the fresh defaults.
+          // Restore draft for a new (unsaved) record after server population
           const savedDraft = draft.readDraft<{
             formData: TreatmentFormData;
             checkedDiagnoses: string[];
@@ -364,7 +384,6 @@ export function useGeneralTreatmentForm({
         setIsEditing(true);
         setExistingRecord(null);
 
-        // Still try to restore draft even on fetch error
         const savedDraft = draft.readDraft<{
           formData: TreatmentFormData;
           checkedDiagnoses: string[];
@@ -378,25 +397,24 @@ export function useGeneralTreatmentForm({
       });
   }, [open, sessionKey, patientId, biteId, populateFormFromRecord, selectedIncident, draftKey, readOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** Save the complete form snapshot to draft storage */
   const saveDraftSnapshot = useCallback(
-    (nextFormData: TreatmentFormData, nextDiagnoses?: string[], nextHistory?: string[]) => {
+    (
+      nextData: TreatmentFormData,
+      nextDiagnoses: string[] = checkedDiagnoses,
+      nextHistory: string[] = checkedHistory
+    ) => {
       draft.saveDraft({
-        formData: nextFormData,
-        checkedDiagnoses: nextDiagnoses ?? checkedDiagnoses,
-        checkedHistory: nextHistory ?? checkedHistory,
+        formData: nextData,
+        checkedDiagnoses: nextDiagnoses,
+        checkedHistory: nextHistory,
       });
     },
-    [draft, checkedDiagnoses, checkedHistory],
+    [checkedDiagnoses, checkedHistory, draft]
   );
 
-  const handleFieldBlur = (key: string) => () => {    setTouchedFields((prev) => ({ ...prev, [key]: true }));
-    const newErrors: Record<string, string> = { ...fieldErrors };
-    if (key === 'nature_of_visit' && !formData.nature_of_visit) {
-      newErrors.nature_of_visit = 'Please select Nature of Visit';
-    } else if (key === 'nature_of_visit') {
-      delete newErrors.nature_of_visit;
-    }
+  const handleFieldBlur = (key: string) => () => {
+    setTouchedFields((prev) => ({ ...prev, [key]: true }));
+    const newErrors = { ...fieldErrors };
     if (key === 'chief_complaints' && !formData.chief_complaints.trim()) {
       newErrors.chief_complaints = 'Please enter Chief Complaints';
     } else if (key === 'chief_complaints') {
@@ -660,6 +678,222 @@ export function useGeneralTreatmentForm({
     }
   };
 
+  // ─── Referral Handlers ─────────────────────────────────────────────────────
+  const handleToggleReferral = (enabled: boolean) => {
+    setFormData((prev) => {
+      const next: TreatmentFormData = {
+        ...prev,
+        is_referral: enabled,
+        transfer_date: prev.transfer_date || getManilaCurrentDateTime().date,
+      };
+      saveDraftSnapshot(next);
+      return next;
+    });
+  };
+
+  const handleSelectFacility = (facility: string) => {
+    setFormData((prev) => {
+      const next: TreatmentFormData = {
+        ...prev,
+        transferred_to_facility: facility,
+      };
+      saveDraftSnapshot(next);
+      return next;
+    });
+    if (fieldErrors.transferred_to_facility) {
+      setFieldErrors((errs) => {
+        const next = { ...errs };
+        delete next.transferred_to_facility;
+        return next;
+      });
+    }
+  };
+
+  const handleSelectReason = (reason: string) => {
+    setFormData((prev) => {
+      const current = prev.transfer_reason?.trim() || '';
+      const nextReason = current
+        ? (current.includes(reason) ? current : `${current}\n• ${reason}`)
+        : `• ${reason}`;
+      const next: TreatmentFormData = {
+        ...prev,
+        transfer_reason: nextReason,
+      };
+      saveDraftSnapshot(next);
+      return next;
+    });
+  };
+
+  const handleOpenPrintSlip = () => {
+    setTransferSlipOpen(true);
+  };
+
+  const handleSaveReferral = async (printAfter: boolean = true) => {
+    if (!formData.transferred_to_facility || !formData.transferred_to_facility.trim()) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        transferred_to_facility: 'Please specify the receiving hospital or health facility.',
+      }));
+      setError('Please specify the receiving hospital or health facility before saving referral slip.');
+      scrollToFirstError('field-transferred_to_facility');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const patientId = entry.patient.patient_id || entry.patient.id;
+      const effectiveCategory = formData.exposure_category || selectedIncident?.exposure_category || 'II';
+      const facilityName = formData.transferred_to_facility.trim();
+      const transferReason = formData.transfer_reason?.trim() || 'For further evaluation and management.';
+      const effectiveDate = formData.transfer_date || getManilaCurrentDateTime().date;
+      const chiefNotes = formData.chief_complaints?.trim() || formData.diagnosis?.trim() || `Referral details saved for ${facilityName}`;
+
+      const activeConsultationTypes = Object.keys(formData.consultation_types).filter(
+        (key) => formData.consultation_types[key as keyof typeof formData.consultation_types]
+      );
+      if (activeConsultationTypes.length === 0) {
+        activeConsultationTypes.push('injury');
+      }
+
+      const payload: TreatmentRecordPayload = {
+        patient_id: patientId,
+        queue_id: entry.queue_id || null,
+        bite_id: entry.bite_id || entry.incident?.bite_id || entry.bite_incident?.bite_id || entry.biteIncident?.bite_id || null,
+        nature_of_visit: formData.nature_of_visit || 'new_consultation',
+        consultation_types: activeConsultationTypes,
+        chief_complaints: chiefNotes,
+        diagnosis: formData.diagnosis,
+        exposure_category: effectiveCategory,
+        treatment_plan: treatmentPlan || 'no_vaccine',
+        prescribed_vaccine_type: formData.prescribed_vaccine_type || null,
+        medication_treatment: formData.medication_treatment || '',
+        transferred_to_facility: facilityName,
+        transfer_reason: transferReason,
+        transfer_date: effectiveDate,
+        is_referral: true,
+        complete_referral: false,
+        consultation_date: formData.date_of_consultation || getManilaCurrentDateTime().date,
+        consultation_time: formData.consultation_time || getManilaCurrentDateTime().time,
+        mode_of_transaction: formData.mode_of_transaction || 'referral',
+        referred_to: facilityName,
+        reason_for_referral: transferReason,
+        laboratory_findings: formData.laboratory_findings || '',
+        performed_lab_test: formData.performed_lab_test || '',
+        laboratory_findings: formData.laboratory_findings || null,
+        performed_lab_test: formData.performed_lab_test || null,
+        provider_name: formData.name_of_provider || currentUserName || null,
+        attending_provider: formData.name_of_attending_provider,
+        referred_by: formData.referred_by,
+        prophylaxis_orders: formData.prophylaxis_orders,
+      };
+
+      const res = await submitTreatmentRecord(payload);
+      if (res?.treatment_record) {
+        setExistingRecord(res.treatment_record);
+      }
+      if (printAfter) {
+        setTransferSlipOpen(true);
+      }
+      return res;
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to save referral details');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCompleteReferral = async () => {
+    if (!formData.transferred_to_facility || !formData.transferred_to_facility.trim()) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        transferred_to_facility: 'Please specify the receiving hospital or health facility.',
+      }));
+      setError('Please specify the receiving hospital or health facility to complete referral.');
+      scrollToFirstError('field-transferred_to_facility');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const patientId = entry.patient.patient_id || entry.patient.id;
+      const effectiveCategory = formData.exposure_category || selectedIncident?.exposure_category || 'II';
+      const facilityName = formData.transferred_to_facility.trim();
+      const transferReason = formData.transfer_reason?.trim() || 'For further evaluation and management.';
+      const effectiveDate = formData.transfer_date || getManilaCurrentDateTime().date;
+      const chiefNotes = formData.chief_complaints?.trim() || formData.diagnosis?.trim() || `Referred to ${facilityName}`;
+
+      const activeConsultationTypes = Object.keys(formData.consultation_types).filter(
+        (key) => formData.consultation_types[key as keyof typeof formData.consultation_types]
+      );
+      if (activeConsultationTypes.length === 0) {
+        activeConsultationTypes.push('injury');
+      }
+
+      const payload: TreatmentRecordPayload = {
+        patient_id: patientId,
+        queue_id: entry.queue_id || null,
+        bite_id: entry.bite_id || entry.incident?.bite_id || entry.bite_incident?.bite_id || entry.biteIncident?.bite_id || null,
+        nature_of_visit: formData.nature_of_visit || 'new_consultation',
+        consultation_types: activeConsultationTypes,
+        chief_complaints: chiefNotes,
+        diagnosis: formData.diagnosis || 'Animal bite exposure - referred out',
+        exposure_category: effectiveCategory,
+        treatment_plan: 'no_vaccine',
+        prescribed_vaccine_type: null,
+        medication_treatment: `Transferred/Referred to ${facilityName}`,
+        transferred_to_facility: facilityName,
+        transfer_reason: transferReason,
+        transfer_date: effectiveDate,
+        is_referral: true,
+        complete_referral: true,
+        consultation_date: formData.date_of_consultation || getManilaCurrentDateTime().date,
+        consultation_time: formData.consultation_time || getManilaCurrentDateTime().time,
+        mode_of_transaction: 'referral',
+        referred_from: null,
+        referred_to: facilityName,
+        reason_for_referral: transferReason,
+        actions_taken: `Transferred/Referred to ${facilityName} (${transferReason})`,
+        laboratory_findings: formData.laboratory_findings || '',
+        performed_lab_test: formData.performed_lab_test || '',
+        laboratory_findings: formData.laboratory_findings || null,
+        performed_lab_test: formData.performed_lab_test || null,
+        provider_name: formData.name_of_provider || currentUserName || null,
+        attending_provider: formData.name_of_attending_provider,
+        referred_by: formData.referred_by,
+        prophylaxis_orders: {
+          ...formData.prophylaxis_orders,
+          tetanus_category: 'not_indicated',
+          tetanus_vaccine: 'none',
+          tetanus_passive: 'none',
+          rig: 'none',
+        },
+      };
+
+      const res = await submitTreatmentRecord(payload);
+      window.dispatchEvent(new Event('exposure-category-saved'));
+
+      setHasExistingRecord(true);
+      setIsEditing(false);
+      if (res?.treatment_record) {
+        setExistingRecord({ ...res.treatment_record, outcome: 'Transferred/Referred', exposure_category: effectiveCategory });
+      }
+
+      draft.clearDraft();
+      onSave({ ...(res || {}), is_referral_completed: true });
+      if (!inline) {
+        onClose();
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to complete referral');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSubmit = async () => {
     const newFieldErrors: Record<string, string> = {};
 
@@ -816,6 +1050,11 @@ export function useGeneralTreatmentForm({
         provider_name: formData.name_of_provider || currentUserName || null,
         attending_provider: formData.name_of_attending_provider,
         referred_by: formData.referred_by,
+        transferred_to_facility: formData.is_referral ? formData.transferred_to_facility : null,
+        transfer_reason: formData.is_referral ? formData.transfer_reason : null,
+        transfer_date: formData.is_referral ? formData.transfer_date : null,
+        is_referral: formData.is_referral,
+        complete_referral: false,
       };
 
       const res = await submitTreatmentRecord(payload);
@@ -882,18 +1121,6 @@ export function useGeneralTreatmentForm({
     isFormDisabled,
     isNatureOfVisitAutomatic,
     shouldHideConsultationType,
-    /**
-     * True when the vitals in Section III were pre-filled by Registration Staff
-     * (TreatmentRecord status='scheduled', no chief_complaints) and the Doctor has
-     * not yet submitted Form 2.  Once the Doctor saves Form 2, a new completed
-     * TreatmentRecord is created and this condition no longer applies.
-     *
-     * When true, VitalsConsultationSection renders all Section III fields as
-     * read-only display values — the Doctor can VIEW but not EDIT them.
-     *
-     * NOTE: hasExistingRecord is FALSE for pre-fills (form is in new-entry mode),
-     * so we check existingRecord directly rather than combining with hasExistingRecord.
-     */
     isVitalsReadOnly: !hasExistingRecord &&
       existingRecord?.status === 'scheduled' &&
       !existingRecord?.chief_complaints,
@@ -909,8 +1136,17 @@ export function useGeneralTreatmentForm({
     handleSaveAddendum,
     handleSubmit,
     handleCancelEdit,
-    // Draft auto-save status — consumed by the form UI to show the badge
     draftStatus: draft.status,
     draftSavedAt: draft.savedAt,
+    // Referral fields & actions
+    transferSlipOpen,
+    setTransferSlipOpen,
+    isReferralCompleted,
+    handleToggleReferral,
+    handleSelectFacility,
+    handleSelectReason,
+    handleOpenPrintSlip,
+    handleSaveReferral,
+    handleCompleteReferral,
   };
 }

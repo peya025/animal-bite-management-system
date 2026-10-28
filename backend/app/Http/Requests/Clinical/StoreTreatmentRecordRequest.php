@@ -64,6 +64,13 @@ class StoreTreatmentRecordRequest extends FormRequest
             'reason_for_referral' => 'nullable|string',
             'actions_taken' => 'nullable|string',
 
+            // Transfer Out / Referral Slip Fields (Form 2 & Form 3)
+            'transferred_to_facility' => 'nullable|string|max:255',
+            'transfer_reason' => 'nullable|string',
+            'transfer_date' => 'nullable|date',
+            'is_referral' => 'nullable|boolean',
+            'complete_referral' => 'nullable|boolean',
+
             // Vital Signs
             'blood_pressure' => 'nullable|string|max:20',
             'temperature' => 'nullable|string|max:10',
@@ -115,6 +122,15 @@ class StoreTreatmentRecordRequest extends FormRequest
                 $validator->errors()->add(
                     'reassessment_notes',
                     'Please document the clinical reason when modifying, discontinuing, or determining no injection is required for a previous prescription.'
+                );
+            }
+
+            $completeReferral = filter_var($this->input('complete_referral'), FILTER_VALIDATE_BOOLEAN);
+            $facility = trim((string) ($this->input('transferred_to_facility') ?? $this->input('referred_to') ?? ''));
+            if ($completeReferral && empty($facility)) {
+                $validator->errors()->add(
+                    'transferred_to_facility',
+                    'Please specify the receiving hospital or health facility to complete the referral.'
                 );
             }
         });

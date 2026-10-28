@@ -67,6 +67,12 @@ export interface TreatmentFormData {
   // Returning Patient Reassessment Decision
   reassessment_decision?: 'continue' | 'modify' | 'discontinue' | 'no_injection_required' | '';
   reassessment_notes?: string;
+
+  // Transfer Out / Referral Slip (Form 2 Doctor Referral)
+  is_referral?: boolean;
+  transferred_to_facility?: string;
+  transfer_reason?: string;
+  transfer_date?: string;
 }
 
 export interface PatientReportedIntake {
@@ -168,4 +174,10 @@ export interface TreatmentRecordPayload {
   referred_by: string;
   reassessment_decision?: 'continue' | 'modify' | 'discontinue' | 'no_injection_required' | null;
   reassessment_notes?: string | null;
+  // Referral transfer fields
+  is_referral?: boolean;
+  complete_referral?: boolean;
+  transferred_to_facility?: string | null;
+  transfer_reason?: string | null;
+  transfer_date?: string | null;
 }

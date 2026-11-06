@@ -26,7 +26,7 @@ import {
   ArrowDownward as ArrowDownwardIcon,
   ArrowUpward as ArrowUpwardIcon,
   AccountBalanceOutlined as BuildingIcon,
-  DeleteOutline as DeleteIcon,
+  DeleteOutlined as DeleteIcon,
   EditOutlined as EditIcon,
   Language as GlobeIcon,
   Link as LinkIcon,
@@ -963,7 +963,7 @@ export default function PatientAppResourcesPage() {
                         size="small"
                         checked={Boolean(item.is_active)}
                         onChange={() => void handleToggleActive(item)}
-                        inputProps={{ 'aria-label': `Toggle active state for ${item.title}` }}
+                        slotProps={{ input: { 'aria-label': `Toggle active state for ${item.title}` } }}
                         sx={{
                           '& .MuiSwitch-switchBase.Mui-checked': {
                             color: '#1D9E75',
@@ -1050,11 +1050,13 @@ export default function PatientAppResourcesPage() {
         onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: '16px',
-            border: '0.5px solid #e5e7eb',
-            boxShadow: '0 16px 40px rgba(0,0,0,0.08)',
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: '16px',
+              border: '0.5px solid #e5e7eb',
+              boxShadow: '0 16px 40px rgba(0,0,0,0.08)',
+            },
           },
         }}
       >
@@ -1119,10 +1121,12 @@ export default function PatientAppResourcesPage() {
                   onBlur={() => markTouched('title')}
                   error={Boolean(showFieldError('title'))}
                   helperText={showFieldError('title')}
-                  inputProps={{
-                    maxLength: 120,
-                    'aria-describedby': 'resource-title-hint',
-                    'aria-invalid': Boolean(showFieldError('title')),
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: 120,
+                      'aria-describedby': 'resource-title-hint',
+                      'aria-invalid': Boolean(showFieldError('title')),
+                    },
                   }}
                   sx={fieldSx}
                 />
@@ -1144,10 +1148,12 @@ export default function PatientAppResourcesPage() {
                   onBlur={() => markTouched('subtitle')}
                   error={Boolean(showFieldError('subtitle'))}
                   helperText={showFieldError('subtitle')}
-                  inputProps={{
-                    maxLength: 160,
-                    'aria-describedby': 'resource-subtitle-hint',
-                    'aria-invalid': Boolean(showFieldError('subtitle')),
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: 160,
+                      'aria-describedby': 'resource-subtitle-hint',
+                      'aria-invalid': Boolean(showFieldError('subtitle')),
+                    },
                   }}
                   sx={fieldSx}
                 />
@@ -1172,11 +1178,13 @@ export default function PatientAppResourcesPage() {
                   onBlur={() => markTouched('url')}
                   error={Boolean(showFieldError('url'))}
                   helperText={showFieldError('url')}
-                  inputProps={{
-                    maxLength: 500,
-                    pattern: 'https://.*',
-                    'aria-describedby': 'resource-url-hint',
-                    'aria-invalid': Boolean(showFieldError('url')),
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: 500,
+                      pattern: 'https://.*',
+                      'aria-describedby': 'resource-url-hint',
+                      'aria-invalid': Boolean(showFieldError('url')),
+                    },
                   }}
                   sx={fieldSx}
                 />
@@ -1208,11 +1216,13 @@ export default function PatientAppResourcesPage() {
                       onBlur={() => markTouched('thumbnail_url')}
                       error={Boolean(showFieldError('thumbnail_url'))}
                       helperText={showFieldError('thumbnail_url')}
-                      inputProps={{
-                        maxLength: 500,
-                        pattern: 'https://.*',
-                        'aria-describedby': 'resource-thumbnail-hint',
-                        'aria-invalid': Boolean(showFieldError('thumbnail_url')),
+                      slotProps={{
+                        htmlInput: {
+                          maxLength: 500,
+                          pattern: 'https://.*',
+                          'aria-describedby': 'resource-thumbnail-hint',
+                          'aria-invalid': Boolean(showFieldError('thumbnail_url')),
+                        },
                       }}
                       sx={fieldSx}
                     />
@@ -1235,11 +1245,13 @@ export default function PatientAppResourcesPage() {
                       onBlur={() => markTouched('duration_label')}
                       error={Boolean(showFieldError('duration_label'))}
                       helperText={showFieldError('duration_label')}
-                      inputProps={{
-                        maxLength: 10,
-                        pattern: '\\d{1,2}:[0-5]\\d',
-                        'aria-describedby': 'resource-duration-hint',
-                        'aria-invalid': Boolean(showFieldError('duration_label')),
+                      slotProps={{
+                        htmlInput: {
+                          maxLength: 10,
+                          pattern: '\\d{1,2}:[0-5]\\d',
+                          'aria-describedby': 'resource-duration-hint',
+                          'aria-invalid': Boolean(showFieldError('duration_label')),
+                        },
                       }}
                       sx={fieldSx}
                     />
@@ -1263,7 +1275,7 @@ export default function PatientAppResourcesPage() {
                     onBlur={() => markTouched('sort_order')}
                     error={Boolean(showFieldError('sort_order'))}
                     helperText={showFieldError('sort_order')}
-                    inputProps={{ min: 0, max: 65535 }}
+                    slotProps={{ htmlInput: { min: 0, max: 65535 } }}
                     sx={fieldSx}
                   />
                 </Box>
@@ -1358,21 +1370,18 @@ export default function PatientAppResourcesPage() {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <ConfirmationDialog
-        isOpen={Boolean(deleteTarget)}
-        title="Delete Resource"
-        message={
-          deleteTarget
-            ? `Are you sure you want to delete "${deleteTarget.title}"? This will remove it from the patient Home screen.`
-            : ''
-        }
-        confirmText="Delete"
-        cancelText="Cancel"
-        variant="danger"
-        isLoading={deleting}
-        onConfirm={() => void handleConfirmDelete()}
-        onCancel={() => setDeleteTarget(null)}
-      />
+      {deleteTarget && (
+        <ConfirmationDialog
+          title="Delete Resource"
+          message={`Are you sure you want to delete "${deleteTarget.title}"? This will remove it from the patient Home screen.`}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          variant="danger"
+          isLoading={deleting}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
 
       <Snackbar
         open={snackbar.open}

@@ -77,6 +77,7 @@ export const ROUTES = {
     MODULES:           '/setup/modules',
     STAFF_ASSIGNMENTS: '/setup/staff-assignments',
     TEMPLATES:         '/setup/templates',
+    PATIENT_RESOURCES: '/setup/patient-resources',
     VAX_SCHED:         '/setup/vaccination-schedules',
   },
   PROFILE: '/profile',

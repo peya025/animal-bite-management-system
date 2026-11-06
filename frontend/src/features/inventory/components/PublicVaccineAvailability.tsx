@@ -74,7 +74,7 @@ export default function PublicVaccineAvailability({ schedule, hours, registratio
   const stockCount = (status: PublicVaccine['availability_status']) => vaccines.filter(v => v.availability_status === status).length;
 
   return (
-    <section id="vaccines" className="public-stock" aria-labelledby="public-stock-title">
+    <section id="vaccines" className="public-stock scroll-reveal" aria-labelledby="public-stock-title">
       <div className="public-stock-heading">
         <div>
           <p className="public-stock-eyebrow">VACCINE AVAILABILITY</p>
@@ -82,7 +82,10 @@ export default function PublicVaccineAvailability({ schedule, hours, registratio
           <p>Current vaccine and biological stock at {data?.facility_name ?? 'Tagoloan Animal Bite Treatment Center'}.</p>
         </div>
         <div className="public-stock-sync">
-          <span>{error ? 'Update unavailable' : data ? 'Connected to clinic inventory' : 'Checking clinic inventory'}</span>
+          <span className="sync-status-wrapper">
+            <span className={`sync-indicator-dot ${error ? 'is-error' : data ? 'is-live' : 'is-loading'}`} aria-hidden="true" />
+            <span>{error ? 'Update unavailable' : data ? 'Connected to clinic inventory' : 'Checking clinic inventory'}</span>
+          </span>
           {data && (
             <small>
               Last checked{' '}
@@ -92,7 +95,10 @@ export default function PublicVaccineAvailability({ schedule, hours, registratio
               (PHT)
             </small>
           )}
-          <button type="button" disabled={loading} onClick={() => setRefresh(n => n + 1)}>{loading ? 'Refreshing…' : 'Refresh availability ↻'}</button>
+          <button type="button" disabled={loading} onClick={() => setRefresh(n => n + 1)} className={`refresh-btn ${loading ? 'is-loading' : ''}`}>
+            <span>{loading ? 'Refreshing…' : 'Refresh availability'}</span>
+            <span className={`refresh-icon ${loading ? 'is-spinning' : ''}`} aria-hidden="true">↻</span>
+          </button>
         </div>
       </div>
 

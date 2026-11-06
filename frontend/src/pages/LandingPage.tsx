@@ -172,7 +172,7 @@ export default function LandingPage() {
           scroll-behavior: smooth;
         }
 
-        /* Smooth Theme Transitions */
+        /* Smooth Theme Transitions - Slower & Relaxed */
         body,
         .gov-header,
         .gov-subnav-bar,
@@ -183,7 +183,7 @@ export default function LandingPage() {
         .footer,
         .tutorial-card,
         .help-card {
-          transition: background-color 0.35s ease, color 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+          transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
         }
 
         /* Two-Row Government Portal Header */
@@ -195,7 +195,7 @@ export default function LandingPage() {
           position: sticky;
           top: 0;
           z-index: 100;
-          transition: box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease;
+          transition: box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.5s ease;
         }
         .gov-header.is-scrolled {
           box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
@@ -213,7 +213,7 @@ export default function LandingPage() {
         .gov-header-top {
           padding: 0.75rem 1.5rem;
           border-bottom: 1px solid var(--gray-200);
-          transition: border-color 0.3s ease;
+          transition: border-color 0.45s ease;
         }
         .gov-header-container {
           max-width: 1400px;
@@ -233,13 +233,13 @@ export default function LandingPage() {
           gap: 0.75rem;
           text-decoration: none;
           color: #059669;
-          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .gov-brand-block .nav-logo:hover {
           transform: scale(1.02);
         }
         .gov-brand-block .nav-logo svg {
-          transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease;
+          transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), filter 0.5s ease;
         }
         .gov-brand-block .nav-logo:hover svg {
           transform: rotate(6deg) scale(1.08);
@@ -288,7 +288,7 @@ export default function LandingPage() {
           text-transform: uppercase;
           white-space: nowrap;
           cursor: default;
-          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+          transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
         }
         .nav-org-seals .seal-emblem:hover {
           transform: translateY(-2px);
@@ -302,7 +302,7 @@ export default function LandingPage() {
           border: 1.5px solid #10b981;
           object-fit: cover;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+          transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease;
         }
         .nav-org-seals .seal-emblem:hover .seal-badge-icon {
           transform: scale(1.12);
@@ -321,7 +321,7 @@ export default function LandingPage() {
           font-size: 0.75rem;
           font-weight: 600;
           cursor: pointer;
-          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, background 0.25s ease;
+          transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s ease, background 0.45s ease;
           box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
           white-space: nowrap;
         }
@@ -334,7 +334,7 @@ export default function LandingPage() {
           height: 200%;
           background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
           transform: rotate(25deg);
-          transition: left 0.6s ease;
+          transition: left 0.9s ease;
           pointer-events: none;
         }
         .header-signin-btn:hover {
@@ -357,14 +357,14 @@ export default function LandingPage() {
           color: var(--gray-600);
           padding: 6px;
           border-radius: 8px;
-          transition: transform 0.25s ease, background 0.2s ease, color 0.2s ease;
+          transition: transform 0.4s ease, background 0.3s ease, color 0.3s ease;
         }
         .menu-toggle:hover {
           background: var(--gray-100);
           color: var(--primary);
         }
         .menu-toggle svg {
-          transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .menu-toggle.is-open svg {
           transform: rotate(90deg);
@@ -382,7 +382,7 @@ export default function LandingPage() {
           background: var(--gray-50);
           border-bottom: 1px solid var(--gray-200);
           padding: 0.5rem 1.5rem;
-          transition: background-color 0.3s ease, border-color 0.3s ease;
+          transition: background-color 0.45s ease, border-color 0.45s ease;
         }
         .subnav-links {
           display: flex;
@@ -400,7 +400,7 @@ export default function LandingPage() {
           font-weight: 700;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          transition: color 250ms ease;
+          transition: color 350ms ease;
           padding: 0.35rem 0;
           display: inline-block;
         }
@@ -412,7 +412,7 @@ export default function LandingPage() {
           width: 0;
           height: 2px;
           background: linear-gradient(90deg, #10b981, #059669);
-          transition: width 250ms cubic-bezier(0.16, 1, 0.3, 1);
+          transition: width 400ms cubic-bezier(0.16, 1, 0.3, 1);
           border-radius: 2px;
         }
         .subnav-links a:hover, .subnav-links a.active {
@@ -434,7 +434,7 @@ export default function LandingPage() {
             max-height: 0;
             opacity: 0;
             overflow: hidden;
-            transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, padding 0.3s ease;
+            transition: max-height 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.55s ease, padding 0.55s ease;
           }
           .subnav-links.active {
             max-height: 320px;
@@ -452,7 +452,7 @@ export default function LandingPage() {
           }
         }
 
-        /* ===== Hero Section Animations ===== */
+        /* ===== Hero Section Animations - Slower & Cinematic ===== */
         @keyframes heroFadeInUp {
           0% {
             opacity: 0;
@@ -516,7 +516,7 @@ export default function LandingPage() {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          animation: heroBgDrift 22s ease-in-out infinite alternate;
+          animation: heroBgDrift 26s ease-in-out infinite alternate;
           will-change: transform;
         }
         .hero-gradient-mask {
@@ -538,8 +538,8 @@ export default function LandingPage() {
           margin: 0;
           text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
           color: #ffffff;
-          animation: heroFadeInUp 0.85s cubic-bezier(0.16, 1, 0.3, 1) both;
-          animation-delay: 0.1s;
+          animation: heroFadeInUp 1.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation-delay: 0.15s;
         }
         .hero-bottom-grid {
           margin-top: auto;
@@ -556,15 +556,15 @@ export default function LandingPage() {
           color: rgba(255, 255, 255, 0.95);
           margin: 0;
           text-shadow: 0 2px 10px rgba(0,0,0,0.6);
-          animation: heroFadeInUp 0.85s cubic-bezier(0.16, 1, 0.3, 1) both;
-          animation-delay: 0.28s;
+          animation: heroFadeInUp 1.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation-delay: 0.4s;
         }
         .hero-cards-cluster {
           display: flex;
           align-items: flex-end;
           gap: 1rem;
-          animation: heroScaleIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
-          animation-delay: 0.45s;
+          animation: heroScaleIn 1.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation-delay: 0.65s;
         }
         .hero-membership-glass-card {
           width: 15rem;
@@ -578,8 +578,8 @@ export default function LandingPage() {
           display: flex;
           gap: 0.75rem;
           align-items: center;
-          animation: floatSlow 6s ease-in-out infinite 1.4s;
-          transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.35s ease, background 0.35s ease;
+          animation: floatSlow 8s ease-in-out infinite 2s;
+          transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.55s ease, border-color 0.55s ease, background 0.55s ease;
         }
         .hero-membership-glass-card:hover {
           transform: translateY(-10px) scale(1.02);
@@ -602,28 +602,28 @@ export default function LandingPage() {
           border-radius: 9999px;
           object-fit: cover;
           border: 2px solid #ffffff;
-          transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease;
+          transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.55s ease;
         }
         .hero-membership-glass-card:hover .membership-doctor-thumb {
           transform: scale(1.1) rotate(-3deg);
           box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
         }
 
-        /* ===== Scroll Reveal System ===== */
+        /* ===== Scroll Reveal System - Slower & Graceful ===== */
         .scroll-reveal {
           opacity: 0;
           transform: translateY(28px);
-          transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: opacity 1.1s cubic-bezier(0.16, 1, 0.3, 1), transform 1.1s cubic-bezier(0.16, 1, 0.3, 1);
           will-change: opacity, transform;
         }
         .scroll-reveal.is-visible {
           opacity: 1;
           transform: translateY(0);
         }
-        .stagger-1 { transition-delay: 80ms; }
-        .stagger-2 { transition-delay: 160ms; }
-        .stagger-3 { transition-delay: 240ms; }
-        .stagger-4 { transition-delay: 320ms; }
+        .stagger-1 { transition-delay: 140ms; }
+        .stagger-2 { transition-delay: 280ms; }
+        .stagger-3 { transition-delay: 420ms; }
+        .stagger-4 { transition-delay: 560ms; }
 
         /* Floating Back to Top Button */
         .back-to-top-btn {
@@ -645,7 +645,7 @@ export default function LandingPage() {
           opacity: 0;
           visibility: hidden;
           transform: translateY(16px) scale(0.85);
-          transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+          transition: opacity 0.5s ease, visibility 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s ease;
         }
         .back-to-top-btn.is-shown {
           opacity: 1;

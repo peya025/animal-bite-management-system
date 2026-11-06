@@ -18,7 +18,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s ease, border-color 0.45s ease, color 0.45s ease;
 }
 .public-stock-sync button:hover:not(:disabled) {
   transform: translateY(-2px);
@@ -60,7 +60,7 @@
   background: var(--white);
   border: 1px solid var(--gray-200);
   border-radius: 14px;
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.3s ease;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease, border-color 0.45s ease;
 }
 .public-stock-stat:hover {
   transform: translateY(-4px);
@@ -75,9 +75,9 @@
   background: var(--stock-color);
   flex-shrink: 0;
 }
-.ready .public-stock-dot { animation: pulseDotGreen 2.5s infinite; }
-.limited .public-stock-dot { animation: pulseDotAmber 2.5s infinite; }
-.empty .public-stock-dot { animation: pulseDotRed 2.5s infinite; }
+.ready .public-stock-dot { animation: pulseDotGreen 2.8s infinite; }
+.limited .public-stock-dot { animation: pulseDotAmber 2.8s infinite; }
+.empty .public-stock-dot { animation: pulseDotRed 2.8s infinite; }
 
 .public-stock-stat > div > span { color: var(--gray-900); font-weight: 700; }
 .public-stock-stat small { display: block; color: var(--gray-500); font-size: .7rem; font-weight: 400; }
@@ -92,7 +92,7 @@
   padding: .6rem .9rem;
   font-size: .8rem;
   cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.35s ease, border-color 0.35s ease, color 0.35s ease, box-shadow 0.35s ease;
 }
 .public-stock-filters button:hover {
   transform: translateY(-1px);
@@ -118,7 +118,7 @@
   border-radius: 10px;
   font: inherit;
   font-size: .85rem;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.4s ease;
 }
 .public-stock-search input:focus {
   transform: translateY(-1px);
@@ -135,7 +135,7 @@
   border-radius: 18px;
   padding: 1.5rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.3s ease;
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.55s ease, border-color 0.45s ease;
 }
 .public-stock-card:hover {
   transform: translateY(-6px);
@@ -152,7 +152,7 @@
   background: var(--primary-light);
   color: var(--primary-dark);
   font-size: 1.4rem;
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease, color 0.3s ease;
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.45s ease, color 0.45s ease;
 }
 .public-stock-card:hover .public-stock-symbol {
   transform: scale(1.12) rotate(4deg);
@@ -169,7 +169,7 @@
   font-weight: 700;
   color: var(--stock-color);
   background: var(--stock-bg);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
 }
 .public-stock-card:hover .public-stock-badge {
   transform: scale(1.04);
@@ -181,7 +181,7 @@
 .public-stock-quantity > span { color: var(--gray-600); font-size: .85rem; }
 .public-stock-quantity small { display: block; color: var(--gray-500); font-size: .7rem; }
 .public-stock details { margin-top: 1.25rem; font-size: .8rem; color: var(--gray-600); }
-.public-stock summary { cursor: pointer; font-weight: 600; transition: color 0.2s ease; }
+.public-stock summary { cursor: pointer; font-weight: 600; transition: color 0.35s ease; }
 .public-stock summary:hover { color: var(--primary-dark); }
 .public-stock details p { margin-top: .6rem; }
 .public-stock-visit {
@@ -192,7 +192,7 @@
   padding: 1.25rem 1.5rem;
   border-radius: 14px;
   margin-top: 2rem;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease;
 }
 .public-stock-visit:hover {
   transform: translateY(-3px);

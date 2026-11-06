@@ -25,7 +25,7 @@ export const landingPageStyles = String.raw`/* Landing Page Styles - Modern Gree
   border: 1px solid var(--gray-200);
   border-radius: 18px;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.55s ease, border-color 0.45s ease;
 }
 .landing-page .tutorial-card:hover {
   transform: translateY(-8px);
@@ -43,10 +43,10 @@ export const landingPageStyles = String.raw`/* Landing Page Styles - Modern Gree
   color: var(--gray-900);
   font-weight: 600;
   overflow: hidden;
-  transition: background-color 0.35s ease;
+  transition: background-color 0.5s ease;
 }
 .landing-page .tutorial-preview svg {
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s ease;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), color 0.45s ease;
 }
 .landing-page .tutorial-card:hover .tutorial-preview svg {
   transform: scale(1.18) rotate(-3deg);
@@ -61,7 +61,7 @@ export const landingPageStyles = String.raw`/* Landing Page Styles - Modern Gree
   color: var(--gray-600);
   font-size: 0.75rem;
   font-weight: 600;
-  transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
+  transition: background-color 0.45s ease, color 0.45s ease, transform 0.45s ease;
 }
 .landing-page .tutorial-card:hover .tutorial-status {
   background: #d1fae5;
@@ -1169,7 +1169,7 @@ a {
   border-radius: 16px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   border: 1px solid var(--gray-200);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.55s ease, border-color 0.45s ease;
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -1208,7 +1208,7 @@ a {
   background: linear-gradient(135deg, var(--primary-light) 0%, var(--white) 100%);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
-  transition: all 0.3s ease;
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s ease;
 }
 
 .help-card:hover .help-icon {
@@ -1237,7 +1237,7 @@ a {
   text-decoration: none;
   font-size: 13px;
   font-weight: 600;
-  transition: all 0.3s ease;
+  transition: color 0.4s ease, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-block;
 }
 

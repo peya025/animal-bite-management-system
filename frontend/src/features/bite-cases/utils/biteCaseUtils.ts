@@ -76,6 +76,16 @@ export function exportLocationsToCsv(locations: LocationSummary[], filename = 'b
 /**
  * Export cases data to CSV
  */
+export const BITE_CASE_STATUS_LABELS: Record<string, string> = {
+  awaiting_assessment: 'Awaiting Assessment',
+  awaiting_treatment: 'Awaiting Treatment',
+  active: 'Active',
+  completed: 'Completed',
+  transferred_out: 'Transferred Out / Referred',
+  completed_no_pep: 'Completed – No PEP Required',
+  cancelled: 'Cancelled',
+};
+
 export function exportCasesToCsv(cases: CaseSummary[], filename = 'bite-cases.csv') {
   if (!cases || cases.length === 0) {
     alert('No data available to export');
@@ -104,7 +114,7 @@ export function exportCasesToCsv(cases: CaseSummary[], filename = 'bite-cases.cs
     escapeCsvField(c.location),
     c.category,
     escapeCsvField(c.animal_type),
-    c.status,
+    escapeCsvField(BITE_CASE_STATUS_LABELS[c.status] || (c.status ? c.status.replaceAll('_', ' ') : '')),
     c.is_overdue ? 'Yes' : 'No',
     c.days_overdue || '',
     escapeCsvField(c.overdue_dose || ''),

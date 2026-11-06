@@ -1746,19 +1746,37 @@ function LocationMobileCard({
 
 function CaseRow({ row, index }: { row: CaseSummary; index: number }) {
   const statusColor: Record<string, string> = {
-    active: '#1D9E75',
     completed: '#16a34a',
-    awaiting_assessment: '#d97706',
-    transferred_out: '#0284c7',
-    cancelled: '#6b7280',
+    completed_no_pep: '#16a34a',
+    active: '#1D9E75',
+    awaiting_assessment: '#475569',
+    awaiting_treatment: '#475569',
+    transferred_out: '#475569',
+    cancelled: '#475569',
   };
-  const statusText: Record<string, string> = {
-    active: 'var(--bc-brand-text)',
-    completed: 'var(--bc-green)',
-    awaiting_assessment: 'var(--bc-amber)',
-    transferred_out: 'var(--bc-blue)',
-    cancelled: 'var(--bc-text-3)',
+
+  const statusBg: Record<string, string> = {
+    completed: '#16a34a18',
+    completed_no_pep: '#16a34a18',
+    active: '#1D9E7518',
+    awaiting_assessment: '#6b728018',
+    awaiting_treatment: '#6b728018',
+    transferred_out: '#6b728018',
+    cancelled: '#6b728018',
   };
+
+  const statusLabels: Record<string, string> = {
+    awaiting_assessment: 'Awaiting Assessment',
+    awaiting_treatment: 'Awaiting Treatment',
+    active: 'Active',
+    completed: 'Completed',
+    transferred_out: 'Transferred Out / Referred',
+    completed_no_pep: 'Completed – No PEP Required',
+    cancelled: 'Cancelled',
+  };
+
+  const displayStatus = statusLabels[row.status] || row.status.replaceAll('_', ' ');
+
   return (
     <TableRow hover sx={{ '&:hover': { bgcolor: 'var(--bc-surface-2)' } }}>
       <TableCell align="center" sx={{ color: 'var(--bc-text-secondary)', fontFamily: 'monospace' }}>
@@ -1791,17 +1809,19 @@ function CaseRow({ row, index }: { row: CaseSummary; index: number }) {
         <Box
           sx={{
             display: 'inline-flex',
-            px: 0.8,
+            alignItems: 'center',
+            justifyContent: 'center',
+            px: 0.9,
             py: 0.3,
             borderRadius: 20,
-            bgcolor: `${statusColor[row.status] ?? '#6b7280'}18`,
-            color: statusColor[row.status] ?? 'var(--bc-text-secondary)',
+            bgcolor: statusBg[row.status] ?? '#6b728018',
+            color: statusColor[row.status] ?? '#475569',
             fontSize: 10,
             fontWeight: 600,
-            textTransform: 'capitalize',
+            whiteSpace: 'nowrap',
           }}
         >
-          {row.status.replaceAll('_', ' ')}
+          {displayStatus}
         </Box>
       </TableCell>
       <TableCell>
@@ -2528,10 +2548,12 @@ export default function BiteCaseRiskDashboard() {
         </Filter>
         <Filter value={filters.status} onChange={(value) => update('status', value)} ariaLabel="Status">
           <MenuItem value="">All Statuses</MenuItem>
+          <MenuItem value="awaiting_assessment">Awaiting Assessment</MenuItem>
+          <MenuItem value="awaiting_treatment">Awaiting Treatment</MenuItem>
           <MenuItem value="active">Active</MenuItem>
           <MenuItem value="completed">Completed</MenuItem>
-          <MenuItem value="awaiting_assessment">Awaiting Assessment</MenuItem>
-          <MenuItem value="transferred_out">Transferred Out</MenuItem>
+          <MenuItem value="transferred_out">Transferred Out / Referred</MenuItem>
+          <MenuItem value="completed_no_pep">Completed – No PEP Required</MenuItem>
           <MenuItem value="cancelled">Cancelled</MenuItem>
         </Filter>
         <Filter value={filters.animal} onChange={(value) => update('animal', value)} ariaLabel="Animal type">

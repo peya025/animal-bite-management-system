@@ -390,11 +390,10 @@ class BiteCaseService
 
         $makeQuery = function () use ($clinicId, $validated, $from, $to) {
             $query = BiteIncident::where('clinic_id', $clinicId)
-                ->with(['patient', 'intake', 'appointments', 'treatmentRecords']);
+                ->with(['patient', 'intake', 'appointments', 'treatmentRecords', 'treatmentPlan']);
 
             if ($from) $query->whereDate('bite_date', '>=', $from);
             if ($to) $query->whereDate('bite_date', '<=', $to);
-            if (!empty($validated['status'])) $query->where('status', $validated['status']);
             if (!empty($validated['animal'])) {
                 $validated['animal'] === 'other'
                     ? $query->where(fn ($q) => $q->whereNotIn('animal_type', ['dog', 'cat'])->orWhereNull('animal_type'))
@@ -412,8 +411,24 @@ class BiteCaseService
             return $query;
         };
 
-        $cases = $makeQuery()->get()->filter(function (BiteIncident $case) use ($validated) {
-            return empty($validated['severity']) || $case->bite_category === $validated['severity'];
+        $rawCases = $makeQuery()->get();
+        $cases = $rawCases->map(function (BiteIncident $case) {
+            $case->setAttribute('resolved_status', $case->resolveStatus());
+            return $case;
+        })->filter(function (BiteIncident $case) use ($validated) {
+            if (!empty($validated['severity']) && $case->bite_category !== $validated['severity']) {
+                return false;
+            }
+            if (!empty($validated['status'])) {
+                $targetStatus = $validated['status'];
+                if ($case->resolved_status !== $targetStatus) {
+                    if ($targetStatus === 'transferred_out' && in_array($case->resolved_status, ['transferred_out', 'transferred_referred'], true)) {
+                        return true;
+                    }
+                    return false;
+                }
+            }
+            return true;
         })->values();
 
         $periodEnd = $to ? $to->copy()->startOfDay() : Carbon::today();
@@ -528,8 +543,8 @@ class BiteCaseService
         return [
             'summary' => [
                 'total_cases' => $cases->count(),
-                'active_cases' => $cases->where('status', 'active')->count(),
-                'completed' => $cases->where('status', 'completed')->count(),
+                'active_cases' => $cases->filter(fn ($c) => in_array($c->resolved_status ?? $c->status, ['active', 'awaiting_treatment'], true))->count(),
+                'completed' => $cases->filter(fn ($c) => in_array($c->resolved_status ?? $c->status, ['completed', 'completed_no_pep'], true))->count(),
                 'high_risk_zones' => $locations->where('risk_level', 'high')->count(),
                 'overdue_doses' => $overdueDoses,
                 'pep_compliance' => $activeCases->count() ? (int) round($patientsWithDose / $activeCases->count() * 100) : 0,
@@ -546,7 +561,7 @@ class BiteCaseService
                     'location' => trim((string) $case->bite_place) ?: 'Unknown',
                     'category' => $case->bite_category,
                     'animal_type' => strtolower(trim((string) ($case->intake?->animal_type ?: $case->animal_type ?: 'other'))),
-                    'status' => $case->status,
+                    'status' => $case->resolved_status ?? $case->resolveStatus(),
                     'is_overdue' => $overdue['is_overdue'],
                     'days_overdue' => $overdue['days_overdue'],
                     'overdue_dose' => $overdue['overdue_dose'],

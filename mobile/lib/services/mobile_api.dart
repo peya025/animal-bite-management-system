@@ -343,6 +343,18 @@ class MobileApi {
     return data;
   }
 
+  Future<Map<String, dynamic>> clinicResources({int? clinicId}) async {
+    final effectiveClinicId = clinicId ?? MobileApi.clinicId;
+    final data = await _send(
+      'GET',
+      '/clinic-resources?clinic_id=$effectiveClinicId',
+    );
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    return const <String, dynamic>{'data': <dynamic>[]};
+  }
+
   Future<Map<String, dynamic>> vaccinationCard(int patientId) async {
     final data =
         await _send('GET', '/patients/$patientId/vaccination-card')

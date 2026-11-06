@@ -7,8 +7,10 @@ use App\Http\Controllers\Clinical\BiteCaseController;
 use App\Http\Controllers\Clinical\BiteIncidentIntakeController;
 use App\Http\Controllers\Clinical\BiteIntakeSchemaController;
 use App\Http\Controllers\Admin\ClinicModuleConfigController;
+use App\Http\Controllers\Admin\ClinicResourceController;
 use App\Http\Controllers\Admin\ClinicSetupController;
 use App\Http\Controllers\Mobile\MobileAppointmentController;
+use App\Http\Controllers\Mobile\MobileClinicResourceController;
 use App\Http\Controllers\Mobile\MobileLocationController;
 use App\Http\Controllers\Mobile\MobileNotificationController;
 use App\Http\Controllers\Mobile\MobileVaccinationCardController;
@@ -118,6 +120,7 @@ Route::prefix('mobile')->group(function () {
     Route::post('/auth/google', [PatientAccountAuthController::class, 'googleLogin'])
         ->middleware('throttle:20,1');
     Route::get('/schedule-summary', [ClinicScheduleController::class, 'getScheduleSummary']);
+    Route::get('/clinic-resources', [MobileClinicResourceController::class, 'index']);
 
     Route::middleware(['auth:sanctum', 'patient.account'])->group(function () {
         Route::get('/me', [PatientAccountAuthController::class, 'me']);
@@ -215,6 +218,21 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
         Route::get('/clinic', [ClinicSetupController::class, 'getProfile']);
         Route::match(['put', 'post'], '/clinic', [ClinicSetupController::class, 'updateClinic']);
         Route::post('/complete', [ClinicSetupController::class, 'completeSetup']);
+
+        Route::get('/clinic-resources', [ClinicResourceController::class, 'index']);
+        Route::post('/clinic-resources', [ClinicResourceController::class, 'store']);
+        Route::match(['put', 'post'], '/clinic-resources/reorder', [ClinicResourceController::class, 'reorder']);
+        Route::match(['put', 'patch'], '/clinic-resources/{id}', [ClinicResourceController::class, 'update']);
+        Route::delete('/clinic-resources/{id}', [ClinicResourceController::class, 'destroy']);
+    });
+
+    // Patient App Resources (admin only alias)
+    Route::middleware('role:admin')->prefix('clinic-resources')->group(function () {
+        Route::get('/', [ClinicResourceController::class, 'index']);
+        Route::post('/', [ClinicResourceController::class, 'store']);
+        Route::match(['put', 'post'], '/reorder', [ClinicResourceController::class, 'reorder']);
+        Route::match(['put', 'patch'], '/{id}', [ClinicResourceController::class, 'update']);
+        Route::delete('/{id}', [ClinicResourceController::class, 'destroy']);
     });
 
     // Clinic Operating Schedule & Policies (admin only)

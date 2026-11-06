@@ -4,6 +4,7 @@ import '../app/app_routes.dart';
 import '../app/app_theme.dart';
 import '../models/patient_account_profile.dart';
 import '../services/api.dart';
+import '../widgets/learn_more_section.dart';
 import '../widgets/menu/campaign_banner.dart';
 import '../widgets/menu/guidelines_section.dart';
 import '../widgets/menu/information_panels.dart';
@@ -134,6 +135,7 @@ class _MenuViewState extends State<MenuView> {
                           ),
                           const SizedBox(height: 20),
                           const GuidelinesSection(),
+                          const LearnMoreSection(),
                           const SizedBox(height: 20),
                           const InformationPanels(),
                         ],

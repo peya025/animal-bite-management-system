@@ -299,6 +299,11 @@ class MockMobileApi {
     await Future.delayed(const Duration(milliseconds: 500));
   }
 
+  Future<Map<String, dynamic>> clinicResources({int? clinicId}) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return const <String, dynamic>{'data': <dynamic>[]};
+  }
+
   Future<bool> checkConnectivity() async {
     await Future.delayed(const Duration(milliseconds: 200));
     return true;

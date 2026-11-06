@@ -759,5 +759,107 @@ class TriageDoctorAndReExposureTest extends TestCase
             'message' => 'Patient cannot register a new exposure while an active treatment appointment is still scheduled.',
         ]);
     }
+
+    public function test_form_2_transfer_out_referral_workflow_completes_visit_without_progressing_to_form_3(): void
+    {
+        $clinic = $this->createClinic();
+        $doctor = $this->createDoctor($clinic);
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'patient_number' => 'PAT-REF-2026',
+            'first_name' => 'Hazel',
+            'last_name' => 'Nandong',
+            'birthdate' => '2004-05-10',
+            'gender' => 'Female',
+        ]);
+
+        $incident = BiteIncident::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'case_number' => 'BC-2026-9999',
+            'episode_number' => 1,
+            'episode_type' => 'primary',
+            'bite_date' => Carbon::today()->toDateString(),
+            'exposure_type' => 'bite',
+            'severity' => 'severe',
+            'status' => 'active',
+            'created_by' => $doctor->id,
+        ]);
+
+        $queue = Queue::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'queue_number' => 1,
+            'queue_date' => Carbon::today()->toDateString(),
+            'visit_type' => 'new_case',
+            'status' => 'waiting',
+            'priority' => 'normal',
+            'checked_in_by' => $doctor->id,
+        ]);
+
+        Appointment::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'appointment_date' => Carbon::today()->addDays(3)->toDateString(),
+            'scheduled_date' => Carbon::today()->addDays(3)->toDateString(),
+            'status' => 'scheduled',
+            'appointment_type' => 'vaccination',
+            'dose_number' => 1,
+        ]);
+
+        Sanctum::actingAs($doctor);
+
+        $res = $this->postJson('/api/treatment-records', [
+            'patient_id' => $patient->patient_id,
+            'queue_id' => $queue->queue_id,
+            'bite_id' => $incident->bite_id,
+            'exposure_category' => 'III',
+            'consultation_date' => Carbon::today()->toDateString(),
+            'nature_of_visit' => 'new_consultation',
+            'consultation_types' => ['general'],
+            'chief_complaints' => 'Severe dog bite on neck with active bleeding',
+            'diagnosis' => 'Rabies Exposure (PEP Indicated) - Category III',
+            'transferred_to_facility' => 'Northern Mindanao Medical Center (NMMC)',
+            'transfer_reason' => 'Patient requires RIG and intensive care beyond clinic capacity',
+            'complete_referral' => true,
+        ]);
+
+        $res->assertCreated();
+        $res->assertJsonPath('is_referral_completed', true);
+
+        // Queue ticket is completed, NOT transferred to Station 1 (treatment)
+        $queue->refresh();
+        $this->assertSame('completed', $queue->status);
+        $this->assertStringContainsString('Transferred/Referred', $queue->consultation_notes);
+
+        // Incident is marked transferred_out with facility details
+        $incident->refresh();
+        $this->assertSame('transferred_out', $incident->status);
+        $this->assertSame('Northern Mindanao Medical Center (NMMC)', $incident->transferred_to_facility);
+        $this->assertSame('Patient requires RIG and intensive care beyond clinic capacity', $incident->transfer_reason);
+
+        // Future appointment cancelled
+        $this->assertDatabaseHas('appointments', [
+            'bite_id' => $incident->bite_id,
+            'status' => 'cancelled',
+        ]);
+
+        // Station 1 has no next patient waiting
+        $this->getJson('/api/queue/next?station=treatment')
+            ->assertOk()
+            ->assertJsonPath('next_patient', null);
+
+        // Treatment record outcome is Transferred/Referred and no vaccines given
+        $this->assertDatabaseHas('treatment_records', [
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'outcome' => 'Transferred/Referred',
+            'referred_to' => 'Northern Mindanao Medical Center (NMMC)',
+            'dose_number' => null,
+            'medication_given' => null,
+        ]);
+    }
 }
 

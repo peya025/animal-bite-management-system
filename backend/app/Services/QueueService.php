@@ -157,10 +157,13 @@ class QueueService
         if ($visitType === 'follow_up')    $visitType = 'vaccination';
 
         $patient = Patient::where('clinic_id', $clinicId)->find($patientId);
-        if ($patient && $patient->is_category1_no_treatment) {
+        if ($patient && ($patient->is_category1_no_treatment || $patient->treatment_status === 'transferred_referred' || $patient->case_status === 'transferred_out')) {
             if ($visitType === 'vaccination') {
+                $reason = ($patient->treatment_status === 'transferred_referred' || $patient->case_status === 'transferred_out')
+                    ? 'Patient Transferred/Referred'
+                    : 'Category I — No Treatment Required';
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'visit_type' => ['Doctor assessment is completed (Category I — No Treatment Required). Patient cannot enter the treatment queue.'],
+                    'visit_type' => ["Doctor assessment is completed ({$reason}). Patient cannot enter the treatment queue."],
                 ]);
             }
         }

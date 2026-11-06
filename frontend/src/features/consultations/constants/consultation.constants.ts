@@ -138,6 +138,10 @@ export const INITIAL_FORM_DATA: TreatmentFormData = {
   referred_by: '',
   reassessment_decision: '',
   reassessment_notes: '',
+  is_referral: false,
+  transferred_to_facility: '',
+  transfer_reason: 'Requires advanced rabies care / RIG beyond ABTC clinic capacity',
+  transfer_date: getManilaCurrentDateTime().date,
 };
 
 export function getInitialTreatmentFormData(): TreatmentFormData {
@@ -146,9 +150,30 @@ export function getInitialTreatmentFormData(): TreatmentFormData {
     ...INITIAL_FORM_DATA,
     date_of_consultation: date,
     consultation_time: time,
+    transfer_date: date,
   };
 }
 
+export const COMMON_REFERRAL_FACILITIES: readonly string[] = [
+  'Tagoloan Polymedic General Hospital',
+  'Northern Mindanao Medical Center (NMMC)',
+  'Misamis Oriental Provincial Hospital (MOPH)',
+  'Mayor Hilarion A. Ramiro Sr. Medical Center',
+  'Capitol University Medical Center (CUMC)',
+  'Maria Reyna - Xavier University Hospital',
+  'Cagayan de Oro Medical Center',
+  'Jasaan Municipal Health Center / RHU',
+];
+
+export const COMMON_REFERRAL_REASONS: readonly string[] = [
+  'Requires Rabies Immunoglobulin (RIG) / Care beyond clinic capacity',
+  'Category III deep / extensive transdermal bite wounds requiring surgical debridement',
+  'High-risk anatomical bite site (head, face, neck) requiring specialized physician assessment',
+  'Severe wound infection / cellulitis requiring intravenous antibiotics and hospital admission',
+  'Suspected rabies presentation / neurological symptoms requiring tertiary isolation',
+  'Severe systemic allergic reaction / adverse event requiring emergency observation',
+  'Patient relocation / continuity of PEP regimen at receiving tertiary hospital',
+];
 
 export const DEFAULT_FALLBACK_VACCINES: readonly string[] = [
   'Anti-Rabies Vaccine (ARV)',

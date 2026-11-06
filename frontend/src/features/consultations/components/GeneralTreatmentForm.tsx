@@ -18,12 +18,14 @@ import VitalsConsultationSection from './sections/VitalsConsultationSection';
 import NatureOfVisitSection from './sections/NatureOfVisitSection';
 import ConsultationTypesSection from './sections/ConsultationTypesSection';
 import ClinicalNotesSection from './sections/ClinicalNotesSection';
+import TransferReferralSection from './sections/TransferReferralSection';
 import PrescribedVaccineSection from './sections/PrescribedVaccineSection';
 import ProphylaxisOrderSection from './sections/ProphylaxisOrderSection';
 import ReExposureAssessmentSection from './sections/ReExposureAssessmentSection';
 import ProviderFindingsSection from './sections/ProviderFindingsSection';
 import ClinicalAddendumSection from './sections/ClinicalAddendumSection';
 import ExposureAssessmentSection from './sections/ExposureAssessmentSection';
+import DohTransferSlipModal from '../../vaccinations/components/DohTransferSlipModal';
 
 export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
   const { entry, onClose, readOnly = false, inline = false } = props;
@@ -79,14 +81,26 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     handleCancelEdit,
     draftStatus,
     draftSavedAt,
+    // Referral state and handlers
+    transferSlipOpen,
+    setTransferSlipOpen,
+    isReferralCompleted,
+    handleToggleReferral,
+    handleSelectFacility,
+    handleSelectReason,
+    handleOpenPrintSlip,
+    handleSaveReferral,
+    handleCompleteReferral,
   } = useGeneralTreatmentForm(props);
+
+  const selectedIncident = entry?.incident || entry?.bite_incident || entry?.biteIncident;
 
   useLayoutEffect(() => {
     if (formRef.current && focusErrorsRef.current && Object.keys(fieldErrors).length) {
       focusErrorsRef.current = false;
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose'];
+        ? ['nature_of_visit', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose'];
       const firstKey = fieldOrder.find((key) => fieldErrors[key]);
       focusFirstError(formRef.current, firstKey, summaryRef.current);
     }
@@ -247,10 +261,14 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
                             : 'Pending / Not Administered (No doses given on previous visit)')}
                     </div>
                   </div>
-                  {(prev.prophylaxis_orders?.notes || prev.reassessment_notes || prev.actions_taken) && (
+                  {(prev.prophylaxis_orders?.notes || prev.reassessment_notes || prev.actions_taken || prev.referred_to) && (
                     <div>
-                      <span style={{ color: '#64748b', fontSize: 11 }}>Previous Doctor Remarks:</span>
-                      <div style={{ fontWeight: 500 }}>{prev.reassessment_notes || prev.prophylaxis_orders?.notes || prev.actions_taken}</div>
+                      <span style={{ color: '#64748b', fontSize: 11 }}>Previous Doctor Remarks / Referral:</span>
+                      <div style={{ fontWeight: 500 }}>
+                        {prev.referred_to ? `Referred to ${prev.referred_to}` : ''}
+                        {prev.reason_for_referral ? ` (${prev.reason_for_referral})` : ''}
+                        {(prev.reassessment_notes || prev.prophylaxis_orders?.notes || prev.actions_taken) ? ` · ${prev.reassessment_notes || prev.prophylaxis_orders?.notes || prev.actions_taken}` : ''}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -262,7 +280,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         {/* SECTION 1: Patient Information */}
         <PatientInfoSection formData={formData} />
 
-        {/* SECTION 2: CHU / RHU Personnel Only */}
+        {/* Patient-Reported Mobile Intake */}
         <ExposureAssessmentSection
           patientReportedIntake={patientReportedIntake}
         />
@@ -276,7 +294,6 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         <VitalsConsultationSection
           formData={formData}
           isFormDisabled={isFormDisabled}
-
           onFieldChange={handleFieldChange}
           onSetReferredBy={(val) => setFormData((prev) => ({ ...prev, referred_by: val }))}
         />
@@ -285,7 +302,6 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         <NatureOfVisitSection
           natureOfVisit={formData.nature_of_visit}
           isFormDisabled={isFormDisabled}
-
           isAutomaticallySet={isNatureOfVisitAutomatic}
           error={fieldErrors.nature_of_visit}
           onChange={handleFieldChange('nature_of_visit')}
@@ -297,7 +313,6 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           <ConsultationTypesSection
             consultationTypes={formData.consultation_types}
             isFormDisabled={isFormDisabled}
-
             error={fieldErrors.consultation_types}
             onChange={handleCheckboxChange}
           />
@@ -307,7 +322,6 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         <ClinicalNotesSection
           formData={formData}
           isFormDisabled={isFormDisabled}
-
           checkedDiagnoses={checkedDiagnoses}
           fieldErrors={fieldErrors}
           onFieldChange={handleFieldChange}
@@ -316,12 +330,27 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           onClearDiagnoses={handleClearDiagnoses}
         />
 
+        {/* TRANSFER OUT / REFERRAL SLIP: Directly below Doctor's Diagnosis */}
+        <TransferReferralSection
+          formData={formData}
+          isFormDisabled={isFormDisabled}
+          saving={saving}
+          fieldErrors={fieldErrors}
+          isReferralCompleted={isReferralCompleted}
+          onFieldChange={handleFieldChange}
+          onToggleReferral={handleToggleReferral}
+          onSelectFacility={handleSelectFacility}
+          onSelectReason={handleSelectReason}
+          onPrintSlip={handleOpenPrintSlip}
+          onSaveAndPrint={() => handleSaveReferral(true)}
+          onCompleteReferral={handleCompleteReferral}
+        />
+
         {/* SECTION 7: Doctor treatment decision follows the diagnosis */}
         <ReExposureAssessmentSection
           entry={entry}
           requiresReExposureDecision={requiresReExposureDecision}
           isFormDisabled={isFormDisabled}
-
           treatmentPlan={treatmentPlan}
           error={fieldErrors.treatment_plan}
           onUpdateTreatmentPlan={setTreatmentPlan}
@@ -359,75 +388,68 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
                   },
                   {
                     value: 'modify' as const,
-                    title: 'Modify Prescribed Treatment',
-                    desc: 'Update exposure category, PEP vaccine, TT, or ATS order.',
+                    title: 'Modify Prescription',
+                    desc: 'Adjust rabies PEP or tetanus orders below based on re-evaluation.',
                   },
                   {
                     value: 'discontinue' as const,
-                    title: 'Discontinue Previous Prescription',
-                    desc: 'Cancel the previous prescription and close without injection.',
+                    title: 'Discontinue Previous Orders',
+                    desc: 'Cancel pending orders (e.g. animal remained healthy, exposure reclassified).',
                   },
                   {
                     value: 'no_injection_required' as const,
-                    title: 'Determine No Injection Is Required',
-                    desc: 'Mark episode as Completed Without Injection.',
+                    title: 'No Injection Required',
+                    desc: 'Clinical evaluation confirms patient requires no injections today.',
                   },
-                ].map((opt) => {
-                  const isSelected = formData.reassessment_decision === opt.value;
-                  return (
-                    <label
-                      key={opt.value}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 8,
-                        padding: '10px 12px',
-                        borderRadius: 8,
-                        border: isSelected ? '2px solid #d97706' : '1px solid #cbd5e1',
-                        backgroundColor: isSelected ? '#fef3c7' : 'var(--bg-primary, #ffffff)',
-                        cursor: isFormDisabled ? 'not-allowed' : 'pointer',
-                      }}
-                    >
+                ].map((opt) => (
+                  <label
+                    key={opt.value}
+                    style={{
+                      border: formData.reassessment_decision === opt.value ? '2px solid #d97706' : '1px solid #cbd5e1',
+                      borderRadius: 8,
+                      padding: 10,
+                      backgroundColor: formData.reassessment_decision === opt.value ? '#fef3c7' : '#ffffff',
+                      cursor: isFormDisabled ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <input
                         type="radio"
                         name="reassessment_decision"
                         value={opt.value}
-                        checked={isSelected}
+                        checked={formData.reassessment_decision === opt.value}
                         onChange={() => handleReassessmentDecisionChange(opt.value)}
                         disabled={isFormDisabled}
-                        style={{ marginTop: 3 }}
+                        style={{ accentColor: '#d97706' }}
                       />
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 12.5, color: '#0f172a' }}>{opt.title}</div>
-                        <div style={{ fontSize: 11.5, color: '#475569', marginTop: 2 }}>{opt.desc}</div>
-                      </div>
-                    </label>
-                  );
-                })}
+                      <span style={{ fontWeight: 700, fontSize: 13, color: '#92400e' }}>{opt.title}</span>
+                    </div>
+                    <span style={{ fontSize: 11.5, color: '#64748b', paddingLeft: 22 }}>{opt.desc}</span>
+                  </label>
+                ))}
               </div>
             </FormField>
 
-            {formData.reassessment_decision && (
+            {['modify', 'discontinue', 'no_injection_required'].includes(formData.reassessment_decision || '') && (
               <div style={{ marginTop: 12 }}>
                 <FormField
                   id="field-reassessment_notes"
-                  label={
-                    ['modify', 'discontinue', 'no_injection_required'].includes(formData.reassessment_decision)
-                      ? 'Clinical Justification / Reassessment Notes (Required for modification or discontinuation)'
-                      : 'Reassessment Clinical Remarks (Optional)'
-                  }
-                  required={['modify', 'discontinue', 'no_injection_required'].includes(formData.reassessment_decision)}
+                  label="Clinical Justification for Decision *"
+                  required
                   error={!!fieldErrors.reassessment_notes}
                   errorText={fieldErrors.reassessment_notes}
                 >
                   <textarea
-                    id="field-reassessment_notes"
                     className="fm-textarea"
                     rows={2}
-                    placeholder="Document clinical reassessment findings and reason for continuing, modifying, or discontinuing the previous prescription..."
                     value={formData.reassessment_notes || ''}
                     onChange={handleFieldChange('reassessment_notes')}
+                    onBlur={handleFieldBlur('reassessment_notes')}
                     disabled={isFormDisabled}
+                    placeholder="Document clinical reason (e.g. Biting dog confirmed rabies-free on Day 14; wound healed with no signs of infection; patient completed PEP elsewhere; etc.)"
                   />
                 </FormField>
               </div>
@@ -468,7 +490,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           </FormField>
         </div>
 
-        {/* SECTION 8: Prescribed PEP Vaccine (Doctor's Order & Live Inventory Badge) */}
+        {/* Prophylaxis Order (Tetanus & RIG) */}
         <ProphylaxisOrderSection
           value={formData.prophylaxis_orders}
           stock={prophylaxisStock}
@@ -478,22 +500,22 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           errors={fieldErrors}
           onChange={handleProphylaxisChange}
         />
+
+        {/* SECTION 8: Prescribed PEP Vaccine */}
         <PrescribedVaccineSection
           prescribedVaccineType={formData.prescribed_vaccine_type}
           medicationTreatment={formData.medication_treatment}
           isFormDisabled={isFormDisabled || formData.reassessment_decision === 'discontinue' || formData.reassessment_decision === 'no_injection_required'}
-
           vaccineNames={vaccineNames}
           vaccineStockMap={vaccineStockMap}
           isCategory1={isCategory1}
           onChange={handlePrescribedVaccineChange}
         />
 
-        {/* SECTION 9: Provider & Laboratory Findings */}
+        {/* SECTION 9: Provider Findings & Plan */}
         <ProviderFindingsSection
           formData={formData}
           isFormDisabled={isFormDisabled}
-
           onFieldChange={handleFieldChange}
         />
 
@@ -510,48 +532,14 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           onSaveAddendum={handleSaveAddendum}
         />
 
-        <div
-          style={{
-            fontSize: 11,
-            color: 'var(--text-secondary, #94a3b8)',
-            textAlign: 'right',
-            borderTop: '1px solid var(--border-glow, #e2e8f0)',
-            paddingTop: 12,
-            marginTop: 24,
-          }}
-        >
-          Clinic Information System | FORM 2 | Page 1
-        </div>
-
-        {/* Inline footer buttons */}
+        {/* Form action buttons for inline mode */}
         {inline && (
-          <div
-            style={{
-              marginTop: 28,
-              paddingTop: 18,
-              borderTop: '1px solid var(--border-glow, #e2e8f0)',
-              display: 'flex',
-              justifyContent: 'flex-end',
-              alignItems: 'center',
-              gap: 12,
-              flexWrap: 'wrap',
-            }}
-          >
+          <div className="fm-footer" style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border-color, #e5e7eb)' }}>
             <DraftStatusBadge status={draftStatus} savedAt={draftSavedAt} style={{ marginRight: 'auto' }} />
             {hasAdministeredVaccine ? (
-              <div
-                style={{
-                  fontSize: 12.5,
-                  color: '#92400e',
-                  fontWeight: 600,
-                  backgroundColor: '#fef3c7',
-                  padding: '8px 16px',
-                  borderRadius: 8,
-                  border: '1px solid #fde68a',
-                }}
-              >
-                🔒 Assessment Locked — Baseline diagnosis cannot be edited after vaccination
-              </div>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', fontStyle: 'italic' }}>
+                Vaccination administered — Form 2 locked. Use Clinical Addendum above for additional notes.
+              </span>
             ) : hasExistingRecord && !isEditing ? (
               !readOnly && (
                 <button
@@ -592,11 +580,26 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     </ConsultationErrors.Provider>
   );
 
+  const transferModalComponent = (
+    <DohTransferSlipModal
+      open={transferSlipOpen}
+      onClose={() => setTransferSlipOpen(false)}
+      patient={entry?.patient}
+      incident={selectedIncident || entry?.incident || entry?.biteIncident}
+      treatmentRecords={previousConsultations}
+      transferredToFacility={formData.transferred_to_facility}
+      transferReason={formData.transfer_reason}
+      transferDate={formData.transfer_date}
+      diagnosis={formData.diagnosis}
+    />
+  );
+
   // Inline mode: return content directly inside ConsultationDialog wrapper
   if (inline) {
     return (
       <ConsultationDialog ref={dialogRef}>
         {formBody}
+        {transferModalComponent}
       </ConsultationDialog>
     );
   }
@@ -662,6 +665,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
       >
         {formBody}
       </FormModal>
+      {transferModalComponent}
     </ConsultationDialog>
   );
 }

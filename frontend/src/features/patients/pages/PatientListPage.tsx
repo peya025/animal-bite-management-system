@@ -183,10 +183,54 @@ export default function PatientList() {
   };
 
   /**
+   * Helper to check whether the patient's current visit or episode outcome is Transferred/Referred.
+   */
+  const isTransferredReferral = (p: Patient | any): boolean => {
+    const treatmentStatus = String(p?.treatment_status || '').toLowerCase();
+    const caseStatus = String(p?.case_status || '').toLowerCase();
+    if (treatmentStatus === 'transferred_referred' || caseStatus === 'transferred_out') {
+      return true;
+    }
+
+    const consult = p?.latest_consultation_record || p?.latestConsultationRecord;
+    if (consult) {
+      if (consult.outcome === 'Transferred/Referred' || String(consult.outcome || '').toLowerCase() === 'transferred_referred') {
+        return true;
+      }
+      if (consult.referred_to && String(consult.referred_to).trim() !== '' && !String(consult.referred_to).toLowerCase().includes('tagoloan rural health unit')) {
+        return true;
+      }
+      if (consult.actions_taken && String(consult.actions_taken).toLowerCase().includes('transferred/referred')) {
+        return true;
+      }
+    }
+
+    const biteIncidents: any[] = p?.bite_incidents || p?.biteIncidents || [];
+    const latestIncident = biteIncidents[0];
+    if (latestIncident) {
+      if (String(latestIncident.status || '').toLowerCase() === 'transferred_out') {
+        return true;
+      }
+      if (latestIncident.transferred_to_facility && String(latestIncident.transferred_to_facility).trim() !== '') {
+        return true;
+      }
+    }
+
+    const todayQueues: any[] = p?.queues || [];
+    if (todayQueues.some((q: any) => String(q.consultation_notes || '').includes('Transferred/Referred'))) {
+      return true;
+    }
+
+    return false;
+  };
+
+  /**
    * Helper to check whether the doctor has finalized the Category I assessment
    * and confirmed that no nurse-administered treatment (PEP vaccine, tetanus prophylaxis, RIG) is required.
    */
   const isCategory1NoTreatmentRequired = (p: Patient | any): boolean => {
+    if (isTransferredReferral(p)) return false;
+
     if (p?.is_category1_no_treatment !== undefined && p?.is_category1_no_treatment !== null) {
       return Boolean(p.is_category1_no_treatment);
     }
@@ -366,10 +410,11 @@ export default function PatientList() {
 
   const isEligibleForNurseCheckIn = (p: Patient) => {
     if (isPreRegisteredOnly(p)) return false;
+    if (isTransferredReferral(p)) return false;
 
     // Returning patients with unadministered Day 0 from a prior visit must undergo Doctor Reassessment first
     if ((p as any).pending_treatment_summary?.can_check_in_for_reassessment) return false;
-    if ((p as any).treatment_status === 'completed_without_injection') return false;
+    if ((p as any).treatment_status === 'completed_without_injection' || (p as any).treatment_status === 'transferred_referred') return false;
 
     // 1. Must not already be active in today's queue
     const todayQueues: any[] = (p as any).queues || [];
@@ -414,7 +459,7 @@ export default function PatientList() {
 
     // 4. Must not be completely discharged with no remaining doses
     const isDischarged = ['discharged', 'completed'].includes(String(p.status || '').toLowerCase()) ||
-      ['discharged', 'completed', 'completed_without_injection'].includes(String((p as any).treatment_status || '').toLowerCase());
+      ['discharged', 'completed', 'completed_without_injection', 'transferred_referred', 'transferred_out'].includes(String((p as any).treatment_status || '').toLowerCase());
     const appointments: any[] = (p as any).appointments || [];
     const hasPendingAppointments = appointments.some((a: any) => ['scheduled', 'missed'].includes(a.status));
     if (isDischarged && !hasPendingAppointments) return false;
@@ -436,8 +481,8 @@ export default function PatientList() {
     // are not awaiting triage and cannot be checked in
     if (isPreRegisteredOnly(p)) return false;
 
-    // Doctor finalized Category I assessment with no treatment required — must not enter triage or treatment queue
-    if (isCategory1NoTreatmentRequired(p)) return false;
+    // Doctor finalized Category I assessment with no treatment required or completed referral — must not enter triage or treatment queue
+    if (isCategory1NoTreatmentRequired(p) || isTransferredReferral(p)) return false;
 
     // 1. Must not already be active or completed in today's queue
     const todayQueues: any[] = (p as any).queues || [];
@@ -660,6 +705,18 @@ export default function PatientList() {
     const todayQueues: any[] = (p as any).queues || [];
     const sortedTodayQueues = [...todayQueues].sort((a, b) => (Number(b.queue_id ?? b.id ?? 0) - Number(a.queue_id ?? a.id ?? 0)));
     const latestQueue = sortedTodayQueues[0];
+
+    // 0a. Doctor completed Transfer Out / Referral Slip
+    // In both Today's Queue and All Patients, display "Transferred/Referred" without the queue number prefix.
+    // The patient must no longer be treated as waiting or active in the treatment queue.
+    if (isTransferredReferral(p)) {
+      return {
+        label: 'Transferred/Referred',
+        icon: CheckmarkCircle02Icon,
+        bg: '#eff6ff',
+        color: '#1d4ed8',
+      };
+    }
 
     const isCat1NoTreatment = isCategory1NoTreatmentRequired(p);
     const treatmentStatus = String((p as any).treatment_status || '').toLowerCase();
@@ -923,7 +980,8 @@ export default function PatientList() {
       const reg    = new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       const statusInfo = getLiveStatus(p);
       const isCat1NoTreatment = isCategory1NoTreatmentRequired(p);
-      const displayStatus = isTodayQueue ? statusInfo.label : (isCat1NoTreatment ? 'Assessment Completed — No Treatment Required' : (p.status ?? 'active'));
+      const isReferred = isTransferredReferral(p);
+      const displayStatus = isTodayQueue ? statusInfo.label : (isReferred ? 'Transferred/Referred' : (isCat1NoTreatment ? 'Assessment Completed — No Treatment Required' : (p.status ?? 'active')));
       return `<tr>
         <td style="text-align:center">${i + 1}</td>
         <td style="font-family:monospace">${p.patient_number}</td>

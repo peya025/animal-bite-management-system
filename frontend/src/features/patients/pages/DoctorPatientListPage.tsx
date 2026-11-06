@@ -222,6 +222,13 @@ export default function DoctorPatientListPage() {
         );
 
         if (hasTodayConsultation || (patient as any).is_category1_no_treatment) {
+          const isReferred = (patient as any).treatment_status === 'transferred_referred'
+            || (patient as any).case_status === 'transferred_out'
+            || record?.outcome === 'Transferred/Referred'
+            || (record?.referred_to && !String(record.referred_to).toLowerCase().includes('tagoloan rural health unit'));
+          if (isReferred) {
+            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="Transferred/Referred" size="small" sx={{ bgcolor: '#eff6ff', color: '#1d4ed8', fontSize: 11, fontWeight: 600 }} /></Box>;
+          }
           if (activeQueue && activeQueue.visit_type === 'vaccination') {
             return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="Referred to Treatment" size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 600 }} /></Box>;
           }

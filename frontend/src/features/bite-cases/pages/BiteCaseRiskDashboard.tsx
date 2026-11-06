@@ -1745,10 +1745,18 @@ function LocationMobileCard({
 }
 
 function CaseRow({ row, index }: { row: CaseSummary; index: number }) {
-  const statusColor: Record<string, string> = { active: '#1D9E75', completed: '#16a34a', cancelled: '#6b7280' };
+  const statusColor: Record<string, string> = {
+    active: '#1D9E75',
+    completed: '#16a34a',
+    awaiting_assessment: '#d97706',
+    transferred_out: '#0284c7',
+    cancelled: '#6b7280',
+  };
   const statusText: Record<string, string> = {
     active: 'var(--bc-brand-text)',
     completed: 'var(--bc-green)',
+    awaiting_assessment: 'var(--bc-amber)',
+    transferred_out: 'var(--bc-blue)',
     cancelled: 'var(--bc-text-3)',
   };
   return (
@@ -2519,9 +2527,11 @@ export default function BiteCaseRiskDashboard() {
           <MenuItem value="III">Category III</MenuItem>
         </Filter>
         <Filter value={filters.status} onChange={(value) => update('status', value)} ariaLabel="Status">
-          <MenuItem value="">All status</MenuItem>
+          <MenuItem value="">All Statuses</MenuItem>
           <MenuItem value="active">Active</MenuItem>
           <MenuItem value="completed">Completed</MenuItem>
+          <MenuItem value="awaiting_assessment">Awaiting Assessment</MenuItem>
+          <MenuItem value="transferred_out">Transferred Out</MenuItem>
           <MenuItem value="cancelled">Cancelled</MenuItem>
         </Filter>
         <Filter value={filters.animal} onChange={(value) => update('animal', value)} ariaLabel="Animal type">

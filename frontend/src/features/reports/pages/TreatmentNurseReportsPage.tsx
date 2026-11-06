@@ -276,6 +276,8 @@ function StatusBadge({ status }: { status: string }) {
     completed: { bg: '#d1fae5', color: '#065f46' },
     ongoing: { bg: '#dbeafe', color: '#1e40af' },
     active: { bg: '#dbeafe', color: '#1e40af' },
+    awaiting_assessment: { bg: '#fef3c7', color: '#92400e' },
+    transferred_out: { bg: '#e0f2fe', color: '#0369a1' },
     cancelled: { bg: '#fee2e2', color: '#991b1b' },
     abandoned: { bg: '#fee2e2', color: '#991b1b' },
   };
@@ -1253,6 +1255,8 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
         const st = (c.status || '').toLowerCase();
         if (caseStatusFilter === 'completed' && st !== 'completed') return false;
         if (caseStatusFilter === 'ongoing' && st !== 'ongoing' && st !== 'active') return false;
+        if (caseStatusFilter === 'awaiting_assessment' && st !== 'awaiting_assessment') return false;
+        if (caseStatusFilter === 'transferred_out' && st !== 'transferred_out') return false;
         if (caseStatusFilter === 'cancelled' && st !== 'cancelled' && st !== 'abandoned') return false;
       }
       if (caseLoc.munName) {
@@ -1927,6 +1931,8 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
                 <MenuItem value="ALL">All Statuses</MenuItem>
                 <MenuItem value="completed">Completed</MenuItem>
                 <MenuItem value="ongoing">On-going</MenuItem>
+                <MenuItem value="awaiting_assessment">Awaiting Assessment</MenuItem>
+                <MenuItem value="transferred_out">Transferred Out</MenuItem>
                 <MenuItem value="cancelled">Cancelled</MenuItem>
               </TextField>
 

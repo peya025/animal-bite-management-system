@@ -145,7 +145,7 @@ export const AnimalBiteSeverityCard: React.FC<AnimalBiteSeverityCardProps> = ({
 
         <div style={{ textAlign: 'right' }}>
           <span style={{ fontSize: 20, fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
-            {totalCases.toLocaleString()}
+            {(totalCases ?? 0).toLocaleString()}
           </span>
           <span style={{ display: 'block', fontSize: 11, color: isDark ? '#94a3b8' : '#64748b' }}>
             Total Classified

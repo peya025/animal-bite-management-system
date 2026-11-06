@@ -164,7 +164,7 @@ function RingCard({ label, value, color, trackColor, glow, loading = false, tota
                   : 'none',
               }}
             >
-              {value.toLocaleString()}
+              {(value ?? 0).toLocaleString()}
             </span>
           )}
         </div>

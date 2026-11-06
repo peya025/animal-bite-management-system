@@ -507,6 +507,31 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
       }}
     >
       <style>{`
+        #tagoloan-printable-form { font-size: 9pt; line-height: 1.25; }
+        #tagoloan-printable-form .treatment-group-heading {
+          grid-column: 1 / -1;
+          margin: 0 0 4px;
+          font-size: 9pt;
+          font-weight: 700;
+          text-transform: uppercase;
+          color: #111827;
+          break-after: avoid;
+        }
+        #tagoloan-printable-form .treatment-record-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 6px 12px;
+        }
+        #tagoloan-printable-form .treatment-record-entry {
+          border: 1px solid #ccc;
+          padding: 5px 7px;
+          break-inside: avoid;
+        }
+        #tagoloan-printable-form .treatment-record-field {
+          min-height: 13px;
+          overflow-wrap: anywhere;
+        }
+        #tagoloan-printable-form section > div { min-width: 0; overflow-wrap: anywhere; }
         @page {
           size: A4;
           margin: 12mm;
@@ -540,15 +565,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           .no-print, button, .modal-footer {
             display: none !important;
           }
-          table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-          }
-          th, td {
-            border: 1px solid #ccc !important;
-            padding: 6px 8px !important;
-          }
-          tr, section {
+          #tagoloan-printable-form .treatment-record-entry {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
@@ -558,7 +575,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
       {/* 1. HEADER */}
       <section
         style={{
-          marginBottom: '14px',
+          marginBottom: '8px',
         }}
       >
         <div
@@ -621,20 +638,21 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
       <section
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          columnGap: '24px',
-          rowGap: '8px',
-          paddingBottom: '16px',
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          columnGap: '12px',
+          rowGap: '4px',
+          paddingBottom: '6px',
           borderBottom: '1px solid #ccc',
-          marginBottom: '16px',
+          marginBottom: '8px',
         }}
       >
+        <h2 className="treatment-group-heading">I. Card Information</h2>
         {/* Date */}
         <div>
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
             Date
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
             {isBlank ? '________________________' : formatDate(record?.cardDate)}
           </span>
         </div>
@@ -644,7 +662,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
             Registry No.
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
             {isBlank ? '________________________' : record?.registryNo || bite?.case_number || '—'}
           </span>
         </div>
@@ -654,7 +672,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
             Hospital No.
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
             {isBlank ? '________________________' : record?.hospitalNo || patient?.hospital_no || '—'}
           </span>
         </div>
@@ -664,7 +682,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
             Referred by
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
             {isBlank ? '________________________' : record?.referredBy || bite?.referred_from || '—'}
           </span>
         </div>
@@ -674,7 +692,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
             PhilHealth Accred / PIN
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
             {isBlank ? '________________________' : `${philhealthAccredNo} / ${philhealthPin}`}
           </span>
         </div>
@@ -684,7 +702,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
             PH Status
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
             {isBlank ? '☐ Member   ☐ Dependent' : formattedPhStatus}
           </span>
         </div>
@@ -694,20 +712,21 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
       <section
         style={{
           display: 'grid',
-          gridTemplateColumns: '1.4fr 0.9fr 0.9fr 1.6fr',
-          columnGap: '16px',
-          rowGap: '8px',
-          paddingBottom: '16px',
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          columnGap: '12px',
+          rowGap: '4px',
+          paddingBottom: '6px',
           borderBottom: '1px solid #ccc',
-          marginBottom: '16px',
+          marginBottom: '8px',
         }}
       >
+        <h2 className="treatment-group-heading">II. Patient Information</h2>
         {/* Name */}
         <div>
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
             Patient Name
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 600 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 600 }}>
             {isBlank ? '________________________' : patient?.full_name || '—'}
           </span>
         </div>
@@ -717,7 +736,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
             Age / Sex
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
             {isBlank ? 'Age: ___  Sex: ☐ M ☐ F' : `${patient?.age ?? '—'} / ${formattedSex}`}
           </span>
         </div>
@@ -727,7 +746,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
             Date of Birth
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
             {isBlank ? '____________________' : formatDate(patient?.date_of_birth)}
           </span>
         </div>
@@ -737,7 +756,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
             Address
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
             {isBlank ? '________________________' : patient?.address || '—'}
           </span>
         </div>
@@ -747,7 +766,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
             Exposure Category
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
             {isBlank ? '☐ Cat. I   ☐ Cat. II   ☐ Cat. III' : formattedCat}
           </span>
         </div>
@@ -757,7 +776,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
             Exposure Date
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
             {isBlank ? '____________________' : formatDate(bite?.bite_date)}
           </span>
         </div>
@@ -767,7 +786,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
             Place of Exposure
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
             {isBlank ? '____________________' : bite?.bite_place || 'Tagoloan, Misamis Oriental'}
           </span>
         </div>
@@ -777,7 +796,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
             Treatment Start
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
             {isBlank
               ? '____________________'
               : allAdministeredRecords.length > 0 && allAdministeredRecords[0]?.treatment_date
@@ -795,13 +814,14 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
       <section
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          columnGap: '16px',
-          paddingBottom: '16px',
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          columnGap: '12px',
+          paddingBottom: '6px',
           borderBottom: '1px solid #ccc',
-          marginBottom: '16px',
+          marginBottom: '8px',
         }}
       >
+        <h2 className="treatment-group-heading">III. Exposure Details</h2>
         {/* Mode of Exposure */}
         <div>
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '4px' }}>
@@ -816,7 +836,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
               <div>☐ Raw meat contact</div>
             </div>
           ) : (
-            <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
               {formatModeOfExposure(record?.modeOfExposure || bite?.mode_of_exposure)}
             </span>
           )}
@@ -827,7 +847,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '4px' }}>
             Body Part
           </span>
-          <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
             {isBlank ? '________________________' : formatBodyPart(record?.bodyPartExposed || bite?.body_part_exposed)}
           </span>
         </div>
@@ -844,7 +864,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
               <div>☐ Others: ____________</div>
             </div>
           ) : (
-            <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
               {formattedAnimal}
             </span>
           )}
@@ -861,7 +881,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
               <div>PEP completed: ☐ Yes  ☐ No</div>
             </div>
           ) : (
-            <span style={{ fontSize: '10.5pt', color: '#111827', fontWeight: 500 }}>
+            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
               {formattedPastBite}
             </span>
           )}
@@ -871,10 +891,10 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
       {/* 5. TREATMENT / VACCINE ADMINISTRATION DETAILS */}
       <section
         style={{
-          padding: '10px 12px',
+          padding: '6px 8px',
           border: '1px solid #ccc',
           backgroundColor: '#fafafa',
-          marginBottom: '14px',
+          marginBottom: '8px',
         }}
       >
         <div
@@ -889,14 +909,14 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
         >
           <span
             style={{
-              fontSize: '9.5pt',
+              fontSize: '9pt',
               fontWeight: 700,
               color: '#111827',
               textTransform: 'uppercase',
               letterSpacing: '0.04em',
             }}
           >
-            Treatment / Vaccine Administration Details
+            IV. Treatment / Vaccine Administration Details
             {latestConsultation && consultationHistory.length > 1 && (
               <span style={{ fontSize: '8.5pt', fontWeight: 600, color: '#0284c7', marginLeft: '8px', textTransform: 'none' }}>
                 (Assessment #{consultationHistory.indexOf(latestConsultation) + 1}: {(latestConsultation as any)?.is_returning_reassessment ? 'Doctor Reassessment' : 'Initial Consultation'})
@@ -926,9 +946,9 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            columnGap: '14px',
-            rowGap: '8px',
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            columnGap: '12px',
+            rowGap: '4px',
             marginBottom: '8px',
           }}
         >
@@ -936,7 +956,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
               Exposure Category
             </span>
-            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 600 }}>
+            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 600 }}>
               {isBlank ? 'Cat. I / II / III' : formattedCat}
             </span>
           </div>
@@ -945,7 +965,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
               Anti-Rabies Vaccine
             </span>
-            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 600 }}>
+            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 600 }}>
               {isBlank ? '☐ Administered ☐ Not Indicated' : antiRabiesStatusLabel}
             </span>
           </div>
@@ -954,7 +974,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
               TT (Tetanus Toxoid)
             </span>
-            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 600 }}>
+            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 600 }}>
               {isBlank ? '☐ Administered ☐ Not Administered' : ttStatusLabel}
             </span>
           </div>
@@ -963,7 +983,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
               ATS (Anti-Tetanus Serum)
             </span>
-            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 600 }}>
+            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 600 }}>
               {isBlank ? '☐ Administered ☐ Not Administered' : atsStatusLabel}
             </span>
           </div>
@@ -972,8 +992,8 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1.4fr 0.9fr 1.1fr 1.1fr',
-            columnGap: '14px',
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            columnGap: '12px',
             rowGap: '6px',
             paddingTop: '6px',
             borderTop: '1px dashed #d1d5db',
@@ -983,7 +1003,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
               Vaccine / Medicine Name
             </span>
-            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 500 }}>
+            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
               {isBlank ? '________________________' : administeredProductSummary}
             </span>
           </div>
@@ -992,7 +1012,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
               Date Administered
             </span>
-            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 500 }}>
+            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
               {isBlank ? '________________' : administeredDateSummary}
             </span>
           </div>
@@ -1001,7 +1021,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
               Dose / Route
             </span>
-            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 500 }}>
+            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
               {isBlank ? '________________' : administeredDoseRouteSummary}
             </span>
           </div>
@@ -1010,7 +1030,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
               Administered By
             </span>
-            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 500 }}>
+            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
               {isBlank ? '________________' : administeredBySummary}
             </span>
           </div>
@@ -1019,7 +1039,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             <span style={{ fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600, marginRight: '6px' }}>
               Remarks:
             </span>
-            <span style={{ fontSize: '9.5pt', color: '#111827', fontWeight: 500 }}>
+            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
               {isBlank ? '________________________________________________________________________' : remarksSummary}
             </span>
           </div>
@@ -1033,7 +1053,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
               paddingTop: '8px',
               borderTop: '1px solid #d1d5db',
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
               gap: '8px',
             }}
           >
@@ -1098,40 +1118,10 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
         )}
       </section>
 
-      {/* 6. VACCINATION RECORD (ONE MERGED TABLE) */}
-      <section style={{ marginBottom: '16px' }}>
-        <table
-          style={{
-            width: '100%',
-            tableLayout: 'fixed',
-            borderCollapse: 'collapse',
-            fontSize: '10.5pt',
-            border: '1px solid #ccc',
-          }}
-        >
-          <thead>
-            <tr style={{ backgroundColor: '#f3f4f6', borderBottom: '1px solid #ccc' }}>
-              <th style={{ width: '14%', padding: '6px 8px', textAlign: 'left', fontSize: '9pt', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, border: '1px solid #ccc' }}>
-                Item
-              </th>
-              <th style={{ width: '10%', padding: '6px 8px', textAlign: 'center', fontSize: '9pt', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, border: '1px solid #ccc' }}>
-                Route
-              </th>
-              <th style={{ width: '16%', padding: '6px 8px', textAlign: 'center', fontSize: '9pt', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, border: '1px solid #ccc', whiteSpace: 'nowrap' }}>
-                Date
-              </th>
-              <th style={{ width: '28%', padding: '6px 8px', textAlign: 'left', fontSize: '9pt', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, border: '1px solid #ccc' }}>
-                Vaccine / Lot
-              </th>
-              <th style={{ width: '20%', padding: '6px 8px', textAlign: 'left', fontSize: '9pt', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, border: '1px solid #ccc' }}>
-                Given by (Name + PRC)
-              </th>
-              <th style={{ width: '12%', padding: '6px 8px', textAlign: 'center', fontSize: '9pt', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, border: '1px solid #ccc' }}>
-                Signature
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+      {/* V. VACCINATION RECORD (TWO-COLUMN ENTRIES) */}
+      <section style={{ marginBottom: '8px' }}>
+        <h2 className="treatment-group-heading">V. Vaccination Record</h2>
+        <div className="treatment-record-grid">
             {unifiedRows.map((row) => {
               const rec = row.rec;
               const isGiven = isRecordGiven(rec);
@@ -1141,14 +1131,14 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
               const staffLicense = typeof staff === 'object' ? staff?.professional_license_no : null;
 
               return (
-                <tr key={row.item} style={{ height: '28px' }}>
+                <div key={row.item} className="treatment-record-entry">
                   {/* 1. Item */}
-                  <td style={{ padding: '6px 8px', border: '1px solid #ccc', fontWeight: 600, color: '#111827' }}>
+                  <div className="treatment-record-field"><strong>Item: </strong>
                     {row.item}
-                  </td>
+                  </div>
 
                   {/* 2. Route */}
-                  <td style={{ padding: '6px 8px', border: '1px solid #ccc', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                  <div className="treatment-record-field"><strong>Route: </strong>
                     {isBlank ? (
                       <span style={{ fontSize: '9pt', color: '#475569', whiteSpace: 'nowrap' }}>
                         {row.item === 'ATS' || row.item === 'Tetanus vaccine' ? '☐ IM' : '☐ ID  ☐ IM'}
@@ -1158,10 +1148,10 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
                     ) : (
                       '—'
                     )}
-                  </td>
+                  </div>
 
                   {/* 3. Date */}
-                  <td style={{ padding: '6px 8px', border: '1px solid #ccc', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                  <div className="treatment-record-field"><strong>Date: </strong>
                     {isBlank
                       ? ''
                       : isGiven && rec?.treatment_date
@@ -1169,10 +1159,10 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
                       : isNotAdmin && (rec?.scheduled_date || rec?.treatment_date)
                       ? formatDate(rec.scheduled_date || rec.treatment_date)
                       : '—'}
-                  </td>
+                  </div>
 
                   {/* 4. Vaccine / Lot */}
-                  <td style={{ padding: '6px 8px', border: '1px solid #ccc' }}>
+                  <div className="treatment-record-field"><strong>Vaccine / Lot: </strong>
                     {isBlank ? (
                       ''
                     ) : isGiven ? (
@@ -1189,10 +1179,10 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
                         {row.fallbackStatus || '—'}
                       </span>
                     )}
-                  </td>
+                  </div>
 
                   {/* 5. Given by */}
-                  <td style={{ padding: '6px 8px', border: '1px solid #ccc' }}>
+                  <div className="treatment-record-field"><strong>Given by (Name + PRC): </strong>
                     {isBlank ? (
                       ''
                     ) : isGiven ? (
@@ -1207,10 +1197,10 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
                     ) : (
                       '—'
                     )}
-                  </td>
+                  </div>
 
                   {/* 6. Signature */}
-                  <td style={{ padding: '4px 6px', border: '1px solid #ccc', textAlign: 'center', verticalAlign: 'middle' }}>
+                  <div className="treatment-record-field"><strong>Signature: </strong>
                     {isBlank ? (
                       ''
                     ) : isGiven && rec?.treatment_id ? (
@@ -1226,12 +1216,11 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
                     ) : (
                       ''
                     )}
-                  </td>
-                </tr>
+                  </div>
+                </div>
               );
             })}
-          </tbody>
-        </table>
+        </div>
       </section>
 
       {/* 6. FOOTER */}

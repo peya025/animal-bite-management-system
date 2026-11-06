@@ -91,7 +91,7 @@ export const VaccinationTrendChart: React.FC<VaccinationTrendChartProps> = ({
 
         <div style={{ textAlign: 'right' }}>
           <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-h, #111827)' }}>
-            {totalAdministered.toLocaleString()}
+            {(totalAdministered ?? 0).toLocaleString()}
           </span>
           <span style={{ display: 'block', fontSize: 10.5, color: 'var(--text-secondary, #6b7280)' }}>
             Total Doses Given

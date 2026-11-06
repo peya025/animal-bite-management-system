@@ -282,7 +282,7 @@ export default function RegistrationReportsPage() {
             <div><span class="lbl">Reporting Period: </span><span class="val">${escapeHtml(result.period.from)} to ${escapeHtml(result.period.to)}</span></div>
             <div><span class="lbl">Category: </span><span class="val">${escapeHtml(result.period.category)}</span></div>
             <div><span class="lbl">Prepared by: </span><span class="val">${escapeHtml(result.meta.prepared_by)}</span></div>
-            <div><span class="lbl">Date Generated: </span><span class="val">${new Date(result.meta.generated_at).toLocaleString()}</span></div>
+            <div><span class="lbl">Date Generated: </span><span class="val">${result.meta?.generated_at && !isNaN(new Date(result.meta.generated_at).getTime()) ? new Date(result.meta.generated_at).toLocaleString() : '—'}</span></div>
           </div>
           <table><thead><tr>${Object.values(result.records.columns).map(label => `<th>${escapeHtml(label)}</th>`).join('')}</tr></thead><tbody>
           ${result.records.rows.length ? result.records.rows.map(row => `<tr>${columns.map(key => `<td>${escapeHtml(display(row[key]))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${columns.length}">No matching records.</td></tr>`}
@@ -879,7 +879,7 @@ export default function RegistrationReportsPage() {
         <p>Previous D0 cohort: {data.period.previous_from} to {data.period.previous_to}; {stats.previous_completion.completed}/{stats.previous_completion.eligible} eligible courses completed ({percent(stats.previous_completion.rate)}). Both cohorts are observed today, so follow-up durations differ.</p>
         <p>{stats.delay.excluded} D0 course(s) excluded from delay calculations because exposure-to-dose dates are invalid or unavailable. Zero means a measured zero; “Not available” means no eligible observations.</p>
       </details>
-      <p className="rr-note rr-updated">Updated {new Date(data.meta.generated_at).toLocaleString()} · {data.meta.clinic}</p>
+      <p className="rr-note rr-updated">Updated {data.meta?.generated_at && !isNaN(new Date(data.meta.generated_at).getTime()) ? new Date(data.meta.generated_at).toLocaleString() : '—'} · {data.meta.clinic}</p>
     </>}
     </>}
 

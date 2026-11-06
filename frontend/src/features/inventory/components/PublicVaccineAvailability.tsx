@@ -3,19 +3,20 @@ import { API_BASE_URL } from '../../../shared/services/api';
 import './PublicVaccineAvailability.css';
 
 interface PublicVaccine {
-  id: string;
+  id: string | number;
   vaccine_name: string;
   category: string;
   administration_route: string | null;
   storage_temperature_notes: string | null;
-  availability_status: 'In Stock' | 'Limited Stock' | 'Out of Stock';
-  available_vials: number;
-  active_batches: number;
+  availability_status: 'In Stock' | 'Limited Stock' | 'Out of Stock' | string;
+  available_vials?: number | null;
+  active_batches?: number | null;
+  in_stock?: boolean;
 }
 
 interface Availability {
-  facility_name: string;
-  updated_at: string;
+  facility_name?: string;
+  updated_at?: string;
   vaccines: PublicVaccine[];
 }
 
@@ -82,7 +83,15 @@ export default function PublicVaccineAvailability({ schedule, hours, registratio
         </div>
         <div className="public-stock-sync">
           <span>{error ? 'Update unavailable' : data ? 'Connected to clinic inventory' : 'Checking clinic inventory'}</span>
-          {data && <small>Last checked {new Date(data.updated_at).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' })} (PHT)</small>}
+          {data && (
+            <small>
+              Last checked{' '}
+              {data.updated_at && !isNaN(new Date(data.updated_at).getTime())
+                ? new Date(data.updated_at).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' })
+                : new Date().toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' })}{' '}
+              (PHT)
+            </small>
+          )}
           <button type="button" disabled={loading} onClick={() => setRefresh(n => n + 1)}>{loading ? 'Refreshing…' : 'Refresh availability ↻'}</button>
         </div>
       </div>
@@ -116,11 +125,34 @@ export default function PublicVaccineAvailability({ schedule, hours, registratio
             <div className="public-stock-grid">
               {visible.map(v => {
                 const tone = v.availability_status === 'In Stock' ? 'ready' : v.availability_status === 'Limited Stock' ? 'limited' : 'empty';
-                return <article className={`public-stock-card ${tone}`} key={v.id}>
+                const hasVials = typeof v.available_vials === 'number' && !isNaN(v.available_vials);
+                return <article className={`public-stock-card ${tone}`} key={String(v.id)}>
                   <div className="public-stock-card-top"><span className="public-stock-symbol" aria-hidden="true">✚</span><span className="public-stock-badge"><span className="public-stock-dot" />{tone === 'limited' ? 'Low stock' : v.availability_status}</span></div>
                   <p className="public-stock-category">{v.category}</p>
                   <h3>{v.vaccine_name}</h3>
-                  <div className="public-stock-quantity"><strong>{v.available_vials.toLocaleString()}</strong><span>vials available<small>{v.active_batches} active {v.active_batches === 1 ? 'batch' : 'batches'}</small></span></div>
+                  <div className="public-stock-quantity">
+                    {hasVials ? (
+                      <>
+                        <strong>{v.available_vials!.toLocaleString()}</strong>
+                        <span>
+                          vials available
+                          {typeof v.active_batches === 'number' && (
+                            <small>{v.active_batches} active {v.active_batches === 1 ? 'batch' : 'batches'}</small>
+                          )}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <strong style={{ fontSize: '1.4rem' }}>{v.availability_status || (v.in_stock ? 'In Stock' : 'Out of Stock')}</strong>
+                        <span>
+                          Clinic Stock
+                          {typeof v.active_batches === 'number' && (
+                            <small>{v.active_batches} active {v.active_batches === 1 ? 'batch' : 'batches'}</small>
+                          )}
+                        </span>
+                      </>
+                    )}
+                  </div>
                   {(v.administration_route || v.storage_temperature_notes) && <details><summary>Vaccine details</summary>{v.administration_route && <p><strong>Administration:</strong> {v.administration_route}</p>}{v.storage_temperature_notes && <p><strong>Storage:</strong> {v.storage_temperature_notes}</p>}</details>}
                 </article>;
               })}

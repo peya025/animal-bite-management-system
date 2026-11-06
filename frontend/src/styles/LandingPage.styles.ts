@@ -25,6 +25,12 @@ export const landingPageStyles = String.raw`/* Landing Page Styles - Modern Gree
   border: 1px solid var(--gray-200);
   border-radius: 18px;
   box-shadow: var(--shadow-sm);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.landing-page .tutorial-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.12);
+  border-color: rgba(16, 185, 129, 0.45);
 }
 .landing-page .tutorial-preview {
   aspect-ratio: 16 / 9;
@@ -36,6 +42,15 @@ export const landingPageStyles = String.raw`/* Landing Page Styles - Modern Gree
   background: var(--primary-light);
   color: var(--gray-900);
   font-weight: 600;
+  overflow: hidden;
+  transition: background-color 0.35s ease;
+}
+.landing-page .tutorial-preview svg {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s ease;
+}
+.landing-page .tutorial-card:hover .tutorial-preview svg {
+  transform: scale(1.18) rotate(-3deg);
+  color: #059669;
 }
 .landing-page .tutorial-content { padding: 1.5rem; }
 .landing-page .tutorial-status {
@@ -46,6 +61,12 @@ export const landingPageStyles = String.raw`/* Landing Page Styles - Modern Gree
   color: var(--gray-600);
   font-size: 0.75rem;
   font-weight: 600;
+  transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
+}
+.landing-page .tutorial-card:hover .tutorial-status {
+  background: #d1fae5;
+  color: #065f46;
+  transform: scale(1.04);
 }
 .landing-page .tutorial-content h3 { margin: 1rem 0 0.5rem; color: var(--gray-900); }
 .landing-page .tutorial-content p { color: var(--gray-600); }

@@ -133,7 +133,7 @@ export const DashboardLayoutRoot = styled('div')`
     color: var(--nav-item-hover-color);
     border-color: var(--border-glow-subtle);
   }
-  .nav-item.active {
+.nav-item.active {
     background: var(--nav-item-active-bg);
     color: var(--nav-item-active-color);
     border-color: var(--border-glow);

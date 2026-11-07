@@ -16,6 +16,7 @@ import {
 import { ROUTES } from '../../shared/config/routes';
 import ThemeToggle from '../../shared/components/ThemeToggle';
 import NotificationButton from '../../shared/components/NotificationButton';
+import { WalkthroughHelpButton } from '../../features/walkthrough';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -116,14 +117,14 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
   const dynSubtitle = clinic?.subtitle?.trim() || APP_NAME;
 
   return (
-    <DashboardLayoutRoot>
+    <DashboardLayoutRoot data-role={user?.role} className={`role-${user?.role || 'user'}`}>
 
       {/* ── Sidebar ── */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
 
         {/* Brand */}
         <div
-          className="sidebar-header"
+          className="sidebar-header" data-walkthrough="sidebar-clinic-info" data-tour="sidebar-clinic-info"
           style={{
             justifyContent: sidebarOpen ? 'flex-start' : 'center',
             padding: sidebarOpen ? '0 16px' : '0',
@@ -168,11 +169,12 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
         </div>
 
         {/* Dynamic Sidebar Nav */}
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" data-walkthrough="sidebar-nav" data-tour="sidebar-nav">
           {filteredNav.map((item) => {
             const hasSub = !!item.submenu && item.submenu.length > 0;
             const activeSub = hasSub && isSubmenuActive(item.submenu, location.pathname, filteredNav);
             const activeDirect = !hasSub && item.path && isRouteActive(item.path, location.pathname, filteredNav);
+            const slug = item.label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
             return (
               <div key={item.label}>
@@ -194,6 +196,9 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                   }}
                   className={`nav-item ${activeSub || activeDirect ? 'active' : ''}`}
                   title={!sidebarOpen ? item.label : undefined}
+                  data-nav-item={slug}
+                  data-tour={`nav-item-${slug}`}
+                  data-walkthrough={`nav-item-${slug}`}
                 >
                   <span className="nav-icon">{item.icon}</span>
                   {sidebarOpen && (
@@ -218,23 +223,29 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
 
                 {hasSub && sidebarOpen && expandedMenu === item.label && (
                   <div className="submenu">
-                    {item.submenu!.map((subItem) => (
-                      <button
-                        key={subItem.path}
-                        onClick={() => {
-                          if (subItem.path === ROUTES.QUEUE.DASHBOARD) applyStationMode('intake');
-                          if (subItem.path === ROUTES.PATIENTS.NURSE_LIST) applyStationMode('follow_up');
-                          navigate(subItem.path);
-                          if (subItem.path === ROUTES.INVENTORY.LIST) {
-                            window.dispatchEvent(new CustomEvent('nav-inventory-reset'));
-                          }
-                        }}
-                        className={`submenu-item ${isRouteActive(subItem.path, location.pathname, filteredNav) ? 'active' : ''}`}
-                      >
-                        <span className="submenu-dot"></span>
-                        <span className="submenu-label">{subItem.label}</span>
-                      </button>
-                    ))}
+                    {item.submenu!.map((subItem) => {
+                      const subSlug = subItem.label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                      return (
+                        <button
+                          key={subItem.path}
+                          onClick={() => {
+                            if (subItem.path === ROUTES.QUEUE.DASHBOARD) applyStationMode('intake');
+                            if (subItem.path === ROUTES.PATIENTS.NURSE_LIST) applyStationMode('follow_up');
+                            navigate(subItem.path);
+                            if (subItem.path === ROUTES.INVENTORY.LIST) {
+                              window.dispatchEvent(new CustomEvent('nav-inventory-reset'));
+                            }
+                          }}
+                          className={`submenu-item ${isRouteActive(subItem.path, location.pathname, filteredNav) ? 'active' : ''}`}
+                          data-nav-subitem={subSlug}
+                          data-tour={`nav-subitem-${subSlug}`}
+                          data-walkthrough={`nav-subitem-${subSlug}`}
+                        >
+                          <span className="submenu-dot"></span>
+                          <span className="submenu-label">{subItem.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -243,7 +254,7 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
         </nav>
 
         {sidebarOpen ? (
-          <div className="sidebar-user">
+          <div className="sidebar-user" data-walkthrough="sidebar-user">
             <div className="sidebar-user-avatar">{initials}</div>
             <div className="sidebar-user-info">
               <span className="sidebar-user-name">
@@ -254,7 +265,7 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
               </span>
             </div>
             <button
-              className="sidebar-logout-btn"
+              className="sidebar-logout-btn" data-walkthrough="btn-logout" data-tour="btn-logout"
               onClick={() => setShowLogoutModal(true)}
               title="Logout"
               type="button"
@@ -269,7 +280,7 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
         ) : (
           <div className="sidebar-footer-actions">
             <button
-              className="nav-item nav-item-logout"
+              className="nav-item nav-item-logout" data-walkthrough="btn-logout" data-tour="btn-logout"
               onClick={() => setShowLogoutModal(true)}
               title="Logout"
               type="button"
@@ -306,7 +317,8 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
               </button>
             )}
           </div>
-          <div className="header-right">
+          <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <WalkthroughHelpButton />
             <NotificationButton />
             <ThemeToggle />
           </div>

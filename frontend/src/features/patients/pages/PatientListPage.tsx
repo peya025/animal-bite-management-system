@@ -1048,7 +1048,7 @@ export default function PatientList() {
       <div className="pm-layout">
         {/* ── Table panel ── */}
         <div className="pm-main-panel">
-          <div className="pm-panel-header">
+          <div className="pm-panel-header" data-walkthrough="patients-header">
             <div>
               <h1 className="pm-title">
                 {isPatientListRoute ? 'Patient List' : 'Patient Management'}
@@ -1068,7 +1068,7 @@ export default function PatientList() {
               </div>
             </div>
             {canAddPatient && (
-              <button className="pm-add-btn" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowAddModal(true); }}>
+              <button className="pm-add-btn" data-walkthrough="btn-add-patient" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowAddModal(true); }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
@@ -1078,7 +1078,7 @@ export default function PatientList() {
           </div>
 
           {/* ── Summary Cards ── */}
-          <div className="pm-stats-row">
+          <div className="pm-stats-row" data-walkthrough="patients-stats" data-tour="patients-summary">
             <div className="pm-stat-card">
               <div className="pm-stat-icon pm-stat-icon--teal">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1123,6 +1123,7 @@ export default function PatientList() {
           {/* Unified Filter Tabs */}
           <div className="pm-tabs">
             <button
+              data-walkthrough="tab-today-queue"
               className={`pm-tab-btn ${tab === 'today_queue' ? 'pm-tab-btn--active' : ''}`}
               onClick={() => setTab('today_queue')}
             >
@@ -1130,6 +1131,7 @@ export default function PatientList() {
               <span className="pm-tab-badge">{tabCounts.today_queue}</span>
             </button>
             <button
+              data-walkthrough="tab-all-patients"
               className={`pm-tab-btn ${tab === 'all' ? 'pm-tab-btn--active' : ''}`}
               onClick={() => setTab('all')}
             >
@@ -1137,6 +1139,7 @@ export default function PatientList() {
               <span className="pm-tab-badge">{tabCounts.all || total}</span>
             </button>
             <button
+              data-walkthrough="tab-online-appointments"
               className={`pm-tab-btn ${tab === 'online' ? 'pm-tab-btn--active' : ''}`}
               onClick={() => setTab('online')}
             >
@@ -1144,6 +1147,7 @@ export default function PatientList() {
               <span className="pm-tab-badge">{tabCounts.online}</span>
             </button>
             <button
+              data-walkthrough="tab-pre-registered"
               className={`pm-tab-btn ${tab === 'pre_registered' ? 'pm-tab-btn--active' : ''}`}
               onClick={() => setTab('pre_registered')}
             >
@@ -1151,6 +1155,7 @@ export default function PatientList() {
               <span className="pm-tab-badge">{tabCounts.pre_registered}</span>
             </button>
             <button
+              data-walkthrough="tab-overdue"
               className={`pm-tab-btn ${tab === 'overdue' ? 'pm-tab-btn--active' : ''}`}
               onClick={() => setTab('overdue')}
             >
@@ -1160,7 +1165,7 @@ export default function PatientList() {
           </div>
 
           {/* Controls */}
-          <div className="pm-controls">
+          <div className="pm-controls" data-walkthrough="patients-search-filter">
             <div className="pm-membership-filter-wrap">
               <span className="pm-filter-label">Program:</span>
               <select
@@ -1255,7 +1260,7 @@ export default function PatientList() {
           )}
 
           {/* Table */}
-          <div className="pm-table-wrap">
+          <div className="pm-table-wrap" data-walkthrough="patients-table-actions">
             {loading ? (
               <div className="pm-state"><div className="pm-spinner" /><p>Loading patients…</p></div>
             ) : error ? (

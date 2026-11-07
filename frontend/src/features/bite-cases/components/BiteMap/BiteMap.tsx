@@ -66,7 +66,7 @@ function createCustomIcon(severity: string) {
   return divIcon({
     className: 'custom-marker-icon',
     html: `
-      <div style="
+      <div data-tour="bite-map-marker" style="
         position: relative;
         width: 25px;
         height: 25px;
@@ -157,7 +157,7 @@ const createClusterCustomIcon = (cluster: any) => {
   return divIcon({
     html: `
       <div 
-        title="${tooltipText}"
+        data-tour="bite-map-marker" title="${tooltipText}"
         style="
           width: 42px;
           height: 42px;

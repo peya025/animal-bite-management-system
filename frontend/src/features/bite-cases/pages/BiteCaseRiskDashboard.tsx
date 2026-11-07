@@ -2231,6 +2231,8 @@ export default function BiteCaseRiskDashboard() {
 
       {/* ── KPI Stat Cards (Clickable Filters) ── */}
       <Box
+        data-walkthrough="bite-cases-kpi-cards"
+        data-tour="bite-cases-kpi-cards"
         sx={{
           display: 'grid',
           gridTemplateColumns: {
@@ -2451,6 +2453,8 @@ export default function BiteCaseRiskDashboard() {
       {/* ── Single-Row Tabs & Filter Controls ── */}
       <Paper
         elevation={0}
+        data-walkthrough="bite-cases-filter-bar"
+        data-tour="bite-cases-filter-bar"
         sx={{
           border: BORDER,
           borderRadius: '10px',
@@ -2684,7 +2688,7 @@ export default function BiteCaseRiskDashboard() {
       )}
 
       {/* ── Table Panel ── */}
-      <Paper elevation={0} sx={{ border: BORDER, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+      <Paper elevation={0} data-walkthrough="bite-cases-table" data-tour="bite-cases-table" sx={{ border: BORDER, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <Box sx={{ px: 1.5, py: 0.9, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '0.5px solid var(--bc-border-soft)', flexWrap: 'wrap' }}>
           <LocationOnOutlined sx={{ color: 'var(--bc-brand-text)', fontSize: 17 }} />
           <Typography sx={{ color: 'var(--bc-text)', fontSize: 13, fontWeight: 700 }}>

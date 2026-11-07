@@ -335,22 +335,6 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           onClearDiagnoses={handleClearDiagnoses}
         />
 
-        {/* TRANSFER OUT / REFERRAL SLIP: Directly below Doctor's Diagnosis */}
-        <TransferReferralSection
-          formData={formData}
-          isFormDisabled={isFormDisabled}
-          saving={saving}
-          fieldErrors={fieldErrors}
-          isReferralCompleted={isReferralCompleted}
-          onFieldChange={handleFieldChange}
-          onToggleReferral={handleToggleReferral}
-          onSelectFacility={handleSelectFacility}
-          onSelectReason={handleSelectReason}
-          onPrintSlip={handleOpenPrintSlip}
-          onSaveAndPrint={() => handleSaveReferral(true)}
-          onCompleteReferral={handleCompleteReferral}
-        />
-
         {/* SECTION 7: Doctor treatment decision follows the diagnosis */}
         <ReExposureAssessmentSection
           entry={entry}
@@ -473,7 +457,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           disabled={isFormDisabled}
         />
 
-        {/* Exposure Category Selection (Immediately above Tetanus Prophylaxis Order) */}
+        {/* Exposure Category Selection */}
         <div className="fm-section">
           <FormField
             id="field-exposure_category"
@@ -505,6 +489,22 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
             </div>
           </FormField>
         </div>
+
+        {/* Transfer Out / Referral Slip */}
+        <TransferReferralSection
+          formData={formData}
+          isFormDisabled={isFormDisabled}
+          saving={saving}
+          fieldErrors={fieldErrors}
+          isReferralCompleted={isReferralCompleted}
+          onFieldChange={handleFieldChange}
+          onToggleReferral={handleToggleReferral}
+          onSelectFacility={handleSelectFacility}
+          onSelectReason={handleSelectReason}
+          onPrintSlip={handleOpenPrintSlip}
+          onSaveAndPrint={() => handleSaveReferral(true)}
+          onCompleteReferral={handleCompleteReferral}
+        />
 
         {/* Prophylaxis Order (Tetanus & RIG) */}
         <ProphylaxisOrderSection

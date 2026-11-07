@@ -13,6 +13,8 @@ import '../widgets/settings/edit_account_dialog.dart';
 import '../widgets/settings/profile_card.dart';
 import '../widgets/settings/settings_group.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
+import '../widgets/walkthrough/app_walkthrough_sheet.dart';
+import '../widgets/walkthrough/faq_sheet.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -430,13 +432,22 @@ class _SettingsViewState extends State<SettingsView> {
                           title: context.tr('settings_support'),
                           children: [
                             SettingsTile(
+                              icon: LucideIcons.compass,
+                              iconBgColor: const Color(0xFFE1F5EE),
+                              iconColor: const Color(0xFF0F6E56),
+                              title: 'Guide walkthrough',
+                              subtitle: 'Interactive tour of app features',
+                              onTap: () => showAppWalkthrough(context),
+                            ),
+                            SettingsTile(
                               icon: LucideIcons.helpCircle,
                               iconBgColor: const Color(0xFFFFF7ED),
                               iconColor: const Color(0xFFEA580C),
                               title: context.tr('settings_help_center'),
-                              subtitle: context.tr('settings_help_desc'),
-                              onTap: () => _showDemoMessage(
-                                'Help center will be added later.',
+                              subtitle: 'Frequently asked questions & clinic answers',
+                              onTap: () => showFaqBottomSheet(
+                                context,
+                                onStartWalkthrough: () => showAppWalkthrough(context),
                               ),
                             ),
                             SettingsTile(

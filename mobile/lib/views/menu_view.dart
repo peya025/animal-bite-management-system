@@ -4,6 +4,7 @@ import '../app/app_routes.dart';
 import '../app/app_theme.dart';
 import '../models/patient_account_profile.dart';
 import '../services/api.dart';
+import '../services/walkthrough_service.dart';
 import '../widgets/learn_more_section.dart';
 import '../widgets/menu/campaign_banner.dart';
 import '../widgets/menu/guidelines_section.dart';
@@ -15,6 +16,8 @@ import '../widgets/menu/schedule_section.dart';
 import '../widgets/menu/search_header.dart';
 import '../widgets/re_exposure_protocol_card.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
+import '../widgets/walkthrough/app_walkthrough_sheet.dart';
+import '../widgets/walkthrough/faq_sheet.dart';
 
 class MenuView extends StatefulWidget {
   const MenuView({super.key, this.hasCompletedPEP});
@@ -32,6 +35,20 @@ class _MenuViewState extends State<MenuView> {
   String? _userName;
   bool _hasCompletedPEP = false;
 
+  final GlobalKey _scheduleKey = GlobalKey();
+  final GlobalKey _quickActionsKey = GlobalKey();
+  final GlobalKey _qrActionKey = GlobalKey();
+  final GlobalKey _guidelinesKey = GlobalKey();
+  final GlobalKey _bottomNavKey = GlobalKey();
+
+  Map<int, GlobalKey> get _walkthroughTargets => {
+    0: _scheduleKey,
+    1: _quickActionsKey,
+    2: _qrActionKey,
+    3: _guidelinesKey,
+    4: _bottomNavKey,
+  };
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +56,29 @@ class _MenuViewState extends State<MenuView> {
       _hasCompletedPEP = widget.hasCompletedPEP!;
     }
     _loadUser();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndShowWalkthrough();
+    });
+  }
+
+  Future<void> _startWalkthrough() async {
+    if (!mounted) return;
+    await showAppWalkthrough(context, targetKeys: _walkthroughTargets);
+  }
+
+  Future<void> _openFaqs([String? initialQuery]) async {
+    if (!mounted) return;
+    await showFaqBottomSheet(
+      context,
+      onStartWalkthrough: _startWalkthrough,
+      initialSearchQuery: initialQuery,
+    );
+  }
+
+  Future<void> _checkAndShowWalkthrough() async {
+    final shouldShow = await WalkthroughService.shouldShowWalkthrough();
+    if (!shouldShow || !mounted) return;
+    await _startWalkthrough();
   }
 
   Future<void> _refreshHome() async {
@@ -58,9 +98,10 @@ class _MenuViewState extends State<MenuView> {
             .where((p) => p.relationship.toLowerCase() == 'self')
             .firstOrNull;
 
-        final resolvedName = selfProfile != null && selfProfile.name.trim().isNotEmpty
-            ? selfProfile.name.trim()
-            : account.name.trim();
+        final resolvedName =
+            selfProfile != null && selfProfile.name.trim().isNotEmpty
+                ? selfProfile.name.trim()
+                : account.name.trim();
 
         final hasCompleted = account.patients.any(
           (p) => p.hasCompletedPrimary,
@@ -89,7 +130,17 @@ class _MenuViewState extends State<MenuView> {
       context: context,
       delegate: _HomeSearchDelegate(),
     );
-    if (route != null && mounted) Navigator.of(context).pushNamed(route);
+    if (route == null || !mounted) return;
+    if (route == '__walkthrough__') {
+      await _startWalkthrough();
+      return;
+    }
+    if (route.startsWith('__faq__')) {
+      final query = route.substring('__faq__'.length);
+      await _openFaqs(query.isEmpty ? null : query);
+      return;
+    }
+    Navigator.of(context).pushNamed(route);
   }
 
   @override
@@ -120,31 +171,43 @@ class _MenuViewState extends State<MenuView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const CampaignBanner(),
+                          CampaignBanner(
+                            onStartWalkthrough: _startWalkthrough,
+                            onOpenFaq: _openFaqs,
+                          ),
                           const SizedBox(height: 20),
-                          ScheduleSection(
-                            onOpenAppointments: () => Navigator.of(
-                              context,
-                            ).pushNamed(AppRoutes.appointments),
+                          KeyedSubtree(
+                            key: _scheduleKey,
+                            child: ScheduleSection(
+                              onOpenAppointments: () => Navigator.of(
+                                context,
+                              ).pushNamed(AppRoutes.appointments),
+                            ),
                           ),
                           if (_hasCompletedPEP) ...[
                             const SizedBox(height: 12),
                             const ReExposureProtocolCard(),
                           ],
                           const SizedBox(height: 20),
-                          QuickActionsSection(
-                            onCalendar: () => Navigator.of(
-                              context,
-                            ).pushNamed(AppRoutes.calendar),
-                            onProfile: () async {
-                              await Navigator.of(
+                          KeyedSubtree(
+                            key: _quickActionsKey,
+                            child: QuickActionsSection(
+                              onCalendar: () => Navigator.of(
                                 context,
-                              ).pushNamed(AppRoutes.settings);
-                              if (mounted) _refreshHome();
-                            },
+                              ).pushNamed(AppRoutes.calendar),
+                              onProfile: () async {
+                                await Navigator.of(
+                                  context,
+                                ).pushNamed(AppRoutes.settings);
+                                if (mounted) _refreshHome();
+                              },
+                            ),
                           ),
                           const SizedBox(height: 20),
-                          const GuidelinesSection(),
+                          KeyedSubtree(
+                            key: _guidelinesKey,
+                            child: const GuidelinesSection(),
+                          ),
                           LearnMoreSection(
                             refreshTrigger: _resourcesRefreshTrigger,
                           ),
@@ -160,24 +223,30 @@ class _MenuViewState extends State<MenuView> {
           ),
         ),
       ),
-      bottomNavigationBar: MenuNavigation(
-        selectedIndex: _selectedIndex,
-        onSelected: (index) {
-          final route = switch (index) {
-            1 => AppRoutes.booking,
-            2 => AppRoutes.history,
-            3 => AppRoutes.settings,
-            _ => null,
-          };
-          if (route != null) {
-            Navigator.of(context).pushReplacementNamed(route);
-            return;
-          }
-          setState(() => _selectedIndex = index);
-        },
+      bottomNavigationBar: KeyedSubtree(
+        key: _bottomNavKey,
+        child: MenuNavigation(
+          selectedIndex: _selectedIndex,
+          onSelected: (index) {
+            final route = switch (index) {
+              1 => AppRoutes.booking,
+              2 => AppRoutes.history,
+              3 => AppRoutes.settings,
+              _ => null,
+            };
+            if (route != null) {
+              Navigator.of(context).pushReplacementNamed(route);
+              return;
+            }
+            setState(() => _selectedIndex = index);
+          },
+        ),
       ),
-      floatingActionButton: PatientActionButton(
-        onPressed: _openPatientCard,
+      floatingActionButton: KeyedSubtree(
+        key: _qrActionKey,
+        child: PatientActionButton(
+          onPressed: _openPatientCard,
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
@@ -186,6 +255,16 @@ class _MenuViewState extends State<MenuView> {
 
 class _HomeSearchDelegate extends SearchDelegate<String?> {
   static const _items = [
+    _HomeSearchItem(
+      label: 'App guide walkthrough (5-step tour)',
+      route: '__walkthrough__',
+      icon: Icons.explore_outlined,
+    ),
+    _HomeSearchItem(
+      label: 'Frequently Asked Questions (FAQs)',
+      route: '__faq__',
+      icon: Icons.help_outline_rounded,
+    ),
     _HomeSearchItem(
       label: 'Schedule calendar by profile',
       route: AppRoutes.calendar,
@@ -224,7 +303,7 @@ class _HomeSearchDelegate extends SearchDelegate<String?> {
   ];
 
   @override
-  String get searchFieldLabel => 'Search services or schedules';
+  String get searchFieldLabel => 'Search services, schedules, or FAQs';
 
   @override
   List<Widget> buildActions(BuildContext context) {
@@ -248,47 +327,143 @@ class _HomeSearchDelegate extends SearchDelegate<String?> {
   }
 
   @override
-  Widget buildResults(BuildContext context) => _buildList();
+  Widget buildResults(BuildContext context) => _buildMatches(context);
 
   @override
-  Widget buildSuggestions(BuildContext context) => _buildList();
+  Widget buildSuggestions(BuildContext context) => _buildMatches(context);
 
-  Widget _buildList() {
-    final normalizedQuery = query.trim().toLowerCase();
-    final matches = _items
-        .where(
-          (item) =>
-              normalizedQuery.isEmpty ||
-              item.label.toLowerCase().contains(normalizedQuery),
-        )
-        .toList();
+  Widget _buildMatches(BuildContext context) {
+    final normalized = query.trim().toLowerCase();
+    final serviceMatches = normalized.isEmpty
+        ? _items
+        : _items
+            .where((item) => item.label.toLowerCase().contains(normalized))
+            .toList();
 
-    if (matches.isEmpty) {
+    final faqMatches = normalized.isEmpty
+        ? kClinicFaqs.take(4).toList()
+        : kClinicFaqs.where((faq) {
+            return faq.question.toLowerCase().contains(normalized) ||
+                faq.answer.toLowerCase().contains(normalized) ||
+                faq.category.toLowerCase().contains(normalized);
+          }).toList();
+
+    if (serviceMatches.isEmpty && faqMatches.isEmpty) {
       return const Center(
         child: Text(
-          'No matching service',
-          style: TextStyle(color: AppColors.gray500),
+          'No matching service or FAQ found.',
+          style: TextStyle(color: AppColors.gray600),
         ),
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      itemCount: matches.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        final item = matches[index];
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-          leading: Icon(item.icon, color: AppColors.primaryDark),
-          title: Text(
-            item.label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        if (serviceMatches.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.only(left: 2, bottom: 8),
+            child: Text(
+              'SERVICES & NAVIGATION',
+              style: TextStyle(
+                color: Color(0xFF9CA3AF),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
           ),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => close(context, item.route),
-        );
-      },
+          for (var i = 0; i < serviceMatches.length; i++) ...[
+            Material(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(10),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: AppColors.border),
+                ),
+                leading: Icon(serviceMatches[i].icon, color: AppColors.primary),
+                title: Text(
+                  serviceMatches[i].label,
+                  style: const TextStyle(
+                    color: AppColors.gray900,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.gray500,
+                ),
+                onTap: () => close(context, serviceMatches[i].route),
+              ),
+            ),
+            if (i < serviceMatches.length - 1) const SizedBox(height: 8),
+          ],
+          const SizedBox(height: 18),
+        ],
+        if (faqMatches.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.only(left: 2, bottom: 8),
+            child: Text(
+              'FREQUENTLY ASKED QUESTIONS',
+              style: TextStyle(
+                color: Color(0xFF9CA3AF),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          for (var i = 0; i < faqMatches.length; i++) ...[
+            Material(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(10),
+              child: ExpansionTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: AppColors.border),
+                ),
+                collapsedShape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: AppColors.border),
+                ),
+                tilePadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                childrenPadding:
+                    const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                leading: const Icon(
+                  Icons.quiz_outlined,
+                  size: 19,
+                  color: AppColors.primary,
+                ),
+                title: Text(
+                  faqMatches[i].question,
+                  style: const TextStyle(
+                    color: AppColors.gray900,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      faqMatches[i].answer,
+                      style: const TextStyle(
+                        color: AppColors.gray600,
+                        fontSize: 12,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (i < faqMatches.length - 1) const SizedBox(height: 8),
+          ],
+        ],
+      ],
     );
   }
 }

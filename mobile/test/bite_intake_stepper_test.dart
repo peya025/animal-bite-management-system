@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:image_picker/image_picker.dart';
+import 'package:mobile/models/referral_photo.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/models/bite_intake_route_args.dart';
 import 'package:mobile/models/booking_draft.dart';
@@ -25,9 +29,18 @@ void main() {
     timeSlot: BookingTimeSlot.morning,
   );
 
-  Widget buildIntakeView() {
+  Widget buildIntakeView({Future<XFile?> Function()? pickPhoto}) {
     return MaterialApp(
       home: BiteIntakeView(
+        pickReferralPhoto:
+            pickPhoto ??
+            () async => XFile.fromData(
+              base64Decode(
+                'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+              ),
+              name: 'referral.png',
+              path: 'referral.png',
+            ),
         args: BiteIntakeRouteArgs(
           patient: samplePatient,
           booking: sampleBooking,
@@ -42,31 +55,32 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('BiteIntakeView renders Step 1 (Patient) as read-only Form 1 info', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(500, 1000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'BiteIntakeView renders Step 1 (Patient) as read-only Form 1 info',
+    (tester) async {
+      tester.view.physicalSize = const Size(500, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(buildIntakeView());
-    await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpWidget(buildIntakeView());
+      await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Bite incident intake'), findsOneWidget);
-    expect(find.text('Step 1 of 5 — Patient'), findsOneWidget);
-    expect(find.text('20%'), findsOneWidget);
-    expect(find.text('Juan'), findsOneWidget);
-    expect(find.text('Dela Cruz'), findsOneWidget);
-    expect(find.text('1995-05-15'), findsOneWidget);
-    expect(find.text('Male'), findsOneWidget);
-    expect(find.text('09123456789'), findsOneWidget);
-    expect(find.text('Poblacion, Tagoloan'), findsOneWidget);
+      expect(find.text('Bite incident intake'), findsOneWidget);
+      expect(find.text('Step 1 of 5 — Patient'), findsOneWidget);
+      expect(find.text('20%'), findsOneWidget);
+      expect(find.text('Juan'), findsOneWidget);
+      expect(find.text('Dela Cruz'), findsOneWidget);
+      expect(find.text('1995-05-15'), findsOneWidget);
+      expect(find.text('Male'), findsOneWidget);
+      expect(find.text('09123456789'), findsOneWidget);
+      expect(find.text('Poblacion, Tagoloan'), findsOneWidget);
 
-    // Form 1 fields are read-only (not TextFormFields)
-    expect(find.widgetWithText(TextFormField, 'Juan'), findsNothing);
-    expect(find.text('Next: Incident details'), findsOneWidget);
-  });
+      // Form 1 fields are read-only (not TextFormFields)
+      expect(find.widgetWithText(TextFormField, 'Juan'), findsNothing);
+      expect(find.text('Next: Incident details'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'BiteIntakeView Step 2 (Incident) validates required fields before advancing',
@@ -88,10 +102,7 @@ void main() {
       // Attempting to advance without filling required fields shows error
       await tapVisible(tester, find.text('Next: Animal details'));
 
-      expect(
-        find.text('Please select the mode of exposure.'),
-        findsOneWidget,
-      );
+      expect(find.text('Please select the mode of exposure.'), findsOneWidget);
       // Still on Step 2
       expect(find.text('Step 2 of 5 — Incident details'), findsOneWidget);
     },
@@ -221,7 +232,10 @@ void main() {
       // Test Edit button navigates back to Step 2
       final editButtons = find.text('Edit');
       expect(editButtons, findsWidgets);
-      await tapVisible(tester, editButtons.at(1)); // Edit Incident details (index 1 is Incident)
+      await tapVisible(
+        tester,
+        editButtons.at(1),
+      ); // Edit Incident details (index 1 is Incident)
 
       expect(find.text('Step 2 of 5 — Incident details'), findsOneWidget);
     },
@@ -248,7 +262,10 @@ void main() {
       // Toggle referral switch ON
       await tapVisible(tester, find.byType(Switch));
       expect(find.text('Referred by Location'), findsOneWidget);
-      expect(find.text('Pre-Arrival Vitals from Referral Form'), findsOneWidget);
+      expect(
+        find.text('Pre-Arrival Vitals from Referral Form'),
+        findsOneWidget,
+      );
 
       // Select Municipality
       await tapVisible(tester, find.text('— Select Municipality —'));
@@ -260,38 +277,97 @@ void main() {
 
       // Verify auto-suggested health center name and customize it
       expect(
-        find.widgetWithText(TextFormField, 'Tagoloan Rural Health Unit (RHU) / BHS'),
+        find.widgetWithText(
+          TextFormField,
+          'Tagoloan Rural Health Unit (RHU) / BHS',
+        ),
         findsOneWidget,
       );
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'Tagoloan Rural Health Unit (RHU) / BHS'),
+        find.widgetWithText(
+          TextFormField,
+          'Tagoloan Rural Health Unit (RHU) / BHS',
+        ),
         'Barangay Kimalok Health Station (BHS)',
       );
 
       // Enter Pre-arrival Vitals: BP 120 / 80 (High BP badge)
-      await tester.enterText(find.widgetWithText(TextFormField, 'Systolic'), '120');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Diastolic'), '80');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Systolic'),
+        '120',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Diastolic'),
+        '80',
+      );
       await tester.pumpAndSettle();
       expect(find.textContaining('High BP'), findsOneWidget);
 
       // Enter Temp: 36 (Normal badge)
-      await tester.enterText(find.widgetWithText(TextFormField, 'e.g. 36.5'), '36');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'e.g. 36.5'),
+        '36',
+      );
       await tester.pumpAndSettle();
       expect(find.textContaining('Normal'), findsWidgets);
 
       // Enter Height & Weight
-      await tester.enterText(find.widgetWithText(TextFormField, 'e.g. 150'), '150');
-      await tester.enterText(find.widgetWithText(TextFormField, 'e.g. 50'), '50');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'e.g. 150'),
+        '150',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'e.g. 50'),
+        '50',
+      );
 
       // Enter Attending Provider
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'e.g. Triage Doctor from referral paper form'),
+        find.widgetWithText(
+          TextFormField,
+          'e.g. Triage Doctor from referral paper form',
+        ),
         'Triage Doctor',
       );
 
       // Attach referral photo
       await tapVisible(tester, find.text('Attach referral paper form photo'));
       expect(find.byTooltip('Remove photo'), findsOneWidget);
+      expect(find.text('referral.png'), findsOneWidget);
+      await tapVisible(tester, find.byTooltip('Remove photo'));
+      expect(find.text('referral.png'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'referral picker handles cancellation and rejects oversized photos',
+    (tester) async {
+      tester.view.physicalSize = const Size(500, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      var calls = 0;
+      await tester.pumpWidget(
+        buildIntakeView(
+          pickPhoto: () async {
+            calls++;
+            return calls == 1
+                ? null
+                : XFile.fromData(
+                    Uint8List(ReferralPhoto.maxBytes + 1),
+                    name: 'large.png',
+                  );
+          },
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await tapVisible(tester, find.text('Next: Incident details'));
+      await tapVisible(tester, find.byType(Switch));
+      await tapVisible(tester, find.text('Attach referral paper form photo'));
+      expect(find.byTooltip('Remove photo'), findsNothing);
+      await tapVisible(tester, find.text('Attach referral paper form photo'));
+      expect(find.text(ReferralPhoto.sizeError), findsOneWidget);
+      expect(find.byTooltip('Remove photo'), findsNothing);
     },
   );
 }

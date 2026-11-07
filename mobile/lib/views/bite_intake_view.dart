@@ -1,5 +1,8 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import '../models/referral_photo.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
@@ -20,9 +23,10 @@ import '../widgets/common/app_page_header.dart';
 
 /// Screen coordinating patient-reported bite incident intake and pre-booking review.
 class BiteIntakeView extends StatefulWidget {
-  const BiteIntakeView({super.key, required this.args});
+  const BiteIntakeView({super.key, required this.args, this.pickReferralPhoto});
 
   final BiteIntakeRouteArgs args;
+  final Future<XFile?> Function()? pickReferralPhoto;
 
   @override
   State<BiteIntakeView> createState() => _BiteIntakeViewState();
@@ -50,13 +54,72 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
   final _referralWeight = TextEditingController();
   final _referralProvider = TextEditingController();
   String? _referralPhotoName;
+  String? _referralPhotoData;
+  bool _pickingPhoto = false;
+
+  Future<void> _attachReferralPhoto() async {
+    if (_pickingPhoto || _submitting) return;
+    setState(() => _pickingPhoto = true);
+    try {
+      final file =
+          await (widget.pickReferralPhoto?.call() ??
+              ImagePicker().pickImage(
+                source: ImageSource.gallery,
+                requestFullMetadata: false,
+              ));
+      if (file == null) return;
+      if (await file.length() > ReferralPhoto.maxBytes) {
+        throw const FormatException(ReferralPhoto.sizeError);
+      }
+      final data = ReferralPhoto.encode(await file.readAsBytes());
+      if (!mounted || !_isReferred) return;
+      setState(() {
+        _referralPhotoName = file.name;
+        _referralPhotoData = data;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      final String message;
+      if (error is FormatException) {
+        message = error.message;
+      } else if (error is MissingPluginException ||
+          (error is PlatformException && error.code == 'channel-error')) {
+        message =
+            'The photo picker is not available in this app session. '
+            'Fully stop and rebuild the app, then try again.';
+      } else if (error is PlatformException &&
+          [
+            'photo_access_denied',
+            'photo_access_restricted',
+          ].contains(error.code)) {
+        message =
+            'Photo access is disabled. Allow photo access for ABTCare '
+            'in your phone settings, then try again.';
+      } else if (error is PlatformException && error.code == 'already_active') {
+        message = 'The photo picker is already open. Close it and try again.';
+      } else if (error is PlatformException) {
+        message =
+            'The photo picker could not open this photo (${error.code}). '
+            'Try a JPG or PNG saved on your phone.';
+      } else {
+        message =
+            'Could not read this photo. Try a JPG or PNG saved on your phone.';
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _pickingPhoto = false);
+    }
+  }
 
   // History controllers
   final _pastBiteDates = TextEditingController();
   final _priorVaccinationFacility = TextEditingController();
 
   // Stepper state
-  int _currentStep = 0; // 0: Patient, 1: Incident, 2: Animal, 3: Previous history, 4: Review and book
+  int _currentStep =
+      0; // 0: Patient, 1: Incident, 2: Animal, 3: Previous history, 4: Review and book
 
   late DateTime _selectedBiteDate;
   TimeOfDay? _incidentTime;
@@ -143,7 +206,10 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
     setState(() {
       _referralBarangayName = name;
       if (name != null && _referralMunicipalityCode != null) {
-        _referralFacility.text = suggestReferralFacility(_referralMunicipalityCode!, name);
+        _referralFacility.text = suggestReferralFacility(
+          _referralMunicipalityCode!,
+          name,
+        );
       }
     });
   }
@@ -251,7 +317,9 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
       return;
     }
     if (_isReferred && _referralFacility.text.trim().isEmpty) {
-      setState(() => _error = 'Please enter or select the referring health facility.');
+      setState(
+        () => _error = 'Please enter or select the referring health facility.',
+      );
       return;
     }
     setState(() {
@@ -289,7 +357,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
   // ── Submit Booking ──────────────────────────────────────────────────────────
 
   Future<void> _submit() async {
-    if (_submitting) return;
+    if (_submitting || _pickingPhoto) return;
 
     final today = DateUtils.dateOnly(DateTime.now());
     if (DateUtils.dateOnly(_selectedBiteDate).isAfter(today)) {
@@ -342,7 +410,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
       referralHeight: _isReferred ? _optional(_referralHeight) : null,
       referralWeight: _isReferred ? _optional(_referralWeight) : null,
       referralProviderName: _isReferred ? _optional(_referralProvider) : null,
-      referralDocumentPhoto: _isReferred ? _referralPhotoName : null,
+      referralDocumentPhoto: _isReferred ? _referralPhotoData : null,
       pastBiteHistory: _pastBiteHistory,
       pastBiteDates: _pastBiteHistory == 'yes'
           ? _optional(_pastBiteDates)
@@ -350,12 +418,12 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
       priorPepStatus: _priorPepStatus,
       priorPepDate:
           _priorPepStatus == 'completed' || _priorPepStatus == 'incomplete'
-              ? _priorVaccinationDate
-              : null,
+          ? _priorVaccinationDate
+          : null,
       priorPepFacility:
           _priorPepStatus == 'completed' || _priorPepStatus == 'incomplete'
-              ? _optional(_priorVaccinationFacility)
-              : null,
+          ? _optional(_priorVaccinationFacility)
+          : null,
     );
 
     setState(() {
@@ -531,6 +599,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                                 _referralMunicipalityCode = null;
                                 _referralBarangayName = null;
                                 _referralPhotoName = null;
+                                _referralPhotoData = null;
                                 _referralSystolic.clear();
                                 _referralDiastolic.clear();
                                 _referralTemperature.clear();
@@ -547,14 +616,13 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                           onReferralBarangayChanged: _onReferralBarangayChanged,
                           referralFacilityController: _referralFacility,
                           referralPhotoName: _referralPhotoName,
-                          onAttachPhoto: () {
-                            setState(() {
-                              _referralPhotoName =
-                                  'referral_slip_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                            });
-                          },
-                          onRemovePhoto: () =>
-                              setState(() => _referralPhotoName = null),
+                          referralPhotoData: _referralPhotoData,
+                          pickingPhoto: _pickingPhoto,
+                          onAttachPhoto: _attachReferralPhoto,
+                          onRemovePhoto: () => setState(() {
+                            _referralPhotoName = null;
+                            _referralPhotoData = null;
+                          }),
                           referralSystolicController: _referralSystolic,
                           referralDiastolicController: _referralDiastolic,
                           referralTemperatureController: _referralTemperature,
@@ -631,10 +699,15 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                           temperature: _isReferred
                               ? _optional(_referralTemperature)
                               : null,
-                          height: _isReferred ? _optional(_referralHeight) : null,
-                          weight: _isReferred ? _optional(_referralWeight) : null,
-                          providerName:
-                              _isReferred ? _optional(_referralProvider) : null,
+                          height: _isReferred
+                              ? _optional(_referralHeight)
+                              : null,
+                          weight: _isReferred
+                              ? _optional(_referralWeight)
+                              : null,
+                          providerName: _isReferred
+                              ? _optional(_referralProvider)
+                              : null,
                           animalType: _animalType,
                           animalTypeOthers: _optional(_animalTypeOthers),
                           animalStatus: _animalStatus,
@@ -644,8 +717,9 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                           pastBiteDates: _optional(_pastBiteDates),
                           priorPepStatus: _priorPepStatus,
                           priorVaccinationDate: _priorVaccinationDate,
-                          priorVaccinationFacility:
-                              _optional(_priorVaccinationFacility),
+                          priorVaccinationFacility: _optional(
+                            _priorVaccinationFacility,
+                          ),
                           onStepJump: (step) =>
                               setState(() => _currentStep = step),
                           isSubmitting: _submitting,

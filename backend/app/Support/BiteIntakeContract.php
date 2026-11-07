@@ -256,7 +256,7 @@ final class BiteIntakeContract
             $prefix.'referral_height' => ['nullable', 'string', 'max:20'],
             $prefix.'referral_weight' => ['nullable', 'string', 'max:20'],
             $prefix.'referral_provider_name' => ['nullable', 'string', 'max:255'],
-            $prefix.'referral_document_photo' => ['nullable', 'string'],
+            $prefix.'referral_document_photo' => ['nullable', 'string', new \App\Rules\ReferralPhoto],
             $prefix.'exposure_type' => ['required', $in(self::EXPOSURE_MODES)],
             $prefix.'animal_type' => ['required', $in(self::ANIMAL_SPECIES)],
             $prefix.'animal_type_others' => ['nullable', 'required_if:'.$prefix.'animal_type,other', 'string', 'max:255'],

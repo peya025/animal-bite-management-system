@@ -44,6 +44,8 @@ class StepIncident extends StatelessWidget {
     required this.onReferralBarangayChanged,
     required this.referralFacilityController,
     required this.referralPhotoName,
+    this.referralPhotoData,
+    this.pickingPhoto = false,
     required this.onAttachPhoto,
     required this.onRemovePhoto,
     required this.referralSystolicController,
@@ -87,6 +89,8 @@ class StepIncident extends StatelessWidget {
   final ValueChanged<String?> onReferralBarangayChanged;
   final TextEditingController referralFacilityController;
   final String? referralPhotoName;
+  final String? referralPhotoData;
+  final bool pickingPhoto;
   final VoidCallback onAttachPhoto;
   final VoidCallback onRemovePhoto;
   final TextEditingController referralSystolicController;
@@ -196,21 +200,19 @@ class StepIncident extends StatelessWidget {
                 loadingBarangays
                     ? 'Loading barangays...'
                     : selectedMunicipalityCode == null
-                        ? 'Select municipality first'
-                        : 'Select barangay',
+                    ? 'Select municipality first'
+                    : 'Select barangay',
               ),
               items: barangays
                   .map(
                     (b) => DropdownMenuItem(
                       value: b.code,
-                      child: Text(
-                        b.name,
-                        style: const TextStyle(fontSize: 13),
-                      ),
+                      child: Text(b.name, style: const TextStyle(fontSize: 13)),
                     ),
                   )
                   .toList(),
-              onChanged: isSubmitting ||
+              onChanged:
+                  isSubmitting ||
                       loadingBarangays ||
                       selectedMunicipalityCode == null
                   ? null
@@ -237,10 +239,7 @@ class StepIncident extends StatelessWidget {
             (opt) => RadioListTile<String>(
               value: opt.key,
               groupValue: exposureType,
-              title: Text(
-                opt.value,
-                style: const TextStyle(fontSize: 13),
-              ),
+              title: Text(opt.value, style: const TextStyle(fontSize: 13)),
               contentPadding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
               activeColor: AppColors.primary,
@@ -255,10 +254,7 @@ class StepIncident extends StatelessWidget {
             (opt) => RadioListTile<String>(
               value: opt.key,
               groupValue: bodyPartGroup,
-              title: Text(
-                opt.value,
-                style: const TextStyle(fontSize: 13),
-              ),
+              title: Text(opt.value, style: const TextStyle(fontSize: 13)),
               contentPadding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
               activeColor: AppColors.primary,
@@ -289,10 +285,7 @@ class StepIncident extends StatelessWidget {
                 .map(
                   (e) => DropdownMenuItem(
                     value: e.key,
-                    child: Text(
-                      e.value,
-                      style: const TextStyle(fontSize: 13),
-                    ),
+                    child: Text(e.value, style: const TextStyle(fontSize: 13)),
                   ),
                 )
                 .toList(),
@@ -345,7 +338,10 @@ class StepIncident extends StatelessWidget {
                       SizedBox(height: 2),
                       Text(
                         'Barangay Health Station (BHS), RHU, or clinic',
-                        style: TextStyle(fontSize: 12, color: AppColors.gray600),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.gray600,
+                        ),
                       ),
                     ],
                   ),
@@ -396,7 +392,9 @@ class StepIncident extends StatelessWidget {
                           ),
                         )
                         .toList(),
-                    onChanged: isSubmitting ? null : onReferralMunicipalityChanged,
+                    onChanged: isSubmitting
+                        ? null
+                        : onReferralMunicipalityChanged,
                   ),
                   const SizedBox(height: 12),
 
@@ -409,21 +407,23 @@ class StepIncident extends StatelessWidget {
                       referralMunicipalityCode == null
                           ? '— Select Municipality First —'
                           : (referralMunicipalityCode == 'other'
-                              ? 'Outside Misamis Oriental'
-                              : '— Select Barangay —'),
+                                ? 'Outside Misamis Oriental'
+                                : '— Select Barangay —'),
                     ),
-                    items: (referralMunicipalityCode != null &&
-                            referralBarangaysMap.containsKey(referralMunicipalityCode))
+                    items:
+                        (referralMunicipalityCode != null &&
+                            referralBarangaysMap.containsKey(
+                              referralMunicipalityCode,
+                            ))
                         ? referralBarangaysMap[referralMunicipalityCode]!
-                            .map(
-                              (b) => DropdownMenuItem(
-                                value: b,
-                                child: Text(b),
-                              ),
-                            )
-                            .toList()
+                              .map(
+                                (b) =>
+                                    DropdownMenuItem(value: b, child: Text(b)),
+                              )
+                              .toList()
                         : const [],
-                    onChanged: (isSubmitting ||
+                    onChanged:
+                        (isSubmitting ||
                             referralMunicipalityCode == null ||
                             referralMunicipalityCode == 'other')
                         ? null
@@ -467,14 +467,29 @@ class StepIncident extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Attach photo of the paper referral form received from the health station.',
+                    'Attach the paper referral form received from the health station. JPG or PNG, maximum 2 MB. The photo is uploaded when you submit your booking.',
                     style: TextStyle(fontSize: 11.5, color: AppColors.gray600),
                   ),
                   const SizedBox(height: 10),
 
                   if (referralPhotoName != null) ...[
+                    if (referralPhotoData != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Image.memory(
+                          Uri.parse(referralPhotoData!).data!.contentAsBytes(),
+                          height: 160,
+                          fit: BoxFit.contain,
+                          cacheWidth: 800,
+                          errorBuilder: (_, _, _) =>
+                              const Text('Photo preview unavailable'),
+                        ),
+                      ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFECFDF5),
                         borderRadius: BorderRadius.circular(8),
@@ -515,8 +530,14 @@ class StepIncident extends StatelessWidget {
                   ] else ...[
                     OutlinedButton.icon(
                       icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                      label: const Text('Attach referral paper form photo'),
-                      onPressed: isSubmitting ? null : onAttachPhoto,
+                      label: Text(
+                        pickingPhoto
+                            ? 'Opening photo...'
+                            : 'Attach referral paper form photo',
+                      ),
+                      onPressed: isSubmitting || pickingPhoto
+                          ? null
+                          : onAttachPhoto,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: const BorderSide(color: AppColors.primary),
@@ -654,10 +675,10 @@ class StepIncident extends StatelessWidget {
                   TextFormField(
                     controller: referralTemperatureController,
                     enabled: !isSubmitting,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      hintText: 'e.g. 36.5',
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
                     ),
+                    decoration: const InputDecoration(hintText: 'e.g. 36.5'),
                   ),
                   const SizedBox(height: 12),
 
@@ -673,7 +694,9 @@ class StepIncident extends StatelessWidget {
                               controller: referralHeightController,
                               enabled: !isSubmitting,
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(hintText: 'e.g. 150'),
+                              decoration: const InputDecoration(
+                                hintText: 'e.g. 150',
+                              ),
                             ),
                           ],
                         ),
@@ -688,7 +711,9 @@ class StepIncident extends StatelessWidget {
                               controller: referralWeightController,
                               enabled: !isSubmitting,
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(hintText: 'e.g. 50'),
+                              decoration: const InputDecoration(
+                                hintText: 'e.g. 50',
+                              ),
                             ),
                           ],
                         ),

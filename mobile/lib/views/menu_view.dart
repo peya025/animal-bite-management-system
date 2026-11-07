@@ -39,14 +39,14 @@ class _MenuViewState extends State<MenuView> {
   final GlobalKey _scheduleKey = GlobalKey();
   final GlobalKey _quickActionsKey = GlobalKey();
   final GlobalKey _qrActionKey = GlobalKey();
-  final GlobalKey _bottomNavKey = GlobalKey();
+  final GlobalKey _bookTabKey = GlobalKey();
 
   Map<int, GlobalKey> get _walkthroughTargets => {
     0: _guideButtonKey,
     1: _scheduleKey,
     2: _quickActionsKey,
     3: _qrActionKey,
-    4: _bottomNavKey,
+    4: _bookTabKey,
   };
 
   @override
@@ -63,7 +63,18 @@ class _MenuViewState extends State<MenuView> {
 
   Future<void> _startWalkthrough() async {
     if (!mounted) return;
-    await showAppWalkthrough(context, targetKeys: _walkthroughTargets);
+    final completedHomeSteps = await showAppWalkthrough(
+      context,
+      targetKeys: _walkthroughTargets,
+      totalStepsOverride:
+          kDefaultWalkthroughSteps.length + kBookingWalkthroughSteps.length,
+    );
+    if (completedHomeSteps && mounted) {
+      Navigator.of(context).pushReplacementNamed(
+        AppRoutes.booking,
+        arguments: 'walkthrough',
+      );
+    }
   }
 
   Future<void> _openFaqs([String? initialQuery]) async {
@@ -221,24 +232,22 @@ class _MenuViewState extends State<MenuView> {
           ),
         ),
       ),
-      bottomNavigationBar: KeyedSubtree(
-        key: _bottomNavKey,
-        child: MenuNavigation(
-          selectedIndex: _selectedIndex,
-          onSelected: (index) {
-            final route = switch (index) {
-              1 => AppRoutes.booking,
-              2 => AppRoutes.history,
-              3 => AppRoutes.settings,
-              _ => null,
-            };
-            if (route != null) {
-              Navigator.of(context).pushReplacementNamed(route);
-              return;
-            }
-            setState(() => _selectedIndex = index);
-          },
-        ),
+      bottomNavigationBar: MenuNavigation(
+        bookTabKey: _bookTabKey,
+        selectedIndex: _selectedIndex,
+        onSelected: (index) {
+          final route = switch (index) {
+            1 => AppRoutes.booking,
+            2 => AppRoutes.history,
+            3 => AppRoutes.settings,
+            _ => null,
+          };
+          if (route != null) {
+            Navigator.of(context).pushReplacementNamed(route);
+            return;
+          }
+          setState(() => _selectedIndex = index);
+        },
       ),
       floatingActionButton: KeyedSubtree(
         key: _qrActionKey,

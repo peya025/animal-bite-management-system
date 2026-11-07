@@ -4,7 +4,7 @@ import 'package:mobile/services/walkthrough_service.dart';
 import 'package:mobile/widgets/walkthrough/app_walkthrough_sheet.dart';
 
 void main() {
-  testWidgets('AppWalkthroughOverlay steps through all 5 speech-bubble items and finishes', (
+  testWidgets('AppWalkthroughOverlay steps through Home & Booking items and finishes', (
     tester,
   ) async {
     await WalkthroughService.resetWalkthrough();
@@ -15,7 +15,13 @@ void main() {
         home: Scaffold(
           body: Builder(
             builder: (context) => ElevatedButton(
-              onPressed: () => showAppWalkthrough(context),
+              onPressed: () => showAppWalkthrough(
+                context,
+                steps: [
+                  ...kDefaultWalkthroughSteps,
+                  ...kBookingWalkthroughSteps,
+                ],
+              ),
               child: const Text('Start Guide'),
             ),
           ),
@@ -33,7 +39,7 @@ void main() {
     );
     expect(find.text('Next'), findsOneWidget);
 
-    // Advance to Step 2
+    // Step 2
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
     expect(
@@ -41,26 +47,42 @@ void main() {
       findsOneWidget,
     );
 
-    // Advance to Step 3 (Quick actions:)
+    // Step 3 (Quick actions:)
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
     expect(find.text('Quick actions:'), findsOneWidget);
 
-    // Advance to Step 4 & Step 5
+    // Step 4 (Digital QR Card:)
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
     expect(find.text('Digital QR Card:'), findsOneWidget);
 
+    // Step 5 (Book a consultation:)
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
-    expect(find.text('Navigation & Settings:'), findsOneWidget);
+    expect(find.text('Book a consultation:'), findsOneWidget);
+
+    // Step 6 (1. Patient profile:)
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('1. Patient profile:'), findsOneWidget);
+
+    // Step 7 (2. Service type:)
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('2. Service type:'), findsOneWidget);
+
+    // Step 8 (3. Date & intake:)
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('3. Date & intake:'), findsOneWidget);
     expect(find.text('OK'), findsOneWidget);
 
     // Finish walkthrough
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Navigation & Settings:'), findsNothing);
+    expect(find.text('3. Date & intake:'), findsNothing);
     expect(await WalkthroughService.shouldShowWalkthrough(), isFalse);
   });
 }

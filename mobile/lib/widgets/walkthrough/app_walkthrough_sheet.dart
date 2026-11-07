@@ -50,18 +50,49 @@ const List<WalkthroughStepData> kDefaultWalkthroughSteps = [
     icon: LucideIcons.qrCode,
   ),
   WalkthroughStepData(
-    tag: 'NAVIGATION',
-    title: 'Navigation & Settings:',
+    tag: 'BOOK & BITE INTAKE',
+    title: 'Book a consultation:',
     description:
-        'Switch between Home, Booking, History, and Settings to manage dependents and reminders.',
-    icon: LucideIcons.users,
+        'Tap Next to open the Book screen and see how to choose a patient profile, service type, and clinic date.',
+    icon: LucideIcons.calendarPlus,
   ),
 ];
 
-Future<void> showAppWalkthrough(
+const List<WalkthroughStepData> kBookingWalkthroughSteps = [
+  WalkthroughStepData(
+    tag: 'BOOKING · PATIENT',
+    title: '1. Patient profile:',
+    description:
+        'Select who the appointment is for (Self or a family dependent), or tap Add dependent to register a child.',
+    icon: LucideIcons.userCheck,
+  ),
+  WalkthroughStepData(
+    tag: 'BOOKING · SERVICE',
+    title: '2. Service type:',
+    description:
+        'Choose Bite consultation for a new animal bite (5-step intake) or Rabies booster (2-dose Day 0 & Day 3) if primary PEP is complete.',
+    icon: LucideIcons.stethoscope,
+  ),
+  WalkthroughStepData(
+    tag: 'BOOKING · SCHEDULE',
+    title: '3. Date & intake:',
+    description:
+        'Pick an open clinic date on the calendar, add optional visit notes, and tap Continue to intake to submit.',
+    icon: LucideIcons.calendar,
+  ),
+];
+
+/// Shows the spotlight walkthrough overlay.
+/// Returns `true` if the user stepped through to the end via Next/OK,
+/// or `false` if they dismissed early using the close ('X') button.
+Future<bool> showAppWalkthrough(
   BuildContext context, {
   Map<int, GlobalKey>? targetKeys,
+  List<WalkthroughStepData> steps = kDefaultWalkthroughSteps,
+  int stepOffset = 0,
+  int? totalStepsOverride,
 }) async {
+  var completed = false;
   await showGeneralDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -73,7 +104,18 @@ Future<void> showAppWalkthrough(
         opacity: animation,
         child: AppWalkthroughOverlay(
           targetKeys: targetKeys,
+          steps: steps,
+          stepOffset: stepOffset,
+          totalStepsOverride: totalStepsOverride,
           onFinish: () async {
+            completed = true;
+            await WalkthroughService.markCompleted();
+            if (dialogContext.mounted) {
+              Navigator.of(dialogContext).pop();
+            }
+          },
+          onDismiss: () async {
+            completed = false;
             await WalkthroughService.markCompleted();
             if (dialogContext.mounted) {
               Navigator.of(dialogContext).pop();
@@ -83,19 +125,26 @@ Future<void> showAppWalkthrough(
       );
     },
   );
+  return completed;
 }
 
 class AppWalkthroughOverlay extends StatefulWidget {
   const AppWalkthroughOverlay({
     super.key,
     required this.onFinish,
+    this.onDismiss,
     this.targetKeys,
     this.steps = kDefaultWalkthroughSteps,
+    this.stepOffset = 0,
+    this.totalStepsOverride,
   });
 
   final VoidCallback onFinish;
+  final VoidCallback? onDismiss;
   final Map<int, GlobalKey>? targetKeys;
   final List<WalkthroughStepData> steps;
+  final int stepOffset;
+  final int? totalStepsOverride;
 
   @override
   State<AppWalkthroughOverlay> createState() => _AppWalkthroughOverlayState();
@@ -119,7 +168,7 @@ class _AppWalkthroughOverlayState extends State<AppWalkthroughOverlay> {
       if (scrollable != null) {
         await Scrollable.ensureVisible(
           targetContext,
-          alignment: 0.28,
+          alignment: 0.25,
           duration: const Duration(milliseconds: 240),
           curve: Curves.easeOutCubic,
         );
@@ -157,13 +206,12 @@ class _AppWalkthroughOverlayState extends State<AppWalkthroughOverlay> {
     if (_targetRect != null) {
       return _targetRect!;
     }
-    // Fallback target regions when launched without GlobalKeys (e.g. from Settings or tests)
     final contentWidth = math.min(screenSize.width - 32.0, 488.0);
     final left = (screenSize.width - contentWidth) / 2;
     return switch (_currentStep) {
-      0 => Rect.fromLTWH(left + contentWidth - 150, padding.top + 12, 68, 34),
-      1 => Rect.fromLTWH(left, padding.top + 210, contentWidth, 128),
-      2 => Rect.fromLTWH(left, padding.top + 365, contentWidth, 145),
+      0 => Rect.fromLTWH(left + 16, padding.top + 172, 148, 34),
+      1 => Rect.fromLTWH(left, padding.top + 230, contentWidth, 128),
+      2 => Rect.fromLTWH(left, padding.top + 380, contentWidth, 145),
       3 => Rect.fromLTWH(
         screenSize.width / 2 - 30,
         screenSize.height - padding.bottom - 86,
@@ -171,10 +219,10 @@ class _AppWalkthroughOverlayState extends State<AppWalkthroughOverlay> {
         60,
       ),
       _ => Rect.fromLTWH(
-        left,
-        screenSize.height - padding.bottom - 64,
-        contentWidth,
-        58,
+        left + contentWidth * 0.22,
+        screenSize.height - padding.bottom - 62,
+        74,
+        56,
       ),
     };
   }
@@ -182,22 +230,28 @@ class _AppWalkthroughOverlayState extends State<AppWalkthroughOverlay> {
   @override
   Widget build(BuildContext context) {
     final step = widget.steps[_currentStep];
-    final isLast = _currentStep == widget.steps.length - 1;
+    final effectiveTotalSteps =
+        widget.totalStepsOverride ?? (widget.stepOffset + widget.steps.length);
+    final displayStepNumber = widget.stepOffset + _currentStep + 1;
+    final isFinalOverallStep = displayStepNumber >= effectiveTotalSteps;
+
     final mediaQuery = MediaQuery.of(context);
     final screenSize = mediaQuery.size;
     final rect = _effectiveTargetRect(screenSize, mediaQuery.padding);
     final inflatedRect = rect.inflate(6);
 
-    const double cardWidth = 224.0;
-    final double minLeft = 16.0;
-    final double maxLeft = math.max(minLeft, screenSize.width - cardWidth - 16.0);
+    const double cardWidth = 232.0;
+    const double minLeft = 16.0;
+    final double maxLeft =
+        math.max(minLeft, screenSize.width - cardWidth - 16.0);
     final double cardLeft =
         (inflatedRect.center.dx - cardWidth / 2).clamp(minLeft, maxLeft);
     final double caretCenterX =
         (inflatedRect.center.dx - cardLeft).clamp(24.0, cardWidth - 24.0);
 
     final bool showBelow =
-        inflatedRect.bottom + 185 < screenSize.height - mediaQuery.padding.bottom - 64;
+        inflatedRect.bottom + 190 <
+            screenSize.height - mediaQuery.padding.bottom - 64;
 
     return Material(
       color: Colors.transparent,
@@ -217,16 +271,17 @@ class _AppWalkthroughOverlayState extends State<AppWalkthroughOverlay> {
           Positioned(
             left: cardLeft,
             top: showBelow ? inflatedRect.bottom + 8 : null,
-            bottom: showBelow ? null : (screenSize.height - inflatedRect.top + 8),
+            bottom:
+                showBelow ? null : (screenSize.height - inflatedRect.top + 8),
             width: cardWidth,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
               child: _SpeechBubblePopover(
-                key: ValueKey<int>(_currentStep),
+                key: ValueKey<int>(displayStepNumber),
                 step: step,
-                currentStep: _currentStep,
-                totalSteps: widget.steps.length,
-                isLast: isLast,
+                displayStepNumber: displayStepNumber,
+                totalSteps: effectiveTotalSteps,
+                isLast: isFinalOverallStep,
                 caretOnTop: showBelow,
                 caretCenterX: caretCenterX,
                 onNext: _nextStep,
@@ -242,7 +297,7 @@ class _AppWalkthroughOverlayState extends State<AppWalkthroughOverlay> {
               button: true,
               label: 'Close walkthrough',
               child: GestureDetector(
-                onTap: widget.onFinish,
+                onTap: widget.onDismiss ?? widget.onFinish,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   width: 42,
@@ -275,7 +330,7 @@ class _SpeechBubblePopover extends StatelessWidget {
   const _SpeechBubblePopover({
     super.key,
     required this.step,
-    required this.currentStep,
+    required this.displayStepNumber,
     required this.totalSteps,
     required this.isLast,
     required this.caretOnTop,
@@ -284,7 +339,7 @@ class _SpeechBubblePopover extends StatelessWidget {
   });
 
   final WalkthroughStepData step;
-  final int currentStep;
+  final int displayStepNumber;
   final int totalSteps;
   final bool isLast;
   final bool caretOnTop;
@@ -340,7 +395,7 @@ class _SpeechBubblePopover extends StatelessWidget {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: '${currentStep + 1}',
+                        text: '$displayStepNumber',
                         style: const TextStyle(
                           color: Color(0xFF111827),
                           fontSize: 13.5,
@@ -411,7 +466,8 @@ class _SpeechBubbleBackgroundPainter extends CustomPainter {
         : Rect.fromLTWH(0, 0, size.width, size.height - caretHeight);
 
     final Path bubblePath = Path()
-      ..addRRect(RRect.fromRectAndRadius(bodyRect, const Radius.circular(radius)));
+      ..addRRect(
+          RRect.fromRectAndRadius(bodyRect, const Radius.circular(radius)));
 
     final Path caretPath = Path();
     if (caretOnTop) {

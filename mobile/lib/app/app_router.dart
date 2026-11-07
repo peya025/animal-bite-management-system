@@ -29,11 +29,14 @@ abstract final class AppRouter {
       AppRoutes.login => const LoginView(),
       AppRoutes.signUp => const SignUpView(),
       AppRoutes.patientActivation => PatientActivationView(
-        initialToken: settings.arguments is String ? settings.arguments as String : null,
+        initialToken: settings.arguments is String
+            ? settings.arguments as String
+            : null,
       ),
       AppRoutes.menu => const MenuView(),
       AppRoutes.booking => switch (settings.arguments) {
         BookingService service => BookingView(initialService: service),
+        'walkthrough' => const BookingView(startWalkthrough: true),
         _ => const BookingView(),
       },
       AppRoutes.boosterGuidance => const BoosterGuidanceView(),

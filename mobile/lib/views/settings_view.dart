@@ -243,42 +243,6 @@ class _SettingsViewState extends State<SettingsView> {
             constraints: const BoxConstraints(maxWidth: 520),
             child: Column(
               children: [
-                // 1. Top bar
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Color(0xFFE5E7EB),
-                        width: 0.5,
-                      ),
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        context.tr('settings_title'),
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF111827),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        context.tr('settings_subtitle'),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF9CA3AF),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
                 // Main Scrollable Content
                 Expanded(
                   child: SingleChildScrollView(
@@ -286,10 +250,10 @@ class _SettingsViewState extends State<SettingsView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // 2. Profile hero card
+                        // 1. Profile hero card
                         if (_loadingAccount)
                           Container(
-                            height: 220,
+                            height: 200,
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(20),
@@ -310,6 +274,7 @@ class _SettingsViewState extends State<SettingsView> {
                           )
                         else if (_account case final account?)
                           ProfileCard(
+                            key: const ValueKey('settings_profile_card'),
                             accountId: account.id,
                             name: account.name,
                             email: account.email,
@@ -354,90 +319,77 @@ class _SettingsViewState extends State<SettingsView> {
                           ),
                         const SizedBox(height: 14),
 
-                        // 3. Patient profiles section
-                        SettingsGroup(
-                          title: context.tr('settings_patient_profiles'),
-                          children: [
-                            for (final patient
-                                in _account?.patients ?? const [])
-                              SettingsTile(
-                                icon: patient.relationship == 'child'
-                                    ? LucideIcons.smile
-                                    : LucideIcons.user,
-                                iconBgColor: !patient.isActive
-                                    ? const Color(0xFFF3F4F6)
-                                    : const Color(0xFFE1F5EE),
-                                iconColor: !patient.isActive
-                                    ? const Color(0xFF9CA3AF)
-                                    : const Color(0xFF1D9E75),
-                                title: patient.name,
-                                subtitle: !patient.isActive
-                                    ? '${_relationshipLabel(patient)} • ${context.tr('prof_archived_badge')}'
-                                    : _relationshipLabel(patient),
-                                onTap: () async {
-                                  await Navigator.of(context).pushNamed(
-                                    AppRoutes.patientProfile,
-                                    arguments: patient,
-                                  );
-                                  if (mounted) {
-                                    await _loadAccount();
-                                  }
-                                },
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (!patient.isActive)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF3F4F6),
-                                          borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(
-                                            color: const Color(0xFFE5E7EB),
+                        // 2. Patient profiles section
+                        if ((_account?.patients ?? const []).isNotEmpty) ...[
+                          SettingsGroup(
+                            title: context.tr('settings_patient_profiles'),
+                            children: [
+                              for (final patient
+                                  in _account?.patients ?? const [])
+                                SettingsTile(
+                                  icon: patient.relationship == 'child'
+                                      ? LucideIcons.smile
+                                      : LucideIcons.user,
+                                  iconBgColor: !patient.isActive
+                                      ? const Color(0xFFF3F4F6)
+                                      : const Color(0xFFE1F5EE),
+                                  iconColor: !patient.isActive
+                                      ? const Color(0xFF9CA3AF)
+                                      : const Color(0xFF1D9E75),
+                                  title: patient.name,
+                                  subtitle: !patient.isActive
+                                      ? '${_relationshipLabel(patient)} • ${context.tr('prof_archived_badge')}'
+                                      : _relationshipLabel(patient),
+                                  onTap: () async {
+                                    await Navigator.of(context).pushNamed(
+                                      AppRoutes.patientProfile,
+                                      arguments: patient,
+                                    );
+                                    if (mounted) {
+                                      await _loadAccount();
+                                    }
+                                  },
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (!patient.isActive)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
                                           ),
-                                        ),
-                                        child: Text(
-                                          context.tr('prof_archived_badge'),
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF6B7280),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF3F4F6),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: const Color(0xFFE5E7EB),
+                                            ),
                                           ),
-                                        ),
-                                      )
-                                    else if (patient.status == 'pending')
-                                      const PendingBadge(),
-                                    const SizedBox(width: 6),
-                                    const Icon(
-                                      LucideIcons.chevronRight,
-                                      color: Color(0xFFD1D5DB),
-                                      size: 16,
-                                    ),
-                                  ],
+                                          child: Text(
+                                            context.tr('prof_archived_badge'),
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF6B7280),
+                                            ),
+                                          ),
+                                        )
+                                      else if (patient.status == 'pending')
+                                        const PendingBadge(),
+                                      const SizedBox(width: 6),
+                                      const Icon(
+                                        LucideIcons.chevronRight,
+                                        color: Color(0xFFD1D5DB),
+                                        size: 16,
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            SettingsTile(
-                              icon: LucideIcons.plus,
-                              iconBgColor: const Color(0xFFF9FAFB),
-                              iconColor: const Color(0xFF9CA3AF),
-                              iconBorder: Border.all(
-                                color: const Color(0xFFD1D5DB),
-                                width: 0.5,
-                              ),
-                              title: context.tr('settings_add_dependent'),
-                              onTap: _addDependent,
-                              trailing: const Icon(
-                                LucideIcons.chevronRight,
-                                color: Color(0xFFD1D5DB),
-                                size: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                        ],
 
                         // 4. Preferences section
                         SettingsGroup(

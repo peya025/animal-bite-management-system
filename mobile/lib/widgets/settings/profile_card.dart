@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../models/patient_profile.dart';
-import '../../services/api.dart';
-import '../vaccination/digital_vaccination_card.dart';
 
-class ProfileCard extends StatefulWidget {
+class ProfileCard extends StatelessWidget {
   const ProfileCard({
     super.key,
     required this.name,
@@ -29,106 +27,25 @@ class ProfileCard extends StatefulWidget {
   final VoidCallback? onAddDependent;
   final VoidCallback? onOpenVaccinationCard;
 
-  @override
-  State<ProfileCard> createState() => _ProfileCardState();
-}
-
-class _ProfileCardState extends State<ProfileCard> {
-  PatientProfile? _selectedPatient;
-  Map<String, dynamic>? _cardData;
-  bool _loadingCard = false;
-  String? _cardError;
-
-  @override
-  void initState() {
-    super.initState();
-    _initSelectedPatient();
-  }
-
-  @override
-  void didUpdateWidget(covariant ProfileCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.patients != widget.patients) {
-      _initSelectedPatient();
-    }
-  }
-
-  void _initSelectedPatient() {
-    final activePatients = widget.patients.where((p) => p.isActive).toList();
-    final list = activePatients.isNotEmpty ? activePatients : widget.patients;
-    if (list.isEmpty) {
-      setState(() {
-        _selectedPatient = null;
-        _cardData = null;
-        _loadingCard = false;
-      });
-      return;
-    }
-
-    final current = _selectedPatient;
-    final resolved = current != null && list.any((p) => p.id == current.id)
-        ? list.firstWhere((p) => p.id == current.id)
-        : list.firstWhere(
-            (p) => p.relationship.toLowerCase() == 'self',
-            orElse: () => list.first,
-          );
-
-    _selectedPatient = resolved;
-    _fetchCard(resolved.id);
-  }
-
-  Future<void> _fetchCard(int patientId) async {
-    setState(() {
-      _loadingCard = true;
-      _cardError = null;
-    });
-    try {
-      final dynamic data = await api.vaccinationCard(patientId);
-      if (!mounted) return;
-      if (data is Map<String, dynamic>) {
-        setState(() {
-          _cardData = data;
-          _loadingCard = false;
-        });
-      } else {
-        setState(() {
-          _cardError = 'Unable to load vaccination card.';
-          _loadingCard = false;
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
-      final msg = (e is ApiException)
-          ? e.message
-          : 'Vaccination card pending clinic verification.';
-      setState(() {
-        _cardError = msg;
-        _loadingCard = false;
-      });
-    }
-  }
-
   String _buildHandle() {
-    final emailPrefix = widget.email.contains('@')
-        ? widget.email.split('@').first
-        : widget.name;
+    final emailPrefix = email.contains('@') ? email.split('@').first : name;
     final cleanHandle = emailPrefix
         .replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '')
         .toUpperCase();
-    final phoneOrId = (widget.phone != null && widget.phone!.trim().isNotEmpty)
-        ? widget.phone!.trim()
-        : (widget.accountId != null
-            ? 'ID #${widget.accountId.toString().padLeft(4, '0')}'
+    final phoneOrId = (phone != null && phone!.trim().isNotEmpty)
+        ? phone!.trim()
+        : (accountId != null
+            ? 'ID #${accountId.toString().padLeft(4, '0')}'
             : 'PATIENT PORTAL');
     return '@${cleanHandle.isEmpty ? 'PATIENT' : cleanHandle} · $phoneOrId';
   }
 
   @override
   Widget build(BuildContext context) {
-    final activeCount = widget.patients.isNotEmpty
-        ? widget.patients.where((p) => p.isActive).length
-        : widget.patientCount;
-    final verifiedCount = widget.patients.where((p) => p.isVerified).length;
+    final activeCount = patients.isNotEmpty
+        ? patients.where((p) => p.isActive).length
+        : patientCount;
+    final verifiedCount = patients.where((p) => p.isVerified).length;
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -207,7 +124,7 @@ class _ProfileCardState extends State<ProfileCard> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        widget.name,
+                        name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -226,7 +143,7 @@ class _ProfileCardState extends State<ProfileCard> {
                   color: Colors.white.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(12),
                   child: InkWell(
-                    onTap: widget.onEdit,
+                    onTap: onEdit,
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
                       width: 40,
@@ -251,9 +168,9 @@ class _ProfileCardState extends State<ProfileCard> {
             ),
           ),
 
-          // 2. Medical metadata, stats row, action bar, and eGov-style flippable/swipable card deck
+          // 2. Medical metadata, stats row, and action bar
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -269,10 +186,10 @@ class _ProfileCardState extends State<ProfileCard> {
                     letterSpacing: 0.5,
                   ),
                 ),
-                if (widget.email.isNotEmpty) ...[
+                if (email.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
-                    widget.email,
+                    email,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -373,29 +290,29 @@ class _ProfileCardState extends State<ProfileCard> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
 
                 // Primary action button + QR button row
                 Row(
                   children: [
                     Expanded(
                       child: SizedBox(
-                        height: 44,
+                        height: 46,
                         child: OutlinedButton.icon(
-                          onPressed: widget.onAddDependent ?? widget.onEdit,
+                          onPressed: onAddDependent ?? onEdit,
                           icon: Icon(
-                            widget.onAddDependent != null
+                            onAddDependent != null
                                 ? LucideIcons.userPlus
                                 : LucideIcons.userPen,
-                            size: 16,
+                            size: 17,
                             color: const Color(0xFF1F2937),
                           ),
                           label: Text(
-                            widget.onAddDependent != null
+                            onAddDependent != null
                                 ? 'ADD DEPENDENT'
                                 : 'EDIT ACCOUNT',
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 12.5,
                               fontWeight: FontWeight.w700,
                               color: Color(0xFF1F2937),
                               letterSpacing: 0.4,
@@ -414,13 +331,13 @@ class _ProfileCardState extends State<ProfileCard> {
                         ),
                       ),
                     ),
-                    if (widget.onOpenVaccinationCard != null) ...[
+                    if (onOpenVaccinationCard != null) ...[
                       const SizedBox(width: 10),
                       SizedBox(
-                        width: 44,
-                        height: 44,
+                        width: 46,
+                        height: 46,
                         child: OutlinedButton(
-                          onPressed: widget.onOpenVaccinationCard,
+                          onPressed: onOpenVaccinationCard,
                           style: OutlinedButton.styleFrom(
                             padding: EdgeInsets.zero,
                             backgroundColor: Colors.white,
@@ -434,7 +351,7 @@ class _ProfileCardState extends State<ProfileCard> {
                           ),
                           child: const Icon(
                             LucideIcons.qrCode,
-                            size: 19,
+                            size: 20,
                             color: Color(0xFF1D9E75),
                           ),
                         ),
@@ -442,130 +359,6 @@ class _ProfileCardState extends State<ProfileCard> {
                     ],
                   ],
                 ),
-
-                // 3. Embedded eGov-style Stacked, Swipable & Flippable Digital Vaccination Card
-                if (widget.patients.isNotEmpty) ...[
-                  const SizedBox(height: 18),
-                  const Divider(height: 1, color: Color(0xFFF3F4F6)),
-                  const SizedBox(height: 14),
-
-                  // Family profile selector chips (if more than 1 profile)
-                  if (widget.patients.length > 1) ...[
-                    SizedBox(
-                      height: 32,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: widget.patients.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 6),
-                        itemBuilder: (context, index) {
-                          final p = widget.patients[index];
-                          final selected = p.id == _selectedPatient?.id;
-                          return GestureDetector(
-                            onTap: () {
-                              if (selected) return;
-                              setState(() => _selectedPatient = p);
-                              _fetchCard(p.id);
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 11,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: selected
-                                    ? const Color(0xFF085041)
-                                    : const Color(0xFFF3F4F6),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    LucideIcons.user,
-                                    size: 12,
-                                    color: selected
-                                        ? Colors.white
-                                        : const Color(0xFF4B5563),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    p.name,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: selected
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                      color: selected
-                                          ? Colors.white
-                                          : const Color(0xFF374151),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-
-                  if (_loadingCard)
-                    Container(
-                      height: 190,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF9FAFB),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
-                      ),
-                      child: const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          color: Color(0xFF1D9E75),
-                        ),
-                      ),
-                    )
-                  else if (_cardData != null)
-                    InteractiveVaccinationCardDeck(
-                      cardData: _cardData!,
-                      onEnlargeCard: () => showDigitalVaccinationCard(
-                        context,
-                        initialPatientId: _selectedPatient?.id,
-                      ),
-                    )
-                  else if (_cardError != null)
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFBEB),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFFDE68A)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            LucideIcons.clock,
-                            size: 18,
-                            color: Color(0xFFD97706),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _cardError!,
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                color: Color(0xFF92400E),
-                                height: 1.35,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
               ],
             ),
           ),

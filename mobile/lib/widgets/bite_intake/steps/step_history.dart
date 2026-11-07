@@ -12,6 +12,7 @@ class StepHistory extends StatelessWidget {
     required this.onPastBiteHistoryChanged,
     required this.pastBiteHistoryOptions,
     required this.pastBiteDatesController,
+    required this.onChoosePastBiteDate,
     required this.priorPepStatus,
     required this.onPriorPepStatusChanged,
     required this.priorPepStatusOptions,
@@ -25,6 +26,7 @@ class StepHistory extends StatelessWidget {
   final ValueChanged<String?> onPastBiteHistoryChanged;
   final Map<String, String> pastBiteHistoryOptions;
   final TextEditingController pastBiteDatesController;
+  final VoidCallback onChoosePastBiteDate;
   final String? priorPepStatus;
   final ValueChanged<String?> onPriorPepStatusChanged;
   final Map<String, String> priorPepStatusOptions;
@@ -74,11 +76,17 @@ class StepHistory extends StatelessWidget {
             TextFormField(
               controller: pastBiteDatesController,
               enabled: !isSubmitting,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'e.g. June 2024',
+                helperText: 'Use the calendar, or type an approximate month/year. You can add more than one date.',
+                helperMaxLines: 3,
+                suffixIcon: IconButton(
+                  tooltip: 'Choose previous bite date',
+                  onPressed: isSubmitting ? null : onChoosePastBiteDate,
+                  icon: const Icon(Icons.event_outlined),
+                ),
               ),
             ),
-          ],
           const SizedBox(height: 16),
 
           const IntakeFieldLabel('Previous PEP / rabies vaccination'),
@@ -122,6 +130,7 @@ class StepHistory extends StatelessWidget {
                 hintText: 'e.g. Tagoloan RHU, NMMC, etc.',
               ),
             ),
+          ],
           ],
         ],
       ),

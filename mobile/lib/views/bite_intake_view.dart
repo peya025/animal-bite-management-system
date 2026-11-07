@@ -325,6 +325,35 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
     if (date != null && mounted) setState(() => _priorVaccinationDate = date);
   }
 
+  Future<void> _choosePastBiteDate() async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final date = await showDatePicker(
+      context: context,
+      helpText: 'Choose approximate previous bite date',
+      initialDate: today,
+      firstDate: DateTime(1900),
+      lastDate: today,
+    );
+    if (date == null || !mounted || _pastBiteHistory != 'yes') return;
+    final value = _formatDate(date);
+    final dates = _pastBiteDates.text.split(',').map((v) => v.trim())
+        .where((v) => v.isNotEmpty).toList();
+    if (!dates.contains(value)) dates.add(value);
+    setState(() => _pastBiteDates.text = dates.join(', '));
+  }
+
+  void _changePastBiteHistory(String? value) {
+    setState(() {
+      _pastBiteHistory = value;
+      if (value != 'yes') {
+        _pastBiteDates.clear();
+        _priorPepStatus = null;
+        _priorVaccinationDate = null;
+        _priorVaccinationFacility.clear();
+      }
+    });
+  }
+
   String? get _incidentTimeValue => _incidentTime == null
       ? null
       : '${_incidentTime!.hour.toString().padLeft(2, '0')}:${_incidentTime!.minute.toString().padLeft(2, '0')}';
@@ -415,7 +444,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
       pastBiteDates: _pastBiteHistory == 'yes'
           ? _optional(_pastBiteDates)
           : null,
-      priorPepStatus: _priorPepStatus,
+      priorPepStatus: _pastBiteHistory == 'yes' ? _priorPepStatus : null,
       priorPepDate:
           _priorPepStatus == 'completed' || _priorPepStatus == 'incomplete'
           ? _priorVaccinationDate
@@ -658,13 +687,18 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                       if (_currentStep == 3)
                         StepHistory(
                           pastBiteHistory: _pastBiteHistory,
-                          onPastBiteHistoryChanged: (v) =>
-                              setState(() => _pastBiteHistory = v),
+                          onPastBiteHistoryChanged: _changePastBiteHistory,
                           pastBiteHistoryOptions: _contract.pastBiteHistory,
                           pastBiteDatesController: _pastBiteDates,
+                          onChoosePastBiteDate: _choosePastBiteDate,
                           priorPepStatus: _priorPepStatus,
-                          onPriorPepStatusChanged: (v) =>
-                              setState(() => _priorPepStatus = v),
+                          onPriorPepStatusChanged: (v) => setState(() {
+                            _priorPepStatus = v;
+                            if (v != 'completed' && v != 'incomplete') {
+                              _priorVaccinationDate = null;
+                              _priorVaccinationFacility.clear();
+                            }
+                          }),
                           priorPepStatusOptions: _contract.priorPepStatuses,
                           priorVaccinationDate: _priorVaccinationDate,
                           onChoosePriorVaccinationDate:

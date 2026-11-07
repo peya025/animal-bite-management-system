@@ -340,6 +340,7 @@ class StepReview extends StatelessWidget {
                   label: 'Past bite date(s)',
                   value: pastBiteDates!,
                 ),
+              if (pastBiteHistory == 'yes') ...[
               IntakeReviewRow(
                 label: 'Prior PEP vaccination',
                 value: contract.priorPepStatuses[priorPepStatus] ??
@@ -357,6 +358,7 @@ class StepReview extends StatelessWidget {
                   label: 'Prior PEP facility',
                   value: priorVaccinationFacility!,
                 ),
+              ],
             ],
           ),
         ),

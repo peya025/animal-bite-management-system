@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -20,38 +22,38 @@ class WalkthroughStepData {
 
 const List<WalkthroughStepData> kDefaultWalkthroughSteps = [
   WalkthroughStepData(
-    tag: 'PEP SCHEDULE',
-    title: 'Track Your PEP Schedule',
+    tag: 'GUIDE & TUTORIALS',
+    title: '',
     description:
-        'View your upcoming Day 0, Day 3, and Day 7 vaccination dates and clinic visit status in real time.',
+        'Watch tutorials or replay this walkthrough anytime on how to use the ABCare app.',
+    icon: LucideIcons.compass,
+  ),
+  WalkthroughStepData(
+    tag: 'PEP SCHEDULE',
+    title: '',
+    description:
+        'Track your upcoming Day 0, Day 3, and Day 7 vaccination dates and clinic visit status.',
     icon: LucideIcons.calendarCheck,
   ),
   WalkthroughStepData(
     tag: 'QUICK ACTIONS',
-    title: 'Book Bite Consultation & Intake',
+    title: 'Quick actions:',
     description:
-        'Report an animal bite incident in 5 guided steps, view the schedule calendar, or book a follow-up visit.',
+        'Perform major activities on the ABCare app such as opening your schedule calendar or managing patient profiles.',
     icon: LucideIcons.clipboardPlus,
   ),
   WalkthroughStepData(
     tag: 'DIGITAL PASS',
-    title: 'Digital Vaccination Card & QR',
+    title: 'Digital QR Card:',
     description:
-        'Tap the center QR button anytime to view your official DOH/PhilHealth card, flip to the dose ledger, or swipe left for past records.',
+        'Tap the center QR button to open your official vaccination card, flip to the dose ledger, or swipe for history.',
     icon: LucideIcons.qrCode,
   ),
   WalkthroughStepData(
-    tag: 'CLINICAL GUIDE',
-    title: 'Immediate First-Aid & DOH Guides',
+    tag: 'NAVIGATION',
+    title: 'Navigation & Settings:',
     description:
-        'Review the 3-step wound care guide (Wash, Consult, Vaccinate) and watch official clinic orientation videos.',
-    icon: LucideIcons.shieldCheck,
-  ),
-  WalkthroughStepData(
-    tag: 'FAMILY & SETTINGS',
-    title: 'Manage Dependents & Reminders',
-    description:
-        'Add children or family members under one account and customize appointment and vaccination notifications.',
+        'Switch between Home, Booking, History, and Settings to manage dependents and reminders.',
     icon: LucideIcons.users,
   ),
 ];
@@ -65,7 +67,7 @@ Future<void> showAppWalkthrough(
     barrierDismissible: false,
     barrierLabel: 'App Guide Walkthrough',
     barrierColor: Colors.transparent,
-    transitionDuration: const Duration(milliseconds: 240),
+    transitionDuration: const Duration(milliseconds: 220),
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
       return FadeTransition(
         opacity: animation,
@@ -113,12 +115,15 @@ class _AppWalkthroughOverlayState extends State<AppWalkthroughOverlay> {
     final key = widget.targetKeys?[_currentStep];
     final targetContext = key?.currentContext;
     if (targetContext != null && targetContext.mounted) {
-      await Scrollable.ensureVisible(
-        targetContext,
-        alignment: 0.3,
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
-      );
+      final scrollable = Scrollable.maybeOf(targetContext);
+      if (scrollable != null) {
+        await Scrollable.ensureVisible(
+          targetContext,
+          alignment: 0.28,
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+        );
+      }
     }
     if (!mounted) return;
     final refreshedContext = key?.currentContext;
@@ -148,32 +153,57 @@ class _AppWalkthroughOverlayState extends State<AppWalkthroughOverlay> {
     }
   }
 
-  void _prevStep() {
-    if (_currentStep > 0) {
-      setState(() {
-        _currentStep--;
-      });
-      WidgetsBinding.instance.addPostFrameCallback((_) => _resolveTargetRect());
+  Rect _effectiveTargetRect(Size screenSize, EdgeInsets padding) {
+    if (_targetRect != null) {
+      return _targetRect!;
     }
+    // Fallback target regions when launched without GlobalKeys (e.g. from Settings or tests)
+    final contentWidth = math.min(screenSize.width - 32.0, 488.0);
+    final left = (screenSize.width - contentWidth) / 2;
+    return switch (_currentStep) {
+      0 => Rect.fromLTWH(left + contentWidth - 150, padding.top + 12, 68, 34),
+      1 => Rect.fromLTWH(left, padding.top + 210, contentWidth, 128),
+      2 => Rect.fromLTWH(left, padding.top + 365, contentWidth, 145),
+      3 => Rect.fromLTWH(
+        screenSize.width / 2 - 30,
+        screenSize.height - padding.bottom - 86,
+        60,
+        60,
+      ),
+      _ => Rect.fromLTWH(
+        left,
+        screenSize.height - padding.bottom - 64,
+        contentWidth,
+        58,
+      ),
+    };
   }
 
   @override
   Widget build(BuildContext context) {
     final step = widget.steps[_currentStep];
     final isLast = _currentStep == widget.steps.length - 1;
-    final screenSize = MediaQuery.of(context).size;
-    final rect = _targetRect;
+    final mediaQuery = MediaQuery.of(context);
+    final screenSize = mediaQuery.size;
+    final rect = _effectiveTargetRect(screenSize, mediaQuery.padding);
+    final inflatedRect = rect.inflate(6);
 
-    // Position the card below the spotlight if target is in the upper half,
-    // or above if target is in the lower half; otherwise center it.
+    const double cardWidth = 224.0;
+    final double minLeft = 16.0;
+    final double maxLeft = math.max(minLeft, screenSize.width - cardWidth - 16.0);
+    final double cardLeft =
+        (inflatedRect.center.dx - cardWidth / 2).clamp(minLeft, maxLeft);
+    final double caretCenterX =
+        (inflatedRect.center.dx - cardLeft).clamp(24.0, cardWidth - 24.0);
+
     final bool showBelow =
-        rect != null && rect.center.dy < screenSize.height * 0.52;
+        inflatedRect.bottom + 185 < screenSize.height - mediaQuery.padding.bottom - 64;
 
     return Material(
       color: Colors.transparent,
       child: Stack(
         children: [
-          // 1. Dimmed backdrop with optional spotlight cutout
+          // 1. Neutral dark backdrop with rounded cutout & dashed white border (no green)
           Positioned.fill(
             child: GestureDetector(
               onTap: _nextStep,
@@ -183,209 +213,53 @@ class _AppWalkthroughOverlayState extends State<AppWalkthroughOverlay> {
             ),
           ),
 
-          // 2. Walkthrough Tooltip / Guide Card
-          SafeArea(
-            child: Align(
-              alignment: rect == null
-                  ? Alignment.center
-                  : (showBelow ? Alignment.bottomCenter : Alignment.topCenter),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  18,
-                  rect != null && !showBelow ? 24 : 18,
-                  18,
-                  rect != null && showBelow ? 28 : 18,
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    child: Container(
-                      key: ValueKey<int>(_currentStep),
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: const Color(0xFFD5EBE2),
-                          width: 1,
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x33000000),
-                            blurRadius: 24,
-                            offset: Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Top row: Step badge + Skip button
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 9,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE1F5EE),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  'STEP ${_currentStep + 1} OF ${widget.steps.length} · ${step.tag}',
-                                  style: const TextStyle(
-                                    color: Color(0xFF085041),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                              const Spacer(),
-                              TextButton(
-                                onPressed: widget.onFinish,
-                                style: TextButton.styleFrom(
-                                  visualDensity: VisualDensity.compact,
-                                  foregroundColor: const Color(0xFF6B7280),
-                                ),
-                                child: const Text(
-                                  'Skip',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
+          // 2. Compact white speech-bubble popover card with pointer caret
+          Positioned(
+            left: cardLeft,
+            top: showBelow ? inflatedRect.bottom + 8 : null,
+            bottom: showBelow ? null : (screenSize.height - inflatedRect.top + 8),
+            width: cardWidth,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: _SpeechBubblePopover(
+                key: ValueKey<int>(_currentStep),
+                step: step,
+                currentStep: _currentStep,
+                totalSteps: widget.steps.length,
+                isLast: isLast,
+                caretOnTop: showBelow,
+                caretCenterX: caretCenterX,
+                onNext: _nextStep,
+              ),
+            ),
+          ),
 
-                          // Icon + Title
-                          Row(
-                            children: [
-                              Container(
-                                width: 42,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE1F5EE),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                alignment: Alignment.center,
-                                child: Icon(
-                                  step.icon,
-                                  color: AppColors.primary,
-                                  size: 21,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  step.title,
-                                  style: const TextStyle(
-                                    color: Color(0xFF111827),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.2,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-
-                          // Description
-                          Text(
-                            step.description,
-                            style: const TextStyle(
-                              color: Color(0xFF4B5563),
-                              fontSize: 13,
-                              height: 1.45,
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-
-                          // Progress dots + Navigation buttons
-                          Row(
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: List.generate(
-                                  widget.steps.length,
-                                  (index) {
-                                    final active = index == _currentStep;
-                                    return AnimatedContainer(
-                                      duration:
-                                          const Duration(milliseconds: 200),
-                                      margin: const EdgeInsets.only(right: 5),
-                                      width: active ? 16 : 6,
-                                      height: 6,
-                                      decoration: BoxDecoration(
-                                        color: active
-                                            ? AppColors.primary
-                                            : const Color(0xFFD1D5DB),
-                                        borderRadius: BorderRadius.circular(3),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              const Spacer(),
-                              if (_currentStep > 0) ...[
-                                OutlinedButton(
-                                  onPressed: _prevStep,
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF374151),
-                                    side: const BorderSide(
-                                      color: Color(0xFFD1D5DB),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 10,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    'Back',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                              ],
-                              ElevatedButton(
-                                onPressed: _nextStep,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 18,
-                                    vertical: 10,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                child: Text(
-                                  isLast ? 'Done' : 'Next',
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+          // 3. Bottom-right floating circular close ('X') button
+          Positioned(
+            right: 22,
+            bottom: mediaQuery.padding.bottom + 82,
+            child: Semantics(
+              button: true,
+              label: 'Close walkthrough',
+              child: GestureDetector(
+                onTap: widget.onFinish,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.48),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      width: 1,
                     ),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    LucideIcons.x,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ),
               ),
@@ -397,6 +271,182 @@ class _AppWalkthroughOverlayState extends State<AppWalkthroughOverlay> {
   }
 }
 
+class _SpeechBubblePopover extends StatelessWidget {
+  const _SpeechBubblePopover({
+    super.key,
+    required this.step,
+    required this.currentStep,
+    required this.totalSteps,
+    required this.isLast,
+    required this.caretOnTop,
+    required this.caretCenterX,
+    required this.onNext,
+  });
+
+  final WalkthroughStepData step;
+  final int currentStep;
+  final int totalSteps;
+  final bool isLast;
+  final bool caretOnTop;
+  final double caretCenterX;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    const double caretHeight = 9.0;
+
+    return CustomPaint(
+      painter: _SpeechBubbleBackgroundPainter(
+        caretOnTop: caretOnTop,
+        caretCenterX: caretCenterX,
+        caretHeight: caretHeight,
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          caretOnTop ? 15 + caretHeight : 15,
+          16,
+          caretOnTop ? 14 : 14 + caretHeight,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (step.title.trim().isNotEmpty) ...[
+              Text(
+                step.title,
+                style: const TextStyle(
+                  color: Color(0xFF111827),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            Text(
+              step.description,
+              style: const TextStyle(
+                color: Color(0xFF1F2937),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                height: 1.36,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${currentStep + 1}',
+                        style: const TextStyle(
+                          color: Color(0xFF111827),
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      TextSpan(
+                        text: '/$totalSteps',
+                        style: const TextStyle(
+                          color: Color(0xFF9CA3AF),
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                Material(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(8),
+                  child: InkWell(
+                    onTap: onNext,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 7,
+                      ),
+                      child: Text(
+                        isLast ? 'OK' : 'Next',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SpeechBubbleBackgroundPainter extends CustomPainter {
+  const _SpeechBubbleBackgroundPainter({
+    required this.caretOnTop,
+    required this.caretCenterX,
+    required this.caretHeight,
+  });
+
+  final bool caretOnTop;
+  final double caretCenterX;
+  final double caretHeight;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const double caretHalfWidth = 8.0;
+    const double radius = 14.0;
+
+    final Rect bodyRect = caretOnTop
+        ? Rect.fromLTWH(0, caretHeight, size.width, size.height - caretHeight)
+        : Rect.fromLTWH(0, 0, size.width, size.height - caretHeight);
+
+    final Path bubblePath = Path()
+      ..addRRect(RRect.fromRectAndRadius(bodyRect, const Radius.circular(radius)));
+
+    final Path caretPath = Path();
+    if (caretOnTop) {
+      caretPath
+        ..moveTo(caretCenterX - caretHalfWidth, caretHeight + 1)
+        ..lineTo(caretCenterX, 0)
+        ..lineTo(caretCenterX + caretHalfWidth, caretHeight + 1)
+        ..close();
+    } else {
+      final double bottomY = size.height - caretHeight;
+      caretPath
+        ..moveTo(caretCenterX - caretHalfWidth, bottomY - 1)
+        ..lineTo(caretCenterX, size.height)
+        ..lineTo(caretCenterX + caretHalfWidth, bottomY - 1)
+        ..close();
+    }
+
+    final Path combined = Path.combine(
+      PathOperation.union,
+      bubblePath,
+      caretPath,
+    );
+
+    canvas.drawShadow(combined, const Color(0x40000000), 14, false);
+    canvas.drawPath(combined, Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SpeechBubbleBackgroundPainter oldDelegate) {
+    return oldDelegate.caretOnTop != caretOnTop ||
+        oldDelegate.caretCenterX != caretCenterX ||
+        oldDelegate.caretHeight != caretHeight;
+  }
+}
+
 class _SpotlightPainter extends CustomPainter {
   const _SpotlightPainter({this.targetRect});
 
@@ -405,7 +455,8 @@ class _SpotlightPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final fullRect = Offset.zero & size;
-    final overlayPaint = Paint()..color = const Color(0xAD091E1A);
+    // Pure neutral dark overlay (no green tint)
+    final overlayPaint = Paint()..color = const Color(0xB8000000);
 
     if (targetRect == null) {
       canvas.drawRect(fullRect, overlayPaint);
@@ -413,21 +464,51 @@ class _SpotlightPainter extends CustomPainter {
     }
 
     final inflated = targetRect!.inflate(6);
-    final rrect = RRect.fromRectAndRadius(inflated, const Radius.circular(14));
+    final rrect = RRect.fromRectAndRadius(inflated, const Radius.circular(12));
 
-    final path = Path()
+    final cutoutPath = Path()
       ..addRect(fullRect)
       ..addRRect(rrect)
       ..fillType = PathFillType.evenOdd;
 
-    canvas.drawPath(path, overlayPaint);
+    canvas.drawPath(cutoutPath, overlayPaint);
 
-    // Highlight ring around the spotlight cutout
+    // Subtle dashed white/neutral border around the cutout (zero green)
+    final borderRRect = RRect.fromRectAndRadius(
+      inflated.inflate(1.5),
+      const Radius.circular(13),
+    );
+    final borderPath = Path()..addRRect(borderRRect);
+    final dashedPath = _createDashedPath(
+      borderPath,
+      dashLength: 5.0,
+      dashGap: 4.0,
+    );
+
     final borderPaint = Paint()
-      ..color = const Color(0xFF1D9E75)
+      ..color = Colors.white.withValues(alpha: 0.78)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawRRect(rrect, borderPaint);
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawPath(dashedPath, borderPaint);
+  }
+
+  Path _createDashedPath(
+    Path source, {
+    required double dashLength,
+    required double dashGap,
+  }) {
+    final Path dest = Path();
+    for (final metric in source.computeMetrics()) {
+      double distance = 0.0;
+      while (distance < metric.length) {
+        final double next = math.min(distance + dashLength, metric.length);
+        dest.addPath(metric.extractPath(distance, next), Offset.zero);
+        distance += dashLength + dashGap;
+      }
+    }
+    return dest;
   }
 
   @override

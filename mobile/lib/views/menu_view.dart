@@ -35,17 +35,17 @@ class _MenuViewState extends State<MenuView> {
   String? _userName;
   bool _hasCompletedPEP = false;
 
+  final GlobalKey _guideButtonKey = GlobalKey();
   final GlobalKey _scheduleKey = GlobalKey();
   final GlobalKey _quickActionsKey = GlobalKey();
   final GlobalKey _qrActionKey = GlobalKey();
-  final GlobalKey _guidelinesKey = GlobalKey();
   final GlobalKey _bottomNavKey = GlobalKey();
 
   Map<int, GlobalKey> get _walkthroughTargets => {
-    0: _scheduleKey,
-    1: _quickActionsKey,
-    2: _qrActionKey,
-    3: _guidelinesKey,
+    0: _guideButtonKey,
+    1: _scheduleKey,
+    2: _quickActionsKey,
+    3: _qrActionKey,
     4: _bottomNavKey,
   };
 
@@ -172,6 +172,7 @@ class _MenuViewState extends State<MenuView> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           CampaignBanner(
+                            walkthroughButtonKey: _guideButtonKey,
                             onStartWalkthrough: _startWalkthrough,
                             onOpenFaq: _openFaqs,
                           ),
@@ -204,10 +205,7 @@ class _MenuViewState extends State<MenuView> {
                             ),
                           ),
                           const SizedBox(height: 20),
-                          KeyedSubtree(
-                            key: _guidelinesKey,
-                            child: const GuidelinesSection(),
-                          ),
+                          const GuidelinesSection(),
                           LearnMoreSection(
                             refreshTrigger: _resourcesRefreshTrigger,
                           ),

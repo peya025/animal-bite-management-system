@@ -8,10 +8,12 @@ class CampaignBanner extends StatelessWidget {
     super.key,
     this.onStartWalkthrough,
     this.onOpenFaq,
+    this.walkthroughButtonKey,
   });
 
   final VoidCallback? onStartWalkthrough;
   final VoidCallback? onOpenFaq;
+  final GlobalKey? walkthroughButtonKey;
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +95,7 @@ class CampaignBanner extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     Material(
+                      key: walkthroughButtonKey,
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
                       child: InkWell(

@@ -4,7 +4,7 @@ import 'package:mobile/services/walkthrough_service.dart';
 import 'package:mobile/widgets/walkthrough/app_walkthrough_sheet.dart';
 
 void main() {
-  testWidgets('AppWalkthroughOverlay steps through all 5 guide items and finishes', (
+  testWidgets('AppWalkthroughOverlay steps through all 5 speech-bubble items and finishes', (
     tester,
   ) async {
     await WalkthroughService.resetWalkthrough();
@@ -27,34 +27,40 @@ void main() {
     await tester.pumpAndSettle();
 
     // Step 1
-    expect(find.text('Track Your PEP Schedule'), findsOneWidget);
-    expect(find.textContaining('STEP 1 OF 5'), findsOneWidget);
+    expect(
+      find.textContaining('Watch tutorials or replay this walkthrough'),
+      findsOneWidget,
+    );
+    expect(find.text('Next'), findsOneWidget);
 
     // Advance to Step 2
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
-    expect(find.text('Book Bite Consultation & Intake'), findsOneWidget);
-    expect(find.textContaining('STEP 2 OF 5'), findsOneWidget);
+    expect(
+      find.textContaining('Track your upcoming Day 0, Day 3, and Day 7'),
+      findsOneWidget,
+    );
 
-    // Go back to Step 1
-    await tester.tap(find.text('Back'));
+    // Advance to Step 3 (Quick actions:)
+    await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
-    expect(find.text('Track Your PEP Schedule'), findsOneWidget);
+    expect(find.text('Quick actions:'), findsOneWidget);
 
-    // Advance through Steps 2, 3, 4, 5
-    for (var i = 0; i < 4; i++) {
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
-    }
+    // Advance to Step 4 & Step 5
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('Digital QR Card:'), findsOneWidget);
 
-    expect(find.text('Manage Dependents & Reminders'), findsOneWidget);
-    expect(find.text('Done'), findsOneWidget);
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('Navigation & Settings:'), findsOneWidget);
+    expect(find.text('OK'), findsOneWidget);
 
     // Finish walkthrough
-    await tester.tap(find.text('Done'));
+    await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Manage Dependents & Reminders'), findsNothing);
+    expect(find.text('Navigation & Settings:'), findsNothing);
     expect(await WalkthroughService.shouldShowWalkthrough(), isFalse);
   });
 }

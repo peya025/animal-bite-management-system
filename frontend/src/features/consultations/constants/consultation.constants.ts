@@ -138,6 +138,7 @@ export const INITIAL_FORM_DATA: TreatmentFormData = {
   referred_by: '',
   reassessment_decision: '',
   reassessment_notes: '',
+  place_of_exposure: '',
   is_referral: false,
   transferred_to_facility: '',
   transfer_reason: 'Requires advanced rabies care / RIG beyond ABTC clinic capacity',

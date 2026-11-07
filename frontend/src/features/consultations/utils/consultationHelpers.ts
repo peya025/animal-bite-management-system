@@ -183,3 +183,12 @@ export function isValidFourDigitYearDate(dateStr: string | null | undefined): bo
     d.getDate() === day
   );
 }
+
+export function cleanPurok(val: string): string {
+  if (!val) return '';
+  let cleaned = val.trim().replace(/\s+/g, ' ');
+  cleaned = cleaned.replace(/\b(purok|zone|sitio|block|blk|street|st|phase|prk)\b/gi, (match) => {
+    return match.charAt(0).toUpperCase() + match.slice(1).toLowerCase();
+  });
+  return cleaned;
+}

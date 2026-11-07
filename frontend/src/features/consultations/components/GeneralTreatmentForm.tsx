@@ -25,6 +25,7 @@ import ReExposureAssessmentSection from './sections/ReExposureAssessmentSection'
 import ProviderFindingsSection from './sections/ProviderFindingsSection';
 import ClinicalAddendumSection from './sections/ClinicalAddendumSection';
 import ExposureAssessmentSection from './sections/ExposureAssessmentSection';
+import PlaceOfExposureSection from './sections/PlaceOfExposureSection';
 import DohTransferSlipModal from '../../vaccinations/components/DohTransferSlipModal';
 
 export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
@@ -91,6 +92,10 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     handleOpenPrintSlip,
     handleSaveReferral,
     handleCompleteReferral,
+    expLoc,
+    purok,
+    setPurok,
+    handleClearPlaceOfExposureError,
   } = useGeneralTreatmentForm(props);
 
   const selectedIncident = entry?.incident || entry?.bite_incident || entry?.biteIncident;
@@ -99,8 +104,8 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     if (formRef.current && focusErrorsRef.current && Object.keys(fieldErrors).length) {
       focusErrorsRef.current = false;
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose'];
+        ? ['nature_of_visit', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose'];
       const firstKey = fieldOrder.find((key) => fieldErrors[key]);
       focusFirstError(formRef.current, firstKey, summaryRef.current);
     }
@@ -456,6 +461,17 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
             )}
           </div>
         )}
+
+        {/* Place of Exposure Section */}
+        <PlaceOfExposureSection
+          expLoc={expLoc}
+          purok={purok}
+          setPurok={setPurok}
+          fullAddress={formData.place_of_exposure}
+          error={fieldErrors.place_of_exposure}
+          onClearError={handleClearPlaceOfExposureError}
+          disabled={isFormDisabled}
+        />
 
         {/* Exposure Category Selection (Immediately above Tetanus Prophylaxis Order) */}
         <div className="fm-section">

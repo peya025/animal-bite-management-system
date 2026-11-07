@@ -37,7 +37,9 @@ class StoreTreatmentRecordRequest extends FormRequest
             'exposure_category' => 'sometimes|required|in:I,II,III',
             'treatment_plan' => 'nullable|in:full_pep,single_booster,two_dose_booster,continue_existing_schedule,no_vaccine',
 
-            // Optional New Bite Incident updates from Doctor Form 2
+            // Place of Exposure & Optional Bite Incident updates from Doctor Form 2
+            'place_of_exposure' => 'nullable|string|max:255',
+            'bite_place' => 'nullable|string|max:255',
             'new_bite_date' => 'nullable|date',
             'new_bite_place' => 'nullable|string|max:255',
             'new_exposure_type' => 'nullable|in:bite,scratch,lick,other',

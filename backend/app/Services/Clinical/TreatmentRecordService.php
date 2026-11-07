@@ -242,6 +242,7 @@ class TreatmentRecordService
             'is_returning_new_bite' => (bool) ($activeIncident?->isReExposure()),
             'requires_re_exposure_decision' => $requiresReExposureDecision,
             'active_bite_incident' => $activeIncident,
+            'place_of_exposure' => $activeIncident?->bite_place ?? $activeIncident?->intake?->bite_place,
             'exposure_category' => $activeIncident?->exposure_category
                 ?? ($activeIncident ? TagoloanTreatmentCard::where('clinic_id', $clinicId)
                     ->where('patient_id', $patientId)->where('bite_id', $activeIncident->bite_id)
@@ -269,6 +270,13 @@ class TreatmentRecordService
 
         $activeBiteId = $requestedBiteId;
         $queueForEpisode = null;
+        $placeOfExposure = !empty($validated['place_of_exposure'])
+            ? trim((string) $validated['place_of_exposure'])
+            : (!empty($validated['bite_place'])
+                ? trim((string) $validated['bite_place'])
+                : (!empty($validated['new_bite_place'])
+                    ? trim((string) $validated['new_bite_place'])
+                    : null));
         if (!$activeBiteId && !empty($validated['queue_id'])) {
             $queueForEpisode = Queue::where('clinic_id', $clinicId)
                 ->where('queue_id', $validated['queue_id'])
@@ -312,7 +320,7 @@ class TreatmentRecordService
                 'episode_type' => 'pending_assessment',
                 'is_previously_vaccinated' => null,
                 'bite_date' => $validated['consultation_date'] ?? Carbon::today()->toDateString(),
-                'bite_place' => null,
+                'bite_place' => $placeOfExposure,
                 'site_washed' => null,
                 'exposure_type' => 'unassessed',
                 'exposure_mode' => null,
@@ -597,6 +605,12 @@ class TreatmentRecordService
                 ],
                 'description' => "Doctor recorded reassessment consultation for Case {$activeIncident->case_number}.",
             ]);
+        }
+
+        if ($placeOfExposure && $activeIncident) {
+            $activeIncident->update(['bite_place' => $placeOfExposure]);
+            $activeIncident->intake?->update(['bite_place' => $placeOfExposure]);
+            Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
         }
 
         if (isset($validated['exposure_category'])) {

@@ -68,6 +68,9 @@ export interface TreatmentFormData {
   reassessment_decision?: 'continue' | 'modify' | 'discontinue' | 'no_injection_required' | '';
   reassessment_notes?: string;
 
+  // Place of Exposure
+  place_of_exposure?: string;
+
   // Transfer Out / Referral Slip (Form 2 Doctor Referral)
   is_referral?: boolean;
   transferred_to_facility?: string;
@@ -181,4 +184,8 @@ export interface TreatmentRecordPayload {
   transferred_to_facility?: string | null;
   transfer_reason?: string | null;
   transfer_date?: string | null;
+  // Place of Exposure
+  place_of_exposure?: string | null;
+  bite_place?: string | null;
+  new_bite_place?: string | null;
 }

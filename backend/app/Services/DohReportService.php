@@ -465,7 +465,7 @@ class DohReportService
                 'category' => $c->bite_category ?? '—',
                 'animal_type' => ucfirst($c->intake?->animal_type ?? $c->animal_type ?? '—'),
                 'animal_status' => ucfirst($c->intake?->animal_status ?? $c->animal_status ?? '—'),
-                'place_of_exposure' => $c->intake?->place_of_bite ?? $c->bite_location ?? '—',
+                'place_of_exposure' => $c->bite_place ?? $c->intake?->place_of_bite ?? $c->intake?->bite_place ?? '—',
                 'pep_given' => $this->hasAdministeredVaccineDose($c) ? 'Yes' : 'No',
                 'rig_given' => ($c->intake?->rig_type ?? $c->rig_type) ?: 'None',
                 'status' => ucfirst($c->status ?? 'Active'),

@@ -139,12 +139,13 @@ const FORM2_SECTIONS: FieldSection[] = [
     ],
   },
   {
-    title: 'Clinical Notes',
+    title: 'Clinical Notes & Exposure Location',
     icon: 'activity',
-    description: 'Clinical notes entered by the doctor in Form 2',
+    description: 'Clinical notes and exposure location entered by the doctor in Form 2',
     fields: [
       { key: 'chief_complaints', label: 'Chief Complaints', description: 'Required in the current form' },
       { key: 'diagnosis', label: 'Diagnosis', description: 'Checklist or manually entered diagnosis' },
+      { key: 'place_of_exposure', label: 'Place of Exposure', description: 'City or municipality and barangay' },
     ],
   },
   {
@@ -193,7 +194,6 @@ const FORM3_SECTIONS: FieldSection[] = [
       { key: 'exposure_category', label: 'Exposure Category', description: 'Category I, II, or III' },
       { key: 'date_of_exposure', label: 'Date of Exposure', description: 'Exposure date' },
       { key: 'date_treatment_started', label: 'Date Treatment Started', description: 'Start date of treatment' },
-      { key: 'place_of_exposure', label: 'Place of Exposure', description: 'City or municipality and barangay' },
       { key: 'mode_of_exposure', label: 'Mode of Animal Exposure', description: 'Exposure mode checkboxes' },
       { key: 'body_part_affected', label: 'Body Part Affected / Exposed', description: 'Anatomical area checkboxes' },
       { key: 'body_part_affected_text', label: 'Specify Exact Location', description: 'Exact anatomical bite site' },

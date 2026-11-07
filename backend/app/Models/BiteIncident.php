@@ -328,6 +328,11 @@ class BiteIncident extends Model
         return in_array($category, ['I', 'II', 'III'], true) ? $category : null;
     }
 
+    public function getPlaceOfExposureAttribute(): ?string
+    {
+        return $this->bite_place ?? ($this->relationLoaded('intake') ? $this->intake?->bite_place : null);
+    }
+
     public function getRigTypeAttribute(): ?string
     {
         if ($this->relationLoaded('intake') && $this->intake && !empty($this->intake->rig_type)) {

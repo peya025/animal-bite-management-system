@@ -592,7 +592,7 @@ class BiteCaseService
         if (!empty($filters['status']) && $filters['status'] !== 'all') {
             $query->where('status', $filters['status']);
         } else {
-            $query->whereIn('status', ['active', 'completed', 'finished']);
+            $query->whereIn('status', ['active', 'completed', 'finished', 'transferred_out']);
         }
 
         if (!empty($filters['date_from'])) {

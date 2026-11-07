@@ -458,7 +458,7 @@ class PatientService
                 fn($f) => !empty($rawInput[$f])
             );
 
-            if ($hasVitals) {
+            if ($hasVitals || \App\Support\RegistrationAnimal::values($validated)) {
                 $biteIncident = BiteIncident::create([
                     'clinic_id'             => $clinicId,
                     'patient_id'            => $patient->patient_id,
@@ -476,6 +476,7 @@ class PatientService
                     'animal_type'           => null,
                     'animal_status'         => 'unassessed',
                     'animal_available'      => null,
+                    ...\App\Support\RegistrationAnimal::values($validated),
                     'site_number'           => null,
                     'body_part_exposed'     => null,
                     'laterality'            => null,
@@ -537,7 +538,7 @@ class PatientService
             }
         }
 
-        Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
+        app(BiteCaseService::class)->clearBiteCasesCache($clinicId);
 
         return $patient;
     }
@@ -585,6 +586,11 @@ class PatientService
                 }
             }
             $patient->update($patientUpdate);
+            if (!empty($validated['animal_bite_id'])) {
+                $patient->biteIncidents()->where('clinic_id', $patient->clinic_id)
+                    ->findOrFail($validated['animal_bite_id'])
+                    ->update(\App\Support\RegistrationAnimal::values($validated));
+            }
 
             $detailsFields = [
                 'hospital_no',
@@ -628,7 +634,11 @@ class PatientService
         ]);
 
         $this->clearPatientListCache($clinicId);
+        app(BiteCaseService::class)->clearBiteCasesCache($clinicId);
         Cache::forget("web:patient:{$id}:clinic:{$clinicId}");
+        if (!empty($validated['animal_bite_id'])) {
+            Cache::forget("web:bite-case:{$validated['animal_bite_id']}:clinic:{$clinicId}");
+        }
 
         return $patient->fresh()->load(['details', 'memberships']);
     }

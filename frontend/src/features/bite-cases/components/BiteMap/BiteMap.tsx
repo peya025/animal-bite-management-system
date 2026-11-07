@@ -1,4 +1,7 @@
-import { useEffect } from 'react';
+import { Button } from '@mui/material';
+import { Visibility } from '@mui/icons-material';
+import BiteCaseDetailsModal from './BiteCaseDetailsModal';
+import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import { Icon, LatLngBounds, divIcon, point } from 'leaflet';
@@ -192,12 +195,14 @@ const createClusterCustomIcon = (cluster: any) => {
 };
 
 export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', onMarkerClick }: Props) {
+  const [selectedCase, setSelectedCase] = useState<BiteMapCase | null>(null);
   const defaultCenter: [number, number] = mapCenter 
     ? [mapCenter.latitude, mapCenter.longitude]
     : [14.5995, 120.9842];
   const defaultZoomLevel = mapZoom || 12;
 
   return (
+    <>
     <BiteMapRoot>
       <MapContainer
         center={defaultCenter}
@@ -323,7 +328,7 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
                           <strong>Patient Residence:</strong> {caseData.patient_residence}
                         </p>
                       )}
-                      <p style={{ margin: '3px 0' }}><strong>Animal:</strong> {caseData.animal_type}</p>
+                      <p style={{ margin: '3px 0' }}><strong>Animal:</strong> {({ dog: 'Dog', cat: 'Cat', other: 'Other' } as Record<string, string>)[caseData.animal_type?.toLowerCase()] || (caseData.animal_type && caseData.animal_type !== 'unknown' ? caseData.animal_type : 'Unknown')}</p>
                       <p style={{ margin: '3px 0' }}>
                         <strong>WHO Category:</strong>{' '}
                         <span style={{ 
@@ -337,6 +342,10 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
                            'Pending Assessment'}
                         </span>
                       </p>
+                      <Button size="small" variant="contained" startIcon={<Visibility />} onClick={() => setSelectedCase(caseData)}
+                        sx={{ mt: 1, bgcolor: '#059669', textTransform: 'none', '&:hover': { bgcolor: '#047857' } }}>
+                        View Details
+                      </Button>
                     </div>
                   </div>
                 </Popup>
@@ -346,5 +355,7 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
         )}
       </MapContainer>
     </BiteMapRoot>
+    {selectedCase && <BiteCaseDetailsModal key={selectedCase.bite_id} biteId={selectedCase.bite_id} caseNumber={selectedCase.case_number} onClose={() => setSelectedCase(null)} />}
+    </>
   );
 }

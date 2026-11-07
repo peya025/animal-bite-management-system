@@ -14,14 +14,13 @@ class RegisterExposureRequest extends FormRequest
     public function rules(): array
     {
         return [
+            ...\App\Support\RegistrationAnimal::rules(),
             'patient_id' => 'required|exists:patients,patient_id',
             'bite_date' => 'required|date|before_or_equal:today',
             'bite_place' => 'nullable|string|max:255',
             'site_washed' => 'nullable|boolean',
             'exposure_type' => 'nullable|in:bite,scratch,lick,other',
             'severity' => 'nullable|in:minor,moderate,severe',
-            'animal_type' => 'nullable|string|max:100',
-            'animal_status' => 'nullable|in:owned,stray,unknown',
             'animal_captured' => 'nullable|boolean',
             'animal_observation_status' => 'nullable|in:healthy,sick,died,unknown',
             'site_number' => 'nullable|string|max:255',

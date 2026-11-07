@@ -94,6 +94,11 @@ export async function createPatientRecord(
     // II. For CHU / RHU Personnel Only & III. Consultation Details & Vitals
     // Forwarded to backend so PatientController can create an initial TreatmentRecord for this episode.
     mode_of_transaction: enrolment.mode_of_transaction || 'walk-in',
+    animal_type: enrolment.animal_type || undefined,
+    animal_type_others: enrolment.animal_type_others || undefined,
+    animal_status: enrolment.animal_status || undefined,
+    animal_available: enrolment.animal_available || undefined,
+    animal_condition: enrolment.animal_condition || undefined,
     reg_mode_of_transaction: enrolment.mode_of_transaction || 'walk-in',
     reg_date_of_consultation: cleanField(enrolment.reg_date_of_consultation),
     reg_consultation_time: cleanField(enrolment.reg_consultation_time),

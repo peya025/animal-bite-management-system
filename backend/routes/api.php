@@ -338,6 +338,8 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
             ->middleware('role:admin,registration,triage,doctor');
         Route::get('/patient/{patientId}/episodes', [BiteCaseController::class, 'patientEpisodes']); // All roles
         Route::get('/{id}', [BiteCaseController::class, 'show']); // All roles
+        Route::get('/{id}/map-details', [BiteCaseController::class, 'mapDetails'])
+            ->whereNumber('id')->middleware('role:admin,registration,triage,treatment,doctor,nurse,staff');
         Route::get('/{id}/vaccinations', [BiteCaseController::class, 'vaccinations']); // All roles
 
         // Create & Update (admin, triage only)

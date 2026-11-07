@@ -228,6 +228,8 @@ class TriageDoctorAndReExposureTest extends TestCase
             ->assertJsonPath('bite_incident.mode_of_exposure', null)
             ->assertJsonPath('bite_incident.exposure_category', 'III');
 
+        // Registration owns animal information; stale nurse payloads must not replace it.
+        $incident->update(['animal_type' => 'dog']);
         $nurse = $this->createStaff($clinic, 'treatment');
         Sanctum::actingAs($nurse);
         $this->postJson('/api/tagoloan-treatment-cards', [
@@ -253,7 +255,7 @@ class TriageDoctorAndReExposureTest extends TestCase
             'exposure_category' => 'III',
             'mode_of_exposure' => 'scratch_abrasion',
             'body_part_exposed' => 'right foot',
-            'animal_type' => 'cat',
+            'animal_type' => 'dog',
         ]);
         $this->assertDatabaseHas('bite_incidents', [
             'bite_id' => $incident->bite_id,
@@ -263,7 +265,7 @@ class TriageDoctorAndReExposureTest extends TestCase
             'body_part_exposed' => 'right foot',
             'site_number' => 'Right ankle',
             'bite_place' => 'Matangad, Gitagum',
-            'animal_type' => 'cat',
+            'animal_type' => 'dog',
         ]);
     }
 

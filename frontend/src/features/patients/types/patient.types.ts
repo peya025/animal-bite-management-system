@@ -85,6 +85,12 @@ export interface EnrolmentFormData {
   // II. For CHU / RHU Personnel Only
   mode_of_transaction: 'walk-in' | 'visited' | 'referral' | string;
   // III. Consultation Details & Vitals (entered by Registration Staff during patient registration)
+  animal_bite_id?: number;
+  animal_type?: string;
+  animal_type_others?: string;
+  animal_status?: string;
+  animal_available?: string;
+  animal_condition?: string;
   reg_date_of_consultation: string;
   reg_consultation_time: string;
   reg_blood_pressure: string;   // combined "120/80" string, same format as treatment_records.blood_pressure

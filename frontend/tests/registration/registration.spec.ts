@@ -272,3 +272,31 @@ test('input hover is visible and keyboard focus remains distinct', async ({ page
   await expect(field).toBeFocused();
   await expect(field).toHaveCSS('outline-style', 'solid');
 });
+
+
+test('Animal uses the original options above consultation and restores draft selections', async ({ page }) => {
+  const animal = page.getByRole('region', { name: 'Animal', exact: true });
+  await expect(animal.getByRole('radio', { checked: true })).toHaveCount(0);
+  await animal.getByRole('radio', { name: 'Dog', exact: true }).click();
+  await animal.getByRole('radio', { name: 'Owned', exact: true }).click();
+  await animal.getByRole('radiogroup', { name: 'Available for 14-day observation' }).getByRole('radio', { name: 'No', exact: true }).click();
+  await animal.getByRole('radio', { name: 'Healthy', exact: true }).click();
+  const position = await page.evaluate(() => {
+    const animal = document.querySelector('section[aria-label="Animal"]')!;
+    const consultation = [...document.querySelectorAll('h3')].find(el => el.textContent?.includes('III. Consultation'))!;
+    return Boolean(animal.compareDocumentPosition(consultation) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(position).toBe(true);
+  const species = await animal.getByRole('radiogroup', { name: 'Species', exact: true }).boundingBox();
+  const ownership = await animal.getByRole('radiogroup', { name: 'Ownership', exact: true }).boundingBox();
+  const observation = await animal.getByRole('radiogroup', { name: 'Available for 14-day observation' }).boundingBox();
+  expect(Math.abs(species!.y - ownership!.y)).toBeLessThan(2);
+  expect(observation!.y).toBeGreaterThan(species!.y);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('form_draft__add-patient'))).toContain('dog');
+  await page.reload();
+  await page.getByRole('button', { name: 'Open registration' }).click();
+  await expect(animal.getByRole('radio', { name: 'Dog', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await expect(animal.getByRole('radio', { name: 'Owned', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await animal.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'test-results/animal-registration.png' });
+});

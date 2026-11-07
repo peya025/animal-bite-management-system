@@ -27,7 +27,7 @@ void main() {
       expect(resource.hasValidHttpsUrl, isTrue);
     });
 
-    test('listFromJson skips empty or non-https URLs', () {
+    test('listFromJson skips empty, non-https, or placeholder URLs', () {
       final list = ClinicResource.listFromJson(const [
         {
           'id': 1,
@@ -46,6 +46,12 @@ void main() {
           'type': 'link',
           'title': 'Empty URL',
           'url': '',
+        },
+        {
+          'id': 4,
+          'type': 'video',
+          'title': 'Placeholder Seeder Video',
+          'url': 'https://example.com/replace-with-clinic-orientation-video',
         },
       ]);
 
@@ -239,6 +245,66 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Link 3'), findsOneWidget);
+    });
+
+    testWidgets('reloads resources when refreshTrigger increments and hides deleted or inactive items', (tester) async {
+      var activeItems = <Map<String, dynamic>>[
+        {
+          'id': 1,
+          'type': 'video',
+          'title': 'Initial Video',
+          'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        },
+      ];
+
+      final repo = ResourcesRepository(
+        fetcher: () async => {'data': activeItems},
+      );
+
+      var trigger = 0;
+      late StateSetter setParentState;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setParentState = setState;
+              return Scaffold(
+                body: SingleChildScrollView(
+                  child: LearnMoreSection(
+                    repository: repo,
+                    refreshTrigger: trigger,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Initial Video'), findsOneWidget);
+
+      activeItems = [
+        {
+          'id': 2,
+          'type': 'link',
+          'title': 'Updated Website Resource',
+          'url': 'https://doh.gov.ph/updated',
+        },
+      ];
+      setParentState(() => trigger++);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Initial Video'), findsNothing);
+      expect(find.text('Updated Website Resource'), findsOneWidget);
+
+      activeItems = [];
+      setParentState(() => trigger++);
+      await tester.pumpAndSettle();
+
+      expect(find.text('LEARN MORE'), findsNothing);
+      expect(find.text('Updated Website Resource'), findsNothing);
     });
   });
 }

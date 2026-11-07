@@ -28,6 +28,7 @@ class MenuView extends StatefulWidget {
 
 class _MenuViewState extends State<MenuView> {
   int _selectedIndex = 0;
+  int _resourcesRefreshTrigger = 0;
   String? _userName;
   bool _hasCompletedPEP = false;
 
@@ -38,6 +39,15 @@ class _MenuViewState extends State<MenuView> {
       _hasCompletedPEP = widget.hasCompletedPEP!;
     }
     _loadUser();
+  }
+
+  Future<void> _refreshHome() async {
+    if (mounted) {
+      setState(() {
+        _resourcesRefreshTrigger++;
+      });
+    }
+    await _loadUser();
   }
 
   Future<void> _loadUser() async {
@@ -102,7 +112,7 @@ class _MenuViewState extends State<MenuView> {
                 ),
                 Expanded(
                   child: RefreshIndicator(
-                    onRefresh: _loadUser,
+                    onRefresh: _refreshHome,
                     color: AppColors.primary,
                     child: SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
@@ -130,12 +140,14 @@ class _MenuViewState extends State<MenuView> {
                               await Navigator.of(
                                 context,
                               ).pushNamed(AppRoutes.settings);
-                              if (mounted) _loadUser();
+                              if (mounted) _refreshHome();
                             },
                           ),
                           const SizedBox(height: 20),
                           const GuidelinesSection(),
-                          const LearnMoreSection(),
+                          LearnMoreSection(
+                            refreshTrigger: _resourcesRefreshTrigger,
+                          ),
                           const SizedBox(height: 20),
                           const InformationPanels(),
                         ],

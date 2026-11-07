@@ -44,7 +44,9 @@ class ClinicResource {
     final title = (json['title']?.toString() ?? '').trim();
     final url = (json['url']?.toString() ?? '').trim();
 
-    final rawSubtitle = json['subtitle']?.toString().trim();
+    final rawSubtitle = (json['subtitle'] ?? json['description'])
+        ?.toString()
+        .trim();
     final subtitle = (rawSubtitle != null && rawSubtitle.isNotEmpty)
         ? rawSubtitle
         : null;
@@ -72,9 +74,11 @@ class ClinicResource {
     );
   }
 
-  /// Returns true only when [url] is a valid non-empty https:// URL with a host.
+  /// Returns true only when [url] is a valid non-empty https:// URL with a host
+  /// and is not an unconfigured placeholder URL.
   bool get hasValidHttpsUrl {
     if (url.isEmpty || !url.startsWith('https://')) return false;
+    if (url.toLowerCase().contains('replace-with-')) return false;
     final uri = Uri.tryParse(url);
     return uri != null && uri.scheme == 'https' && uri.host.isNotEmpty;
   }

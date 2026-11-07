@@ -234,6 +234,41 @@ class ClinicResourceTest extends TestCase
             'duration_label' => '3m45s',
         ])->assertStatus(422)
           ->assertJsonValidationErrors(['duration_label']);
+
+        foreach (['javascript:alert(1)', 'data:text/html,<h1>x</h1>', 'ftp://example.com/file'] as $unsafeUrl) {
+            $this->postJson('/api/setup/clinic-resources', [
+                'type' => 'link',
+                'title' => 'Unsafe Scheme Link',
+                'url' => $unsafeUrl,
+            ])->assertStatus(422)
+              ->assertJsonValidationErrors(['url']);
+        }
+    }
+
+    public function test_admin_cannot_modify_or_delete_resources_belonging_to_another_clinic(): void
+    {
+        $otherResource = ClinicResource::create([
+            'clinic_id' => $this->otherClinic->id,
+            'type' => 'link',
+            'title' => 'Other Clinic Resource',
+            'url' => 'https://doh.gov.ph/rabies',
+            'sort_order' => 0,
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->putJson("/api/setup/clinic-resources/{$otherResource->id}", [
+            'title' => 'Hijacked Title',
+        ])->assertNotFound();
+
+        $this->deleteJson("/api/setup/clinic-resources/{$otherResource->id}")
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('clinic_resources', [
+            'id' => $otherResource->id,
+            'title' => 'Other Clinic Resource',
+        ]);
     }
 
     public function test_non_admin_cannot_manage_clinic_resources(): void

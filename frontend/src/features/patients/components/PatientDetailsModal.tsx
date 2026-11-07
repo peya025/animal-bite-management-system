@@ -663,6 +663,12 @@ export default function PatientDetailsModal({
       const res = await api.post('/cases/new-exposure', {
         patient_id: patientId,
         bite_date: newExposure.bite_date,
+        animal_type: newExposure.animal_type || undefined,
+        animal_type_others: newExposure.animal_type_others || undefined,
+        animal_status: newExposure.animal_status || undefined,
+        animal_available: newExposure.animal_available || undefined,
+        animal_condition: newExposure.animal_condition || undefined,
+
         consultation_date: newExposure.reg_date_of_consultation,
         consultation_time: newExposure.reg_consultation_time,
         blood_pressure: newExposure.reg_blood_pressure,
@@ -801,6 +807,12 @@ export default function PatientDetailsModal({
       const res = await api.post('/cases/new-exposure', {
         patient_id: patientId,
         bite_date: newExposure.bite_date,
+        animal_type: newExposure.animal_type || undefined,
+        animal_type_others: newExposure.animal_type_others || undefined,
+        animal_status: newExposure.animal_status || undefined,
+        animal_available: newExposure.animal_available || undefined,
+        animal_condition: newExposure.animal_condition || undefined,
+
         mode_of_transaction: newExposure.mode_of_transaction || 'walk-in',
         reg_mode_of_transaction: newExposure.mode_of_transaction || 'walk-in',
         consultation_date: newExposure.reg_date_of_consultation,

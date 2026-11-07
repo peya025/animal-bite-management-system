@@ -26,6 +26,7 @@ class StorePatientRequest extends FormRequest
         $membershipService = app(PatientMembershipService::class);
 
         return array_merge([
+            ...\App\Support\RegistrationAnimal::rules(),
             'first_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',

@@ -35,12 +35,11 @@ class ClinicResourceSeeder extends Seeder
                 'url' => 'https://example.com/replace-with-clinic-orientation-video',
                 'thumbnail_url' => null,
                 'duration_label' => '3:45',
-                'is_active' => true,
+                'is_active' => false,
             ]
         );
 
-        // TODO: Replace this placeholder URL with the verified working DOH page address
-        // after opening the official DOH page and copying the exact URL.
+        // Inactive by default until an admin configures a verified URL in Clinic Information.
         ClinicResource::updateOrCreate(
             [
                 'clinic_id' => $demoClinic->id,
@@ -53,7 +52,7 @@ class ClinicResourceSeeder extends Seeder
                 'url' => 'https://example.com/replace-with-verified-doh-page-url',
                 'thumbnail_url' => null,
                 'duration_label' => null,
-                'is_active' => true,
+                'is_active' => false,
             ]
         );
     }

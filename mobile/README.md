@@ -2,6 +2,47 @@
 
 Flutter mobile application for managing animal bite cases and vaccination workflows on mobile devices.
 
+## Choose local or Railway
+
+Run the following commands from the `mobile` folder. The selected build setting
+overrides `API_BASE_URL` in `.env`, so you can leave `.env` unchanged.
+Keep `USE_MOCK_DATA=false` in `.env` to connect to a real backend.
+
+| Server | Run the app | Build an APK |
+| --- | --- | --- |
+| Railway | `flutter run --dart-define-from-file=config/railway.json` | `flutter build apk --release --dart-define-from-file=config/railway.json` |
+| Local Android emulator | `flutter run --dart-define-from-file=config/local.json` | `flutter build apk --release --dart-define-from-file=config/local.json` |
+
+For a **physical phone on Wi-Fi**, start the backend from the `backend` folder
+with `php artisan serve --host=0.0.0.0 --port=8000`. Connect the phone and computer
+to the same Wi-Fi, and allow the server through the Windows firewall if prompted.
+Use your computer's current Wi-Fi IPv4 address from `ipconfig`:
+
+```powershell
+flutter run --dart-define=API_BASE_URL=http://YOUR_COMPUTER_IP:8000/api/mobile
+# Or build a local APK for that phone:
+flutter build apk --release --dart-define=API_BASE_URL=http://YOUR_COMPUTER_IP:8000/api/mobile
+```
+
+For a **physical Android phone over USB**, start the backend on port 8000,
+enable USB debugging, then run:
+
+```powershell
+adb reverse tcp:8000 tcp:8000
+flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8000/api/mobile
+```
+
+The local preset uses `10.0.2.2`, which is for the Android emulator only.
+Each APK connects to one server; changing the selection requires a new build
+and installation. Both builds use the same app ID, so installing one replaces
+the other. Sign-in sessions are stored separately for each server; existing
+users will need to sign in once after this update. Accounts and data are not
+automatically shared between local and Railway databases.
+
+APK output: `build/app/outputs/flutter-apk/app-release.apk`. Each build replaces
+this output, so copy it elsewhere if you want to keep both versions. A plain
+`flutter run` or `flutter build apk --release` still uses `.env` as a fallback.
+
 ---
 
 ## 🎯 **Quick Start for Android Studio Users**

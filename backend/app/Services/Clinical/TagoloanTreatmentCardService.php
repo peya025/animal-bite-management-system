@@ -467,30 +467,6 @@ class TagoloanTreatmentCardService
             'handling_ingestion_raw_meat' => 'other',
             default => null,
         };
-        $animalType = strtolower(trim((string) ($validated['animal_type'] ?? '')));
-        $animalTypeOther = trim((string) ($validated['animal_type_others'] ?? ''));
-        if ($animalType !== '' && !in_array($animalType, ['dog', 'cat', 'other'], true)) {
-            $animalTypeOther = $animalTypeOther ?: $animalType;
-            $animalType = 'other';
-        }
-
-        $animalStatus = $validated['animal_status'] ?? ($rawInput['animal_status'] ?? null);
-        $animalAvailable = $validated['animal_available'] ?? ($rawInput['animal_available'] ?? null);
-        $animalAvailableBool = match ($animalAvailable) {
-            'yes', 'true', true, 1, '1' => true,
-            'no', 'false', false, 0, '0' => false,
-            default => null,
-        };
-
-        $animalCondition = $validated['animal_condition'] ?? ($rawInput['animal_condition'] ?? null);
-        $observationStatus = match ($animalCondition) {
-            'apparently_healthy', 'healthy' => 'healthy',
-            'sick' => 'sick',
-            'dead', 'died' => 'died',
-            'unknown' => 'unknown',
-            default => null,
-        };
-
         $incident->update(array_filter([
             'bite_date' => $validated['date_of_exposure'] ?? null,
             'bite_place' => $validated['place_of_exposure'] ?? null,
@@ -498,13 +474,6 @@ class TagoloanTreatmentCardService
             'exposure_type' => $exposureType,
             'body_part_exposed' => $validated['body_part_exposed'] ?? null,
             'site_number' => $validated['body_part_detail'] ?? null,
-            'animal_type' => $animalType ?: null,
-            'animal_type_others' => $animalType === 'other' ? ($animalTypeOther ?: null) : null,
-            'animal_status' => $animalStatus ?: null,
-            'animal_available' => $animalAvailableBool,
-            'animal_captured' => $animalAvailableBool ?? false,
-            'animal_observation_status' => $observationStatus,
-            'animal_condition_reported' => $animalCondition ?: null,
         ], fn ($value) => $value !== null && $value !== ''));
 
         $incident->loadMissing('intake');
@@ -525,8 +494,8 @@ class TagoloanTreatmentCardService
                 ...($incident->exposure_category !== null ? ['exposure_category' => $incident->exposure_category] : []),
                 'mode_of_exposure' => $incident->exposure_mode,
                 'body_part_exposed' => $incident->body_part_exposed ?: $incident->site_number,
-                'animal_type' => $incident->animal_type,
-                'animal_type_others' => $incident->animal_type_others,
+                'animal_type' => $incident->animal_type ?? TagoloanTreatmentCard::where('bite_id', $incident->bite_id)->value('animal_type') ?? 'unknown',
+                'animal_type_others' => $incident->animal_type_others ?? (!$incident->animal_type ? TagoloanTreatmentCard::where('bite_id', $incident->bite_id)->value('animal_type_others') : null),
                 'created_by' => $user->id,
             ])
         );

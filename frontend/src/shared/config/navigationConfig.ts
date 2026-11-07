@@ -112,7 +112,6 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
       { label: 'Staff Assignments', path: ROUTES.CLINIC_SETUP.STAFF_ASSIGNMENTS },
       { label: 'Staff Activity Monitor', path: ROUTES.AUDIT.ACTIVITY },
       { label: 'Predefined Templates', path: ROUTES.CLINIC_SETUP.TEMPLATES },
-      { label: 'Patient app resources', path: ROUTES.CLINIC_SETUP.PATIENT_RESOURCES },
     ],
   },
   {

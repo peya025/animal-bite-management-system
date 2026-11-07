@@ -39,6 +39,7 @@ import { DAYS } from '../components/WorkingHoursModal/WorkingHoursModal';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
+import { PatientAppResourcesSection } from './PatientAppResourcesPage';
 
 
 // Clean, minimal field style matching the reference design
@@ -101,6 +102,7 @@ export default function ClinicInformation() {
   const draft = useFormDraft('clinic-info');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [resourcesRefreshTrigger, setResourcesRefreshTrigger] = useState(0);
   const [clinic, setClinic] = useState<ClinicData>({
     name: '',
     subtitle: '',
@@ -642,7 +644,10 @@ export default function ClinicInformation() {
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
           <IconButton
-            onClick={loadClinicData}
+            onClick={() => {
+              void loadClinicData();
+              setResourcesRefreshTrigger((prev) => prev + 1);
+            }}
             disabled={loading}
             title="Reload Clinic Information"
             sx={{ 
@@ -1337,7 +1342,7 @@ export default function ClinicInformation() {
         </Paper>
 
         {/* Bottom-right Save Changes Button */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', pt: 1, pb: 2, gap: 1.5 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', pt: 1, pb: 1, gap: 1.5 }}>
           <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
           <Button
             variant="contained"
@@ -1361,6 +1366,9 @@ export default function ClinicInformation() {
             {saving ? 'Saving...' : 'Save Changes'}
           </Button>
         </Box>
+
+        {/* Card 3 - Patient App Resources (Mobile "Learn More") */}
+        <PatientAppResourcesSection embedded refreshTrigger={resourcesRefreshTrigger} />
       </Box>
 
       {/* Success Modal */}

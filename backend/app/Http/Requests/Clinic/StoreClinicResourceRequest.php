@@ -14,9 +14,29 @@ class StoreClinicResourceRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $merge = [];
+
+        if (!$this->has('subtitle') && $this->has('description')) {
+            $merge['subtitle'] = $this->input('description');
+        }
+
+        if (!$this->has('sort_order') && $this->has('display_order')) {
+            $merge['sort_order'] = $this->input('display_order');
+        }
+
+        if ($this->has('type') && is_string($this->input('type'))) {
+            $normalizedType = strtolower(trim($this->input('type')));
+            if (in_array($normalizedType, ['website', 'website_link', 'website link'], true)) {
+                $merge['type'] = 'link';
+            } else {
+                $merge['type'] = $normalizedType;
+            }
+        }
+
         foreach (['subtitle', 'thumbnail_url', 'duration_label'] as $nullableField) {
-            if ($this->has($nullableField) && is_string($this->input($nullableField)) && trim($this->input($nullableField)) === '') {
-                $merge[$nullableField] = null;
+            $raw = $merge[$nullableField] ?? $this->input($nullableField);
+            if (($this->has($nullableField) || array_key_exists($nullableField, $merge)) && is_string($raw)) {
+                $trimmed = trim($raw);
+                $merge[$nullableField] = $trimmed === '' ? null : $trimmed;
             }
         }
         if ($this->has('title') && is_string($this->input('title'))) {
@@ -45,6 +65,11 @@ class StoreClinicResourceRequest extends FormRequest
                 'max:500',
                 'starts_with:https://',
                 'url:https',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (is_string($value) && str_contains(strtolower($value), 'replace-with-')) {
+                        $fail('Please provide a real HTTPS URL rather than a placeholder link.');
+                    }
+                },
             ],
             'thumbnail_url' => [
                 'nullable',

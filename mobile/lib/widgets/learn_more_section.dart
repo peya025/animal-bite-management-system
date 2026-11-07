@@ -10,15 +10,17 @@ class LearnMoreSection extends StatefulWidget {
   const LearnMoreSection({
     super.key,
     this.repository,
+    this.refreshTrigger = 0,
   });
 
   final ResourcesRepository? repository;
+  final int refreshTrigger;
 
   @override
-  State<LearnMoreSection> createState() => _LearnMoreSectionState();
+  State<LearnMoreSection> createState() => LearnMoreSectionState();
 }
 
-class _LearnMoreSectionState extends State<LearnMoreSection> {
+class LearnMoreSectionState extends State<LearnMoreSection> {
   bool _isLoading = true;
   bool _hasError = false;
   bool _showAll = false;
@@ -31,10 +33,21 @@ class _LearnMoreSectionState extends State<LearnMoreSection> {
   }
 
   @override
+  void didUpdateWidget(covariant LearnMoreSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshTrigger != widget.refreshTrigger ||
+        oldWidget.repository != widget.repository) {
+      _loadResources();
+    }
+  }
+
+  @override
   void reassemble() {
     super.reassemble();
     _loadResources();
   }
+
+  Future<void> refresh() => _loadResources();
 
   Future<void> _loadResources() async {
     final repo = widget.repository ?? ResourcesRepository.instance;

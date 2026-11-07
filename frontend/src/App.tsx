@@ -16,6 +16,7 @@ import BiteCaseRiskDashboard from './features/bite-cases/pages/BiteCaseRiskDashb
 import BiteCaseListPage from './features/bite-cases/pages/BiteCaseListPage';
 import BiteMapPage from './features/bite-cases/pages/BiteMapPage';
 import ClinicInformation from './features/clinic-setup/pages/ClinicInformationPage';
+import PatientAppResourcesPage from './features/clinic-setup/pages/PatientAppResourcesPage';
 import ClinicOperatingSchedulePage from './features/clinic-setup/pages/ClinicOperatingSchedulePage';
 import ModuleConfigPage from './features/clinic-setup/pages/ModuleConfigPage';
 import StaffAssignmentPage from './features/clinic-setup/pages/StaffAssignmentPage';
@@ -32,7 +33,6 @@ const DeveloperLandingSettingsPage = lazy(() => import('./features/developer/pag
 const DeveloperDatabaseExplorerPage = lazy(() => import('./features/developer/pages/DeveloperDatabaseExplorerPage'));
 const AppointmentDiagnosticsPage = lazy(() => import('./features/developer/pages/AppointmentDiagnosticsPage'));
 const PredefinedTemplatesPage = lazy(() => import('./features/clinic-setup/pages/PredefinedTemplatesPage'));
-const PatientAppResourcesPage = lazy(() => import('./features/clinic-setup/pages/PatientAppResourcesPage'));
 
 import { AppStyleScope } from './styles/SimpleDashboard.styles';
 

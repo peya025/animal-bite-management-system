@@ -12,6 +12,7 @@ import {
   DialogTitle,
   FormControlLabel,
   IconButton,
+  InputAdornment,
   MenuItem,
   Paper,
   Select,
@@ -28,12 +29,15 @@ import {
   AccountBalanceOutlined as BuildingIcon,
   DeleteOutlined as DeleteIcon,
   EditOutlined as EditIcon,
+  ErrorOutlined as ErrorOutlineIcon,
   Language as GlobeIcon,
   Link as LinkIcon,
   OpenInNew as ExternalLinkIcon,
+  PhoneIphone as PhoneIphoneIcon,
   PlayArrowRounded as PlayIcon,
   Refresh as RefreshIcon,
   VideocamOutlined as VideoIcon,
+  VisibilityOutlined as PreviewIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { ROUTES } from '../../../shared/config/routes';
@@ -81,6 +85,7 @@ const INITIAL_FORM_STATE: ResourceFormState = {
 function isValidHttpsUrl(value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed.startsWith('https://')) return false;
+  if (trimmed.toLowerCase().includes('replace-with-')) return false;
   try {
     const parsed = new URL(trimmed);
     return parsed.protocol === 'https:' && Boolean(parsed.hostname) && parsed.hostname.includes('.');
@@ -89,12 +94,40 @@ function isValidHttpsUrl(value: string): boolean {
   }
 }
 
+function detectResourceTypeFromUrl(rawUrl: string): ResourceType {
+  const trimmed = rawUrl.trim().toLowerCase();
+  if (!trimmed) return 'video';
+  try {
+    const parsed = new URL(trimmed);
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname.toLowerCase();
+    if (
+      host === 'youtu.be' ||
+      host === 'www.youtu.be' ||
+      host.endsWith('youtube.com') ||
+      host.endsWith('vimeo.com') ||
+      host.endsWith('dailymotion.com') ||
+      path.endsWith('.mp4') ||
+      path.endsWith('.webm') ||
+      path.endsWith('.mov')
+    ) {
+      return 'video';
+    }
+    return 'link';
+  } catch {
+    if (trimmed.includes('youtube.com') || trimmed.includes('youtu.be') || trimmed.includes('vimeo.com')) {
+      return 'video';
+    }
+    return 'link';
+  }
+}
+
 function extractDomain(url: string): string {
   try {
     const parsed = new URL(url.trim());
-    return parsed.hostname || 'example.com';
+    return parsed.hostname || 'doh.gov.ph';
   } catch {
-    return 'example.com';
+    return 'doh.gov.ph';
   }
 }
 
@@ -134,7 +167,7 @@ function validateForm(form: ResourceFormState): Partial<Record<keyof ResourceFor
   const errors: Partial<Record<keyof ResourceFormState, string>> = {};
 
   if (form.type !== 'video' && form.type !== 'link') {
-    errors.type = 'Resource type must be video or link.';
+    errors.type = 'Resource type must be Video or Website Link.';
   }
 
   const trimmedTitle = form.title.trim();
@@ -145,36 +178,38 @@ function validateForm(form: ResourceFormState): Partial<Record<keyof ResourceFor
   }
 
   if (form.subtitle.trim().length > 160) {
-    errors.subtitle = 'Subtitle must not exceed 160 characters.';
+    errors.subtitle = 'Description must not exceed 160 characters.';
   }
 
   const trimmedUrl = form.url.trim();
   if (!trimmedUrl) {
-    errors.url = 'URL is required.';
+    errors.url = 'HTTPS URL is required.';
   } else if (trimmedUrl.length > 500) {
-    errors.url = 'URL must not exceed 500 characters.';
+    errors.url = 'HTTPS URL must not exceed 500 characters.';
   } else if (!isValidHttpsUrl(trimmedUrl)) {
-    errors.url = 'Enter a valid URL starting with https:// (http:// is not allowed).';
+    errors.url = 'Enter a valid URL starting with https:// (unsafe or http:// links are rejected).';
   }
 
-  const trimmedThumb = form.thumbnail_url.trim();
-  if (trimmedThumb) {
-    if (trimmedThumb.length > 500) {
-      errors.thumbnail_url = 'Thumbnail URL must not exceed 500 characters.';
-    } else if (!isValidHttpsUrl(trimmedThumb)) {
-      errors.thumbnail_url = 'Thumbnail URL must be a valid https:// address.';
+  if (form.type === 'video') {
+    const trimmedThumb = form.thumbnail_url.trim();
+    if (trimmedThumb) {
+      if (trimmedThumb.length > 500) {
+        errors.thumbnail_url = 'Thumbnail URL must not exceed 500 characters.';
+      } else if (!isValidHttpsUrl(trimmedThumb)) {
+        errors.thumbnail_url = 'Thumbnail URL must be a valid https:// address.';
+      }
     }
-  }
 
-  const trimmedDuration = form.duration_label.trim();
-  if (trimmedDuration) {
-    if (trimmedDuration.length > 10 || !/^\d{1,2}:[0-5]\d$/.test(trimmedDuration)) {
-      errors.duration_label = 'Duration must be in m:ss or mm:ss format (for example, 3:45).';
+    const trimmedDuration = form.duration_label.trim();
+    if (trimmedDuration) {
+      if (trimmedDuration.length > 10 || !/^\d{1,2}:[0-5]\d$/.test(trimmedDuration)) {
+        errors.duration_label = 'Duration must be in m:ss or mm:ss format (for example, 3:45).';
+      }
     }
   }
 
   if (Number.isNaN(Number(form.sort_order)) || form.sort_order < 0 || form.sort_order > 65535) {
-    errors.sort_order = 'Sort order must be between 0 and 65535.';
+    errors.sort_order = 'Display order must be between 0 and 65535.';
   }
 
   return errors;
@@ -199,13 +234,51 @@ const fieldSx = {
   },
   '& input:user-invalid': {
     borderColor: '#dc2626',
+    backgroundColor: '#fef2f2',
   },
 };
 
-function MobileCardLivePreview({ form }: { form: ResourceFormState }) {
-  const previewTitle = form.title.trim() || (form.type === 'video' ? 'Orientation video title' : 'Official DOH resource link');
-  const previewSubtitle = form.subtitle.trim() || 'Short description shown under the title';
-  const previewDuration = form.duration_label.trim();
+function FieldErrorText({ id, message }: { id: string; message?: string }) {
+  if (!message) return null;
+  return (
+    <Box
+      id={id}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 0.5,
+        mt: 0.5,
+        color: '#dc2626',
+        fontSize: '12px',
+      }}
+    >
+      <ErrorOutlineIcon sx={{ fontSize: 14, flexShrink: 0 }} aria-hidden="true" />
+      <span>{message}</span>
+    </Box>
+  );
+}
+
+export function MobileCardLivePreview({
+  form,
+  allowPlaceholders = true,
+}: {
+  form: Pick<ResourceFormState, 'type' | 'title' | 'subtitle' | 'url' | 'thumbnail_url' | 'duration_label'>;
+  allowPlaceholders?: boolean;
+}) {
+  const hasRealTitle = form.title.trim().length > 0;
+  const previewTitle =
+    form.title.trim() ||
+    (allowPlaceholders
+      ? form.type === 'video'
+        ? 'Orientation video title'
+        : 'Official DOH resource link'
+      : '');
+  const previewSubtitle =
+    form.subtitle.trim() ||
+    (!hasRealTitle && allowPlaceholders && form.type === 'video'
+      ? 'Short description shown under the title'
+      : '');
+  const previewDuration = form.duration_label?.trim() || '';
   const previewDomain = form.url.trim() ? extractDomain(form.url) : 'doh.gov.ph';
   const resolvedThumb = useMemo(
     () => (form.type === 'video' ? resolveVideoThumbnail(form.url, form.thumbnail_url) : null),
@@ -238,7 +311,7 @@ function MobileCardLivePreview({ form }: { form: ResourceFormState }) {
             overflow: 'hidden',
           }}
         >
-          {/* Decorative depth circles on fallback gradient */}
+          {/* Decorative depth circles on fallback teal placeholder */}
           <Box
             sx={{
               position: 'absolute',
@@ -465,18 +538,34 @@ function MobileCardLivePreview({ form }: { form: ResourceFormState }) {
   );
 }
 
-export default function PatientAppResourcesPage() {
+export interface PatientAppResourcesSectionProps {
+  embedded?: boolean;
+  refreshTrigger?: number;
+}
+
+export function PatientAppResourcesSection({
+  embedded = false,
+  refreshTrigger = 0,
+}: PatientAppResourcesSectionProps) {
   const [resources, setResources] = useState<ClinicResourceItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [reordering, setReordering] = useState(false);
+
+  const [quickUrl, setQuickUrl] = useState('');
+  const [quickUrlError, setQuickUrlError] = useState<string | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ClinicResourceItem | null>(null);
   const [form, setForm] = useState<ResourceFormState>(INITIAL_FORM_STATE);
+  const [typeManuallyChosen, setTypeManuallyChosen] = useState(false);
   const [touched, setTouched] = useState<Partial<Record<keyof ResourceFormState, boolean>>>({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+
+  const [previewItem, setPreviewItem] = useState<ClinicResourceItem | null>(null);
+  const [showSectionPreview, setShowSectionPreview] = useState(true);
 
   const [deleteTarget, setDeleteTarget] = useState<ClinicResourceItem | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -493,16 +582,24 @@ export default function PatientAppResourcesPage() {
 
   const validationErrors = useMemo(() => validateForm(form), [form]);
 
+  const activeResources = useMemo(
+    () => resources.filter((item) => Boolean(item.is_active)),
+    [resources]
+  );
+
   const fetchResources = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await api.get('/setup/clinic-resources');
       const items: ClinicResourceItem[] = Array.isArray(response.data?.data) ? response.data.data : [];
       setResources(items);
-    } catch {
+    } catch (err: any) {
+      const message = err?.response?.data?.message || 'Unable to load patient app resources.';
+      setLoadError(message);
       setSnackbar({
         open: true,
-        message: 'Unable to load patient app resources.',
+        message,
         severity: 'error',
       });
     } finally {
@@ -512,24 +609,40 @@ export default function PatientAppResourcesPage() {
 
   useEffect(() => {
     void fetchResources();
-  }, [fetchResources]);
+  }, [fetchResources, refreshTrigger]);
 
-  const handleOpenCreate = () => {
+  const handleOpenCreate = (prefillUrl?: string) => {
+    const trimmedUrl = (prefillUrl ?? '').trim();
+    if (trimmedUrl && !isValidHttpsUrl(trimmedUrl)) {
+      setQuickUrlError('Enter a valid URL starting with https:// before adding.');
+      return;
+    }
+    setQuickUrlError(null);
+
     const nextOrder =
       resources.length > 0 ? Math.max(...resources.map((r) => Number(r.sort_order) || 0)) + 1 : 0;
+    const detectedType: ResourceType = trimmedUrl ? detectResourceTypeFromUrl(trimmedUrl) : 'video';
+
     setEditingItem(null);
+    setTypeManuallyChosen(false);
     setForm({
       ...INITIAL_FORM_STATE,
+      type: detectedType,
+      url: trimmedUrl,
       sort_order: nextOrder,
     });
-    setTouched({});
+    setTouched(trimmedUrl ? { url: true } : {});
     setSubmitAttempted(false);
     setServerError(null);
     setDialogOpen(true);
+    if (trimmedUrl) {
+      setQuickUrl('');
+    }
   };
 
   const handleOpenEdit = (item: ClinicResourceItem) => {
     setEditingItem(item);
+    setTypeManuallyChosen(true);
     setForm({
       type: item.type,
       title: item.title ?? '',
@@ -560,6 +673,16 @@ export default function PatientAppResourcesPage() {
     return validationErrors[field];
   };
 
+  const handleUrlInputChange = (nextUrl: string) => {
+    setForm((prev) => {
+      const updated: ResourceFormState = { ...prev, url: nextUrl };
+      if (!editingItem && !typeManuallyChosen && nextUrl.trim().startsWith('https://')) {
+        updated.type = detectResourceTypeFromUrl(nextUrl);
+      }
+      return updated;
+    });
+  };
+
   const handleSave = async () => {
     setSubmitAttempted(true);
     setServerError(null);
@@ -585,14 +708,14 @@ export default function PatientAppResourcesPage() {
         await api.put(`/setup/clinic-resources/${editingItem.id}`, payload);
         setSnackbar({
           open: true,
-          message: 'Resource updated.',
+          message: 'Resource updated successfully.',
           severity: 'success',
         });
       } else {
         await api.post('/setup/clinic-resources', payload);
         setSnackbar({
           open: true,
-          message: 'Resource added.',
+          message: 'Resource added successfully.',
           severity: 'success',
         });
       }
@@ -624,7 +747,9 @@ export default function PatientAppResourcesPage() {
       });
       setSnackbar({
         open: true,
-        message: nextActive ? 'Resource enabled on patient Home screen.' : 'Resource hidden from patient Home screen.',
+        message: nextActive
+          ? 'Resource published to the patient mobile Home screen.'
+          : 'Resource hidden from the patient mobile Home screen.',
         severity: 'success',
       });
     } catch {
@@ -662,10 +787,15 @@ export default function PatientAppResourcesPage() {
       if (Array.isArray(response.data?.data)) {
         setResources(response.data.data);
       }
+      setSnackbar({
+        open: true,
+        message: 'Display order updated.',
+        severity: 'success',
+      });
     } catch {
       setSnackbar({
         open: true,
-        message: 'Failed to save sort order.',
+        message: 'Failed to save display order.',
         severity: 'error',
       });
       await fetchResources();
@@ -679,9 +809,12 @@ export default function PatientAppResourcesPage() {
     setDeleting(true);
     try {
       await api.delete(`/setup/clinic-resources/${deleteTarget.id}`);
+      if (previewItem?.id === deleteTarget.id) {
+        setPreviewItem(null);
+      }
       setSnackbar({
         open: true,
-        message: 'Resource deleted.',
+        message: 'Resource deleted successfully.',
         severity: 'success',
       });
       setDeleteTarget(null);
@@ -698,350 +831,648 @@ export default function PatientAppResourcesPage() {
   };
 
   return (
-    <Box sx={{ px: { xs: 1, sm: 3 }, pb: 5, maxWidth: 1240, mx: 'auto' }}>
-      {/* Header */}
-      <Box
-        sx={{
-          mb: 3,
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 2,
-        }}
-      >
-        <Box>
-          <Typography component="h1" sx={{ fontSize: 22, fontWeight: 700, color: '#111827' }}>
-            Patient app resources
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mt: 0.25 }}>
-            <Box
-              component={RouterLink}
-              to={ROUTES.DASHBOARD}
-              sx={{ color: '#1D9E75', textDecoration: 'none', fontWeight: 500 }}
-            >
-              Dashboard
-            </Box>
-            {' / Clinic Setup / Patient app resources'}
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<RefreshIcon sx={{ fontSize: 17 }} />}
-            onClick={() => void fetchResources()}
-            disabled={loading}
-            sx={{
-              textTransform: 'none',
-              borderColor: '#e5e7eb',
-              color: '#374151',
-              borderRadius: '10px',
-              px: 1.75,
-              py: 0.8,
-              fontWeight: 500,
-              '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
-            }}
-          >
-            Refresh
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon sx={{ fontSize: 18 }} />}
-            onClick={handleOpenCreate}
-            sx={{
-              textTransform: 'none',
-              bgcolor: '#1D9E75',
-              color: '#ffffff',
-              borderRadius: '10px',
-              px: 2,
-              py: 0.85,
-              fontWeight: 600,
-              boxShadow: 'none',
-              '&:hover': { bgcolor: '#17825f', boxShadow: 'none' },
-            }}
-          >
-            Add resource
-          </Button>
-        </Box>
-      </Box>
-
-      {/* Main Card */}
+    <>
       <Paper
         elevation={0}
         sx={{
-          bgcolor: '#ffffff',
-          border: '0.5px solid #e5e7eb',
-          borderRadius: '14px',
+          border: embedded ? '1px solid var(--border-glow, #e0eae3)' : '0.5px solid #e5e7eb',
+          borderRadius: embedded ? 2 : '14px',
+          p: embedded ? 3 : 0,
+          bgcolor: 'var(--card-bg-solid, #fff)',
           overflow: 'hidden',
         }}
       >
+        {embedded && (
+          <>
+            <Typography
+              sx={{
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#277a4b',
+                mb: 0.5,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              PATIENT APP RESOURCES
+            </Typography>
+            <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 2.5 }} />
+          </>
+        )}
+
+        {/* Section Header */}
         <Box
           sx={{
-            px: 2.5,
-            py: 2,
+            px: embedded ? 0 : 2.5,
+            py: embedded ? 0 : 2,
+            pb: embedded ? 2 : 2,
             borderBottom: '0.5px solid #e5e7eb',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
-            gap: 1,
+            gap: 1.5,
           }}
         >
           <Box>
-            <Typography id="patient-resources-table-caption" sx={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
-              Learn more section links
+            <Typography
+              id="patient-resources-table-caption"
+              sx={{ fontSize: 15, fontWeight: 700, color: '#111827' }}
+            >
+              Patient App Resources (Mobile &ldquo;Learn More&rdquo;)
             </Typography>
-            <Typography sx={{ fontSize: 12, color: '#6b7280', mt: 0.25 }}>
-              Configure orientation videos and official DOH reference links shown below the Bite care guide on the patient Home screen.
+            <Typography sx={{ fontSize: 12.5, color: '#6b7280', mt: 0.25 }}>
+              Add orientation videos or website links displayed in the patient mobile app under{' '}
+              <strong>Home &rarr; Learn More</strong>, below Bite Care Guide and above Clinic Information.
             </Typography>
           </Box>
-          <Chip
-            size="small"
-            label={`${resources.filter((r) => r.is_active).length} active`}
-            sx={{
-              bgcolor: '#e1f5ee',
-              color: '#1D9E75',
-              fontWeight: 600,
-              fontSize: '11.5px',
-              height: 24,
-            }}
-          />
-        </Box>
 
-        {loading ? (
-          <Box sx={{ py: 6, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5 }}>
-            <CircularProgress size={22} sx={{ color: '#1D9E75' }} />
-            <Typography sx={{ fontSize: 13, color: '#6b7280' }}>Loading resources...</Typography>
-          </Box>
-        ) : resources.length === 0 ? (
-          <Box sx={{ py: 6, px: 3, textAlign: 'center' }}>
-            <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
-              No patient resources configured
-            </Typography>
-            <Typography sx={{ fontSize: 12.5, color: '#6b7280', mt: 0.5, maxWidth: 440, mx: 'auto' }}>
-              When no active resources exist, the Learn more section is automatically hidden on the patient Home screen without leaving an empty gap.
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Chip
+              size="small"
+              label={`${activeResources.length} published`}
+              sx={{
+                bgcolor: '#e1f5ee',
+                color: '#1D9E75',
+                fontWeight: 600,
+                fontSize: '11.5px',
+                height: 26,
+              }}
+            />
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<PhoneIphoneIcon sx={{ fontSize: 16 }} />}
+              onClick={() => setShowSectionPreview((prev) => !prev)}
+              sx={{
+                textTransform: 'none',
+                borderColor: '#e5e7eb',
+                color: '#374151',
+                borderRadius: '10px',
+                px: 1.5,
+                py: 0.65,
+                fontSize: '12.5px',
+                fontWeight: 500,
+                '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
+              }}
+            >
+              {showSectionPreview ? 'Hide Mobile Preview' : 'Show Mobile Preview'}
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<RefreshIcon sx={{ fontSize: 16 }} />}
+              onClick={() => void fetchResources()}
+              disabled={loading}
+              sx={{
+                textTransform: 'none',
+                borderColor: '#e5e7eb',
+                color: '#374151',
+                borderRadius: '10px',
+                px: 1.5,
+                py: 0.65,
+                fontSize: '12.5px',
+                fontWeight: 500,
+                '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
+              }}
+            >
+              Refresh
+            </Button>
             <Button
               variant="contained"
               size="small"
-              startIcon={<AddIcon />}
-              onClick={handleOpenCreate}
+              startIcon={<AddIcon sx={{ fontSize: 18 }} />}
+              onClick={() => handleOpenCreate()}
               sx={{
-                mt: 2,
                 textTransform: 'none',
                 bgcolor: '#1D9E75',
+                color: '#ffffff',
                 borderRadius: '10px',
+                px: 2,
+                py: 0.7,
+                fontSize: '12.5px',
+                fontWeight: 600,
                 boxShadow: 'none',
                 '&:hover': { bgcolor: '#17825f', boxShadow: 'none' },
               }}
             >
-              Add first resource
+              Add Resource
             </Button>
           </Box>
-        ) : (
-          <Box
-            tabIndex={0}
-            role="region"
-            aria-labelledby="patient-resources-table-caption"
-            sx={{
-              overflowX: 'auto',
-              maxInlineSize: '100%',
-              containerType: 'inline-size',
-            }}
+        </Box>
+
+        {/* Quick Paste URL Bar */}
+        <Box
+          sx={{
+            px: embedded ? 0 : 2.5,
+            py: 2,
+            borderBottom: '0.5px solid #e5e7eb',
+            bgcolor: embedded ? 'transparent' : '#f9fafb',
+          }}
+        >
+          <Typography
+            component="label"
+            htmlFor="quick-resource-url-input"
+            sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block', mb: 0.5 }}
           >
-            <Box
-              component="table"
+            Quick Add by URL
+          </Typography>
+          <Typography id="quick-resource-url-hint" sx={{ fontSize: 11.5, color: '#6b7280', mb: 1 }}>
+            Paste a video or website https:// URL to pre-fill a new resource and automatically detect its type.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1.25, flexWrap: { xs: 'wrap', sm: 'nowrap' }, alignItems: 'flex-start' }}>
+            <Box sx={{ flex: 1, minWidth: 220 }}>
+              <TextField
+                id="quick-resource-url-input"
+                type="url"
+                size="small"
+                fullWidth
+                placeholder="https://www.youtube.com/watch?v=... or https://doh.gov.ph/..."
+                value={quickUrl}
+                onChange={(e) => {
+                  setQuickUrl(e.target.value);
+                  if (quickUrlError) setQuickUrlError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleOpenCreate(quickUrl);
+                  }
+                }}
+                error={Boolean(quickUrlError)}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <LinkIcon sx={{ fontSize: 17, color: '#9ca3af' }} />
+                      </InputAdornment>
+                    ),
+                  },
+                  htmlInput: {
+                    'aria-describedby': 'quick-resource-url-hint',
+                    'aria-errormessage': quickUrlError ? 'quick-resource-url-error' : undefined,
+                    'aria-invalid': Boolean(quickUrlError),
+                  },
+                }}
+                sx={fieldSx}
+              />
+              <FieldErrorText id="quick-resource-url-error" message={quickUrlError ?? undefined} />
+            </Box>
+            <Button
+              variant="outlined"
+              onClick={() => handleOpenCreate(quickUrl)}
+              startIcon={<AddIcon />}
               sx={{
-                width: '100%',
-                borderCollapse: 'separate',
-                borderSpacing: 0,
-                textAlign: 'left',
+                textTransform: 'none',
+                borderColor: '#1D9E75',
+                color: '#1D9E75',
+                borderRadius: '10px',
+                px: 2,
+                py: 0.9,
+                fontWeight: 600,
                 fontSize: '13px',
-                '& thead th': {
-                  position: 'sticky',
-                  insetBlockStart: 0,
-                  zIndex: 1,
-                  bgcolor: '#f9fafb',
-                  color: '#6b7280',
-                  fontWeight: 600,
-                  fontSize: '11.5px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                  px: 2,
-                  py: 1.4,
-                  borderBottom: '0.5px solid #e5e7eb',
-                },
-                '& tbody td, & tbody th': {
-                  px: 2,
-                  py: 1.5,
-                  borderBottom: '0.5px solid #f3f4f6',
-                  verticalAlign: 'middle',
-                },
-                '& tbody tr:last-of-type td, & tbody tr:last-of-type th': {
-                  borderBottom: 'none',
-                },
+                whiteSpace: 'nowrap',
+                '&:hover': { borderColor: '#17825f', bgcolor: '#ecfdf5' },
               }}
             >
-              <thead>
-                <tr>
-                  <th style={{ width: 110 }}>Type</th>
-                  <th>Title</th>
-                  <th>URL</th>
-                  <th style={{ width: 110 }}>Active</th>
-                  <th style={{ width: 140 }}>Sort order</th>
-                  <th style={{ width: 110, textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {resources.map((item, index) => (
-                  <tr key={item.id}>
-                    <td>
-                      <Chip
-                        size="small"
-                        icon={
-                          item.type === 'video' ? (
-                            <VideoIcon sx={{ fontSize: '14px !important', color: '#1D9E75 !important' }} />
-                          ) : (
-                            <LinkIcon sx={{ fontSize: '14px !important', color: '#3b82f6 !important' }} />
-                          )
-                        }
-                        label={item.type === 'video' ? 'Video' : 'Link'}
-                        sx={{
-                          height: 24,
-                          fontSize: '11.5px',
-                          fontWeight: 600,
-                          bgcolor: item.type === 'video' ? '#e1f5ee' : '#eff6ff',
-                          color: item.type === 'video' ? '#1D9E75' : '#3b82f6',
-                          borderRadius: '8px',
-                        }}
-                      />
-                    </td>
-                    <th scope="row" style={{ fontWeight: 600, color: '#111827', background: '#ffffff' }}>
-                      <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
-                        {item.title}
-                      </Typography>
-                      {item.subtitle && (
-                        <Typography sx={{ fontSize: '11.5px', color: '#9ca3af', mt: 0.2 }}>
-                          {item.subtitle}
-                        </Typography>
-                      )}
-                      {item.type === 'video' && item.duration_label && (
-                        <Typography sx={{ fontSize: '11px', color: '#6b7280', mt: 0.2 }}>
-                          Duration: {item.duration_label}
-                        </Typography>
-                      )}
-                    </th>
-                    <td>
-                      <Box
-                        component="a"
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        sx={{
-                          color: '#1D9E75',
-                          textDecoration: 'none',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 0.5,
-                          maxWidth: 280,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          fontSize: '12.5px',
-                          '&:hover': { textDecoration: 'underline' },
-                        }}
-                      >
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.url}</span>
-                        <ExternalLinkIcon sx={{ fontSize: 13, flexShrink: 0 }} />
-                      </Box>
-                    </td>
-                    <td>
-                      <Switch
-                        size="small"
-                        checked={Boolean(item.is_active)}
-                        onChange={() => void handleToggleActive(item)}
-                        slotProps={{ input: { 'aria-label': `Toggle active state for ${item.title}` } }}
-                        sx={{
-                          '& .MuiSwitch-switchBase.Mui-checked': {
-                            color: '#1D9E75',
-                          },
-                          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                            backgroundColor: '#1D9E75',
-                          },
-                        }}
-                      />
-                    </td>
-                    <td>
-                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                        <Typography
-                          sx={{
-                            fontSize: '12.5px',
-                            fontWeight: 600,
-                            color: '#374151',
-                            minWidth: 22,
-                          }}
-                        >
-                          {item.sort_order}
-                        </Typography>
-                        <Tooltip title="Move up">
-                          <span>
-                            <IconButton
-                              size="small"
-                              disabled={index === 0 || reordering}
-                              onClick={() => void handleMove(index, -1)}
-                              aria-label={`Move ${item.title} up`}
-                            >
-                              <ArrowUpwardIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                        <Tooltip title="Move down">
-                          <span>
-                            <IconButton
-                              size="small"
-                              disabled={index === resources.length - 1 || reordering}
-                              onClick={() => void handleMove(index, 1)}
-                              aria-label={`Move ${item.title} down`}
-                            >
-                              <ArrowDownwardIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      </Box>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                        <Tooltip title="Edit resource">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleOpenEdit(item)}
-                            aria-label={`Edit ${item.title}`}
-                            sx={{ color: '#374151' }}
-                          >
-                            <EditIcon sx={{ fontSize: 17 }} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete resource">
-                          <IconButton
-                            size="small"
-                            onClick={() => setDeleteTarget(item)}
-                            aria-label={`Delete ${item.title}`}
-                            sx={{ color: '#dc2626' }}
-                          >
-                            <DeleteIcon sx={{ fontSize: 17 }} />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Box>
+              Paste &amp; Configure
+            </Button>
+          </Box>
+        </Box>
+
+        {loadError && !loading && (
+          <Box sx={{ px: embedded ? 0 : 2.5, pt: 2 }}>
+            <Alert
+              severity="error"
+              action={
+                <Button color="inherit" size="small" onClick={() => void fetchResources()}>
+                  Retry
+                </Button>
+              }
+              sx={{ borderRadius: '10px' }}
+            >
+              {loadError}
+            </Alert>
           </Box>
         )}
+
+        {/* Content: Table + Optional Live Mobile Section Preview */}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns:
+              showSectionPreview && !loading
+                ? { xs: '1fr', lg: 'minmax(0, 1.45fr) 360px' }
+                : '1fr',
+            gap: embedded ? 2.5 : 0,
+            pt: embedded ? 2 : 0,
+            alignItems: 'start',
+          }}
+        >
+          {/* Left: Resources List / Table */}
+          <Box sx={{ minWidth: 0 }}>
+            {loading ? (
+              <Box sx={{ py: 6, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5 }}>
+                <CircularProgress size={22} sx={{ color: '#1D9E75' }} />
+                <Typography sx={{ fontSize: 13, color: '#6b7280' }}>Loading resources...</Typography>
+              </Box>
+            ) : resources.length === 0 ? (
+              <Box
+                sx={{
+                  py: 5,
+                  px: 3,
+                  textAlign: 'center',
+                  border: embedded ? '1px dashed #d1d5db' : 'none',
+                  borderRadius: embedded ? '12px' : 0,
+                  bgcolor: '#f9fafb',
+                }}
+              >
+                <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
+                  No patient resources configured yet
+                </Typography>
+                <Typography sx={{ fontSize: 12.5, color: '#6b7280', mt: 0.5, maxWidth: 440, mx: 'auto' }}>
+                  When no active resources exist, the Learn More section is automatically hidden on the patient Home
+                  screen without leaving an empty gap.
+                </Typography>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => handleOpenCreate()}
+                  sx={{
+                    mt: 2,
+                    textTransform: 'none',
+                    bgcolor: '#1D9E75',
+                    borderRadius: '10px',
+                    boxShadow: 'none',
+                    '&:hover': { bgcolor: '#17825f', boxShadow: 'none' },
+                  }}
+                >
+                  Add First Resource
+                </Button>
+              </Box>
+            ) : (
+              <Box
+                tabIndex={0}
+                role="region"
+                aria-labelledby="patient-resources-table-caption"
+                sx={{
+                  overflowX: 'auto',
+                  maxInlineSize: '100%',
+                  containerType: 'inline-size',
+                  border: embedded ? '1px solid #e5e7eb' : 'none',
+                  borderRadius: embedded ? '12px' : 0,
+                }}
+              >
+                <Box
+                  component="table"
+                  sx={{
+                    width: '100%',
+                    borderCollapse: 'separate',
+                    borderSpacing: 0,
+                    textAlign: 'left',
+                    fontSize: '13px',
+                    '& thead th': {
+                      position: 'sticky',
+                      insetBlockStart: 0,
+                      zIndex: 1,
+                      bgcolor: '#f9fafb',
+                      color: '#6b7280',
+                      fontWeight: 600,
+                      fontSize: '11.5px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                      px: 2,
+                      py: 1.4,
+                      borderBottom: '0.5px solid #e5e7eb',
+                    },
+                    '& tbody td, & tbody th': {
+                      px: 2,
+                      py: 1.5,
+                      borderBottom: '0.5px solid #f3f4f6',
+                      verticalAlign: 'middle',
+                    },
+                    '& tbody tr:last-of-type td, & tbody tr:last-of-type th': {
+                      borderBottom: 'none',
+                    },
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      <th style={{ width: 120 }}>Type</th>
+                      <th>Title &amp; Description</th>
+                      <th>HTTPS URL</th>
+                      <th style={{ width: 135 }}>Status</th>
+                      <th style={{ width: 130 }}>Display Order</th>
+                      <th style={{ width: 130, textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {resources.map((item, index) => {
+                      const isSelectedPreview = previewItem?.id === item.id;
+                      return (
+                        <tr
+                          key={item.id}
+                          style={{
+                            backgroundColor: isSelectedPreview ? '#f0fdf4' : '#ffffff',
+                          }}
+                        >
+                          <td>
+                            <Chip
+                              size="small"
+                              icon={
+                                item.type === 'video' ? (
+                                  <VideoIcon sx={{ fontSize: '14px !important', color: '#1D9E75 !important' }} />
+                                ) : (
+                                  <LinkIcon sx={{ fontSize: '14px !important', color: '#3b82f6 !important' }} />
+                                )
+                              }
+                              label={item.type === 'video' ? 'Video' : 'Website Link'}
+                              sx={{
+                                height: 24,
+                                fontSize: '11.5px',
+                                fontWeight: 600,
+                                bgcolor: item.type === 'video' ? '#e1f5ee' : '#eff6ff',
+                                color: item.type === 'video' ? '#1D9E75' : '#3b82f6',
+                                borderRadius: '8px',
+                              }}
+                            />
+                          </td>
+                          <th
+                            scope="row"
+                            style={{
+                              fontWeight: 600,
+                              color: '#111827',
+                              background: isSelectedPreview ? '#f0fdf4' : '#ffffff',
+                            }}
+                          >
+                            <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+                              {item.title}
+                            </Typography>
+                            {item.subtitle && (
+                              <Typography sx={{ fontSize: '11.5px', color: '#6b7280', mt: 0.2 }}>
+                                {item.subtitle}
+                              </Typography>
+                            )}
+                            {item.type === 'video' && item.duration_label && (
+                              <Typography sx={{ fontSize: '11px', color: '#1D9E75', fontWeight: 500, mt: 0.2 }}>
+                                Duration: {item.duration_label}
+                              </Typography>
+                            )}
+                          </th>
+                          <td>
+                            <Box
+                              component="a"
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              sx={{
+                                color: '#1D9E75',
+                                textDecoration: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                maxWidth: 240,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                fontSize: '12.5px',
+                                '&:hover': { textDecoration: 'underline' },
+                              }}
+                            >
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.url}</span>
+                              <ExternalLinkIcon sx={{ fontSize: 13, flexShrink: 0 }} />
+                            </Box>
+                          </td>
+                          <td>
+                            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                              <Switch
+                                size="small"
+                                checked={Boolean(item.is_active)}
+                                onChange={() => void handleToggleActive(item)}
+                                slotProps={{ input: { 'aria-label': `Toggle active state for ${item.title}` } }}
+                                sx={{
+                                  '& .MuiSwitch-switchBase.Mui-checked': {
+                                    color: '#1D9E75',
+                                  },
+                                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                    backgroundColor: '#1D9E75',
+                                  },
+                                }}
+                              />
+                              <Chip
+                                size="small"
+                                label={item.is_active ? 'Active' : 'Hidden'}
+                                sx={{
+                                  height: 20,
+                                  fontSize: '10.5px',
+                                  fontWeight: 600,
+                                  bgcolor: item.is_active ? '#ecfdf5' : '#f3f4f6',
+                                  color: item.is_active ? '#047857' : '#6b7280',
+                                }}
+                              />
+                            </Box>
+                          </td>
+                          <td>
+                            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                              <Typography
+                                sx={{
+                                  fontSize: '12.5px',
+                                  fontWeight: 600,
+                                  color: '#374151',
+                                  minWidth: 22,
+                                }}
+                              >
+                                {item.sort_order}
+                              </Typography>
+                              <Tooltip title="Move up">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={index === 0 || reordering}
+                                    onClick={() => void handleMove(index, -1)}
+                                    aria-label={`Move ${item.title} up`}
+                                  >
+                                    <ArrowUpwardIcon sx={{ fontSize: 16 }} />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                              <Tooltip title="Move down">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={index === resources.length - 1 || reordering}
+                                    onClick={() => void handleMove(index, 1)}
+                                    aria-label={`Move ${item.title} down`}
+                                  >
+                                    <ArrowDownwardIcon sx={{ fontSize: 16 }} />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            </Box>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+                              <Tooltip title="Preview on mobile">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => {
+                                    setShowSectionPreview(true);
+                                    setPreviewItem((prev) => (prev?.id === item.id ? null : item));
+                                  }}
+                                  aria-label={`Preview ${item.title} on mobile`}
+                                  sx={{ color: isSelectedPreview ? '#1D9E75' : '#6b7280' }}
+                                >
+                                  <PreviewIcon sx={{ fontSize: 17 }} />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Edit resource">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleOpenEdit(item)}
+                                  aria-label={`Edit ${item.title}`}
+                                  sx={{ color: '#374151' }}
+                                >
+                                  <EditIcon sx={{ fontSize: 17 }} />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Delete resource">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => setDeleteTarget(item)}
+                                  aria-label={`Delete ${item.title}`}
+                                  sx={{ color: '#dc2626' }}
+                                >
+                                  <DeleteIcon sx={{ fontSize: 17 }} />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </Box>
+              </Box>
+            )}
+          </Box>
+
+          {/* Right: Live Mobile Home -> Learn More Preview Panel */}
+          {showSectionPreview && !loading && (
+            <Box
+              sx={{
+                bgcolor: '#f4f6f5',
+                border: '1px solid #e5e7eb',
+                borderRadius: '14px',
+                p: 2,
+                mx: { xs: embedded ? 0 : 2.5, lg: 0 },
+                mb: { xs: embedded ? 0 : 2.5, lg: 0 },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.25 }}>
+                <Typography
+                  sx={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: '#374151',
+                    letterSpacing: '0.05em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {previewItem ? 'Selected Resource Preview' : 'Mobile Home → Learn More Preview'}
+                </Typography>
+                {previewItem && (
+                  <Button
+                    size="small"
+                    onClick={() => setPreviewItem(null)}
+                    sx={{ fontSize: '11px', textTransform: 'none', color: '#1D9E75', minWidth: 0, p: 0 }}
+                  >
+                    Show all active
+                  </Button>
+                )}
+              </Box>
+
+              {previewItem ? (
+                <Box>
+                  <Box sx={{ mb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography sx={{ fontSize: '11px', fontWeight: 500, color: '#9ca3af', letterSpacing: '0.06em' }}>
+                      LEARN MORE
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={previewItem.is_active ? 'Active' : 'Hidden'}
+                      sx={{
+                        height: 18,
+                        fontSize: '10px',
+                        bgcolor: previewItem.is_active ? '#e1f5ee' : '#e5e7eb',
+                        color: previewItem.is_active ? '#1D9E75' : '#4b5563',
+                      }}
+                    />
+                  </Box>
+                  <MobileCardLivePreview
+                    allowPlaceholders={false}
+                    form={{
+                      type: previewItem.type,
+                      title: previewItem.title,
+                      subtitle: previewItem.subtitle ?? '',
+                      url: previewItem.url,
+                      thumbnail_url: previewItem.thumbnail_url ?? '',
+                      duration_label: previewItem.duration_label ?? '',
+                    }}
+                  />
+                </Box>
+              ) : activeResources.length === 0 ? (
+                <Box
+                  sx={{
+                    py: 3.5,
+                    px: 2,
+                    textAlign: 'center',
+                    bgcolor: '#ffffff',
+                    borderRadius: '12px',
+                    border: '1px dashed #d1d5db',
+                  }}
+                >
+                  <Typography sx={{ fontSize: '12.5px', fontWeight: 600, color: '#374151' }}>
+                    Learn More section is hidden
+                  </Typography>
+                  <Typography sx={{ fontSize: '11.5px', color: '#6b7280', mt: 0.5 }}>
+                    No active resources are published. Add or enable a resource to display it between Bite Care Guide
+                    and Clinic Information.
+                  </Typography>
+                </Box>
+              ) : (
+                <Box>
+                  <Box sx={{ mb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography sx={{ fontSize: '11px', fontWeight: 500, color: '#9ca3af', letterSpacing: '0.06em' }}>
+                      LEARN MORE
+                    </Typography>
+                    {activeResources.length > 2 && (
+                      <Typography sx={{ fontSize: '11px', fontWeight: 500, color: '#1D9E75' }}>
+                        See all
+                      </Typography>
+                    )}
+                  </Box>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {activeResources.map((item) => (
+                      <MobileCardLivePreview
+                        key={item.id}
+                        allowPlaceholders={false}
+                        form={{
+                          type: item.type,
+                          title: item.title,
+                          subtitle: item.subtitle ?? '',
+                          url: item.url,
+                          thumbnail_url: item.thumbnail_url ?? '',
+                          duration_label: item.duration_label ?? '',
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          )}
+        </Box>
       </Paper>
 
       {/* Add / Edit Resource Dialog */}
@@ -1061,7 +1492,7 @@ export default function PatientAppResourcesPage() {
         }}
       >
         <DialogTitle sx={{ fontSize: 17, fontWeight: 700, color: '#111827', pb: 1 }}>
-          {editingItem ? 'Edit resource' : 'Add resource'}
+          {editingItem ? 'Edit Resource' : 'Add Resource'}
         </DialogTitle>
         <DialogContent dividers sx={{ borderColor: '#e5e7eb', py: 2.5 }}>
           {serverError && (
@@ -1081,8 +1512,12 @@ export default function PatientAppResourcesPage() {
             {/* Left column: Form Controls */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Box>
-                <Typography component="label" htmlFor="resource-type" sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block', mb: 0.5 }}>
-                  Type *
+                <Typography
+                  component="label"
+                  htmlFor="resource-type"
+                  sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block', mb: 0.5 }}
+                >
+                  Resource Type *
                 </Typography>
                 <Select
                   id="resource-type"
@@ -1090,6 +1525,7 @@ export default function PatientAppResourcesPage() {
                   size="small"
                   value={form.type}
                   onChange={(e) => {
+                    setTypeManuallyChosen(true);
                     setForm((prev) => ({ ...prev, type: e.target.value as ResourceType }));
                     markTouched('type');
                   }}
@@ -1099,69 +1535,18 @@ export default function PatientAppResourcesPage() {
                     bgcolor: '#ffffff',
                   }}
                 >
-                  <MenuItem value="video">Orientation video (video preview card)</MenuItem>
-                  <MenuItem value="link">Official outside link (DOH link card)</MenuItem>
+                  <MenuItem value="video">Video</MenuItem>
+                  <MenuItem value="link">Website Link</MenuItem>
                 </Select>
               </Box>
 
               <Box>
-                <Typography component="label" htmlFor="resource-title" sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}>
-                  Title *
-                </Typography>
-                <Typography id="resource-title-hint" sx={{ fontSize: 11.5, color: '#6b7280', mb: 0.5 }}>
-                  Maximum 120 characters
-                </Typography>
-                <TextField
-                  id="resource-title"
-                  fullWidth
-                  size="small"
-                  required
-                  value={form.title}
-                  onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-                  onBlur={() => markTouched('title')}
-                  error={Boolean(showFieldError('title'))}
-                  helperText={showFieldError('title')}
-                  slotProps={{
-                    htmlInput: {
-                      maxLength: 120,
-                      'aria-describedby': 'resource-title-hint',
-                      'aria-invalid': Boolean(showFieldError('title')),
-                    },
-                  }}
-                  sx={fieldSx}
-                />
-              </Box>
-
-              <Box>
-                <Typography component="label" htmlFor="resource-subtitle" sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}>
-                  Subtitle
-                </Typography>
-                <Typography id="resource-subtitle-hint" sx={{ fontSize: 11.5, color: '#6b7280', mb: 0.5 }}>
-                  Optional short line below the title (maximum 160 characters)
-                </Typography>
-                <TextField
-                  id="resource-subtitle"
-                  fullWidth
-                  size="small"
-                  value={form.subtitle}
-                  onChange={(e) => setForm((prev) => ({ ...prev, subtitle: e.target.value }))}
-                  onBlur={() => markTouched('subtitle')}
-                  error={Boolean(showFieldError('subtitle'))}
-                  helperText={showFieldError('subtitle')}
-                  slotProps={{
-                    htmlInput: {
-                      maxLength: 160,
-                      'aria-describedby': 'resource-subtitle-hint',
-                      'aria-invalid': Boolean(showFieldError('subtitle')),
-                    },
-                  }}
-                  sx={fieldSx}
-                />
-              </Box>
-
-              <Box>
-                <Typography component="label" htmlFor="resource-url" sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}>
-                  Destination URL *
+                <Typography
+                  component="label"
+                  htmlFor="resource-url"
+                  sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}
+                >
+                  HTTPS URL *
                 </Typography>
                 <Typography id="resource-url-hint" sx={{ fontSize: 11.5, color: '#6b7280', mb: 0.5 }}>
                   Must start with https:// (for example, https://www.youtube.com/watch?v=... or https://doh.gov.ph/...)
@@ -1174,36 +1559,112 @@ export default function PatientAppResourcesPage() {
                   required
                   placeholder="https://"
                   value={form.url}
-                  onChange={(e) => setForm((prev) => ({ ...prev, url: e.target.value }))}
+                  onChange={(e) => handleUrlInputChange(e.target.value)}
                   onBlur={() => markTouched('url')}
                   error={Boolean(showFieldError('url'))}
-                  helperText={showFieldError('url')}
                   slotProps={{
                     htmlInput: {
                       maxLength: 500,
                       pattern: 'https://.*',
                       'aria-describedby': 'resource-url-hint',
+                      'aria-errormessage': showFieldError('url') ? 'resource-url-error' : undefined,
                       'aria-invalid': Boolean(showFieldError('url')),
                     },
                   }}
                   sx={fieldSx}
                 />
+                <FieldErrorText id="resource-url-error" message={showFieldError('url')} />
+              </Box>
+
+              <Box>
+                <Typography
+                  component="label"
+                  htmlFor="resource-title"
+                  sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}
+                >
+                  Title *
+                </Typography>
+                <Typography id="resource-title-hint" sx={{ fontSize: 11.5, color: '#6b7280', mb: 0.5 }}>
+                  Required — maximum 120 characters
+                </Typography>
+                <TextField
+                  id="resource-title"
+                  fullWidth
+                  size="small"
+                  required
+                  placeholder={
+                    form.type === 'video'
+                      ? 'e.g. What to expect at your first ABTC visit'
+                      : 'e.g. DOH Rabies Prevention Program'
+                  }
+                  value={form.title}
+                  onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+                  onBlur={() => markTouched('title')}
+                  error={Boolean(showFieldError('title'))}
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: 120,
+                      'aria-describedby': 'resource-title-hint',
+                      'aria-errormessage': showFieldError('title') ? 'resource-title-error' : undefined,
+                      'aria-invalid': Boolean(showFieldError('title')),
+                    },
+                  }}
+                  sx={fieldSx}
+                />
+                <FieldErrorText id="resource-title-error" message={showFieldError('title')} />
+              </Box>
+
+              <Box>
+                <Typography
+                  component="label"
+                  htmlFor="resource-subtitle"
+                  sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}
+                >
+                  Description (optional)
+                </Typography>
+                <Typography id="resource-subtitle-hint" sx={{ fontSize: 11.5, color: '#6b7280', mb: 0.5 }}>
+                  Optional short description shown below the title (maximum 160 characters)
+                </Typography>
+                <TextField
+                  id="resource-subtitle"
+                  fullWidth
+                  size="small"
+                  placeholder="Optional description..."
+                  value={form.subtitle}
+                  onChange={(e) => setForm((prev) => ({ ...prev, subtitle: e.target.value }))}
+                  onBlur={() => markTouched('subtitle')}
+                  error={Boolean(showFieldError('subtitle'))}
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: 160,
+                      'aria-describedby': 'resource-subtitle-hint',
+                      'aria-errormessage': showFieldError('subtitle') ? 'resource-subtitle-error' : undefined,
+                      'aria-invalid': Boolean(showFieldError('subtitle')),
+                    },
+                  }}
+                  sx={fieldSx}
+                />
+                <FieldErrorText id="resource-subtitle-error" message={showFieldError('subtitle')} />
               </Box>
 
               {form.type === 'video' && (
                 <Box
                   sx={{
                     display: 'grid',
-                    gridTemplateColumns: { xs: '1fr', sm: '1fr 140px' },
+                    gridTemplateColumns: { xs: '1fr', sm: '1fr 150px' },
                     gap: 1.5,
                   }}
                 >
                   <Box>
-                    <Typography component="label" htmlFor="resource-thumbnail" sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}>
+                    <Typography
+                      component="label"
+                      htmlFor="resource-thumbnail"
+                      sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}
+                    >
                       Thumbnail URL (optional)
                     </Typography>
                     <Typography id="resource-thumbnail-hint" sx={{ fontSize: 11.5, color: '#6b7280', mb: 0.5 }}>
-                      https:// image URL. Leave blank to auto-detect YouTube thumbnail or use teal gradient.
+                      https:// image URL. Leave blank to auto-detect YouTube thumbnail or use the teal placeholder.
                     </Typography>
                     <TextField
                       id="resource-thumbnail"
@@ -1215,22 +1676,29 @@ export default function PatientAppResourcesPage() {
                       onChange={(e) => setForm((prev) => ({ ...prev, thumbnail_url: e.target.value }))}
                       onBlur={() => markTouched('thumbnail_url')}
                       error={Boolean(showFieldError('thumbnail_url'))}
-                      helperText={showFieldError('thumbnail_url')}
                       slotProps={{
                         htmlInput: {
                           maxLength: 500,
                           pattern: 'https://.*',
                           'aria-describedby': 'resource-thumbnail-hint',
+                          'aria-errormessage': showFieldError('thumbnail_url')
+                            ? 'resource-thumbnail-error'
+                            : undefined,
                           'aria-invalid': Boolean(showFieldError('thumbnail_url')),
                         },
                       }}
                       sx={fieldSx}
                     />
+                    <FieldErrorText id="resource-thumbnail-error" message={showFieldError('thumbnail_url')} />
                   </Box>
 
                   <Box>
-                    <Typography component="label" htmlFor="resource-duration" sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}>
-                      Duration
+                    <Typography
+                      component="label"
+                      htmlFor="resource-duration"
+                      sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}
+                    >
+                      Duration Label (optional)
                     </Typography>
                     <Typography id="resource-duration-hint" sx={{ fontSize: 11.5, color: '#6b7280', mb: 0.5 }}>
                       Format m:ss (e.g. 3:45)
@@ -1244,25 +1712,32 @@ export default function PatientAppResourcesPage() {
                       onChange={(e) => setForm((prev) => ({ ...prev, duration_label: e.target.value }))}
                       onBlur={() => markTouched('duration_label')}
                       error={Boolean(showFieldError('duration_label'))}
-                      helperText={showFieldError('duration_label')}
                       slotProps={{
                         htmlInput: {
                           maxLength: 10,
                           pattern: '\\d{1,2}:[0-5]\\d',
                           'aria-describedby': 'resource-duration-hint',
+                          'aria-errormessage': showFieldError('duration_label')
+                            ? 'resource-duration-error'
+                            : undefined,
                           'aria-invalid': Boolean(showFieldError('duration_label')),
                         },
                       }}
                       sx={fieldSx}
                     />
+                    <FieldErrorText id="resource-duration-error" message={showFieldError('duration_label')} />
                   </Box>
                 </Box>
               )}
 
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, pt: 0.5 }}>
-                <Box sx={{ width: 130 }}>
-                  <Typography component="label" htmlFor="resource-sort-order" sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block', mb: 0.5 }}>
-                    Sort order
+                <Box sx={{ width: 140 }}>
+                  <Typography
+                    component="label"
+                    htmlFor="resource-sort-order"
+                    sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block', mb: 0.5 }}
+                  >
+                    Display Order
                   </Typography>
                   <TextField
                     id="resource-sort-order"
@@ -1274,10 +1749,17 @@ export default function PatientAppResourcesPage() {
                     }
                     onBlur={() => markTouched('sort_order')}
                     error={Boolean(showFieldError('sort_order'))}
-                    helperText={showFieldError('sort_order')}
-                    slotProps={{ htmlInput: { min: 0, max: 65535 } }}
+                    slotProps={{
+                      htmlInput: {
+                        min: 0,
+                        max: 65535,
+                        'aria-errormessage': showFieldError('sort_order') ? 'resource-sort-order-error' : undefined,
+                        'aria-invalid': Boolean(showFieldError('sort_order')),
+                      },
+                    }}
                     sx={fieldSx}
                   />
+                  <FieldErrorText id="resource-sort-order-error" message={showFieldError('sort_order')} />
                 </Box>
 
                 <FormControlLabel
@@ -1293,7 +1775,7 @@ export default function PatientAppResourcesPage() {
                   }
                   label={
                     <Typography sx={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>
-                      Active in patient app
+                      Active Status (Published)
                     </Typography>
                   }
                 />
@@ -1319,10 +1801,19 @@ export default function PatientAppResourcesPage() {
                   mb: 1.5,
                 }}
               >
-                Mobile app live preview
+                Mobile App Live Preview
               </Typography>
 
-              <Box sx={{ mb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: 360, mx: 'auto' }}>
+              <Box
+                sx={{
+                  mb: 1,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  maxWidth: 360,
+                  mx: 'auto',
+                }}
+              >
                 <Typography sx={{ fontSize: '11px', fontWeight: 500, color: '#9ca3af', letterSpacing: '0.06em' }}>
                   LEARN MORE
                 </Typography>
@@ -1331,7 +1822,8 @@ export default function PatientAppResourcesPage() {
               <MobileCardLivePreview form={form} />
 
               <Typography sx={{ fontSize: '11.5px', color: '#6b7280', mt: 1.75, lineHeight: 1.45 }}>
-                Tapping this card in the mobile app opens the destination URL externally in the patient&apos;s browser or YouTube app.
+                Tapping this card in the mobile app opens the configured HTTPS URL externally in the patient&apos;s
+                browser or video app.
               </Typography>
             </Box>
           </Box>
@@ -1364,7 +1856,7 @@ export default function PatientAppResourcesPage() {
               '&:hover': { bgcolor: '#17825f', boxShadow: 'none' },
             }}
           >
-            {saving ? 'Saving...' : editingItem ? 'Save changes' : 'Add resource'}
+            {saving ? 'Saving...' : editingItem ? 'Save Changes' : 'Add Resource'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1397,6 +1889,49 @@ export default function PatientAppResourcesPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+    </>
+  );
+}
+
+export default function PatientAppResourcesPage() {
+  return (
+    <Box sx={{ px: { xs: 1, sm: 3 }, pb: 5, maxWidth: 1240, mx: 'auto' }}>
+      <Box
+        sx={{
+          mb: 3,
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 2,
+        }}
+      >
+        <Box>
+          <Typography component="h1" sx={{ fontSize: 22, fontWeight: 700, color: '#111827' }}>
+            Patient App Resources
+          </Typography>
+          <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mt: 0.25 }}>
+            <Box
+              component={RouterLink}
+              to={ROUTES.DASHBOARD}
+              sx={{ color: '#1D9E75', textDecoration: 'none', fontWeight: 500 }}
+            >
+              Dashboard
+            </Box>
+            {' / '}
+            <Box
+              component={RouterLink}
+              to={ROUTES.CLINIC_SETUP.INFO}
+              sx={{ color: '#1D9E75', textDecoration: 'none', fontWeight: 500 }}
+            >
+              Clinic Information
+            </Box>
+            {' / Patient App Resources'}
+          </Typography>
+        </Box>
+      </Box>
+
+      <PatientAppResourcesSection embedded={false} />
     </Box>
   );
 }

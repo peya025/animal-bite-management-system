@@ -37,6 +37,16 @@ class MobileClinicResourceController extends Controller
                 'thumbnail_url',
                 'duration_label',
             ])
+            ->filter(function (ClinicResource $resource): bool {
+                $url = trim((string) $resource->url);
+                if ($url === '' || !str_starts_with(strtolower($url), 'https://')) {
+                    return false;
+                }
+                if (str_contains(strtolower($url), 'replace-with-')) {
+                    return false;
+                }
+                return true;
+            })
             ->map(fn (ClinicResource $resource) => [
                 'id' => $resource->id,
                 'type' => $resource->type,
@@ -58,6 +68,7 @@ class MobileClinicResourceController extends Controller
         $user = $request->user('sanctum') ?? $request->user();
         if ($user instanceof PatientAccount) {
             $linkedClinicId = $user->patients()
+                ->whereNotNull('patients.clinic_id')
                 ->select('patients.clinic_id')
                 ->orderByPivot('is_primary', 'desc')
                 ->value('patients.clinic_id');

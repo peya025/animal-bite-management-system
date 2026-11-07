@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import '../app/api_config.dart';
+
 import '../models/booking_draft.dart';
 import '../models/bite_intake_draft.dart';
 import '../models/bite_intake_contract.dart';
@@ -29,18 +31,18 @@ class MobileApi {
   static final instance = MobileApi._();
 
   // API endpoint is deployment configuration, not a hard-coded LAN address.
-  static String get _baseUrl {
-    final baseUrl = dotenv.env['API_BASE_URL']?.trim().replaceAll(' ', '');
-    if (baseUrl == null || baseUrl.isEmpty) {
-      throw StateError('API_BASE_URL must be configured in mobile/.env.');
-    }
+  static String get _baseUrl => ApiConfig.resolveBaseUrl(
+    envUrl: dotenv.isInitialized ? dotenv.env['API_BASE_URL'] : null,
+  );
 
-    return baseUrl;
-  }
+  static int get clinicId =>
+      int.tryParse(
+        (dotenv.isInitialized ? dotenv.env['CLINIC_ID'] : null) ?? '1',
+      ) ??
+      1;
 
-  static int get clinicId => int.parse(dotenv.env['CLINIC_ID'] ?? '1');
-
-  static const _tokenKey = 'patient_account_token';
+  // Keep local and hosted sign-in sessions separate when replacing a build.
+  static String get _tokenKey => 'patient_account_token:$_baseUrl';
   static const _requestTimeout = Duration(seconds: 20);
   static const _storage = FlutterSecureStorage();
 

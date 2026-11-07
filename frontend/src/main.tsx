@@ -5,6 +5,7 @@ import './styles/global.css'
 import App from './App.tsx'
 import { AppThemeProvider } from './shared/contexts/ThemeContext'
 import { AuthProvider } from './shared/contexts/AuthContext'
+import { WalkthroughProvider } from './features/walkthrough'
 import ErrorBoundary from './components/ErrorBoundary.tsx'
 
 createRoot(document.getElementById('root')!).render(
@@ -12,9 +13,11 @@ createRoot(document.getElementById('root')!).render(
     <CssBaseline />
     <BrowserRouter>
       <AuthProvider>
-        <ErrorBoundary>
-          <App />
-        </ErrorBoundary>
+        <WalkthroughProvider>
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
+        </WalkthroughProvider>
       </AuthProvider>
     </BrowserRouter>
   </AppThemeProvider>,

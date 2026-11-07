@@ -355,7 +355,7 @@ export default function RegistrationReportsPage() {
   ) => {
     const filterContent = (
       <>
-        <div className="rr-filter-row">
+        <div className="rr-filter-row" data-walkthrough="reports-filters" data-tour="reports-filter-controls">
           <TextField select size="small" label="Period" value={preset} onChange={event => { const next = event.target.value; setPreset(next); if (next !== 'custom') setDraft({ ...dateRange(next), category: draft.category }); }}>
             <MenuItem value="today">Today</MenuItem>
             <MenuItem value="week">This week</MenuItem>
@@ -515,7 +515,7 @@ export default function RegistrationReportsPage() {
   );
 
   return <Box className="registration-reports" sx={{ color: 'text.primary', bgcolor: 'background.default' }}>
-    <header className="rr-header">
+    <header className="rr-header" data-walkthrough="reports-header">
       <div>
         <Typography component="h1" sx={{ fontSize: '24px !important', fontWeight: '700 !important', color: 'var(--text-h)', letterSpacing: '-0.02em', lineHeight: 1.2, mb: 0.5 }}>
           Reports &amp; Analytics
@@ -532,13 +532,14 @@ export default function RegistrationReportsPage() {
         </div>
       </div>
       {['overview', 'pep', 'surveillance', 'clinic_summary'].includes(tab) && (
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+        <Stack data-walkthrough="reports-action-buttons" direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <Button variant="outlined" startIcon={<DownloadOutlined />} disabled={!data || Boolean(error) || initialLoading || exporting} onClick={() => void exportReport('csv')}>Export CSV</Button>
           <Button variant="contained" disableElevation startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <PrintOutlined />} disabled={!data || Boolean(error) || initialLoading || exporting} onClick={() => setPrintModalOpen(true)}>Print Report</Button>
         </Stack>
       )}
     </header>
     <Tabs
+      data-walkthrough="reports-tabs" data-tour="reports-category-tabs"
       value={tab}
       onChange={(_, value: ReportTab) => {
         setTab(value);
@@ -591,7 +592,7 @@ export default function RegistrationReportsPage() {
       <div aria-label="Loading reports" aria-busy="true">
         {tab === 'overview' ? (
           <>
-            <div className="rr-overview-top-section">
+            <div className="rr-overview-top-section" data-walkthrough="reports-summary-cards" data-tour="reports-summary-cards">
               <Skeleton variant="rounded" height={195} />
               <Skeleton variant="rounded" height={195} />
               <Skeleton variant="rounded" height={110} />
@@ -604,7 +605,7 @@ export default function RegistrationReportsPage() {
               </div>
               <Skeleton variant="rounded" height={32} sx={{ my: 1.5 }} />
               {renderFilters(false)}
-              <div className="rr-surveillance-row-1">
+              <div className="rr-surveillance-row-1" data-walkthrough="reports-charts" data-tour="reports-charts">
                 {[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={260} />)}
               </div>
               <div className="rr-surveillance-row-2">
@@ -666,7 +667,7 @@ export default function RegistrationReportsPage() {
     {!initialLoading && data && stats && <>
       {tab === 'overview' && <>
         {/* Top Summary Cards 2x2 Grid */}
-        <div className="rr-overview-top-section">
+        <div className="rr-overview-top-section" data-walkthrough="reports-summary-cards" data-tour="reports-summary-cards">
           {/* Row 1, Left: PEP vaccine-course completion */}
           <Paper elevation={0} className="rr-panel rr-metric">
             <h2>PEP vaccine-course completion</h2>
@@ -728,7 +729,7 @@ export default function RegistrationReportsPage() {
           {renderFilters(false)}
 
           {/* Larger analytics charts with equal width and height */}
-          <div className="rr-surveillance-row-1">
+          <div className="rr-surveillance-row-1" data-walkthrough="reports-charts" data-tour="reports-charts">
             <CategoryTrend months={data.months} />
             <Bars title="Age at incident" rows={data.breakdowns.ages} />
             <Bars title="Incident day of week" rows={data.breakdowns.weekdays} />

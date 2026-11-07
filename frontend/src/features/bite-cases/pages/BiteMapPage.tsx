@@ -379,6 +379,7 @@ export default function BiteMapPage() {
 
       {/* ── Unified Map Container (Filter + Map in same div/paper) ── */}
       <Paper
+        data-walkthrough="bitemap-container"
         elevation={0}
         sx={{
           border: '1px solid',
@@ -402,7 +403,7 @@ export default function BiteMapPage() {
             gap: 2,
           }}
         >
-          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          <Stack data-walkthrough="bitemap-filters" direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600 }}>
               <FilterIcon sx={{ fontSize: 18, color: '#10b981' }} /> Filter Map:
             </Box>
@@ -716,9 +717,9 @@ export default function BiteMapPage() {
             </Select>
           </Stack>
 
-          <ButtonGroup size="small" variant="outlined" sx={{ borderRadius: 2 }}>
+          <ButtonGroup data-walkthrough="bitemap-view-toggle" size="small" variant="outlined" sx={{ borderRadius: 2 }}>
             <Button
-              variant={viewMode === 'pins' ? 'contained' : 'outlined'}
+              data-walkthrough="bitemap-pins-btn" data-tour="bite-map-pins-toggle" variant={viewMode === 'pins' ? 'contained' : 'outlined'}
               onClick={() => setViewMode('pins')}
               startIcon={<PinsIcon sx={{ fontSize: 16 }} />}
               sx={{
@@ -733,7 +734,7 @@ export default function BiteMapPage() {
               Pins & Clusters
             </Button>
             <Button
-              variant={viewMode === 'heatmap' ? 'contained' : 'outlined'}
+              data-walkthrough="bitemap-heatmap-btn" data-tour="bite-map-heatmap-toggle" variant={viewMode === 'heatmap' ? 'contained' : 'outlined'}
               onClick={() => setViewMode('heatmap')}
               startIcon={<HeatmapIcon sx={{ fontSize: 16 }} />}
               sx={{
@@ -752,12 +753,12 @@ export default function BiteMapPage() {
 
         <Box sx={{ p: 2 }}>
           {loading ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 8, gap: 2 }}>
+            <Box data-walkthrough="bitemap-map-view" data-tour="bite-map-container" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '650px', width: '100%', gap: 2 }}>
               <CircularProgress sx={{ color: '#10b981' }} />
               <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading incident map data...</Typography>
             </Box>
           ) : data ? (
-            <Box sx={{ position: 'relative', height: '650px', width: '100%' }}>
+            <Box data-walkthrough="bitemap-map-view" data-tour="bite-map-container" sx={{ position: 'relative', height: '650px', width: '100%' }}>
               <BiteMap
                 cases={data.cases}
                 mapCenter={mapCenterOverride}

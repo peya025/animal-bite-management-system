@@ -297,8 +297,14 @@ export function SimpleDashboardPage() {
 
   return (
     <DashboardLayout pageTitle="Dashboard">
-      <div className="sd-dash-header" style={{ marginTop: '4px', marginBottom: '14px' }}>
-        <div>
+      <div
+        className="sd-dashboard-container"
+        data-walkthrough="dashboard-overview"
+        data-tour="dashboard-overview"
+        style={{ width: '100%', minHeight: '100%' }}
+      >
+        <div className="sd-dash-header" data-walkthrough="dashboard-header" style={{ marginTop: '4px', marginBottom: '14px' }}>
+        <div data-walkthrough="dashboard-welcome" data-tour="dashboard-welcome">
           <Typography
             component="h1"
             sx={{
@@ -324,7 +330,7 @@ export function SimpleDashboardPage() {
             Overview · {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </Typography>
         </div>
-        <div className="sd-dash-tabs">
+        <div className="sd-dash-tabs" data-walkthrough="dashboard-tabs" data-tour="dashboard-tabs">
           <button
             className={`sd-dash-tab ${activeTab === 'overview' ? 'sd-dash-tab--active' : ''}`}
             onClick={() => setActiveTab('overview')}
@@ -366,6 +372,7 @@ export function SimpleDashboardPage() {
             <div style={{ minWidth: 0 }}>
               <div
                 className="sd-cards-grid"
+                data-walkthrough="dashboard-stat-cards" data-tour="dashboard-summary-cards"
                 style={{
                   marginBottom: 0,
                   gap: '12px',
@@ -399,7 +406,7 @@ export function SimpleDashboardPage() {
             }}
           >
             {/* Filters Section at the Top */}
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '20px' }} data-walkthrough="dashboard-filters" data-tour="dashboard-filters">
               <p className="sd-filter-title" style={{ marginBottom: '14px', fontSize: '13.5px', fontWeight: 750 }}>
                 Filters
               </p>
@@ -482,6 +489,8 @@ export function SimpleDashboardPage() {
                 gap: '24px',
               }}
               className="sd-analytics-row"
+              data-walkthrough="dashboard-trends"
+              data-tour="dashboard-trends"
             >
               {/* Cases Over Time */}
               <div
@@ -521,6 +530,8 @@ export function SimpleDashboardPage() {
               gap: '18px',
             }}
             className="sd-analytics-row"
+            data-walkthrough="dashboard-risk-row"
+            data-tour="dashboard-risk-row"
           >
             {/* Case Distribution */}
             <div
@@ -837,6 +848,7 @@ export function SimpleDashboardPage() {
           </div>
         </div>
       )}
+      </div>
     </DashboardLayout>
   );
 }
@@ -875,6 +887,8 @@ function SdCalendar() {
   return (
     <div
       className="sd-chart-card"
+      data-walkthrough="dashboard-calendar"
+      data-tour="dashboard-calendar"
       style={{
         display: 'flex',
         flexDirection: 'column',

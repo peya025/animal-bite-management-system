@@ -9,10 +9,10 @@ export const PatientListRoot = styled('div')`
 
   .pm-breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); }
   .pm-breadcrumb-link {
-    background: none; border: none; color: #3b82f6; font-size: 13px;
+    background: none; border: none; color: #059669; font-size: 13px;
     font-family: inherit; cursor: pointer; padding: 0; transition: color 0.15s;
   }
-  .pm-breadcrumb-link:hover { color: #2563eb; text-decoration: underline; }
+  .pm-breadcrumb-link:hover { color: #047857; text-decoration: underline; }
   .pm-breadcrumb-sep { color: var(--card-border); }
   .pm-layout {
     display: flex; flex-direction: column; gap: 20px; width: 100%;

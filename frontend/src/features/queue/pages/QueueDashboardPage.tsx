@@ -948,7 +948,7 @@ export default function QueueDashboard() {
                 <span>
                   <IconButton size="small" onClick={() => setReturnTarget(e)}
                     disabled={e.call_count >= 3}
-                    sx={actionBtn('#2563eb', '#eff6ff', '#bfdbfe', '#dbeafe', '#93c5fd', '#1d4ed8')}>
+                    sx={actionBtn('#059669', '#ecfdf5', '#a7f3d0', '#d1fae5', '#6ee7b7', '#047857')}>
                     <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={16} strokeWidth={2} />
                   </IconButton>
                 </span>
@@ -1004,7 +1004,7 @@ export default function QueueDashboard() {
     <Box sx={{ px: { xs: 1.5, sm: 3 } }}>
 
       {/* ── 1. Compact Header Row (<= 60px tall) ── */}
-      <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, minHeight: 44 }}>
+      <Box data-walkthrough="queue-header" sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, minHeight: 44 }}>
         <Box>
           <Typography
             component="h1"
@@ -1055,7 +1055,7 @@ export default function QueueDashboard() {
 
           {/* Queue Display */}
           <Tooltip title="Open Queue Display (Full Screen)">
-            <button
+            <button data-walkthrough="queue-display-btn"
               onClick={() => window.open('/queue/display', '_blank', 'width=1280,height=720')}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -1103,7 +1103,7 @@ export default function QueueDashboard() {
       </Box>
 
       {/* ── 2. KPI Strip (Waiting, Called, Serving, Completed, Total Today) ── */}
-      <QueueKPIStrip stats={stationStats} onWaitingClick={handleWaitingClick} />
+      <Box data-walkthrough="queue-kpi-strip"><QueueKPIStrip stats={stationStats} onWaitingClick={handleWaitingClick} /></Box>
 
       {/* ── 3. Condensed Vaccine Stock Strip ── */}
       {stationMode !== 'follow_up' && <StockLevelIndicator variant="strip" collapsible showLegend={false} />}
@@ -1134,7 +1134,7 @@ export default function QueueDashboard() {
 
       {/* ── 6. Main Queue Table (Actionable section directly accessible!) ── */}
       <Paper
-        id="queue-table-container"
+        id="queue-table-container" data-walkthrough="queue-table" data-tour="registration-queue-table"
         elevation={0}
         sx={{
           border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-glow, #e2e8f0)',
@@ -1178,7 +1178,7 @@ export default function QueueDashboard() {
           )}
         </Box>
 
-        <Box sx={{ mb: 1.5 }}>
+        <Box sx={{ mb: 1.5 }} data-walkthrough="queue-filter-bar" data-tour="queue-filter-bar">
           <QueueFilterBar
             search={search}
             onSearchChange={v => { setSearch(v); setPage(0); }}

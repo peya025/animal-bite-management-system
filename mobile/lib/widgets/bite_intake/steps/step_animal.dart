@@ -16,7 +16,6 @@ class StepAnimal extends StatelessWidget {
     super.key,
     required this.animalType,
     required this.onAnimalTypeChanged,
-    required this.animalTypeOthersController,
     required this.animalStatus,
     required this.onAnimalStatusChanged,
     required this.animalOwnershipOptions,
@@ -30,7 +29,6 @@ class StepAnimal extends StatelessWidget {
 
   final String animalType;
   final ValueChanged<String> onAnimalTypeChanged;
-  final TextEditingController animalTypeOthersController;
   final String? animalStatus;
   final ValueChanged<String?> onAnimalStatusChanged;
   final Map<String, String> animalOwnershipOptions;
@@ -70,7 +68,9 @@ class StepAnimal extends StatelessWidget {
                   Icon(
                     icon,
                     size: 22,
-                    color: selected ? AppColors.primary : const Color(0xFF6B7280),
+                    color: selected
+                        ? AppColors.primary
+                        : const Color(0xFF6B7280),
                   ),
               const SizedBox(height: 6),
               Text(
@@ -122,28 +122,8 @@ class StepAnimal extends StatelessWidget {
                       : const Color(0xFF6B7280),
                 ),
               ),
-              const SizedBox(width: 8),
-              _animalTypeChip('other', 'Other', icon: LucideIcons.helpCircle),
             ],
           ),
-          if (animalType == 'other') ...[
-            const SizedBox(height: 12),
-            const IntakeFieldLabel('Specify animal species *'),
-            TextFormField(
-              controller: animalTypeOthersController,
-              enabled: !isSubmitting,
-              decoration: const InputDecoration(
-                hintText: 'e.g. Bat, Monkey, Pig, etc.',
-              ),
-              textCapitalization: TextCapitalization.sentences,
-              validator: (v) {
-                if (animalType == 'other' && (v == null || v.trim().isEmpty)) {
-                  return 'Please specify the animal species';
-                }
-                return null;
-              },
-            ),
-          ],
           const SizedBox(height: 16),
 
           const IntakeFieldLabel('Animal ownership *'),
@@ -186,7 +166,10 @@ class StepAnimal extends StatelessWidget {
                 .map(
                   (entry) => DropdownMenuItem(
                     value: entry.key,
-                    child: Text(entry.value, style: const TextStyle(fontSize: 13)),
+                    child: Text(
+                      entry.value,
+                      style: const TextStyle(fontSize: 13),
+                    ),
                   ),
                 )
                 .toList(),

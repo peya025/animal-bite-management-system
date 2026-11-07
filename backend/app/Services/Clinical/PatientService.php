@@ -554,6 +554,11 @@ class PatientService
                 'details',
                 'memberships',
                 'latestConsultationRecord',
+                'biteIntakes' => function ($query) use ($clinicId) {
+                    $query->where('clinic_id', $clinicId)
+                        ->select('intake_id', 'patient_id', 'referral_document_photo', 'submitted_at')
+                        ->orderByDesc('intake_id')->limit(1);
+                },
                 'biteIncidents' => function($query) {
                     $query->with(['treatmentRecords' => function($q) {
                         $q->orderBy('dose_number')->orderBy('scheduled_date');

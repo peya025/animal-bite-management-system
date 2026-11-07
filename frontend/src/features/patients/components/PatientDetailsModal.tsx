@@ -18,6 +18,7 @@ import { Icon } from '../../../shared/components/ui/Icon';
 import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 import { RegistrationVitalsSection, type RegistrationVitalsFields } from './AddPatientModal/sections/RegistrationVitalsSection';
+import OnlineReferralPhoto from './OnlineReferralPhoto';
 import { RegistrationDialog } from './AddPatientModal/RegistrationDialog.styles';
 import { RegistrationErrors } from './AddPatientModal/registrationAccessibility';
 import ConfirmationDialog, { SuccessModal } from '../../../components/feedback/ConfirmationDialog';
@@ -330,6 +331,7 @@ function Form1InlineView({ patient: p, onEdit }: { patient: any; onEdit?: () => 
         </Box>
       </Form1Section>
 
+      <OnlineReferralPhoto patient={p} />
       {/* III. Consultation Details & Vitals */}
       {(() => {
         const latestConsultation =
@@ -1288,6 +1290,7 @@ export default function PatientDetailsModal({
 
                 {/* Section III. Consultation Details & Vitals */}
                 <RegistrationVitalsSection
+                  referralPatient={p}
                   layout="two-column"
                   data={newExposure}
                   onChange={handleVitalsChange}

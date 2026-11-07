@@ -1,4 +1,5 @@
 import AnimalSection from '../AnimalSection';
+import OnlineReferralPhoto from '../../OnlineReferralPhoto';
 import React, { useState, useEffect, useContext } from 'react';
 import { FormField } from './FormField';
 import { RegistrationErrors } from '../registrationAccessibility';
@@ -124,6 +125,7 @@ export interface RegistrationVitalsFields extends Pick<EnrolmentFormData, 'anima
 }
 
 export interface RegistrationVitalsSectionProps<T extends RegistrationVitalsFields = any> {
+  referralPatient?: React.ComponentProps<typeof OnlineReferralPhoto>['patient'];
   data: T;
   onChange: (
     key: any
@@ -160,6 +162,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
   onDirectChange,
   layout = 'two-column',
   errors: propsErrors,
+  referralPatient,
 }: RegistrationVitalsSectionProps<T>) {
   const contextErrors = useContext(RegistrationErrors);
   const errors = propsErrors || contextErrors || {};
@@ -483,6 +486,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
       {/* SECTION III: Consultation Details & Vitals */}
       <div className="fm-section">
         <h3 className="fm-section-title">III. Consultation Details &amp; Vitals</h3>
+        <OnlineReferralPhoto patient={referralPatient} />
         <p className="registration-field-hint" style={{ marginBottom: 12, marginTop: -4 }}>
           Entered by Registration Staff from the patient's referral paper or intake form. These values will be visible to the attending doctor in read-only mode.
         </p>

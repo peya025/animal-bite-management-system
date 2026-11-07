@@ -34,11 +34,41 @@ class BiteIntakeView extends StatefulWidget {
 
 class _BiteIntakeViewState extends State<BiteIntakeView> {
   final _formKey = GlobalKey<FormState>();
+  final Set<int> _validatedSteps = {};
+
+  bool _validateVisibleStep() {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _validatedSteps.add(_currentStep);
+      _error = null;
+    });
+    final invalid = _formKey.currentState!.validateGranularly();
+    if (invalid.isEmpty) return true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final fields = invalid.where((field) => field.mounted).toList();
+      fields.sort((a, b) {
+        final aBox = a.context.findRenderObject() as RenderBox;
+        final bBox = b.context.findRenderObject() as RenderBox;
+        return aBox
+            .localToGlobal(Offset.zero)
+            .dy
+            .compareTo(bBox.localToGlobal(Offset.zero).dy);
+      });
+      if (fields.isNotEmpty) {
+        Scrollable.ensureVisible(
+          fields.first.context,
+          alignment: 0.1,
+          duration: const Duration(milliseconds: 300),
+        );
+      }
+    });
+    return false;
+  }
 
   // Incident & demographics controllers
   final _biteDate = TextEditingController();
   final _purokController = TextEditingController();
-  final _animalTypeOthers = TextEditingController();
   final _bodyPartDetail = TextEditingController();
   final _description = TextEditingController();
 
@@ -168,7 +198,6 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
   void dispose() {
     _biteDate.dispose();
     _purokController.dispose();
-    _animalTypeOthers.dispose();
     _bodyPartDetail.dispose();
     _description.dispose();
     _referralFacility.dispose();
@@ -303,25 +332,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
   // ── Step Navigation & Validation ───────────────────────────────────────────
 
   void _validateAndProceedFromIncident() {
-    final today = DateUtils.dateOnly(DateTime.now());
-    if (DateUtils.dateOnly(_selectedBiteDate).isAfter(today)) {
-      setState(() => _error = 'The incident date must be today or earlier.');
-      return;
-    }
-    if (_exposureType == null) {
-      setState(() => _error = 'Please select the mode of exposure.');
-      return;
-    }
-    if (_bodyPartGroup == null) {
-      setState(() => _error = 'Please select the body-part group.');
-      return;
-    }
-    if (_isReferred && _referralFacility.text.trim().isEmpty) {
-      setState(
-        () => _error = 'Please enter or select the referring health facility.',
-      );
-      return;
-    }
+    if (!_validateVisibleStep()) return;
     setState(() {
       _error = null;
       _currentStep = 2;
@@ -329,18 +340,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
   }
 
   void _validateAndProceedFromAnimal() {
-    if (_animalType.isEmpty) {
-      setState(() => _error = 'Please select the type of animal.');
-      return;
-    }
-    if (_animalType == 'other' && _animalTypeOthers.text.trim().isEmpty) {
-      setState(() => _error = 'Please specify the other animal species.');
-      return;
-    }
-    if (_animalStatus == null) {
-      setState(() => _error = 'Please select animal ownership.');
-      return;
-    }
+    if (!_validateVisibleStep()) return;
     setState(() {
       _error = null;
       _currentStep = 3;
@@ -360,24 +360,26 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
     if (_submitting || _pickingPhoto) return;
 
     final today = DateUtils.dateOnly(DateTime.now());
-    if (DateUtils.dateOnly(_selectedBiteDate).isAfter(today)) {
-      setState(() => _error = 'The incident date must be today or earlier.');
-      return;
-    }
-    if (_exposureType == null) {
-      setState(() => _error = 'Please select the mode of exposure.');
-      return;
-    }
-    if (_animalStatus == null) {
-      setState(() => _error = 'Please select the animal ownership.');
-      return;
-    }
-    if (_bodyPartGroup == null) {
-      setState(() => _error = 'Please select the body-part group.');
-      return;
-    }
-    if (_animalType == 'other' && _animalTypeOthers.text.trim().isEmpty) {
-      setState(() => _error = 'Please specify the other animal species.');
+    final invalidIncident =
+        DateUtils.dateOnly(_selectedBiteDate).isAfter(today) ||
+        _exposureType == null ||
+        _bodyPartGroup == null ||
+        (_isReferred &&
+            [
+              _referralFacility,
+              _referralSystolic,
+              _referralDiastolic,
+              _referralTemperature,
+              _referralHeight,
+              _referralWeight,
+              _referralProvider,
+            ].any((controller) => controller.text.trim().isEmpty));
+    final invalidAnimal = _animalStatus == null;
+    if (invalidIncident || invalidAnimal) {
+      setState(() => _currentStep = invalidIncident ? 1 : 2);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _validateVisibleStep();
+      });
       return;
     }
     final draft = BiteIntakeDraft(
@@ -390,9 +392,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
       washDurationMinutes: null,
       reportedModeOfExposure: _exposureType!,
       animalSpecies: _animalType,
-      animalSpeciesOther: _animalType == 'other'
-          ? _optional(_animalTypeOthers)
-          : null,
+
       animalOwnership: _animalStatus!,
       animalAvailableForObservation: _animalAvailable,
       animalConditionReported: _animalConditionReported,
@@ -494,6 +494,9 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                 padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
                 child: Form(
                   key: _formKey,
+                  autovalidateMode: _validatedSteps.contains(_currentStep)
+                      ? AutovalidateMode.always
+                      : AutovalidateMode.disabled,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -637,12 +640,8 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                           onAnimalTypeChanged: (value) {
                             setState(() {
                               _animalType = value;
-                              if (value != 'other') {
-                                _animalTypeOthers.clear();
-                              }
                             });
                           },
-                          animalTypeOthersController: _animalTypeOthers,
                           animalStatus: _animalStatus,
                           onAnimalStatusChanged: (v) =>
                               setState(() => _animalStatus = v),
@@ -709,7 +708,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
                               ? _optional(_referralProvider)
                               : null,
                           animalType: _animalType,
-                          animalTypeOthers: _optional(_animalTypeOthers),
+                          animalTypeOthers: null,
                           animalStatus: _animalStatus,
                           animalAvailable: _animalAvailable,
                           animalConditionReported: _animalConditionReported,

@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+import '../helpers/required_intake_group.dart';
 
 import '../../../app/app_theme.dart';
 import '../../../services/psgc_service.dart';
@@ -123,6 +124,14 @@ class StepIncident extends StatelessWidget {
           const IntakeFieldLabel('Date of incident *'),
           TextFormField(
             controller: biteDateController,
+            validator: (value) {
+              final date = DateTime.tryParse(value ?? '');
+              if (date == null) return 'Please select the incident date.';
+              if (date.isAfter(DateUtils.dateOnly(DateTime.now()))) {
+                return 'The incident date must be today or earlier.';
+              }
+              return null;
+            },
             readOnly: true,
             onTap: isSubmitting ? null : onChooseBiteDate,
             decoration: InputDecoration(
@@ -234,35 +243,59 @@ class StepIncident extends StatelessWidget {
           const SizedBox(height: 16),
 
           // Mode of exposure
-          const IntakeFieldLabel('Mode of exposure *'),
-          ...exposureModes.entries.map(
-            (opt) => RadioListTile<String>(
-              value: opt.key,
-              groupValue: exposureType,
-              title: Text(opt.value, style: const TextStyle(fontSize: 13)),
-              contentPadding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
-              activeColor: AppColors.primary,
-              onChanged: isSubmitting ? null : onExposureTypeChanged,
+          RequiredIntakeGroup(
+            key: const ValueKey('exposure-validation'),
+            valid: exposureType != null,
+            message: 'Please select the mode of exposure.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const IntakeFieldLabel('Mode of exposure *'),
+                ...exposureModes.entries.map(
+                  (opt) => RadioListTile<String>(
+                    value: opt.key,
+                    groupValue: exposureType,
+                    title: Text(
+                      opt.value,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    activeColor: AppColors.primary,
+                    onChanged: isSubmitting ? null : onExposureTypeChanged,
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-
           // Body-part group
-          const IntakeFieldLabel('Body-part group *'),
-          ...bodyPartGroups.entries.map(
-            (opt) => RadioListTile<String>(
-              value: opt.key,
-              groupValue: bodyPartGroup,
-              title: Text(opt.value, style: const TextStyle(fontSize: 13)),
-              contentPadding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
-              activeColor: AppColors.primary,
-              onChanged: isSubmitting ? null : onBodyPartGroupChanged,
+          RequiredIntakeGroup(
+            key: const ValueKey('body-part-validation'),
+            valid: bodyPartGroup != null,
+            message: 'Please select the body-part group.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const IntakeFieldLabel('Body-part group *'),
+                ...bodyPartGroups.entries.map(
+                  (opt) => RadioListTile<String>(
+                    value: opt.key,
+                    groupValue: bodyPartGroup,
+                    title: Text(
+                      opt.value,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    activeColor: AppColors.primary,
+                    onChanged: isSubmitting ? null : onBodyPartGroupChanged,
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-
           // Specific body part
           const IntakeFieldLabel('Specific body part or wound location'),
           TextFormField(
@@ -435,6 +468,9 @@ class StepIncident extends StatelessWidget {
                   const IntakeFieldLabel('3. Health Center / Facility Name *'),
                   TextFormField(
                     controller: referralFacilityController,
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Please enter or select the referring health facility.'
+                        : null,
                     enabled: !isSubmitting,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
@@ -586,7 +622,7 @@ class StepIncident extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Optional — doctor will re-check and confirm these onsite.',
+                    'Required when referred — copy these values from the referral form. The doctor will re-check them onsite.',
                     style: TextStyle(
                       fontSize: 11.5,
                       color: AppColors.gray600,
@@ -602,7 +638,7 @@ class StepIncident extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 4,
                     children: [
-                      const IntakeFieldLabel('Blood Pressure (mmHg)'),
+                      const IntakeFieldLabel('Blood Pressure (mmHg) *'),
                       ListenableBuilder(
                         listenable: Listenable.merge([
                           referralSystolicController,
@@ -620,6 +656,9 @@ class StepIncident extends StatelessWidget {
                       Expanded(
                         child: TextFormField(
                           controller: referralSystolicController,
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Systolic is required.'
+                              : null,
                           enabled: !isSubmitting,
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.center,
@@ -643,6 +682,9 @@ class StepIncident extends StatelessWidget {
                       Expanded(
                         child: TextFormField(
                           controller: referralDiastolicController,
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Diastolic is required.'
+                              : null,
                           enabled: !isSubmitting,
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.center,
@@ -663,7 +705,7 @@ class StepIncident extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 4,
                     children: [
-                      const IntakeFieldLabel('Temperature (°C)'),
+                      const IntakeFieldLabel('Temperature (°C) *'),
                       ListenableBuilder(
                         listenable: referralTemperatureController,
                         builder: (context, _) => TempStatusBadge(
@@ -674,6 +716,9 @@ class StepIncident extends StatelessWidget {
                   ),
                   TextFormField(
                     controller: referralTemperatureController,
+                    validator: (v) => v == null || v.trim().isEmpty
+                        ? 'Temperature is required.'
+                        : null,
                     enabled: !isSubmitting,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
@@ -689,9 +734,12 @@ class StepIncident extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const IntakeFieldLabel('Height (cm)'),
+                            const IntakeFieldLabel('Height (cm) *'),
                             TextFormField(
                               controller: referralHeightController,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Height is required.'
+                                  : null,
                               enabled: !isSubmitting,
                               keyboardType: TextInputType.number,
                               decoration: const InputDecoration(
@@ -706,9 +754,12 @@ class StepIncident extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const IntakeFieldLabel('Weight (kg)'),
+                            const IntakeFieldLabel('Weight (kg) *'),
                             TextFormField(
                               controller: referralWeightController,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Weight is required.'
+                                  : null,
                               enabled: !isSubmitting,
                               keyboardType: TextInputType.number,
                               decoration: const InputDecoration(
@@ -723,9 +774,12 @@ class StepIncident extends StatelessWidget {
                   const SizedBox(height: 12),
 
                   // Attending Provider Name
-                  const IntakeFieldLabel('Name of Attending Provider'),
+                  const IntakeFieldLabel('Name of Attending Provider *'),
                   TextFormField(
                     controller: referralProviderController,
+                    validator: (v) => v == null || v.trim().isEmpty
+                        ? 'Attending provider is required.'
+                        : null,
                     enabled: !isSubmitting,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(

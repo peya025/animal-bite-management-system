@@ -13,8 +13,21 @@ class IntakeFieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        text,
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: text.endsWith(' *')
+                  ? text.substring(0, text.length - 1)
+                  : text,
+            ),
+            if (text.endsWith(' *'))
+              const TextSpan(
+                text: '*',
+                style: TextStyle(color: AppColors.error),
+              ),
+          ],
+        ),
         style: const TextStyle(
           color: AppColors.gray700,
           fontSize: 12,
@@ -124,11 +137,7 @@ class IntakeSummaryHeader extends StatelessWidget {
 
 /// Standardized two-column review row.
 class IntakeReviewRow extends StatelessWidget {
-  const IntakeReviewRow({
-    super.key,
-    required this.label,
-    required this.value,
-  });
+  const IntakeReviewRow({super.key, required this.label, required this.value});
 
   final String label;
   final String value;
@@ -324,7 +333,10 @@ class IntakeStepNavigation extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text('Back', style: TextStyle(color: Color(0xFF374151))),
+                child: const Text(
+                  'Back',
+                  style: TextStyle(color: Color(0xFF374151)),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -350,7 +362,10 @@ class IntakeStepNavigation extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text('Back', style: TextStyle(color: Color(0xFF374151))),
+                child: const Text(
+                  'Back',
+                  style: TextStyle(color: Color(0xFF374151)),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -376,7 +391,10 @@ class IntakeStepNavigation extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text('Back', style: TextStyle(color: Color(0xFF374151))),
+                child: const Text(
+                  'Back',
+                  style: TextStyle(color: Color(0xFF374151)),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -402,7 +420,10 @@ class IntakeStepNavigation extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text('Back', style: TextStyle(color: Color(0xFF374151))),
+                child: const Text(
+                  'Back',
+                  style: TextStyle(color: Color(0xFF374151)),
+                ),
               ),
             ),
             const SizedBox(width: 12),

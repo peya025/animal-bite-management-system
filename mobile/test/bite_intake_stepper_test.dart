@@ -55,6 +55,35 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('referral vitals are required only while referral is enabled', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(500, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(buildIntakeView());
+    await tester.pump(const Duration(milliseconds: 300));
+    await tapVisible(tester, find.text('Next: Incident details'));
+    await tapVisible(tester, find.text('Transdermal bite'));
+    await tapVisible(tester, find.text('Upper extremities (arm or hand)'));
+    await tapVisible(tester, find.byType(Switch));
+    await tapVisible(tester, find.text('Next: Animal details'));
+    for (final field in [
+      'Systolic',
+      'Diastolic',
+      'Temperature',
+      'Height',
+      'Weight',
+      'Attending provider',
+    ]) {
+      expect(find.text('$field is required.'), findsOneWidget);
+    }
+    expect(find.text('Step 2 of 5 — Incident details'), findsOneWidget);
+    await tapVisible(tester, find.byType(Switch));
+    await tapVisible(tester, find.text('Next: Animal details'));
+    expect(find.text('Step 3 of 5 — Animal details'), findsOneWidget);
+  });
   testWidgets(
     'BiteIntakeView renders Step 1 (Patient) as read-only Form 1 info',
     (tester) async {
@@ -103,78 +132,71 @@ void main() {
       await tapVisible(tester, find.text('Next: Animal details'));
 
       expect(find.text('Please select the mode of exposure.'), findsOneWidget);
+      expect(find.text('Please select the body-part group.'), findsOneWidget);
+      final exposureGroup = find.byKey(const ValueKey('exposure-validation'));
+      expect(tester.getTopLeft(exposureGroup).dy, greaterThanOrEqualTo(0));
+      expect(tester.getTopLeft(exposureGroup).dy, lessThan(1000));
+      final errorField = tester.state<FormFieldState<bool>>(
+        find.descendant(
+          of: exposureGroup,
+          matching: find.byType(FormField<bool>),
+        ),
+      );
+      expect(errorField.hasError, isTrue);
+      await tapVisible(tester, find.text('Transdermal bite'));
+      expect(find.text('Please select the mode of exposure.'), findsNothing);
+      expect(find.text('Please select the body-part group.'), findsOneWidget);
       // Still on Step 2
       expect(find.text('Step 2 of 5 — Incident details'), findsOneWidget);
     },
   );
 
-  testWidgets(
-    'BiteIntakeView Step 3 (Animal) provides Dog, Cat, Other with required textbox for Other',
-    (tester) async {
-      tester.view.physicalSize = const Size(500, 1000);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets('BiteIntakeView Step 3 (Animal) provides only Dog and Cat', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(500, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(buildIntakeView());
-      await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpWidget(buildIntakeView());
+    await tester.pump(const Duration(milliseconds: 300));
 
-      // Go to Step 2
-      await tapVisible(tester, find.text('Next: Incident details'));
+    // Go to Step 2
+    await tapVisible(tester, find.text('Next: Incident details'));
 
-      // Fill Step 2 required fields
-      await tapVisible(tester, find.text('Transdermal bite'));
-      await tapVisible(tester, find.text('Upper extremities (arm or hand)'));
+    // Fill Step 2 required fields
+    await tapVisible(tester, find.text('Transdermal bite'));
+    await tapVisible(tester, find.text('Upper extremities (arm or hand)'));
 
-      // Advance to Step 3
-      await tapVisible(tester, find.text('Next: Animal details'));
+    // Advance to Step 3
+    await tapVisible(tester, find.text('Next: Animal details'));
 
-      expect(find.text('Step 3 of 5 — Animal details'), findsOneWidget);
-      expect(find.text('60%'), findsOneWidget);
+    expect(find.text('Step 3 of 5 — Animal details'), findsOneWidget);
+    expect(find.text('60%'), findsOneWidget);
 
-      // Verify Animal options: Dog, Cat, Other
-      expect(find.text('Dog'), findsOneWidget);
-      expect(find.text('Cat'), findsOneWidget);
-      expect(find.text('Other'), findsOneWidget);
+    // Verify Animal options: Dog, Cat, Other
+    expect(find.text('Dog'), findsOneWidget);
+    expect(find.text('Cat'), findsOneWidget);
+    expect(find.text('Other'), findsNothing);
 
-      // By default, 'Dog' is selected, so the 'Specify animal species *' textbox is NOT visible
-      expect(find.text('Specify animal species *'), findsNothing);
+    // By default, 'Dog' is selected, so the 'Specify animal species *' textbox is NOT visible
+    expect(find.text('Specify animal species *'), findsNothing);
 
-      // Tap 'Cat' - textbox remains hidden
-      await tapVisible(tester, find.text('Cat'));
-      expect(find.text('Specify animal species *'), findsNothing);
+    // Tap 'Cat' - textbox remains hidden
+    await tapVisible(tester, find.text('Cat'));
+    expect(find.text('Specify animal species *'), findsNothing);
 
-      // Tap 'Other' - opens required textbox
-      await tapVisible(tester, find.text('Other'));
-      expect(find.text('Specify animal species *'), findsOneWidget);
+    // Select animal ownership
+    await tapVisible(tester, find.text('Select ownership'));
+    await tapVisible(tester, find.text('Stray').last);
 
-      // Select animal ownership
-      await tapVisible(tester, find.text('Select ownership'));
-      await tapVisible(tester, find.text('Stray').last);
+    // Advance to Step 4
+    await tapVisible(tester, find.text('Next: Previous history'));
 
-      // Attempt to advance with empty other textbox -> error
-      await tapVisible(tester, find.text('Next: Previous history'));
-
-      expect(
-        find.text('Please specify the other animal species.'),
-        findsOneWidget,
-      );
-      expect(find.text('Step 3 of 5 — Animal details'), findsOneWidget);
-
-      // Fill in other animal species
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'e.g. Bat, Monkey, Pig, etc.'),
-        'Bat',
-      );
-      await tester.pumpAndSettle();
-
-      // Advance to Step 4
-      await tapVisible(tester, find.text('Next: Previous history'));
-
-      expect(find.text('Step 4 of 5 — Previous history'), findsOneWidget);
-      expect(find.text('80%'), findsOneWidget);
-    },
-  );
+    expect(find.text('Step 4 of 5 — Previous history'), findsOneWidget);
+    expect(find.text('80%'), findsOneWidget);
+  });
 
   testWidgets(
     'BiteIntakeView Step 5 (Review and book) displays all patient-reported sections and disclaimer',

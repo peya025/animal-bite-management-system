@@ -289,10 +289,14 @@ class _SettingsViewState extends State<SettingsView> {
                         // 2. Profile hero card
                         if (_loadingAccount)
                           Container(
-                            height: 80,
+                            height: 220,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1D9E75),
-                              borderRadius: BorderRadius.circular(16),
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(0xFFE5E7EB),
+                                width: 0.8,
+                              ),
                             ),
                             alignment: Alignment.center,
                             child: const SizedBox(
@@ -300,17 +304,22 @@ class _SettingsViewState extends State<SettingsView> {
                               height: 24,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                color: Colors.white,
+                                color: Color(0xFF1D9E75),
                               ),
                             ),
                           )
                         else if (_account case final account?)
                           ProfileCard(
+                            accountId: account.id,
                             name: account.name,
                             email: account.email,
                             phone: account.phone,
                             patientCount: account.patients.length,
+                            patients: account.patients,
                             onEdit: _editAccount,
+                            onAddDependent: _addDependent,
+                            onOpenVaccinationCard: () =>
+                                showDigitalVaccinationCard(context),
                           )
                         else
                           Material(

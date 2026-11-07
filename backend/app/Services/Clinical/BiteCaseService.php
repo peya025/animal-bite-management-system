@@ -99,6 +99,7 @@ class BiteCaseService
                 'animal_status' => 'unassessed',
                 'animal_captured' => null,
                 'animal_observation_status' => null,
+                ...\App\Support\RegistrationAnimal::values($validated),
                 'site_number' => null,
                 'wound_description' => null,
                 'status' => 'awaiting_assessment',
@@ -513,7 +514,7 @@ class BiteCaseService
                 $lastIncident = $locationCases->sortByDesc('bite_date')->first()?->bite_date;
 
                 $animalTypes = $locationCases->map(function (BiteIncident $case) {
-                    return strtolower(trim((string) ($case->intake?->animal_type ?: $case->animal_type ?: 'other')));
+                    return strtolower(trim((string) ($case->animal_type ?: $case->intake?->animal_type ?: 'unknown')));
                 })->map(fn ($type) => in_array($type, ['dog', 'cat'], true) ? $type : 'other')->countBy();
 
                 return [
@@ -560,7 +561,7 @@ class BiteCaseService
                     'bite_date' => $case->bite_date?->format('M d, Y'),
                     'location' => trim((string) $case->bite_place) ?: 'Unknown',
                     'category' => $case->bite_category,
-                    'animal_type' => strtolower(trim((string) ($case->intake?->animal_type ?: $case->animal_type ?: 'other'))),
+                    'animal_type' => strtolower(trim((string) ($case->animal_type ?: $case->intake?->animal_type ?: 'unknown'))),
                     'status' => $case->resolved_status ?? $case->resolveStatus(),
                     'is_overdue' => $overdue['is_overdue'],
                     'days_overdue' => $overdue['days_overdue'],

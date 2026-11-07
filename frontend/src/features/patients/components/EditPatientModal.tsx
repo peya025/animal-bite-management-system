@@ -1,3 +1,4 @@
+import AnimalSection from './AddPatientModal/AnimalSection';
 import { useState, useEffect } from 'react';
 import FormModal from '../../../components/forms/FormModal';
 import { formatPhilHealthNumber, formatPWDNumber } from '../../../shared/utils';
@@ -150,6 +151,14 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
     const membershipFields = buildLegacyMembershipFields(enrolment);
 
     const payload = {
+      ...(enrolment.animal_bite_id ? {
+        animal_bite_id: enrolment.animal_bite_id,
+        animal_type: enrolment.animal_type || undefined,
+        animal_type_others: enrolment.animal_type_others || undefined,
+        animal_status: enrolment.animal_status || undefined,
+        animal_available: enrolment.animal_available || undefined,
+        animal_condition: enrolment.animal_condition || undefined,
+      } : {}),
       first_name: enrolment.first_name.trim(),
       middle_name: cleanField(enrolment.middle_name),
       last_name: enrolment.last_name.trim(),
@@ -226,6 +235,28 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
         <ContactSection data={enrolment} onChange={handleFieldChange} />
         <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />
         <GovProgramsSection data={enrolment} onChange={handleFieldChange} onDirectChange={handleDirectChange} />
+        <label>Animal information for bite incident
+          <select aria-label="Animal bite incident" value={enrolment.animal_bite_id || ''} onChange={event => {
+            const incident = (toRecord(fullPatient).bite_incidents as any[] || []).find(item => item.bite_id === Number(event.target.value));
+            const intake = incident?.intake || {};
+            const available = incident?.animal_available_answered ? incident.animal_available : (incident?.animal_available ?? intake.animal_available);
+            const condition = incident?.animal_observation_status || incident?.animal_condition_reported || intake.animal_condition_reported || '';
+            const next = { ...enrolment, animal_bite_id: incident?.bite_id,
+              animal_type: incident?.animal_type || intake.animal_type || '',
+              animal_type_others: incident?.animal_type_others || intake.animal_type_others || '',
+              animal_status: (incident?.animal_status === 'unassessed' ? '' : incident?.animal_status) || intake.animal_status || '',
+              animal_available: available == null ? (incident?.animal_available_answered ? 'unknown' : '') : available ? 'yes' : 'no',
+              animal_condition: condition === 'apparently_healthy' ? 'healthy' : condition === 'dead' ? 'died' : condition,
+            };
+            setEnrolment(next); draft.saveDraft(next);
+          }}>
+            <option value="">Select incident</option>
+            {(toRecord(fullPatient).bite_incidents as any[] || []).map(incident => <option key={incident.bite_id} value={incident.bite_id}>
+              {incident.case_number || `Incident ${incident.bite_id}`}  -  {String(incident.bite_date).split('T')[0]}
+            </option>)}
+          </select>
+        </label>
+        {enrolment.animal_bite_id && <AnimalSection data={enrolment} onChange={handleDirectChange} />}
       </PatientFormContent>
     </FormModal>
   );

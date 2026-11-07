@@ -59,10 +59,10 @@ class DohReportService
             $hrig = $cases->filter(fn($c) => ($c->intake?->rig_type ?? $c->rig_type) === 'HRIG')->count();
             $erig = $cases->filter(fn($c) => ($c->intake?->rig_type ?? $c->rig_type) === 'ERIG')->count();
 
-            $dog = $cases->filter(fn($c) => strtolower($c->intake?->animal_type ?? $c->animal_type ?? '') === 'dog')->count();
-            $cat = $cases->filter(fn($c) => strtolower($c->intake?->animal_type ?? $c->animal_type ?? '') === 'cat')->count();
+            $dog = $cases->filter(fn($c) => strtolower($c->animal_type ?? $c->intake?->animal_type ?? '') === 'dog')->count();
+            $cat = $cases->filter(fn($c) => strtolower($c->animal_type ?? $c->intake?->animal_type ?? '') === 'cat')->count();
             $others = $cases->filter(function ($c) {
-                $type = strtolower(trim($c->intake?->animal_type ?? $c->animal_type ?? ''));
+                $type = strtolower(trim($c->animal_type ?? $c->intake?->animal_type ?? ''));
                 return $type !== '' && !in_array($type, ['dog', 'cat'], true);
             })->count();
 
@@ -463,7 +463,7 @@ class DohReportService
                 'gender' => $c->patient?->gender ? ucfirst($c->patient->gender) : '—',
                 'bite_date' => $c->bite_date ? Carbon::parse($c->bite_date)->format('Y-m-d') : '—',
                 'category' => $c->bite_category ?? '—',
-                'animal_type' => ucfirst($c->intake?->animal_type ?? $c->animal_type ?? '—'),
+                'animal_type' => ucfirst($c->animal_type ?? $c->intake?->animal_type ?? '—'),
                 'animal_status' => ucfirst($c->intake?->animal_status ?? $c->animal_status ?? '—'),
                 'place_of_exposure' => $c->bite_place ?? $c->intake?->place_of_bite ?? $c->intake?->bite_place ?? '—',
                 'pep_given' => $this->hasAdministeredVaccineDose($c) ? 'Yes' : 'No',

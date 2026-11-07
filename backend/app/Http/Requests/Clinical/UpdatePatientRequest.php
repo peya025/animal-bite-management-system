@@ -23,6 +23,10 @@ class UpdatePatientRequest extends FormRequest
         $user = $this->user();
         $isAdminOrReg = in_array($user->role, ['admin', 'registration', 'developer'], true);
 
+        if (!$isAdminOrReg && $this->filled('animal_bite_id')) {
+            abort(403, 'Only Registration Staff or Administrators can edit registration animal details.');
+        }
+
         if (!$isAdminOrReg) {
             $legalFields = ['first_name', 'last_name', 'middle_name', 'suffix', 'gender', 'date_of_birth', 'philhealth_no', 'hospital_no'];
             foreach ($legalFields as $field) {
@@ -52,6 +56,8 @@ class UpdatePatientRequest extends FormRequest
         $membershipService = app(PatientMembershipService::class);
 
         return array_merge([
+            ...\App\Support\RegistrationAnimal::rules(),
+            'animal_bite_id' => ['nullable', 'integer', Rule::exists('bite_incidents', 'bite_id')->where('patient_id', $patientId)->where('clinic_id', $this->user()->clinic_id)],
             'first_name' => 'sometimes|required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'sometimes|required|string|max:255',

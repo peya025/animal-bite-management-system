@@ -82,9 +82,36 @@ class BiteCaseController extends Controller
     }
 
     /**
-     * Update the specified bite case.
-     * Access: admin, triage
+     * Read-only, clinic-authorized details for one map incident.
      */
+    public function mapDetails(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user instanceof \App\Models\User && $user->is_active && $user->clinic_id, 403);
+        $incident = \App\Models\BiteIncident::where('clinic_id', $user->clinic_id)->findOrFail($id);
+        $patient = $incident->patient()->where('clinic_id', $user->clinic_id)
+            ->with(['details', 'memberships'])->firstOrFail();
+        \Illuminate\Support\Facades\Gate::authorize('view', $patient);
+        // No patient-wide fallback: every clinical query belongs to this exact episode.
+        $scope = fn ($query) => $query->where('clinic_id', $user->clinic_id)
+            ->where('patient_id', $patient->patient_id);
+        $records = $incident->treatmentRecords()->where($scope)->live()
+            ->with('administeredBy:id,name')->orderBy('treatment_id')->get();
+        $assessments = $records->filter(fn ($r) => $r->dose_number === null && $r->medication_given === null);
+        $nurseRecords = $records->reject(fn ($r) => $r->dose_number === null && $r->medication_given === null);
+        $patient->setAppends(['name', 'age']);
+        return response()->json([
+            'incident' => $incident,
+            'patient' => $patient,
+            'assessments' => $assessments->values(),
+            'nurse_records' => $nurseRecords->filter(fn ($r) => $r->treatment_date || $r->administered_at || in_array($r->status, ['completed', 'administered'], true))->values(),
+            'plan' => $incident->treatmentPlan()->where($scope)->first(),
+            'schedules' => $nurseRecords->whereNotNull('dose_number')->values(),
+            'treatment_card' => \App\Models\TagoloanTreatmentCard::where('bite_id', $id)->where($scope)->first(),
+            'intake' => $incident->intake()->where($scope)->first(),
+        ])->header('Cache-Control', 'private, no-store');
+    }
+
     public function update(UpdateBiteCaseRequest $request, int|string $id): JsonResponse
     {
         $incident = $this->biteCaseService->updateBiteCase(

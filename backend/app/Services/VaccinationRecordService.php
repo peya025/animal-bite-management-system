@@ -177,28 +177,6 @@ class VaccinationRecordService
                 ], true))->unique()->values();
             $verifiedBodyPart = $selectedBodyParts->count() > 1 ? 'multiple_sites' : $selectedBodyParts->first();
 
-            $animalType      = strtolower(trim((string) ($validated['animal_type'] ?? '')));
-            $animalTypeOther = trim((string) ($validated['animal_type_other'] ?? ''));
-            if ($animalType !== '' && !in_array($animalType, ['dog', 'cat', 'other'], true)) {
-                $animalTypeOther = $animalTypeOther ?: $animalType;
-                $animalType      = 'other';
-            }
-
-            $animalAvailable = $validated['animal_available'] ?? null;
-            $animalAvailableBool = match ($animalAvailable) {
-                'yes', 'true', true, 1, '1' => true,
-                'no', 'false', false, 0, '0' => false,
-                default => null,
-            };
-            $animalCondition   = $validated['animal_condition'] ?? null;
-            $observationStatus = match ($animalCondition) {
-                'apparently_healthy','healthy' => 'healthy',
-                'sick'                        => 'sick',
-                'dead','died'                 => 'died',
-                'unknown'                     => 'unknown',
-                default                       => null,
-            };
-
             $assessmentUpdates = array_filter([
                 'bite_date'                 => $validated['date_of_exposure'] ?? null,
                 'bite_place'                => $validated['place_of_exposure'] ?? null,
@@ -206,13 +184,6 @@ class VaccinationRecordService
                 'exposure_type'             => $verifiedMode ? $exposureTypeMap[$verifiedMode] : null,
                 'body_part_exposed'         => $verifiedBodyPart,
                 'site_number'               => $validated['body_part_detail'] ?? null,
-                'animal_type'               => $animalType ?: null,
-                'animal_type_others'        => $animalType === 'other' ? ($animalTypeOther ?: null) : null,
-                'animal_status'             => $validated['animal_status'] ?? null,
-                'animal_available'          => $animalAvailableBool,
-                'animal_captured'           => $animalAvailableBool ?? false,
-                'animal_observation_status' => $observationStatus,
-                'animal_condition_reported' => $animalCondition ?: null,
             ], fn($v) => $v !== null && $v !== '');
 
             if ($assessmentUpdates) {
@@ -424,8 +395,8 @@ class VaccinationRecordService
                 ...($exposureCategory !== null ? ['exposure_category' => $exposureCategory] : []),
                 'mode_of_exposure'   => $modeOfExposure,
                 'body_part_exposed'  => $bodyPartExposed,
-                'animal_type'        => $treatmentIncident->animal_type,
-                'animal_type_others' => $treatmentIncident->animal_type_others,
+                'animal_type'        => $treatmentIncident->animal_type ?? TagoloanTreatmentCard::where('bite_id', $treatmentIncident->bite_id)->value('animal_type') ?? 'unknown',
+                'animal_type_others' => $treatmentIncident->animal_type_others ?? (!$treatmentIncident->animal_type ? TagoloanTreatmentCard::where('bite_id', $treatmentIncident->bite_id)->value('animal_type_others') : null),
                 'past_bite_history'  => ($validated['past_history_bite'] ?? null) === 'yes',
                 'past_bite_dates'    => $validated['past_bite_dates'] ?? null,
                 'past_pep_completed' => in_array($validated['pep_completed'] ?? null, ['yes', 'completed', true, '1', 1], true),

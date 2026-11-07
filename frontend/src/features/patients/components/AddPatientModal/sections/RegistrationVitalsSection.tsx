@@ -1,3 +1,4 @@
+import AnimalSection from '../AnimalSection';
 import React, { useState, useEffect, useContext } from 'react';
 import { FormField } from './FormField';
 import { RegistrationErrors } from '../registrationAccessibility';
@@ -110,7 +111,7 @@ const EXTENDED_FALLBACK_BARANGAYS: Record<string, PsgcItem[]> = {
   ],
 };
 
-export interface RegistrationVitalsFields {
+export interface RegistrationVitalsFields extends Pick<EnrolmentFormData, 'animal_type' | 'animal_type_others' | 'animal_status' | 'animal_available' | 'animal_condition'> {
   reg_date_of_consultation: string;
   reg_consultation_time: string;
   reg_blood_pressure: string;
@@ -476,6 +477,8 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
           </>
         )}
       </div>
+
+      <AnimalSection data={data} onChange={onDirectChange} />
 
       {/* SECTION III: Consultation Details & Vitals */}
       <div className="fm-section">

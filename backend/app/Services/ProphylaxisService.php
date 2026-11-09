@@ -43,11 +43,69 @@ class ProphylaxisService
         return (bool) preg_match('/(?:^|[^a-z])ATS(?:$|[^a-z])|anti[- ]?tetanus serum|tetanus serum/i', $name);
     }
 
+    public static function isRigBrand(string $vaccineType, array $knownBrands = []): bool
+    {
+        $name = trim($vaccineType);
+        if ($name === '') return false;
+        foreach ($knownBrands as $brand) {
+            if (strcasecmp($brand, $name) === 0) {
+                return true;
+            }
+        }
+        return (bool) preg_match('/(?:^|[^a-z])(?:ERIG|RIG|equirab|favirab)(?:$|[^a-z])|equine rabies|rabies immunoglobulin|rabies immune globulin/i', $name);
+    }
+
+    public static function configuredRigBrands(?int $clinicId = null): array
+    {
+        $presets = \App\Models\VaccineTypePreset::query()
+            ->when($clinicId !== null, fn ($q) => $q->where(fn ($sub) => $sub->whereNull('clinic_id')->orWhere('clinic_id', $clinicId)))
+            ->get();
+
+        $brands = ['ERIG'];
+        foreach ($presets as $preset) {
+            $cat = $preset->category ?? '';
+            $vName = trim((string) $preset->vaccine_name);
+            if ($vName !== '' && (
+                preg_match('/(?:^|[^a-z])(?:RIG|ERIG|HRIG|immunoglobulin)(?:$|[^a-z])/i', $cat)
+                || self::isRigBrand($vName)
+            )) {
+                $brands[] = $vName;
+            }
+        }
+
+        if ($clinicId !== null) {
+            $batchTypes = VaccineInventory::where('clinic_id', $clinicId)
+                ->pluck('vaccine_type')
+                ->unique();
+            foreach ($batchTypes as $bType) {
+                if (self::isRigBrand((string) $bType, $brands)) {
+                    $brands[] = trim((string) $bType);
+                }
+            }
+        }
+
+        return array_values(array_unique($brands));
+    }
+
     public static function inventoryMedication(string $vaccineType, array $knownBrands = []): ?string
     {
         $name = trim($vaccineType);
-        if (preg_match('/(?:^|[^a-z])ERIG(?:$|[^a-z])|equine rabies immunoglobulin|equine rabies immune globulin/i', $name)) return 'ERIG';
-        if (self::isAtsBrand($name, $knownBrands)) return 'ATS';
+        if (self::isRigBrand($name, $knownBrands)) {
+            foreach ($knownBrands as $brand) {
+                if (strcasecmp($brand, $name) === 0) {
+                    return $brand;
+                }
+            }
+            return 'ERIG';
+        }
+        if (self::isAtsBrand($name, $knownBrands)) {
+            foreach ($knownBrands as $brand) {
+                if (strcasecmp($brand, $name) === 0) {
+                    return $brand;
+                }
+            }
+            return 'ATS';
+        }
         if (self::isTetanusBrand($name, $knownBrands)) {
             foreach ($knownBrands as $brand) {
                 if (strcasecmp($brand, $name) === 0) {
@@ -66,7 +124,20 @@ class ProphylaxisService
             'prophylaxis_orders.tetanus_category' => 'nullable|in:ats,tt,ats_tt,not_indicated',
             'prophylaxis_orders.tetanus_vaccine' => 'nullable|string|max:100',
             'prophylaxis_orders.tetanus_passive' => 'nullable|string|max:100',
-            'prophylaxis_orders.rig' => 'nullable|in:none,ERIG',
+            'prophylaxis_orders.rig' => [
+                'nullable',
+                'string',
+                'max:100',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if ($value === null || $value === '' || $value === 'none') {
+                        return;
+                    }
+                    $clinicId = auth()->user()?->clinic_id;
+                    if (!self::isRigBrand((string) $value, self::configuredRigBrands($clinicId ? (int) $clinicId : null))) {
+                        $fail('The selected ' . $attribute . ' is invalid.');
+                    }
+                },
+            ],
             'prophylaxis_orders.tetanus_history' => 'nullable|in:unknown,incomplete,complete',
             'prophylaxis_orders.tetanus_last_dose' => 'nullable|date_format:Y-m-d|before_or_equal:today',
             'prophylaxis_orders.rig_weight_kg' => 'nullable|numeric|gt:0|max:700',
@@ -93,12 +164,13 @@ class ProphylaxisService
             }
         }
 
-        if (in_array($orders['rig'] ?? null, self::GROUPS['rig'], true)) {
+        $rigOrder = $orders['rig'] ?? null;
+        if (!empty($rigOrder) && $rigOrder !== 'none' && (in_array($rigOrder, self::GROUPS['rig'], true) || self::isRigBrand((string) $rigOrder, self::configuredRigBrands()))) {
             if ($planType !== 'full_pep') {
                 $this->fail('RIG requires a full PEP order; it is not part of a booster-only or no-vaccine plan.');
             }
-            if (empty($orders['rig_weight_kg']) || empty($orders['rig_indication'])) {
-                $this->fail('Record verified weight and a clinical indication before prescribing RIG.');
+            if (empty($orders['rig_weight_kg'])) {
+                $this->fail('Record verified weight before prescribing RIG.');
             }
         }
         if (($orders['tetanus_passive'] ?? 'none') !== 'none' && !empty($orders['tetanus_passive']) && empty(trim($orders['notes'] ?? ''))) {
@@ -119,21 +191,24 @@ class ProphylaxisService
         $orders = $consultation?->prophylaxis_orders ?? [];
         $this->validateOrders($orders, $planType);
 
+        $knownRigBrands = self::configuredRigBrands((int) $incident->clinic_id);
+
         foreach ($administrations as $item) {
             $medication = $item['medication'];
             $isTetanus = self::isTetanusBrand($medication, array_filter([$orders['tetanus_vaccine'] ?? null]));
             $isAts = self::isAtsBrand($medication, array_filter([$orders['tetanus_passive'] ?? null]));
-            $group = $isTetanus ? 'tetanus_vaccine' : ($isAts ? 'tetanus_passive' : collect(self::GROUPS)->search(fn ($products) => in_array($medication, $products, true)));
+            $isRig = self::isRigBrand($medication, $knownRigBrands);
+            $group = $isTetanus ? 'tetanus_vaccine' : ($isAts ? 'tetanus_passive' : ($isRig ? 'rig' : collect(self::GROUPS)->search(fn ($products) => in_array($medication, $products, true))));
             if (!$group || ($orders[$group] ?? null) !== $medication) {
                 $this->fail("{$medication} has no matching doctor prescription in Form 2.");
             }
             $existing = TreatmentRecord::where('clinic_id', $incident->clinic_id)
                 ->where('patient_id', $incident->patient_id)->where('bite_id', $incident->bite_id)
-                ->where(function ($query) use ($group, $medication, $orders) {
+                ->where(function ($query) use ($group, $medication, $orders, $knownRigBrands) {
                     $query->whereIn('medication_given', match ($group) {
-                        'rig' => ['ERIG', 'HRIG'],
+                        'rig' => array_values(array_unique(array_filter(array_merge(['ERIG', 'HRIG'], $knownRigBrands, [$medication, $orders['rig'] ?? null])))),
                         'tetanus_vaccine' => array_values(array_unique(array_filter(['TT', 'Td', 'Tdap', 'DTaP', $medication, $orders['tetanus_vaccine'] ?? null]))),
-                        default => ['ATS', 'TIG'],
+                        default => array_values(array_unique(array_filter(['ATS', 'TIG', $medication, $orders['tetanus_passive'] ?? null]))),
                     });
                     // Preserve compatibility with historical treatment-card dose markers.
                     $query->orWhereIn('dose_number', match ($group) {
@@ -246,7 +321,9 @@ class ProphylaxisService
             $batchMedication = self::inventoryMedication($batch?->vaccine_type ?? '', [$medication]);
             $medicationMatches = ($batchMedication === $medication)
                 || (strcasecmp($batch?->vaccine_type ?? '', $medication) === 0)
-                || ($isTetanus && self::isTetanusBrand($batch?->vaccine_type ?? ''));
+                || ($isTetanus && self::isTetanusBrand($batch?->vaccine_type ?? ''))
+                || ($isAts && self::isAtsBrand($batch?->vaccine_type ?? ''))
+                || ($isRig && self::isRigBrand($batch?->vaccine_type ?? '', $knownRigBrands));
             if (!$batch || !$medicationMatches
                 || !$batch->expiration_date || $batch->expiration_date->startOfDay()->lt($date)) {
                 $this->fail("{$medication} requires a matching, unexpired clinic inventory batch with enough stock.");

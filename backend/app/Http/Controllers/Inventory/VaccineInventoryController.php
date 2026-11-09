@@ -42,10 +42,13 @@ class VaccineInventoryController extends Controller
 
         $tetanusPresets = [];
         $atsPresets     = [];
+        $rigPresets     = [];
         foreach ($allPresets as $preset) {
             $cat   = $preset->category ?? '';
             $vName = $preset->vaccine_name;
-            if (preg_match('/(?:^|[^a-z])(?:ATS|serum)(?:$|[^a-z])/i', $cat) || preg_match('/(?:^|[^a-z])(?:ATS|anti[- ]?tetanus)(?:$|[^a-z])/i', $vName)) {
+            if (preg_match('/(?:^|[^a-z])(?:RIG|ERIG|HRIG|immunoglobulin)(?:$|[^a-z])/i', $cat) || \App\Services\ProphylaxisService::isRigBrand($vName)) {
+                $rigPresets[] = $vName;
+            } elseif (preg_match('/(?:^|[^a-z])(?:ATS|serum)(?:$|[^a-z])/i', $cat) || preg_match('/(?:^|[^a-z])(?:ATS|anti[- ]?tetanus)(?:$|[^a-z])/i', $vName)) {
                 $atsPresets[] = $vName;
             } elseif (preg_match('/(?:^|[^a-z])(?:Tetanus|Toxoid)(?:$|[^a-z])/i', $cat) || preg_match('/(?:^|[^a-z])(?:TT|Td|Tdap|DTaP|tetan|toxoid|tetavax)(?:$|[^a-z])/i', $vName)) {
                 if (!preg_match('/(?:^|[^a-z])(?:ATS|serum)(?:$|[^a-z])/i', $cat) && !preg_match('/(?:^|[^a-z])(?:ATS|serum)(?:$|[^a-z])/i', $vName)) {
@@ -61,18 +64,22 @@ class VaccineInventoryController extends Controller
 
         $activeTetanusBrands = [];
         $activeAtsBrands     = [];
+        $activeRigBrands     = [];
         foreach ($batches as $batch) {
             $vType         = $batch->vaccine_type;
             $matchedPreset = $allPresets->first(fn($p) => strcasecmp($p->vaccine_name, $vType) === 0);
             if ($matchedPreset) {
                 $cat = $matchedPreset->category ?? '';
-                if (preg_match('/(?:^|[^a-z])(?:ATS|serum)(?:$|[^a-z])/i', $cat) || preg_match('/(?:^|[^a-z])(?:ATS|anti[- ]?tetanus)(?:$|[^a-z])/i', $vType)) {
+                if (preg_match('/(?:^|[^a-z])(?:RIG|ERIG|HRIG|immunoglobulin)(?:$|[^a-z])/i', $cat) || \App\Services\ProphylaxisService::isRigBrand($vType, $rigPresets)) {
+                    $activeRigBrands[] = $vType;
+                } elseif (preg_match('/(?:^|[^a-z])(?:ATS|serum)(?:$|[^a-z])/i', $cat) || preg_match('/(?:^|[^a-z])(?:ATS|anti[- ]?tetanus)(?:$|[^a-z])/i', $vType)) {
                     $activeAtsBrands[] = $vType;
                 } elseif (preg_match('/(?:^|[^a-z])(?:Tetanus|Toxoid)(?:$|[^a-z])/i', $cat) || preg_match('/(?:^|[^a-z])(?:TT|Td|Tdap|DTaP|tetan|toxoid|tetavax)(?:$|[^a-z])/i', $vType)) {
                     $activeTetanusBrands[] = $vType;
                 }
             } else {
-                if (\App\Services\ProphylaxisService::isAtsBrand($vType, $atsPresets))         $activeAtsBrands[] = $vType;
+                if (\App\Services\ProphylaxisService::isRigBrand($vType, $rigPresets))              $activeRigBrands[] = $vType;
+                elseif (\App\Services\ProphylaxisService::isAtsBrand($vType, $atsPresets))         $activeAtsBrands[] = $vType;
                 elseif (\App\Services\ProphylaxisService::isTetanusBrand($vType, $tetanusPresets)) $activeTetanusBrands[] = $vType;
             }
         }
@@ -81,10 +88,20 @@ class VaccineInventoryController extends Controller
         $activeAtsBrands     = array_values(array_unique($activeAtsBrands));
         $tetanusBrands       = !empty($activeTetanusBrands) ? $activeTetanusBrands : array_values(array_unique(array_filter(array_merge(['TT'], $tetanusPresets))));
         $atsBrands           = !empty($activeAtsBrands)     ? array_values(array_unique(array_filter(array_merge(['ATS'], $activeAtsBrands)))) : array_values(array_unique(array_filter(array_merge(['ATS'], $atsPresets))));
+        $activeRigBrands     = array_values(array_unique($activeRigBrands));
+        $rigPresets          = array_values(array_unique($rigPresets));
+        if (!empty($activeRigBrands)) {
+            $rigBrands = $activeRigBrands;
+        } elseif (!empty($rigPresets)) {
+            $rigBrands = $rigPresets;
+        } else {
+            $rigBrands = ['ERIG'];
+        }
 
         $stock = ['TT' => [], 'ATS' => [], 'ERIG' => []];
         foreach ($tetanusBrands as $brand) { $stock[$brand] = []; }
         foreach ($atsBrands     as $brand) { $stock[$brand] = []; }
+        foreach ($rigBrands     as $brand) { $stock[$brand] = []; }
 
         foreach ($batches as $batch) {
             $name = $batch->vaccine_type;
@@ -94,13 +111,15 @@ class VaccineInventoryController extends Controller
             } elseif (in_array($name, $activeTetanusBrands, true) || \App\Services\ProphylaxisService::isTetanusBrand($name, $tetanusBrands)) {
                 $stock['TT'][]  = $batch;
                 $stock[$name][] = $batch;
-            } elseif (preg_match('/(?:^|[^a-z])ERIG(?:$|[^a-z])|equine rabies immunoglobulin/i', $name)) {
+            } elseif (in_array($name, $activeRigBrands, true) || \App\Services\ProphylaxisService::isRigBrand($name, $rigBrands)) {
                 $stock['ERIG'][] = $batch;
-                $stock[$name][]  = $batch;
+                if ($name !== 'ERIG') {
+                    $stock[$name][] = $batch;
+                }
             }
         }
 
-        return response()->json(['stock' => $stock, 'tetanus_brands' => $tetanusBrands, 'ats_brands' => $atsBrands]);
+        return response()->json(['stock' => $stock, 'tetanus_brands' => $tetanusBrands, 'ats_brands' => $atsBrands, 'rig_brands' => $rigBrands]);
     }
 
     // ────────────────────────────────────────────────────────────────────────

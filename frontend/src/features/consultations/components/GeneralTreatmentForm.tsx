@@ -46,6 +46,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     prophylaxisStock,
     tetanusBrands,
     atsBrands,
+    rigBrands,
     hasExistingRecord,
     isEditing,
     setIsEditing,
@@ -104,8 +105,8 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     if (formRef.current && focusErrorsRef.current && Object.keys(fieldErrors).length) {
       focusErrorsRef.current = false;
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose'];
+        ? ['nature_of_visit', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
       const firstKey = fieldOrder.find((key) => fieldErrors[key]);
       focusFirstError(formRef.current, firstKey, summaryRef.current);
     }
@@ -509,9 +510,11 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         {/* Prophylaxis Order (Tetanus & RIG) */}
         <ProphylaxisOrderSection
           value={formData.prophylaxis_orders}
+          recordedWeight={formData.weight}
           stock={prophylaxisStock}
           tetanusBrands={tetanusBrands}
           atsBrands={atsBrands}
+          rigBrands={rigBrands}
           disabled={isFormDisabled || formData.reassessment_decision === 'discontinue' || formData.reassessment_decision === 'no_injection_required'}
           errors={fieldErrors}
           onChange={handleProphylaxisChange}

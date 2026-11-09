@@ -91,4 +91,13 @@ class StoreVaccinationRecordRequest extends FormRequest
             'doses.min'      => "Please select a Vaccine Type for today's dose before saving.",
         ];
     }
+
+    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator)
+    {
+        \Illuminate\Support\Facades\Log::error('STORE_VACCINATION_422', [
+            'errors' => $validator->errors()->toArray(),
+            'payload' => $this->all(),
+        ]);
+        parent::failedValidation($validator);
+    }
 }

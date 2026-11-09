@@ -22,6 +22,43 @@ class ClinicResourceTest extends TestCase
     private User $nurse;
     private PatientAccount $patientAccount;
 
+    public function test_clinic_faqs_can_be_added_modified_and_cleared(): void
+    {
+        Sanctum::actingAs($this->admin);
+        $faqs = [['category' => 'Visits', 'question' => 'What should I bring?', 'answer' => 'Bring your appointment card.']];
+        $this->postJson('/api/setup/clinic', ['name' => $this->clinic->name, 'faqs' => json_encode($faqs)])
+            ->assertOk()->assertJsonPath('clinic.faqs', $faqs);
+        $this->getJson('/api/setup/clinic')->assertOk()->assertJsonPath('faqs', $faqs);
+        $faqs[0]['answer'] = 'Bring your card and ID.';
+        $this->postJson('/api/setup/clinic', ['name' => $this->clinic->name, 'faqs' => $faqs])->assertOk();
+        $this->assertSame($faqs, $this->clinic->fresh()->faqs);
+        $this->postJson('/api/setup/clinic', ['name' => $this->clinic->name])->assertOk();
+        $this->assertSame($faqs, $this->clinic->fresh()->faqs);
+        $this->postJson('/api/setup/clinic', ['name' => $this->clinic->name, 'faqs' => '[]'])->assertOk();
+        $this->assertSame([], $this->clinic->fresh()->faqs);
+    }
+
+    public function test_faqs_require_questions_and_answers_and_admin_access(): void
+    {
+        Sanctum::actingAs($this->admin);
+        foreach (['invalid json', [['question' => '', 'answer' => '']]] as $faqs) {
+            $this->postJson('/api/setup/clinic', ['name' => $this->clinic->name, 'faqs' => $faqs])->assertUnprocessable();
+        }
+        Sanctum::actingAs($this->nurse);
+        $this->postJson('/api/setup/clinic', ['name' => $this->clinic->name, 'faqs' => []])->assertForbidden();
+    }
+
+    public function test_patient_faqs_use_linked_clinic_and_preserve_explicit_empty_list(): void
+    {
+        $this->clinic->update(['faqs' => []]);
+        Sanctum::actingAs($this->patientAccount);
+        $this->getJson('/api/mobile/clinic-faqs?clinic_id='.$this->otherClinic->id)
+            ->assertOk()->assertExactJson(['data' => []]);
+        $faqs = [['category' => '', 'question' => 'Where?', 'answer' => 'At the clinic.']];
+        $this->clinic->update(['faqs' => $faqs]);
+        $this->getJson('/api/mobile/clinic-faqs')->assertOk()->assertExactJson(['data' => $faqs]);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

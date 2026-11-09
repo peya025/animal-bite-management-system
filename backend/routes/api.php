@@ -121,6 +121,7 @@ Route::prefix('mobile')->group(function () {
         ->middleware('throttle:20,1');
     Route::get('/schedule-summary', [ClinicScheduleController::class, 'getScheduleSummary']);
     Route::get('/clinic-resources', [MobileClinicResourceController::class, 'index']);
+    Route::get('/clinic-faqs', [MobileClinicResourceController::class, 'faqs']);
 
     Route::middleware(['auth:sanctum', 'patient.account'])->group(function () {
         Route::get('/me', [PatientAccountAuthController::class, 'me']);

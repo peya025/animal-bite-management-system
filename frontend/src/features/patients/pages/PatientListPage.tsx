@@ -1344,11 +1344,12 @@ export default function PatientList() {
                     // 3. Not currently in an active queue today
                     // 4. No pending / scheduled appointments for the current treatment course
                     const hasCompletedDay7 = Boolean(
-                      (p as any).has_completed_primary ||
-                      (latestRecord && latestRecord.dose_number !== null && latestRecord.dose_number !== undefined && Number(latestRecord.dose_number) >= 7)
+                      (p as any).has_completed_primary
                     );
+                    const ongoingCourse = (p as any).ongoing_course;
                     const canRegisterNewExposure = Boolean(
                       canRegisterExposure &&
+                      !ongoingCourse &&
                       !activeQueue &&
                       hasCompletedDay7 &&
                       !hasPendingAppointments &&
@@ -1438,7 +1439,14 @@ export default function PatientList() {
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <div className="pm-actions" style={{ justifyContent: 'center', gap: '6px' }}>
-                            {mobileIntakeIsDue && mobileIntakeForCheckIn ? (
+                            {ongoingCourse && !activeQueue && !canCheckInForReassessment ? (
+                              <span style={{ fontSize: 12, color: '#047857', maxWidth: 220 }} title={ongoingCourse.message}>
+                                Treatment ongoing — proceed to Follow-up
+                                <small style={{ display: 'block', color: '#6b7280' }}>
+                                  {ongoingCourse.scheduled_date ? `Day ${ongoingCourse.next_dose}: ${ongoingCourse.scheduled_date}` : 'Follow-up schedule needs review'}
+                                </small>
+                              </span>
+                            ) : mobileIntakeIsDue && mobileIntakeForCheckIn ? (
                               <button
                                 className="pm-btn-checkin"
                                 title="Confirm the patient has arrived, then send their submitted bite intake to the Doctor queue"

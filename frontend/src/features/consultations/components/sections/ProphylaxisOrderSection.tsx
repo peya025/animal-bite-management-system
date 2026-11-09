@@ -8,6 +8,8 @@ interface ProphylaxisOrderSectionProps {
   stock: ProphylaxisStock | null | undefined;
   tetanusBrands?: string[];
   atsBrands?: string[];
+  rigBrands?: string[];
+  recordedWeight?: string | number;
   disabled: boolean;
   errors?: Record<string, string>;
   onChange: (orders: ProphylaxisOrders) => void;
@@ -18,6 +20,8 @@ export default function ProphylaxisOrderSection({
   stock,
   tetanusBrands = [],
   atsBrands = [],
+  rigBrands = [],
+  recordedWeight,
   disabled,
   errors,
   onChange,
@@ -57,6 +61,27 @@ export default function ProphylaxisOrderSection({
   }
   const availableTtBrands = Array.from(brandsSet);
 
+  // Available RIG brands from stock / props / current selection
+  const rigSet = new Set<string>();
+  const customRigBrands = (rigBrands || []).filter((b) => b && b.trim() !== '' && b.toUpperCase() !== 'ERIG');
+  const brandsToUse = customRigBrands.length > 0 ? customRigBrands : (rigBrands || []);
+
+  brandsToUse.forEach((b) => {
+    if ((stock?.[b]?.length ?? 0) > 0 || (stock?.['ERIG']?.length ?? 0) > 0 || b === orders.rig) {
+      rigSet.add(b);
+    }
+  });
+  if (orders.rig && orders.rig !== 'none') {
+    rigSet.add(orders.rig);
+  }
+  if (rigSet.size === 0) {
+    rigSet.add('ERIG');
+  }
+  let availableRigBrands = Array.from(rigSet);
+  if (availableRigBrands.some((b) => b.toUpperCase() !== 'ERIG') && orders.rig !== 'ERIG') {
+    availableRigBrands = availableRigBrands.filter((b) => b.toUpperCase() !== 'ERIG');
+  }
+
   // Calculate total active ATS stock
   const totalAtsStock = useMemo(() => {
     if (!stock) return 0;
@@ -92,6 +117,24 @@ export default function ProphylaxisOrderSection({
     return sum;
   }, [stock, availableTtBrands]);
   const isTtNoStock = stock !== undefined && stock !== null && totalTtStock === 0;
+
+  // Calculate total active RIG stock
+  const totalRigStock = useMemo(() => {
+    if (!stock) return 0;
+    const seen = new Set<number>();
+    let sum = 0;
+    availableRigBrands.forEach((brand) => {
+      const batches = stock[brand] || (brand === 'ERIG' ? stock['ERIG'] : []) || [];
+      batches.forEach((b) => {
+        if (!seen.has(b.inventory_id)) {
+          seen.add(b.inventory_id);
+          sum += b.current_quantity;
+        }
+      });
+    });
+    return sum;
+  }, [stock, availableRigBrands]);
+  const isRigNoStock = stock !== undefined && stock !== null && totalRigStock === 0;
 
   // Handler when doctor selects primary Tetanus Prophylaxis category
   const handleCategoryChange = (nextCategory: string) => {
@@ -259,6 +302,90 @@ export default function ProphylaxisOrderSection({
                 {totalTtStock} vial{totalTtStock === 1 ? '' : 's'} available in clinic stock
               </span>
             )}
+          </FormField>
+        )}
+
+        <FormField id="field-rig" label="Rabies immunoglobulin (RIG)">
+          <select className="fm-select" aria-label="RIG order" value={orders.rig || 'none'} disabled={disabled}
+            onChange={e => {
+              const nextRig = e.target.value;
+              const nextOrders = { ...orders, rig: nextRig };
+              if (nextRig && nextRig !== 'none' && !nextOrders.rig_weight_kg && Number(recordedWeight) > 0) {
+                nextOrders.rig_weight_kg = String(recordedWeight);
+              }
+              onChange(nextOrders);
+            }}>
+            <option value="none">No RIG order</option>
+            {availableRigBrands.map((brand) => (
+              <option key={brand} value={brand}>
+                {brand}
+              </option>
+            ))}
+          </select>
+          {isRigNoStock ? (
+            <span className="registration-field-hint" style={{ marginTop: 4, display: 'block', color: '#dc2626', fontWeight: 600 }}>
+              No available RIG stock
+            </span>
+          ) : orders.rig && orders.rig !== 'none' ? (
+            (() => {
+              const brand = orders.rig;
+              const batches = stock?.[brand] || stock?.['ERIG'] || [];
+              const units = batches.reduce((sum, batch) => sum + batch.current_quantity, 0);
+              return (
+                <span className="registration-field-hint" style={{ marginTop: 4, display: 'block' }}>
+                  {units} vial{units === 1 ? '' : 's'} available ({batches.length} active batch{batches.length === 1 ? '' : 'es'})
+                </span>
+              );
+            })()
+          ) : (
+            <span className="registration-field-hint" style={{ marginTop: 4, display: 'block' }}>
+              {totalRigStock} vial{totalRigStock === 1 ? '' : 's'} available in clinic stock
+            </span>
+          )}
+        </FormField>
+        {Boolean(orders.rig && orders.rig !== 'none') && (
+          <FormField id="field-rig_weight_kg" label="Verified weight for RIG (kg)" required
+            error={!!errors?.rig_weight_kg} errorText={errors?.rig_weight_kg}>
+            <input className="fm-input" type="number" aria-label="Verified weight for RIG (kg)" min="0.01" max="700" step="any"
+              value={orders.rig_weight_kg || ''} disabled={disabled}
+              onChange={e => onChange({ ...orders, rig_weight_kg: e.target.value })} />
+            {Number(recordedWeight) > 0 && Number(recordedWeight) <= 700 && (
+              String(orders.rig_weight_kg || '').trim() === String(recordedWeight).trim() ? (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    marginTop: 6,
+                    padding: '4px 10px',
+                    backgroundColor: '#ecfdf5',
+                    border: '1px solid #a7f3d0',
+                    borderRadius: 6,
+                    color: '#065f46',
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <span>Registration weight confirmed ({recordedWeight} kg)</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="fm-btn fm-btn-secondary"
+                  disabled={disabled}
+                  style={{ marginTop: 6 }}
+                  onClick={() => onChange({ ...orders, rig_weight_kg: String(recordedWeight) })}
+                >
+                  Use recorded weight: {recordedWeight} kg
+                </button>
+              )
+            )}
+            <span className="registration-field-hint" style={{ marginTop: 4, display: 'block' }}>
+              Verify the weight recorded at Registration or on the referral before prescribing RIG.
+            </span>
           </FormField>
         )}
 

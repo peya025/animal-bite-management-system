@@ -781,6 +781,12 @@ class PatientService
             ];
         }
 
+        if (!$isPendingTreatmentReassessment && ($course = $patient->ongoing_course)) {
+            return ['status' => 422, 'data' => [
+                'code' => 'ongoing_treatment_course', 'message' => $course['message'], 'ongoing_course' => $course,
+            ]];
+        }
+
         if (!$isPendingTreatmentReassessment && ($hasCompletedDoses || $hasCompletedConsultation || $hasConfirmedEpisode)) {
             return [
                 'status' => 422,

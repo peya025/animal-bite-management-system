@@ -143,10 +143,18 @@ class BiteIncidentIntakeService
             }
 
             // Serialize episode numbering per permanent patient profile.
-            Patient::where('clinic_id', $clinicId)
+            $patient = Patient::where('clinic_id', $clinicId)
                 ->where('patient_id', $lockedIntake->patient_id)
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            if ($course = $patient->ongoing_course) {
+                return ['status' => 422, 'data' => [
+                    'code' => 'ongoing_treatment_course',
+                    'message' => $course['message'],
+                    'ongoing_course' => $course,
+                ]];
+            }
 
             $episodeNumber = (BiteIncident::where('clinic_id', $clinicId)
                 ->where('patient_id', $lockedIntake->patient_id)

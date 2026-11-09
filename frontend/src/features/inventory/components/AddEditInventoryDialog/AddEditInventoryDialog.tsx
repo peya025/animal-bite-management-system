@@ -65,6 +65,7 @@ const OTHER_SPECIFY = 'Other (Specify)' satisfies SourceOfSupply;
 /** Standard vaccine categories from Vaccine Setup */
 export const VACCINE_CATEGORIES = [
   'Anti-Rabies Vaccines (ARV)',
+  'Rabies Immunoglobulins (RIG)',
   'Tetanus & Toxoids',
   'Anti-Tetanus Serum (ATS)',
   'Other Biologicals',
@@ -158,7 +159,7 @@ export default function AddEditInventoryDialog({
     presets.forEach((preset) => {
       if (
         preset.category &&
-        preset.category !== 'Rabies Immunoglobulins (RIG)' &&
+        preset.category &&
         !list.includes(preset.category)
       ) {
         list.push(preset.category);

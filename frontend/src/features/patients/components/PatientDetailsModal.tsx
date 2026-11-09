@@ -1056,11 +1056,7 @@ export default function PatientDetailsModal({
 
       <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid var(--border-glow, #e5e7eb)', bgcolor: 'var(--card-bg-solid, #ffffff)', justifyContent: 'space-between', gap: 1 }}>
         {(() => {
-          const hasCompletedDay7 = Boolean(
-            p.has_completed_primary ||
-            (p.latest_treatment_record && p.latest_treatment_record.dose_number !== null && Number(p.latest_treatment_record.dose_number) >= 7) ||
-            (p.treatmentRecords && p.treatmentRecords.some((r: any) => Number(r.dose_number) >= 7 && (r.status === 'completed' || r.treatment_date)))
-          );
+          const hasCompletedDay7 = Boolean(p.has_completed_primary);
           const hasPendingAppts = Boolean(
             p.appointments?.some((a: any) => a.status === 'scheduled') ||
             p.upcomingAppointment
@@ -1069,7 +1065,7 @@ export default function PatientDetailsModal({
           const hasActiveInc = Boolean(
             currentLatestInc && ['active', 'in_progress', 'awaiting_assessment'].includes(currentLatestInc.status)
           );
-          const canRegisterNewExposure = !readOnly && canRegisterExposure && hasCompletedDay7 && !hasPendingAppts && !hasActiveInc;
+          const canRegisterNewExposure = !readOnly && canRegisterExposure && !(p as any).ongoing_course && hasCompletedDay7 && !hasPendingAppts && !hasActiveInc;
 
           if (!canRegisterNewExposure) {
             return <div />;

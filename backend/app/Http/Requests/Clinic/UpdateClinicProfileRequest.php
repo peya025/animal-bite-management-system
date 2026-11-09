@@ -19,9 +19,24 @@ class UpdateClinicProfileRequest extends FormRequest
      *
      * @return array<string, mixed>
      */
+    protected function prepareForValidation(): void
+    {
+        if (is_string($this->input('faqs'))) {
+            $decoded = json_decode($this->input('faqs'), true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $this->merge(['faqs' => $decoded]);
+            }
+        }
+    }
+
     public function rules(): array
     {
         return [
+            'faqs' => 'sometimes|array|list|max:50',
+            'faqs.*' => 'required|array:category,question,answer',
+            'faqs.*.category' => 'nullable|string|max:100',
+            'faqs.*.question' => 'required|string|max:500',
+            'faqs.*.answer' => 'required|string|max:5000',
             'name'                        => 'required|string|max:255',
             'subtitle'                    => 'nullable|string|max:255',
             'address'                     => 'nullable|string',

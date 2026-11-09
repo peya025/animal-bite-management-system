@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
 import '../models/patient_account_profile.dart';
+import '../models/clinic_faq.dart';
+import '../services/faqs_repository.dart';
 import '../services/api.dart';
 import '../services/walkthrough_service.dart';
 import '../widgets/learn_more_section.dart';
@@ -70,10 +72,9 @@ class _MenuViewState extends State<MenuView> {
           kDefaultWalkthroughSteps.length + kBookingWalkthroughSteps.length,
     );
     if (completedHomeSteps && mounted) {
-      Navigator.of(context).pushReplacementNamed(
-        AppRoutes.booking,
-        arguments: 'walkthrough',
-      );
+      Navigator.of(
+        context,
+      ).pushReplacementNamed(AppRoutes.booking, arguments: 'walkthrough');
     }
   }
 
@@ -111,12 +112,10 @@ class _MenuViewState extends State<MenuView> {
 
         final resolvedName =
             selfProfile != null && selfProfile.name.trim().isNotEmpty
-                ? selfProfile.name.trim()
-                : account.name.trim();
+            ? selfProfile.name.trim()
+            : account.name.trim();
 
-        final hasCompleted = account.patients.any(
-          (p) => p.hasCompletedPrimary,
-        );
+        final hasCompleted = account.patients.any((p) => p.hasCompletedPrimary);
 
         setState(() {
           if (resolvedName.isNotEmpty) {
@@ -168,9 +167,8 @@ class _MenuViewState extends State<MenuView> {
                 MenuSearchHeader(
                   userName: _userName,
                   onSearchPressed: _openSearch,
-                  onNotificationsPressed: () => Navigator.of(
-                    context,
-                  ).pushNamed(AppRoutes.notifications),
+                  onNotificationsPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.notifications),
                 ),
                 Expanded(
                   child: RefreshIndicator(
@@ -251,9 +249,7 @@ class _MenuViewState extends State<MenuView> {
       ),
       floatingActionButton: KeyedSubtree(
         key: _qrActionKey,
-        child: PatientActionButton(
-          onPressed: _openPatientCard,
-        ),
+        child: PatientActionButton(onPressed: _openPatientCard),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
@@ -261,6 +257,7 @@ class _MenuViewState extends State<MenuView> {
 }
 
 class _HomeSearchDelegate extends SearchDelegate<String?> {
+  final Future<List<FaqItemData>> _faqs = FaqsRepository.instance.fetchFaqs();
   static const _items = [
     _HomeSearchItem(
       label: 'App guide walkthrough (5-step tour)',
@@ -340,16 +337,36 @@ class _HomeSearchDelegate extends SearchDelegate<String?> {
   Widget buildSuggestions(BuildContext context) => _buildMatches(context);
 
   Widget _buildMatches(BuildContext context) {
+    return FutureBuilder<List<FaqItemData>>(
+      future: _faqs,
+      builder: (context, snapshot) => Column(
+        children: [
+          if (snapshot.connectionState != ConnectionState.done)
+            const LinearProgressIndicator(),
+          if (snapshot.hasError)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text(
+                'Unable to load clinic FAQs. Close and reopen search to retry.',
+              ),
+            ),
+          Expanded(child: _buildLoadedMatches(context, snapshot.data ?? [])),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadedMatches(BuildContext context, List<FaqItemData> faqs) {
     final normalized = query.trim().toLowerCase();
     final serviceMatches = normalized.isEmpty
         ? _items
         : _items
-            .where((item) => item.label.toLowerCase().contains(normalized))
-            .toList();
+              .where((item) => item.label.toLowerCase().contains(normalized))
+              .toList();
 
     final faqMatches = normalized.isEmpty
-        ? kClinicFaqs.take(4).toList()
-        : kClinicFaqs.where((faq) {
+        ? faqs.take(4).toList()
+        : faqs.where((faq) {
             return faq.question.toLowerCase().contains(normalized) ||
                 faq.answer.toLowerCase().contains(normalized) ||
                 faq.category.toLowerCase().contains(normalized);
@@ -435,10 +452,11 @@ class _HomeSearchDelegate extends SearchDelegate<String?> {
                   borderRadius: BorderRadius.circular(10),
                   side: const BorderSide(color: AppColors.border),
                 ),
-                tilePadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                childrenPadding:
-                    const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                tilePadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 2,
+                ),
+                childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                 leading: const Icon(
                   Icons.quiz_outlined,
                   size: 19,

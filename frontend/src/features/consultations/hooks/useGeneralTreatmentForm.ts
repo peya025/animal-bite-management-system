@@ -96,6 +96,7 @@ export function useGeneralTreatmentForm({
   const [prophylaxisStock, setProphylaxisStock] = useState<ProphylaxisStock | null | undefined>(undefined);
   const [tetanusBrands, setTetanusBrands] = useState<string[]>([]);
   const [atsBrands, setAtsBrands] = useState<string[]>([]);
+  const [rigBrands, setRigBrands] = useState<string[]>([]);
   const [currentUserName] = useState<string>(() => getCurrentUserName());
 
   // Track if a record has already been saved for this patient
@@ -151,6 +152,9 @@ export function useGeneralTreatmentForm({
       }
       if (res.ats_brands && res.ats_brands.length > 0) {
         setAtsBrands(res.ats_brands);
+      }
+      if (res.rig_brands && res.rig_brands.length > 0) {
+        setRigBrands(res.rig_brands);
       }
     }).catch(() => setProphylaxisStock(null));
   }, []);
@@ -403,6 +407,13 @@ export function useGeneralTreatmentForm({
               ...(isRegistrationStaffPrefill && record ? {
                 mode_of_transaction: record.mode_of_transaction || 'walk-in',
                 referred_by: record.referred_by || '',
+                weight: record.weight || savedDraft.formData.weight || '',
+                height: record.height || savedDraft.formData.height || '',
+                temperature: record.temperature || savedDraft.formData.temperature || '',
+                blood_pressure: record.blood_pressure || savedDraft.formData.blood_pressure || '',
+                date_of_consultation: record.consultation_date || savedDraft.formData.date_of_consultation,
+                consultation_time: record.consultation_time || savedDraft.formData.consultation_time,
+                name_of_attending_provider: record.attending_provider || savedDraft.formData.name_of_attending_provider || '',
               } : {}),
             });
             setCheckedDiagnoses(savedDraft.checkedDiagnoses ?? []);
@@ -706,6 +717,10 @@ export function useGeneralTreatmentForm({
         delete next.tetanus_vaccine;
         changed = true;
       }
+      if (next.rig_weight_kg && (!nextOrders.rig || nextOrders.rig === 'none' || (Number(nextOrders.rig_weight_kg) > 0 && Number(nextOrders.rig_weight_kg) <= 700))) {
+        delete next.rig_weight_kg;
+        changed = true;
+      }
       if (next.tetanus_last_dose) {
         if (!nextOrders.tetanus_last_dose || isValidFourDigitYearDate(nextOrders.tetanus_last_dose)) {
           delete next.tetanus_last_dose;
@@ -794,6 +809,8 @@ export function useGeneralTreatmentForm({
           delete next.tetanus_category;
           delete next.tetanus_passive;
           delete next.tetanus_vaccine;
+          delete next.rig_weight_kg;
+          delete next.rig_indication;
         }
         if (Object.keys(next).length === 0) {
           setError('');
@@ -1165,6 +1182,14 @@ export function useGeneralTreatmentForm({
       }
     }
 
+    if (!isNoInjectionReassessment && pOrders?.rig && pOrders.rig !== 'none') {
+      const weight = Number(pOrders.rig_weight_kg);
+      if (!Number.isFinite(weight) || weight <= 0 || weight > 700) {
+        newFieldErrors.rig_weight_kg = 'Confirm the recorded weight or enter a verified weight for RIG.';
+      }
+
+    }
+
     // Validate Tetanus Last Dose (if entered, must have exactly 4-digit year and be a valid date)
     if (pOrders?.tetanus_last_dose && pOrders.tetanus_last_dose.trim()) {
       const lastDoseVal = pOrders.tetanus_last_dose.trim();
@@ -1193,8 +1218,8 @@ export function useGeneralTreatmentForm({
       setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'tetanus_last_dose'];
+        ? ['nature_of_visit', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {
@@ -1300,6 +1325,7 @@ export function useGeneralTreatmentForm({
     prophylaxisStock,
     tetanusBrands,
     atsBrands,
+    rigBrands,
     hasExistingRecord,
     isEditing,
     setIsEditing,

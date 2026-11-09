@@ -69,6 +69,7 @@ export interface ProphylaxisStockResponse {
   stock: ProphylaxisStock;
   tetanus_brands?: string[];
   ats_brands?: string[];
+  rig_brands?: string[];
 }
 
 export function isProphylaxisInventoryName(name: string): boolean {

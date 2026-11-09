@@ -74,10 +74,16 @@ class BiteCaseService
         }
 
         return DB::transaction(function () use ($validated, $clinicId, $user, $rawInput) {
-            Patient::where('clinic_id', $clinicId)
+            $patient = Patient::where('clinic_id', $clinicId)
                 ->where('patient_id', $validated['patient_id'])
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            if ($course = $patient->ongoing_course) {
+                return ['status' => 422, 'data' => [
+                    'code' => 'ongoing_treatment_course', 'message' => $course['message'], 'ongoing_course' => $course,
+                ]];
+            }
 
             $todayDate = Carbon::today()->toDateString();
             $episodeNumber = (BiteIncident::where('clinic_id', $clinicId)

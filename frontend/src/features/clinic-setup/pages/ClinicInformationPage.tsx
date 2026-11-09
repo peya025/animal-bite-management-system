@@ -3,6 +3,9 @@ import { useState, useEffect, type ReactNode, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
 import {
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
   Alert,
   Box,
   Button,
@@ -17,6 +20,8 @@ import {
 } from '@mui/material';
 import Loader from '../../../components/Loader';
 import {
+  ExpandMore as ExpandMoreIcon,
+  Add as AddIcon,
   Save as SaveIcon,
   Refresh as RefreshIcon,
   Business as BusinessIcon,
@@ -75,7 +80,10 @@ function FieldLabel({ children, required }: { children: ReactNode; required?: bo
   );
 }
 
+interface ClinicFaq { category: string; question: string; answer: string; }
+
 interface ClinicData {
+  faqs: ClinicFaq[];
   name: string;
   subtitle: string;
   address: string;
@@ -102,6 +110,7 @@ export default function ClinicInformation() {
   const draft = useFormDraft('clinic-info');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [expandedFaq, setExpandedFaq] = useState<number | false>(false);
   const [resourcesRefreshTrigger, setResourcesRefreshTrigger] = useState(0);
   const [clinic, setClinic] = useState<ClinicData>({
     name: '',
@@ -120,6 +129,7 @@ export default function ClinicInformation() {
     right_print_logo_path: null,
     right_print_logo_url: null,
     opening_hours: {},
+    faqs: [],
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -347,6 +357,7 @@ export default function ClinicInformation() {
         right_print_logo_path: data.right_print_logo_path || null,
         right_print_logo_url: data.right_print_logo_url || null,
         opening_hours: defaultHours,
+        faqs: data.faqs || [],
       });
 
       // If the user had unsaved changes (a draft), restore them on top of the server data
@@ -388,7 +399,7 @@ export default function ClinicInformation() {
     loadClinicData();
   }, []);
 
-  const handleInputChange = (field: keyof Omit<ClinicData, 'opening_hours'>, value: string) => {
+  const handleInputChange = (field: keyof Omit<ClinicData, 'opening_hours' | 'faqs'>, value: string) => {
     setClinic(prev => {
       const next = { ...prev, [field]: value };
       // Persist draft of text fields only (not logo paths or opening_hours objects)
@@ -487,7 +498,20 @@ export default function ClinicInformation() {
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  const updateFaqs = (faqs: ClinicFaq[]) => {
+    const next = { ...clinic, faqs };
+    setClinic(next);
+    const { logo_path, logo_url, left_print_logo_path, left_print_logo_url, right_print_logo_path, right_print_logo_url, opening_hours, ...draftable } = next;
+    draft.saveDraft(draftable);
+  };
+
   const handleSubmit = async () => {
+    const invalidFaq = clinic.faqs.findIndex(faq => !faq.question.trim() || !faq.answer.trim());
+    if (invalidFaq !== -1) {
+      setExpandedFaq(invalidFaq);
+      setSnackbar({ open: true, message: 'Enter a question and answer for every FAQ, or remove the empty FAQ.', severity: 'error' });
+      return;
+    }
     if (clinic.contact_number && !/^09\d{9}$/.test(clinic.contact_number.trim())) {
       setSnackbar({
         open: true,
@@ -511,6 +535,7 @@ export default function ClinicInformation() {
       formData.append('municipality', selectedMunicipality);
       formData.append('province', selectedProvince);
       formData.append('opening_hours', JSON.stringify(clinic.opening_hours));
+      formData.append('faqs', JSON.stringify(clinic.faqs.map(faq => ({ category: (faq.category || '').trim(), question: faq.question.trim(), answer: faq.answer.trim() }))));
 
       if (logoFile) {
         formData.append('logo', logoFile);
@@ -1339,6 +1364,44 @@ export default function ClinicInformation() {
               />
             </Box>
           </Box>
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, mb: 3, borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
+            <Typography sx={{ fontSize: 15, fontWeight: 600 }}>FAQs ({clinic.faqs.length})</Typography>
+            <Button size="small" variant="outlined" startIcon={<AddIcon />} disabled={saving || clinic.faqs.length >= 50}
+              onClick={() => { setExpandedFaq(clinic.faqs.length); updateFaqs([...clinic.faqs, { category: '', question: '', answer: '' }]); }}>Add FAQ</Button>
+          </Box>
+          <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1.5 }}>
+            Select a question to edit. Save Changes publishes updates to the patient app.
+          </Typography>
+          {clinic.faqs.length === 0 && <Typography variant="body2" color="text.secondary">No FAQs added yet.</Typography>}
+          {clinic.faqs.map((faq, index) => (
+            <Accordion key={index} disableGutters elevation={0} expanded={expandedFaq === index}
+              onChange={(_, expanded) => setExpandedFaq(expanded ? index : false)}
+              sx={{ border: '1px solid #d7e3da', borderRadius: '6px !important', mb: 0.75, '&:before': { display: 'none' } }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />} id={`faq-${index}-header`} aria-controls={`faq-${index}-content`}
+                sx={{ minHeight: 44, px: 1.5, '& .MuiAccordionSummary-content': { my: 1, minWidth: 0, alignItems: 'center', gap: 1 } }}>
+                <Typography variant="caption" color="text.secondary">{index + 1}.</Typography>
+                <Typography variant="body2" noWrap sx={{ fontWeight: 500, flex: 1 }}>{faq.question.trim() || 'New question'}</Typography>
+                {faq.category && <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: '25%', display: { xs: 'none', sm: 'block' } }}>{faq.category}</Typography>}
+              </AccordionSummary>
+              <AccordionDetails id={`faq-${index}-content`} sx={{ p: 1.5, pt: 0.5, display: 'grid', gap: 1.5 }}>
+                {(['category', 'question', 'answer'] as const).map(field => (
+                  <TextField key={field} size="small" label={field === 'category' ? 'Category (optional)' : field === 'question' ? 'Question' : 'Answer'}
+                    required={field !== 'category'} fullWidth disabled={saving} value={faq[field] ?? ''}
+                    multiline={field !== 'category'} minRows={field === 'answer' ? 2 : undefined}
+                    slotProps={{ htmlInput: { maxLength: field === 'category' ? 100 : field === 'question' ? 500 : 5000 } }}
+                    onChange={event => updateFaqs(clinic.faqs.map((item, i) => i === index ? { ...item, [field]: event.target.value } : item))} />
+                ))}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Button size="small" color="error" disabled={saving} startIcon={<DeleteOutlineIcon />}
+                    onClick={() => { updateFaqs(clinic.faqs.filter((_, i) => i !== index)); setExpandedFaq(false); }}>Remove FAQ</Button>
+                  <Button size="small" onClick={() => setExpandedFaq(false)}>Collapse</Button>
+                </Box>
+              </AccordionDetails>
+            </Accordion>
+          ))}
         </Paper>
 
         {/* Bottom-right Save Changes Button */}

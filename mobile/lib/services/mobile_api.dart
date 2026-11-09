@@ -345,6 +345,12 @@ class MobileApi {
     return data;
   }
 
+  Future<List<dynamic>> clinicFaqs() async {
+    final response = await _send('GET', '/clinic-faqs?clinic_id=$clinicId')
+        as Map<String, dynamic>;
+    return response['data'] as List<dynamic>;
+  }
+
   Future<Map<String, dynamic>> clinicResources({int? clinicId}) async {
     final effectiveClinicId = clinicId ?? MobileApi.clinicId;
     final data = await _send(

@@ -55,6 +55,7 @@ class Patient extends Model
         'treatment_status',
         'queue_status',
         'pending_treatment_summary',
+        'ongoing_course',
     ];
 
     protected ?array $cachedEpisodeStatusSummary = null;
@@ -341,25 +342,62 @@ class Patient extends Model
      */
     public function getHasCompletedPrimaryAttribute(): bool
     {
-        $completedTreatmentDoses = $this->treatmentRecords()
+        $records = $this->treatmentRecords()
             ->whereIn('dose_number', [0, 3, 7])
-            ->where(function ($q) {
-                $q->where('status', 'completed')
-                  ->orWhereNotNull('treatment_date');
-            })
-            ->pluck('dose_number')
-            ->unique()
-            ->toArray();
-
-        $completedApptDoses = $this->appointments()
+            ->whereNull('voided_at')
+            ->where('status', 'completed')
+            ->get(['bite_id', 'dose_number']);
+        $appointments = $this->appointments()
             ->whereIn('dose_number', [0, 3, 7])
             ->where('status', 'completed')
-            ->pluck('dose_number')
-            ->unique()
-            ->toArray();
+            ->get(['bite_id', 'dose_number']);
 
-        $allCompletedDoses = array_unique(array_merge($completedTreatmentDoses, $completedApptDoses));
-        return count(array_intersect([0, 3, 7], $allCompletedDoses)) === 3;
+        // Never combine doses from different exposures into one completed course.
+        return $records->concat($appointments)->groupBy('bite_id')->contains(function ($doses) {
+            return count(array_intersect([0, 3, 7], $doses->pluck('dose_number')->all())) === 3;
+        });
+    }
+
+    /** A started, unfinished vaccine course must continue under its existing exposure. */
+    public function getOngoingCourseAttribute(): ?array
+    {
+        $incident = $this->biteIncidents()->with('treatmentPlan')->latest('bite_date')->latest('bite_id')->first();
+        if (!$incident) return null;
+
+        // Preserve the existing Category I, referral and no-injection decisions.
+        $summary = $this->resolveEpisodeStatusSummary();
+        if ($this->is_category1_no_treatment || in_array($summary['treatment_status'], ['transferred_referred', 'completed_without_injection'], true)) return null;
+        $plan = $incident->treatmentPlan;
+        if ($plan && ($plan->plan_type === 'no_vaccine' || $plan->status === 'cancelled')) return null;
+
+        $completed = $this->treatmentRecords()->where('bite_id', $incident->bite_id)
+            ->whereNull('voided_at')->where('status', 'completed')
+            ->whereNotNull('dose_number')->whereBetween('dose_number', [0, 199])
+            ->pluck('dose_number')->map(fn ($day) => (int) $day)->all();
+        if (!in_array(0, $completed, true)) return null;
+
+        $days = $plan?->ordered_dose_days;
+        if (!$days) {
+            $days = match ($plan?->plan_type) {
+                'single_booster' => [0],
+                'two_dose_booster' => [0, 3],
+                default => [0, 3, 7],
+            };
+        }
+        $remaining = array_values(array_diff(array_map('intval', $days), $completed));
+        if (empty($remaining)) return null;
+        sort($remaining);
+        $appointment = $this->appointments()->where('bite_id', $incident->bite_id)
+            ->whereIn('dose_number', $remaining)->whereIn('status', ['scheduled', 'missed', 'confirmed'])
+            ->orderBy('scheduled_date')->first();
+
+        return [
+            'bite_id' => $incident->bite_id,
+            'next_dose' => $remaining[0],
+            'appointment_id' => $appointment?->appointment_id,
+            'scheduled_date' => $appointment?->scheduled_date?->toDateString(),
+            'message' => 'Treatment is ongoing. Continue the existing exposure through Follow-up. Do not register a new exposure for a routine dose visit.',
+        ];
     }
 
     /**

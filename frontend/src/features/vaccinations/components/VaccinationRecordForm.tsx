@@ -1408,6 +1408,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         }
 
         setFieldErrors(mappedErrors);
+        const allMsgs = Array.from(new Set(Object.values(mappedErrors)));
+        setError(allMsgs.join(' • ') || err.response?.data?.message || 'Failed to save vaccination record');
         const firstErrorKey = FIELD_ORDER.find(key => (
           mappedErrors[key] ||
           mappedErrors[`dose_${targetPeriod}_${key}`] ||

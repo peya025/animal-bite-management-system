@@ -233,85 +233,93 @@ class VaccinationRecordController extends Controller
     // ────────────────────────────────────────────────────────────────────────
     public function store(StoreVaccinationRecordRequest $request): JsonResponse
     {
-        $validated = $request->validated();
+        try {
+            $validated = $request->validated();
 
-        // Cross-field business guards (kept in controller per plan rules — no behaviour change)
-        foreach ($validated['doses'] as $dose) {
-            if (!empty($dose['vaccine_type']) && \App\Services\ProphylaxisService::inventoryMedication($dose['vaccine_type'])) {
-                throw ValidationException::withMessages(['doses' => 'ATS, TT and ERIG must be recorded under prescribed prophylaxis, not as a rabies vaccine dose.']);
+            // Cross-field business guards (kept in controller per plan rules — no behaviour change)
+            foreach ($validated['doses'] as $dose) {
+                if (!empty($dose['vaccine_type']) && \App\Services\ProphylaxisService::inventoryMedication($dose['vaccine_type'])) {
+                    throw ValidationException::withMessages(['doses' => 'ATS, TT and ERIG must be recorded under prescribed prophylaxis, not as a rabies vaccine dose.']);
+                }
             }
-        }
-        if (collect($validated['additional_meds'] ?? [])->contains(fn($given) => (bool) $given)) {
-            throw ValidationException::withMessages(['additional_meds' => 'Use the prescribed prophylaxis administration fields, including dose, date, batch and site.']);
-        }
-        $isNotAdministeredVisit = ($validated['visit_outcome'] ?? null) === 'not_administered';
-        if (empty($validated['doses']) && empty($validated['prophylaxis_administrations']) && !$isNotAdministeredVisit) {
-            throw ValidationException::withMessages(['doses' => 'Record a vaccine dose or a prescribed prophylaxis administration before saving.']);
-        }
+            if (collect($validated['additional_meds'] ?? [])->contains(fn($given) => (bool) $given)) {
+                throw ValidationException::withMessages(['additional_meds' => 'Use the prescribed prophylaxis administration fields, including dose, date, batch and site.']);
+            }
+            $isNotAdministeredVisit = ($validated['visit_outcome'] ?? null) === 'not_administered';
+            if (empty($validated['doses']) && empty($validated['prophylaxis_administrations']) && !$isNotAdministeredVisit) {
+                throw ValidationException::withMessages(['doses' => 'Record a vaccine dose or a prescribed prophylaxis administration before saving.']);
+            }
 
-        $actingUser = $request->user();
+            $actingUser = $request->user();
 
-        if ($actingUser->isTriage() && !$actingUser->isAdmin() && !$actingUser->isNursing()) {
-            return response()->json([
-                'message' => 'Unauthorized. Triage doctors are not permitted to record vaccine doses (Form 3). Dose administration is strictly reserved for the Treatment Nurse.',
-            ], 403);
-        }
+            if ($actingUser->isTriage() && !$actingUser->isAdmin() && !$actingUser->isNursing()) {
+                return response()->json([
+                    'message' => 'Unauthorized. Triage doctors are not permitted to record vaccine doses (Form 3). Dose administration is strictly reserved for the Treatment Nurse.',
+                ], 403);
+            }
 
-        // Resolve bite_id from queue when not directly supplied
-        $biteId = $request->bite_id;
-        if (!$biteId && $request->filled('queue_id')) {
-            $biteId = Queue::where('clinic_id', $actingUser->clinic_id)
+            // Resolve bite_id from queue when not directly supplied
+            $biteId = $request->bite_id;
+            if (!$biteId && $request->filled('queue_id')) {
+                $biteId = Queue::where('clinic_id', $actingUser->clinic_id)
+                    ->where('patient_id', $request->patient_id)
+                    ->where('queue_id', $request->queue_id)
+                    ->value('bite_id');
+            }
+            if (!$biteId) {
+                throw ValidationException::withMessages([
+                    'bite_id' => 'Select a Doctor-approved bite episode before recording treatment.',
+                ]);
+            }
+
+            $treatmentIncident = BiteIncident::where('clinic_id', $actingUser->clinic_id)
                 ->where('patient_id', $request->patient_id)
-                ->where('queue_id', $request->queue_id)
-                ->value('bite_id');
-        }
-        if (!$biteId) {
-            throw ValidationException::withMessages([
-                'bite_id' => 'Select a Doctor-approved bite episode before recording treatment.',
-            ]);
-        }
+                ->find($biteId);
+            if ($treatmentIncident) {
+                $isCat1 = ($treatmentIncident->exposure_category === 'I' || $treatmentIncident->severity === 'minor');
+                if ($isCat1) {
+                    $hasRabiesDose = collect($validated['doses'] ?? [])->contains(fn($d) => !empty($d['date']) && !empty($d['vaccine_type']));
+                    if ($hasRabiesDose) {
+                        throw ValidationException::withMessages([
+                            'doses' => 'Rabies vaccine doses cannot be administered for Category I exposures.',
+                        ]);
+                    }
+                }
+            }
 
-        $treatmentIncident = BiteIncident::where('clinic_id', $actingUser->clinic_id)
-            ->where('patient_id', $request->patient_id)
-            ->find($biteId);
-        if ($treatmentIncident) {
-            $isCat1 = ($treatmentIncident->exposure_category === 'I' || $treatmentIncident->severity === 'minor');
-            if ($isCat1) {
-                $hasRabiesDose = collect($validated['doses'] ?? [])->contains(fn($d) => !empty($d['date']) && !empty($d['vaccine_type']));
-                if ($hasRabiesDose) {
+            // Resolve signature
+            $signaturePath = null;
+            if ($request->boolean('apply_signature')) {
+                // Lock the user row to serialize signature validation
+                $lockedUser    = \App\Models\User::whereKey($actingUser->id)->lockForUpdate()->firstOrFail();
+                $signaturePath = $lockedUser->signature_path;
+                if (
+                    !$signaturePath
+                    || $request->input('signature_version') !== $signaturePath
+                    || !app(\App\Services\StaffSignatureService::class)->available($signaturePath)
+                ) {
                     throw ValidationException::withMessages([
-                        'doses' => 'Rabies vaccine doses cannot be administered for Category I exposures.',
+                        'signature_version' => 'Your signature changed or is unavailable. Refresh the preview or save without a signature.',
                     ]);
                 }
             }
-        }
 
-        // Resolve signature
-        $signaturePath = null;
-        if ($request->boolean('apply_signature')) {
-            // Lock the user row to serialize signature validation
-            $lockedUser    = \App\Models\User::whereKey($actingUser->id)->lockForUpdate()->firstOrFail();
-            $signaturePath = $lockedUser->signature_path;
-            if (
-                !$signaturePath
-                || $request->input('signature_version') !== $signaturePath
-                || !app(\App\Services\StaffSignatureService::class)->available($signaturePath)
-            ) {
-                throw ValidationException::withMessages([
-                    'signature_version' => 'Your signature changed or is unavailable. Refresh the preview or save without a signature.',
-                ]);
-            }
+            return $this->vaccinationRecordService->saveVaccinationRecords(
+                actingUser:    $actingUser,
+                clinicId:      $actingUser->clinic_id,
+                patientId:     (int) $request->patient_id,
+                biteId:        (int) $biteId,
+                validated:     $validated,
+                doses:         $request->doses,
+                signaturePath: $signaturePath,
+            );
+        } catch (ValidationException $e) {
+            \Illuminate\Support\Facades\Log::error('VACCINATION_CONTROLLER_422', [
+                'errors' => $e->errors(),
+                'payload' => $request->all(),
+            ]);
+            throw $e;
         }
-
-        return $this->vaccinationRecordService->saveVaccinationRecords(
-            actingUser:    $actingUser,
-            clinicId:      $actingUser->clinic_id,
-            patientId:     (int) $request->patient_id,
-            biteId:        (int) $biteId,
-            validated:     $validated,
-            doses:         $request->doses,
-            signaturePath: $signaturePath,
-        );
     }
 
     // ────────────────────────────────────────────────────────────────────────

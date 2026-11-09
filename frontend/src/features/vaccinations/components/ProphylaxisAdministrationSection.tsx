@@ -62,18 +62,21 @@ export default function ProphylaxisAdministrationSection({
     if (disabled || !orders || !stock) return;
 
     PROPHYLAXIS_GROUPS.forEach((group) => {
-      const isTetanus = group === 'tetanus_vaccine';
+      const isTetanusVaccine = group === 'tetanus_vaccine';
+      const isTetanusPassive = group === 'tetanus_passive';
+      const isRig = group === 'rig';
+      const isTetanus = isTetanusVaccine || isTetanusPassive;
+      const defaultProduct = isTetanusPassive ? 'ATS' : isRig ? 'ERIG' : 'TT';
+
       const orderedProduct = orders?.[group] || '';
-      const isOrdered = isTetanus
-        ? Boolean(orderedProduct && orderedProduct !== 'none')
-        : PROPHYLAXIS_PRODUCTS[group].includes(orderedProduct);
-      const product = isTetanus ? (isOrdered ? orderedProduct : 'TT') : orderedProduct;
+      const isOrdered = Boolean(orderedProduct && orderedProduct !== 'none');
+      const product = isOrdered ? orderedProduct : defaultProduct;
 
       if (!isOrdered) return;
 
       const previous = records.filter((record) => {
         const med = (record.medication_given || '').toUpperCase();
-        return HISTORICAL_GROUP_PRODUCTS[group]?.includes(med) || (isTetanus && med === orderedProduct.toUpperCase());
+        return HISTORICAL_GROUP_PRODUCTS[group]?.includes(med) || (isOrdered && med === orderedProduct.toUpperCase());
       });
 
       if (previous.length > 0) return;
@@ -81,7 +84,7 @@ export default function ProphylaxisAdministrationSection({
       const key = `${group}_${product}`;
       if (hasAutoInitializedRef.current[key]) return;
 
-      const batches = stock?.[product as keyof ProphylaxisStock] || (isTetanus ? stock?.['TT'] : []) || [];
+      const batches = stock?.[product as keyof ProphylaxisStock] || stock?.[defaultProduct] || [];
       if (batches.length === 0) return;
 
       const exists = value.some((item) => item.medication === product);
@@ -110,15 +113,16 @@ export default function ProphylaxisAdministrationSection({
     let updated = false;
     const nextValue = value.map((item) => {
       if (!item.inventory_id && item.status !== 'not_administered') {
-        const batches = stock[item.medication] || stock['TT'] || [];
+        const isRigItem = item.route === 'wound_infiltration' || item.medication === 'ERIG';
+        const batches = stock[item.medication] || (isRigItem ? stock['ERIG'] : stock['TT']) || [];
         if (batches.length > 0) {
           updated = true;
           return {
             ...item,
             inventory_id: String(batches[0].inventory_id),
-            dosage_ml: item.dosage_ml || (item.medication !== 'ERIG' ? '0.5' : ''),
+            dosage_ml: item.dosage_ml || (!isRigItem ? '0.5' : ''),
             injection_site:
-              item.injection_site || (item.route === 'wound_infiltration' ? 'Wound infiltration sites' : 'Right deltoid'),
+              item.injection_site || (isRigItem ? 'Wound infiltration sites' : 'Right deltoid'),
           };
         }
       }
@@ -188,18 +192,17 @@ export default function ProphylaxisAdministrationSection({
         {PROPHYLAXIS_GROUPS.map((group) => {
           const isTetanusVaccine = group === 'tetanus_vaccine';
           const isTetanusPassive = group === 'tetanus_passive';
+          const isRig = group === 'rig';
           const isTetanus = isTetanusVaccine || isTetanusPassive;
-          const defaultProduct = isTetanusPassive ? 'ATS' : 'TT';
+          const defaultProduct = isTetanusPassive ? 'ATS' : isRig ? 'ERIG' : 'TT';
 
           const orderedProduct = orders?.[group] || '';
-          const isOrdered = isTetanus
-            ? Boolean(orderedProduct && orderedProduct !== 'none')
-            : PROPHYLAXIS_PRODUCTS[group].includes(orderedProduct);
-          const product = isTetanus ? (isOrdered ? orderedProduct : defaultProduct) : orderedProduct;
+          const isOrdered = Boolean(orderedProduct && orderedProduct !== 'none');
+          const product = isOrdered ? orderedProduct : defaultProduct;
 
           const previous = records.filter((record) => {
             const med = (record.medication_given || '').toUpperCase();
-            return HISTORICAL_GROUP_PRODUCTS[group]?.includes(med) || (isTetanus && isOrdered && med === orderedProduct.toUpperCase());
+            return HISTORICAL_GROUP_PRODUCTS[group]?.includes(med) || (isOrdered && med === orderedProduct.toUpperCase());
           });
 
           // If this group is not ordered and has no previous records, don't display section
@@ -207,7 +210,7 @@ export default function ProphylaxisAdministrationSection({
             return null;
           }
 
-          const batches = stock?.[product as keyof ProphylaxisStock] || (isTetanus ? stock?.[defaultProduct] : []) || [];
+          const batches = stock?.[product as keyof ProphylaxisStock] || stock?.[defaultProduct] || [];
           const item = value.find((record) => record.medication === product);
           const isNotAdministered = item?.status === 'not_administered';
           const isChecked = Boolean(item) && !isNotAdministered;

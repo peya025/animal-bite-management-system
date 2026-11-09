@@ -14,6 +14,7 @@ class Clinic extends Model
     protected $fillable = [
         'name',
         'subtitle',
+        'faqs',
         'address',
         'phone',
         'email',
@@ -48,6 +49,11 @@ class Clinic extends Model
         'health_officer_name',
         'population',
     ];
+
+    public function getFaqsAttribute($value): array
+    {
+        return $value === null ? config('clinic_faqs', []) : json_decode($value, true);
+    }
 
     protected $appends = [
         'logo_url',
@@ -89,6 +95,7 @@ class Clinic extends Model
     }
 
     protected $casts = [
+        'faqs' => 'array',
         'is_setup_complete' => 'boolean',
         'setup_completed_at' => 'datetime',
         'latitude' => 'decimal:7',

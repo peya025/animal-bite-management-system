@@ -63,6 +63,12 @@ class MobileClinicResourceController extends Controller
         ]);
     }
 
+    public function faqs(Request $request): JsonResponse
+    {
+        $clinic = Clinic::find($this->resolveClinicId($request));
+        return response()->json(['data' => $clinic?->faqs ?? []]);
+    }
+
     private function resolveClinicId(Request $request): ?int
     {
         $user = $request->user('sanctum') ?? $request->user();

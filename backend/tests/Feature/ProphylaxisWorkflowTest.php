@@ -335,6 +335,58 @@ class ProphylaxisWorkflowTest extends TestCase
         $this->assertSame(9, $batch->fresh()->current_quantity);
     }
 
+    public function test_custom_rig_preset_brand_can_be_ordered_and_administered(): void
+    {
+        \App\Models\VaccineTypePreset::create([
+            'clinic_id' => $this->incident->clinic_id,
+            'vaccine_name' => 'Equirab',
+            'category' => 'Rabies Immunoglobulins (RIG)',
+            'is_multidose' => false,
+            'doses_per_vial' => 1,
+        ]);
+        $batch = VaccineInventory::create([
+            'clinic_id' => $this->incident->clinic_id,
+            'vaccine_type' => 'Equirab',
+            'batch_number' => 'EQ-001',
+            'current_quantity' => 5,
+            'expiration_date' => '2028-01-01',
+            'status' => 'active',
+        ]);
+
+        $res = $this->getJson('/api/inventory/prophylaxis-stock')->assertOk();
+        $this->assertContains('Equirab', $res->json('rig_brands'));
+        $this->assertCount(1, $res->json('stock.Equirab'));
+
+        // Doctor prescribes 'Equirab'
+        $this->consultation->update([
+            'prophylaxis_orders' => [
+                'rig' => 'Equirab',
+                'rig_weight_kg' => '60',
+                'rig_indication' => 'category_iii',
+            ],
+        ]);
+
+        // Nurse administers 'Equirab'
+        $this->submit([
+            [
+                'medication' => 'Equirab',
+                'date' => '2026-09-30',
+                'inventory_id' => $batch->inventory_id,
+                'inventory_units_used' => 1,
+                'route' => 'wound_infiltration',
+                'injection_site' => 'Left leg wound',
+                'dosage_ml' => null,
+                'dose_iu' => '1200',
+            ],
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('treatment_records', [
+            'medication_given' => 'Equirab',
+            'inventory_id' => $batch->inventory_id,
+        ]);
+        $this->assertSame(4, $batch->fresh()->current_quantity);
+    }
+
     public function test_vials_used_cannot_be_bypassed_via_request(): void
     {
         // Attempting to bypass read-only vials used by sending 2 vials for TT

@@ -464,14 +464,19 @@ class TreatmentRecordService
                 'tetanus_history', 'tetanus_last_dose', 'rig_weight_kg', 'rig_indication', 'notes',
             ])->toArray()
             : [];
+        $submittedCategory = $validated['exposure_category'] ?? null;
+        $effectiveCategory = $submittedCategory ?? $activeIncident->exposure_category;
+        $isCategory1 = ($effectiveCategory === 'I');
+
+        if (!empty($cleanOrdersForValidation['rig']) && $cleanOrdersForValidation['rig'] !== 'none' && empty($cleanOrdersForValidation['rig_indication'])) {
+            $cleanOrdersForValidation['rig_indication'] = ($effectiveCategory === 'II' || ($activeIncident && $activeIncident->severity === 'moderate'))
+                ? 'immunocompromised'
+                : 'category_iii';
+        }
 
         $this->prophylaxisService->validateOrders(
             $cleanOrdersForValidation, $validated['treatment_plan'] ?? 'full_pep'
         );
-
-        $submittedCategory = $validated['exposure_category'] ?? null;
-        $effectiveCategory = $submittedCategory ?? $activeIncident->exposure_category;
-        $isCategory1 = ($effectiveCategory === 'I');
 
         $pOrders = $cleanOrdersForValidation;
         $tetCat = $pOrders['tetanus_category'] ?? null;

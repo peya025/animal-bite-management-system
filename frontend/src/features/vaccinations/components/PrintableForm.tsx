@@ -1,6 +1,7 @@
 import React from 'react';
 import SignatureImage from '../../../shared/components/SignatureImage';
 import { formatDate } from '../utils/printHelpers';
+import { deriveTreatmentCard, getStaffName, isRecordGiven } from '../utils/treatmentCardData';
 
 export interface PrintableTreatmentRecord {
   dose_number?: number;
@@ -102,212 +103,15 @@ export interface PrintableFormProps {
 export default function PrintableForm({ record, mode = 'filled' }: PrintableFormProps) {
   const isBlank = mode === 'blank';
 
-  const clinic = record?.clinic;
-  const patient = record?.patient;
-  const bite = record?.bite;
-  const baseRecords = record?.treatment_records || record?.doses || [];
-  const extraProphylaxis = record?.prophylaxis_records || [];
-  const records: PrintableTreatmentRecord[] = [...baseRecords];
-  extraProphylaxis.forEach((pr) => {
-    if (!records.some((r) => (r.treatment_id && pr.treatment_id && r.treatment_id === pr.treatment_id) || r === pr)) {
-      records.push(pr);
-    }
-  });
-
-  const consultationHistory = Array.isArray(record?.consultation_history) ? record!.consultation_history! : [];
-  const selectedConsultationId = (record as any)?.selected_consultation_id;
-  const targetedConsultation = selectedConsultationId
-    ? consultationHistory.find((c: any) => c.treatment_id === selectedConsultationId)
-    : null;
-  const latestConsultation = targetedConsultation || record?.latest_consultation || (consultationHistory.length > 0 ? consultationHistory[consultationHistory.length - 1] : null);
-
-  // Clinic Accreditation details
-  const clinicTitle = clinic?.name ? clinic.name.toUpperCase() : 'ABCARE';
-  const clinicSubtitle = 'Official Animal Bite Treatment Form · Tagoloan RHU (DOH Accredited)';
-  const dohAccredNo = clinic?.doh_accreditation_no || '2022-10-037';
-  const philhealthAccredNo = clinic?.philhealth_accreditation_no || 'B10034377';
-  const philhealthPin = patient?.philhealth_no || '—';
-
-  // Dates & Registries
-  const dateVal = formatDate(record?.cardDate || latestConsultation?.consultation_date || bite?.bite_date);
-  const registryNoVal = record?.registryNo || bite?.case_number || '—';
-  const hospitalNoVal = record?.hospitalNo || patient?.hospital_no || clinic?.hospital_no || '—';
-  const referredByVal = record?.referredBy || bite?.referred_from || '—';
-
-  // PhilHealth Status
-  const rawPhStatus = (patient?.philhealth_status || '').toLowerCase();
-  const isMember = rawPhStatus === 'member';
-  const isDependent = rawPhStatus === 'dependent';
-  const formattedPhStatus = isMember ? 'Member' : isDependent ? 'Dependent' : rawPhStatus ? (rawPhStatus.charAt(0).toUpperCase() + rawPhStatus.slice(1)) : '—';
-
-  // Patient Demographic
-  const patientName = patient?.full_name || '—';
-  const age = patient?.age !== undefined && patient?.age !== null && patient?.age !== '' ? String(patient.age) : '—';
-  const dob = formatDate(patient?.date_of_birth);
-  const address = patient?.address || '—';
-
-  const rawGender = (patient?.gender || '').toLowerCase();
-  const isMale = rawGender === 'male' || rawGender === 'm';
-  const isFemale = rawGender === 'female' || rawGender === 'f';
-  const formattedSex = isMale ? 'Male' : isFemale ? 'Female' : '—';
-
-  // Exposure Category
-  const severityFallback = bite?.severity === 'minor' ? 'I' : bite?.severity === 'moderate' ? 'II' : bite?.severity === 'severe' ? 'III' : '';
-  const rawCat = record?.exposureCategory || (latestConsultation as any)?.exposure_category || bite?.exposure_category || severityFallback || '';
-  const normalizedCat = rawCat.replace(/^category\s*/i, '').trim().toUpperCase();
-  const formattedCat = normalizedCat ? `Category ${normalizedCat}` : '—';
-
-  const exposureDate = formatDate(bite?.bite_date);
-  const placeOfExposure = bite?.bite_place || record?.placeOfExposure || '—';
-
-  // Mode of Animal Exposure
-  const rawMode = (record?.modeOfExposure || bite?.mode_of_exposure || '').toLowerCase();
-  const isMode = (type: string) => {
-    if (type === 'nibbling_uncovered') return rawMode.includes('uncovered') || rawMode.includes('nibbling');
-    if (type === 'nibbling_wounded') return rawMode.includes('broken') || rawMode.includes('wounded');
-    if (type === 'scratch_abrasion') return rawMode.includes('scratch') || rawMode.includes('abrasion');
-    if (type === 'transdermal_bite') return rawMode.includes('transdermal') || rawMode.includes('bite');
-    if (type === 'handling_ingestion') return rawMode.includes('ingestion') || rawMode.includes('handling') || rawMode.includes('meat');
-    return false;
-  };
-
-  const chosenModes: string[] = [];
-  if (isMode('nibbling_uncovered')) chosenModes.push('Nibbling/Licking of uncovered skin');
-  if (isMode('nibbling_wounded')) chosenModes.push('Nibbling/Licking of wounded/broken skin');
-  if (isMode('scratch_abrasion')) chosenModes.push('Scratch / Abrasion');
-  if (isMode('transdermal_bite')) chosenModes.push('Transdermal Bite');
-  if (isMode('handling_ingestion')) chosenModes.push('Handling / Ingestion of raw infected meat');
-
-  // Body Part Affected Exposed
-  const rawPart = (record?.bodyPartExposed || bite?.body_part_exposed || '').toLowerCase();
-  const isBodyPart = (type: string) => {
-    if (type === 'head_neck') return rawPart.includes('head') || rawPart.includes('neck');
-    if (type === 'other_parts') {
-      return rawPart.includes('upper') || rawPart.includes('lower') || rawPart.includes('extremities')
-        || rawPart.includes('trunk') || rawPart.includes('torso') || rawPart.includes('other')
-        || rawPart.includes('multiple') || rawPart.includes('site') || (!rawPart.includes('head') && !rawPart.includes('neck') && !rawPart.includes('na') && rawPart.length > 0);
-    }
-    if (type === 'na_ingestion') return rawPart.includes('na') || rawPart.includes('ingestion');
-    return false;
-  };
-
-  const chosenParts: string[] = [];
-  if (isBodyPart('head_neck')) chosenParts.push('Head and/or neck');
-  if (isBodyPart('other_parts')) chosenParts.push('Other parts of the body');
-  if (isBodyPart('na_ingestion')) chosenParts.push('N / A if Ingestion mode');
-
-  // Animal Type
-  const animal = (record?.animalType || bite?.animal_type || 'Dog').toLowerCase();
-  const isDog = animal === 'dog' || animal === 'canine';
-  const animalLabel = isDog ? 'Dog' : `Others: ${record?.animalTypeOthers || record?.animalType || 'unknown'}`;
-
-  // Past History
-  const hasPastBite = record?.pastBiteHistory;
-  const pastBiteDates = record?.pastBiteDates ? formatDate(record.pastBiteDates) : '';
-  const pepCompleted = record?.pastPepCompleted;
-
-  // Prescriptions from Form 2
-  const pOrders = latestConsultation?.prophylaxis_orders || {};
-  const orderedRigProduct = (pOrders.rig && pOrders.rig !== 'none' ? pOrders.rig : '').trim().toLowerCase();
-  const orderedTtProduct = (pOrders.tetanus_vaccine && pOrders.tetanus_vaccine !== 'none' ? pOrders.tetanus_vaccine : '').trim().toLowerCase();
-  const orderedAtsProduct = (pOrders.tetanus_passive && pOrders.tetanus_passive !== 'none' ? pOrders.tetanus_passive : '').trim().toLowerCase();
-
-  const isRecordGiven = (r?: PrintableTreatmentRecord) =>
-    Boolean(r && !r.voided_at && r.status !== 'cancelled' && r.outcome !== 'not_administered' && (r.status === 'completed' || Boolean(r.treatment_date)));
-
-  // Dose lookups
-  const d0Rec = records.find((r) => !r.voided_at && (r.dose_number === 0 || r.period === 'Day 0'));
-  const d3Rec = records.find((r) => !r.voided_at && (r.dose_number === 3 || r.period === 'Day 3'));
-  const d7Rec = records.find((r) => !r.voided_at && (r.dose_number === 7 || r.period === 'Day 7'));
-  const d28Rec = records.find((r) => !r.voided_at && (r.dose_number === 28 || r.period === 'Day 28' || r.dose_number === 14 || r.period === 'Day 14' || r.dose_number === 30 || r.period === 'Day 30'));
-  const b1Rec = records.find((r) => !r.voided_at && (r.dose_number === 90 || r.dose_number === 100 || r.period === 'Booster 1' || (r.route && (r as any).appointment_type === 'booster')));
-  const b2Rec = records.find((r) => !r.voided_at && (r.dose_number === 365 || r.dose_number === 101 || r.period === 'Booster 2'));
-
-  // Comprehensive RIG lookup: matches dose_number, period, route, brand, or prescribed order
-  const rigRec = records.find((r) => {
-    if (r.voided_at) return false;
-    if (r.dose_number === 200 || r.dose_number === 201 || r.period === 'ERIG') return true;
-    if (r.route === 'wound_infiltration') return true;
-    const med = (r.medication_given || r.vaccine_brand || '').trim().toLowerCase();
-    if (['erig', 'hrig', 'rig'].includes(med)) return true;
-    if (/erig|hrig|rig|rabies.*globulin|immuno|equirab|kamrab|berirab/i.test(med)) return true;
-    if (orderedRigProduct && med === orderedRigProduct) return true;
-    return false;
-  });
-
-  // Comprehensive TT lookup
-  const ttRec = records.find((r) => {
-    if (r.voided_at) return false;
-    if (r.dose_number === 300 || r.period === 'TT') return true;
-    const med = (r.medication_given || r.vaccine_brand || '').trim().toLowerCase();
-    if (['tt', 'td', 'tdap', 'dtap'].includes(med)) return true;
-    if (/tetan|toxoid|tetav/i.test(med) && !/anti[- ]?tetanus|serum|\bats\b/i.test(med)) return true;
-    if (orderedTtProduct && med === orderedTtProduct) return true;
-    return false;
-  });
-
-  // Comprehensive ATS lookup
-  const atsRec = records.find((r) => {
-    if (r.voided_at) return false;
-    if (r.dose_number === 400 || r.dose_number === 401 || r.period === 'ATS') return true;
-    const med = (r.medication_given || r.vaccine_brand || '').trim().toLowerCase();
-    if (['ats', 'tig'].includes(med)) return true;
-    if (/anti[- ]?tetanus|tetanus serum|\bats\b/i.test(med)) return true;
-    if (orderedAtsProduct && med === orderedAtsProduct) return true;
-    return false;
-  });
-
-  const rigGiven = isRecordGiven(rigRec);
-  const ttGiven = isRecordGiven(ttRec);
-  const atsGiven = isRecordGiven(atsRec);
-
-  const allGiven = [d0Rec, d3Rec, d7Rec, d28Rec, b1Rec, b2Rec, rigRec, ttRec, atsRec].filter((r): r is PrintableTreatmentRecord => isRecordGiven(r));
-  const treatmentStartDate = allGiven.length > 0 && allGiven[0]?.treatment_date
-    ? formatDate(allGiven[0].treatment_date)
-    : bite?.date_treatment_started
-    ? formatDate(bite.date_treatment_started)
-    : '';
-
-  // Appointments lookup for future scheduled doses
-  const appointments: any[] = (record as any)?.appointments || [];
-  const apt3 = appointments.find((a) => a.dose_number === 3 || a.notes?.toLowerCase().includes('day 3'));
-  const apt7 = appointments.find((a) => a.dose_number === 7 || a.notes?.toLowerCase().includes('day 7'));
-  const apt28 = appointments.find((a) => a.dose_number === 28 || a.notes?.toLowerCase().includes('day 28'));
-
-  // Weight & RIG Dosage
-  const patientWeight = Number(
-    latestConsultation?.prophylaxis_orders?.rig_weight_kg ||
-    latestConsultation?.weight ||
-    patient?.weight ||
-    record?.patient?.weight ||
-    (record as any)?.patient_reported_intake?.referral_weight ||
-    0
-  );
-
-  let rigCalculatedMl = '';
-  if (rigRec?.dosage_ml) {
-    rigCalculatedMl = String(rigRec.dosage_ml);
-  } else if (patientWeight > 0) {
-    rigCalculatedMl = (patientWeight * 40 / 200).toFixed(1);
-  }
-
-  // Treatment plan determinations for omitting unchosen rows in Filled mode
-  const planType = (bite?.plan_type || (bite as any)?.treatmentPlan?.plan_type || '').toLowerCase();
-  const isBoosterPlan = planType.includes('booster');
-  const hasD28 = isRecordGiven(d28Rec) || Boolean(apt28) || planType === 'full_pep_essen';
-  const hasB1 = isRecordGiven(b1Rec) || isBoosterPlan;
-  const hasB2 = isRecordGiven(b2Rec) || planType === 'two_dose_booster';
-  const hasRig = isRecordGiven(rigRec) || Boolean(orderedRigProduct && orderedRigProduct !== 'none');
-  const hasTt = isRecordGiven(ttRec) || Boolean(orderedTtProduct && orderedTtProduct !== 'none');
-  const hasAts = isRecordGiven(atsRec) || Boolean(orderedAtsProduct && orderedAtsProduct !== 'none');
-
-  const getStaffName = (rec?: PrintableTreatmentRecord) => {
-    if (!rec) return '';
-    const staff = rec.administered_by || (rec as any)?.administeredBy;
-    if (typeof staff === 'object' && staff?.name) return staff.name;
-    if (typeof staff === 'string' && staff) return staff;
-    return 'Treatment Nurse';
-  };
+  const {
+    clinicTitle, clinicSubtitle, dohAccredNo, philhealthAccredNo, philhealthPin,
+    dateVal, registryNoVal, hospitalNoVal, referredByVal, formattedPhStatus,
+    patientName, age, dob, address, formattedSex, formattedCat, exposureDate, placeOfExposure,
+    chosenModes, chosenParts, animalLabel, hasPastBite, pastBiteDates, pepCompleted,
+    d0Rec, d3Rec, d7Rec, d28Rec, b1Rec, b2Rec, rigRec, ttRec, atsRec,
+    rigGiven, ttGiven, atsGiven, treatmentStartDate, apt3, apt7, apt28, rigCalculatedMl,
+    hasD28, hasB1, hasB2, hasRig, hasTt, hasAts, icd10Code,
+  } = deriveTreatmentCard(record);
 
   const renderSignature = (rec?: PrintableTreatmentRecord) => {
     if (!rec) return null;
@@ -340,7 +144,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           {isBlank ? (
             <span>( ) ID &nbsp;&nbsp; ( ) IM</span>
           ) : isGiven ? (
-            <span style={{ fontWeight: 600 }}>{route || 'IM'}</span>
+            <span style={{ fontWeight: 400 }}>{route || 'IM'}</span>
           ) : (
             <span style={{ color: '#444' }}>{fallbackRoute}</span>
           )}
@@ -368,7 +172,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
     borderBottom: '1px solid #000',
     display: 'inline-block',
     padding: '0 5px',
-    fontWeight: 600,
+    fontWeight: 400,
     verticalAlign: 'bottom',
   };
 
@@ -397,6 +201,11 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           font-family: Arial, Helvetica, sans-serif !important;
           font-size: 8.5pt !important;
           line-height: 1.3 !important;
+        }
+        /* Labels: semi-bold; filled-in information: regular weight */
+        #tagoloan-printable-form strong,
+        #tagoloan-printable-form th {
+          font-weight: 600 !important;
         }
         @page {
           size: A4 portrait;
@@ -622,7 +431,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
       {isBlank ? (
         <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: '12px', marginBottom: '6px', lineHeight: 1.35 }}>
           <div>
-            <div style={{ fontWeight: 700, marginBottom: '2px' }}>1. Mode of Animal Exposure</div>
+            <div style={{ fontWeight: 600, marginBottom: '2px' }}>1. Mode of Animal Exposure</div>
             <div>( ) Nibbling/Licking of uncovered skin</div>
             <div>( ) Nibbling/Licking of wounded/broken skin</div>
             <div>( ) Scratch / Abrasion</div>
@@ -630,7 +439,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             <div>( ) Handling / Ingestion of raw infected meat</div>
           </div>
           <div>
-            <div style={{ fontWeight: 700, marginBottom: '2px' }}>2. Body Part Affected / Exposed</div>
+            <div style={{ fontWeight: 600, marginBottom: '2px' }}>2. Body Part Affected / Exposed</div>
             <div>( ) Head and/or neck</div>
             <div>( ) other parts of the body</div>
             <div>( ) N / A if Ingestion mode</div>
@@ -641,13 +450,13 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           {chosenModes.length > 0 && (
             <div style={{ marginBottom: '3px' }}>
               <strong>1. Mode of Animal Exposure:</strong> &nbsp;
-              <span style={{ fontWeight: 600 }}>{chosenModes.join(', ')}</span>
+              <span style={{ fontWeight: 400 }}>{chosenModes.join(', ')}</span>
             </div>
           )}
           {chosenParts.length > 0 && (
             <div style={{ marginBottom: '3px' }}>
               <strong>2. Body Part Affected / Exposed:</strong> &nbsp;
-              <span style={{ fontWeight: 600 }}>{chosenParts.join(', ')}</span>
+              <span style={{ fontWeight: 400 }}>{chosenParts.join(', ')}</span>
             </div>
           )}
         </div>
@@ -661,7 +470,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             ( ) Dog &nbsp;&nbsp;&nbsp;&nbsp; ( ) Others: <span style={{ ...underlineStyle, minWidth: '140px' }}>&nbsp;</span>
           </span>
         ) : (
-          <span style={{ fontWeight: 600 }}>{animalLabel}</span>
+          <span style={{ fontWeight: 400 }}>{animalLabel}</span>
         )}
       </div>
 
@@ -678,11 +487,11 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
             </div>
           </div>
         ) : hasPastBite === true ? (
-          <span style={{ fontWeight: 600 }}>
+          <span style={{ fontWeight: 400 }}>
             Yes {pastBiteDates ? `(Dates: ${pastBiteDates})` : ''} — Was PEP Immunization completed: {pepCompleted ? 'Yes' : 'No'}
           </span>
         ) : (
-          <span style={{ fontWeight: 600 }}>No</span>
+          <span style={{ fontWeight: 400 }}>No</span>
         )}
       </div>
 
@@ -705,7 +514,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
                     border: '1px solid #000',
                     padding: '2px 6px',
                     textAlign: 'center',
-                    fontWeight: 700,
+                    fontWeight: 600,
                     fontSize: '8.5pt',
                     backgroundColor: '#ffffff',
                   }}
@@ -747,7 +556,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
                     {isBlank ? (
                       <span>ERIG _________ ml</span>
                     ) : (
-                      <span>ERIG {rigRec?.dosage_ml || rigCalculatedMl ? `${rigRec?.dosage_ml || rigCalculatedMl} ml` : ''}</span>
+                      <span>ERIG <span style={{ fontWeight: 400 }}>{rigRec?.dosage_ml || rigCalculatedMl ? `${rigRec?.dosage_ml || rigCalculatedMl} ml` : ''}</span></span>
                     )}
                   </td>
                   <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
@@ -769,7 +578,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
               {(isBlank || hasTt) && (
                 <tr style={{ height: '21px' }}>
                   <td style={{ border: '1px solid #000', padding: '2px 6px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                    {isBlank ? 'TT' : (ttRec?.dosage_ml ? `TT ${ttRec.dosage_ml} ml` : 'TT')}
+                    {isBlank || !ttRec?.dosage_ml ? 'TT' : (<>TT <span style={{ fontWeight: 400 }}>{ttRec.dosage_ml} ml</span></>)}
                   </td>
                   <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
                     {!isBlank && ttGiven ? (ttRec?.route || 'IM') : ''}
@@ -810,17 +619,17 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
 
         {/* ICD 10 Code on the right */}
         <div style={{ width: '120px', textAlign: 'center', padding: '4px' }}>
-          <div style={{ fontWeight: 700, fontSize: '9pt', marginBottom: '6px' }}>ICD 10 Code</div>
+          <div style={{ fontWeight: 600, fontSize: '9pt', marginBottom: '6px' }}>ICD 10 Code</div>
           <div
             style={{
               borderBottom: '1.5px solid #000',
               paddingBottom: '2px',
-              fontWeight: 700,
+              fontWeight: 400,
               fontSize: '9.5pt',
               minHeight: '18px',
             }}
           >
-            {!isBlank ? (record?.icd10Code || 'Z20.3') : '\u00A0'}
+            {!isBlank ? icd10Code : '\u00A0'}
           </div>
         </div>
       </div>

@@ -27,6 +27,7 @@ import {
   Radio,
   Stack,
   useTheme,
+  Checkbox,
 } from '@mui/material';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -45,10 +46,12 @@ import {
   UserMultiple02Icon,
   MailSend01Icon,
   ViewIcon,
+  PrinterIcon,
 } from '@hugeicons/core-free-icons';
 import api from '../../../services/api';
 import { TablePager } from '../../../components/data-display';
 import TagoloanTreatmentCardModal from '../components/TagoloanTreatmentCardModal';
+import BatchTreatmentCardPrintModal, { type BatchCardItem } from '../components/BatchTreatmentCardPrintModal';
 import VaccinationRecordForm from '../components/VaccinationRecordForm';
 import { ConfirmationDialog } from '../../../components/feedback';
 
@@ -185,6 +188,49 @@ export default function VaccinationSchedulePage() {
   // Treatment Card Modal
   const [cardModalOpen, setCardModalOpen] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+
+  // Batch Treatment Card Print Modal (2 cards per bondpaper)
+  const [selectedPatientsForPrint, setSelectedPatientsForPrint] = useState<BatchCardItem[]>([]);
+  const [batchPrintOpen, setBatchPrintOpen] = useState(false);
+
+  const isPatientSelected = (patientId: number) =>
+    selectedPatientsForPrint.some((p) => p.patientId === patientId);
+
+  const handleTogglePatient = (patient: PatientJourney) => {
+    setSelectedPatientsForPrint((prev) => {
+      if (prev.some((p) => p.patientId === patient.patient_id)) {
+        return prev.filter((p) => p.patientId !== patient.patient_id);
+      }
+      return [
+        ...prev,
+        {
+          patientId: patient.patient_id,
+          biteId: patient.bite_incident?.bite_id || null,
+          name: patient.full_name,
+        },
+      ];
+    });
+  };
+
+  const handleSelectAllOnPage = (displayedList: PatientJourney[]) => {
+    const allCurrentSelected = displayedList.length > 0 && displayedList.every((p) =>
+      selectedPatientsForPrint.some((sp) => sp.patientId === p.patient_id)
+    );
+
+    if (allCurrentSelected) {
+      const pageIds = new Set(displayedList.map((p) => p.patient_id));
+      setSelectedPatientsForPrint((prev) => prev.filter((p) => !pageIds.has(p.patientId)));
+    } else {
+      const newItems = displayedList
+        .filter((p) => !selectedPatientsForPrint.some((sp) => sp.patientId === p.patient_id))
+        .map((p) => ({
+          patientId: p.patient_id,
+          biteId: p.bite_incident?.bite_id || null,
+          name: p.full_name,
+        }));
+      setSelectedPatientsForPrint((prev) => [...prev, ...newItems]);
+    }
+  };
 
   // Form 3 Vaccination Record Modal
   const [showRecordForm, setShowRecordForm] = useState(false);
@@ -830,20 +876,100 @@ export default function VaccinationSchedulePage() {
         </Paper>
       ) : (
         <Paper sx={{ p: 2, borderRadius: '14px', border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? '#111827' : 'var(--card-bg-solid, #fff)' }}>
-          <Stack spacing={2}>
-            {patients
-              .filter(patient => {
-                if (doseFilter === 'all') return true;
-                if (doseFilter === 'Booster') {
-                  return patient.doses?.some(d => d.is_booster || d.label.toLowerCase().includes('booster'));
-                }
-                // Map dose label to dose_number
-                const doseMap: Record<string, number> = { 'Day 0': 0, 'Day 3': 3, 'Day 7': 7, 'Booster 1': 90, 'Booster 2': 365 };
-                const targetNum = doseMap[doseFilter];
-                // Show patient if their next pending dose matches, or any dose in their schedule matches
-                return patient.doses?.some(d => d.dose_number === targetNum);
-              })
-              .map((patient) => {
+          {(() => {
+            const filteredPatients = patients.filter(patient => {
+              if (doseFilter === 'all') return true;
+              if (doseFilter === 'Booster') {
+                return patient.doses?.some(d => d.is_booster || d.label.toLowerCase().includes('booster'));
+              }
+              const doseMap: Record<string, number> = { 'Day 0': 0, 'Day 3': 3, 'Day 7': 7, 'Booster 1': 90, 'Booster 2': 365 };
+              const targetNum = doseMap[doseFilter];
+              return patient.doses?.some(d => d.dose_number === targetNum);
+            });
+
+            const isAllDisplayedSelected = filteredPatients.length > 0 && filteredPatients.every(p => isPatientSelected(p.patient_id));
+            const isSomeDisplayedSelected = filteredPatients.some(p => isPatientSelected(p.patient_id));
+
+            return (
+              <>
+                {/* Batch Print Selection Bar */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    mb: 2,
+                    pb: 1.5,
+                    borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #f1f5f9',
+                    flexWrap: 'wrap',
+                    gap: 1.5,
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Checkbox
+                      checked={isAllDisplayedSelected}
+                      indeterminate={isSomeDisplayedSelected && !isAllDisplayedSelected}
+                      onChange={() => handleSelectAllOnPage(filteredPatients)}
+                      size="small"
+                      sx={{
+                        p: 0.5,
+                        color: isDark ? '#64748b' : '#94a3b8',
+                        '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#10b981' },
+                      }}
+                    />
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: isDark ? '#e2e8f0' : '#475569', fontSize: '13px' }}>
+                      Select all on page ({filteredPatients.length})
+                    </Typography>
+                  </Box>
+
+                  {selectedPatientsForPrint.length > 0 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="caption" sx={{ color: isDark ? '#a7f3d0' : '#047857', fontWeight: 600 }}>
+                        {selectedPatientsForPrint.length} selected · {Math.ceil(selectedPatientsForPrint.length / 2)} sheet{Math.ceil(selectedPatientsForPrint.length / 2) === 1 ? '' : 's'}
+                      </Typography>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={() => setBatchPrintOpen(true)}
+                        startIcon={<HugeiconsIcon icon={PrinterIcon} size={15} />}
+                        sx={{
+                          textTransform: 'none',
+                          bgcolor: '#10b981',
+                          color: '#fff',
+                          fontWeight: 600,
+                          fontSize: '12px',
+                          py: 0.4,
+                          px: 1.5,
+                          borderRadius: '7px',
+                          boxShadow: 'none',
+                          '&:hover': { bgcolor: '#059669', boxShadow: 'none' },
+                        }}
+                      >
+                        Print Cards (2 per page)
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => setSelectedPatientsForPrint([])}
+                        sx={{
+                          textTransform: 'none',
+                          fontSize: '12px',
+                          py: 0.4,
+                          px: 1.25,
+                          borderRadius: '7px',
+                          color: isDark ? '#cbd5e1' : '#64748b',
+                          borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1',
+                          '&:hover': { borderColor: isDark ? '#94a3b8' : '#94a3b8' },
+                        }}
+                      >
+                        Clear
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
+
+                <Stack spacing={2}>
+                  {filteredPatients.map((patient) => {
               const isMissed = patient.compliance_status === 'overdue_missed';
               const isDueToday = patient.compliance_status === 'due_today';
               const showNextLabel = !isTriageDoctor && Boolean(patient.next_appointment);
@@ -876,7 +1002,18 @@ export default function VaccinationSchedulePage() {
                     }}
                   >
                     {/* Left Column: Patient Profile & Incident Summary */}
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <Checkbox
+                        checked={isPatientSelected(patient.patient_id)}
+                        onChange={() => handleTogglePatient(patient)}
+                        size="small"
+                        sx={{
+                          p: 0.5,
+                          mt: 0.5,
+                          color: isDark ? '#64748b' : '#94a3b8',
+                          '&.Mui-checked': { color: '#10b981' },
+                        }}
+                      />
                       <Box
                         sx={{
                           width: 40,
@@ -1176,7 +1313,10 @@ export default function VaccinationSchedulePage() {
                 </Paper>
               );
             })}
-          </Stack>
+                </Stack>
+              </>
+            );
+          })()}
 
           {/* Server-side Pagination Controls */}
           <TablePager
@@ -1243,6 +1383,15 @@ export default function VaccinationSchedulePage() {
           onSaved={() => {
             fetchJourneyData();
           }}
+        />
+      )}
+
+      {/* Batch Treatment Card Print Modal (2 Cards per Sheet) */}
+      {batchPrintOpen && selectedPatientsForPrint.length > 0 && (
+        <BatchTreatmentCardPrintModal
+          open={batchPrintOpen}
+          onClose={() => setBatchPrintOpen(false)}
+          items={selectedPatientsForPrint}
         />
       )}
 

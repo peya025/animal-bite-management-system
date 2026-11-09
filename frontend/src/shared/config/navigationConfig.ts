@@ -35,7 +35,7 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
     label: 'Patient Registration',
     path: ROUTES.PATIENTS.LIST,
     icon: GLOBAL_NAV_ICONS['Patient Registration'],
-    roles: ['registration', 'admin'],
+    roles: ['registration', 'admin', 'developer'],
   },
   {
     label: 'Treatment Queues',

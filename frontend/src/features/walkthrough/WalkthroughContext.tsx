@@ -5,6 +5,7 @@ import { getGuideModules } from './guideModules';
 import type { GuideProgress, WalkthroughContextType } from './types';
 import { walkthroughStyles } from './Walkthrough.styles';
 import WalkthroughOverlay from './WalkthroughOverlay';
+import { availablePatientActions, expandPatientSteps } from './patientGuide';
 
 const noop = () => {};
 export const defaultWalkthroughContext: WalkthroughContextType = {
@@ -21,12 +22,15 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const location = useLocation();
   const navigate = useNavigate();
   const modules = useMemo(() => getGuideModules(user?.role), [user?.role]);
-  const storageKey = user?.id ? `abtc_guides_v2_${user.id}` : null;
+  const storageKey = user?.id ? `abtc_guides_v3_${user.id}` : null;
   const [progress, setProgress] = useState<Record<string, GuideProgress>>({});
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
   const [reachedRoute, setReachedRoute] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const activeModule = modules.find(module => module.id === activeModuleId);
+  const [stepReady, setStepReady] = useState(true);
+  const baseModule = modules.find(module => module.id === activeModuleId);
+  const tabActions = activeModuleId ? progress[activeModuleId]?.tabActions : undefined;
+  const activeModule = useMemo(() => baseModule ? { ...baseModule, steps: expandPatientSteps(baseModule.steps, tabActions) } : undefined, [baseModule, tabActions]);
   const currentStep = activeModule?.steps[currentStepIndex] || null;
 
   useEffect(() => {
@@ -63,23 +67,23 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setCurrentStepIndex(index);
     setActiveModuleId(id);
     setReachedRoute(location.pathname === module.route);
-    saveProgress(id, { status: 'in_progress', step: index });
+    saveProgress(id, { status: 'in_progress', step: index, tabActions: saved?.tabActions });
     if (location.pathname !== module.route) navigate(module.route);
   }, [modules, progress, saveProgress, location.pathname, navigate]);
 
   const skipGuide = useCallback(() => {
-    if (activeModuleId) saveProgress(activeModuleId, { status: 'skipped', step: currentStepIndex });
+    if (activeModuleId) saveProgress(activeModuleId, { status: 'skipped', step: currentStepIndex, tabActions });
     setActiveModuleId(null);
-  }, [activeModuleId, currentStepIndex, saveProgress]);
+  }, [activeModuleId, currentStepIndex, saveProgress, tabActions]);
   const finishGuide = useCallback(() => {
-    if (activeModuleId) saveProgress(activeModuleId, { status: 'completed', step: activeModule?.steps.length || 0 });
+    if (activeModuleId) saveProgress(activeModuleId, { status: 'completed', step: activeModule?.steps.length || 0, tabActions });
     setActiveModuleId(null);
-  }, [activeModuleId, activeModule, saveProgress]);
+  }, [activeModuleId, activeModule, saveProgress, tabActions]);
   const goToStep = useCallback((index: number) => {
     if (!activeModule || index < 0 || index >= activeModule.steps.length) return;
     setCurrentStepIndex(index);
-    saveProgress(activeModule.id, { status: 'in_progress', step: index });
-  }, [activeModule, saveProgress]);
+    saveProgress(activeModule.id, { status: 'in_progress', step: index, tabActions });
+  }, [activeModule, saveProgress, tabActions]);
   const nextStep = useCallback(() => {
     if (!activeModule) return;
     if (currentStepIndex + 1 === activeModule.steps.length) finishGuide();
@@ -97,13 +101,29 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!reachedRoute) setReachedRoute(true);
     if (currentStep.activateSelector) {
       const selector = currentStep.activateSelector;
-      const timer = window.setTimeout(() => {
-        const tab = document.querySelector<HTMLElement>(selector);
-        if (tab && !tab.classList.contains('pm-tab-btn--active') && tab.getAttribute('aria-selected') !== 'true') tab.click();
-      }, 60);
-      return () => window.clearTimeout(timer);
+      const tab = document.querySelector<HTMLElement>(selector);
+      if (tab && !tab.classList.contains('pm-tab-btn--active') && tab.getAttribute('aria-selected') !== 'true') tab.click();
     }
-  }, [currentStep, activeModule, location.pathname, navigate, reachedRoute, skipGuide]);
+    if (currentStep.tabKey && !currentStep.actionStep && activeModuleId) {
+      setStepReady(false);
+      const timer = window.setTimeout(() => {
+        const discovered = availablePatientActions(currentStep);
+        if (discovered.length) {
+          setProgress(prev => {
+            const currentTabActions = prev[activeModuleId]?.tabActions || {};
+            const nextTabActions = { ...currentTabActions, [currentStep.id]: discovered };
+            const nextProg = { ...prev, [activeModuleId]: { ...prev[activeModuleId], status: 'in_progress' as const, step: currentStepIndex, tabActions: nextTabActions } };
+            if (storageKey) localStorage.setItem(storageKey, JSON.stringify(nextProg));
+            return nextProg;
+          });
+        }
+        setStepReady(true);
+      }, 50);
+      return () => window.clearTimeout(timer);
+    } else {
+      setStepReady(true);
+    }
+  }, [currentStep, activeModule, location.pathname, navigate, reachedRoute, skipGuide, activeModuleId, storageKey, currentStepIndex]);
 
   const value = useMemo<WalkthroughContextType>(() => ({
     isActive: !!activeModule, isWelcomeModalOpen: false, currentStepIndex, currentStep,
@@ -117,7 +137,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   return <WalkthroughContext.Provider value={value}>
     {children}
-    {activeModule && currentStep && <WalkthroughOverlay key={`${activeModule.id}-${currentStep.id}`}
+    {activeModule && currentStep && stepReady && <WalkthroughOverlay key={`${activeModule.id}-${currentStep.id}`}
       step={currentStep} moduleName={activeModule.name} currentStepIndex={currentStepIndex} totalSteps={activeModule.steps.length}
       onNext={nextStep} onPrev={prevStep} onSkip={skipGuide} onFinish={finishGuide} />}
   </WalkthroughContext.Provider>;

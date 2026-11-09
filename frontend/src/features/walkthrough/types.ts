@@ -25,6 +25,9 @@ export interface WalkthroughStep {
   content: string;
   placement: WalkthroughPlacement;
   activateSelector?: string;
+  tabKey?: string;
+  actions?: WalkthroughStep[];
+  actionStep?: boolean;
 }
 
 export interface GuideModule {
@@ -35,7 +38,11 @@ export interface GuideModule {
   steps: WalkthroughStep[];
 }
 
-export interface GuideProgress { status: 'in_progress' | 'completed' | 'skipped'; step: number }
+export interface GuideProgress {
+  status: 'in_progress' | 'completed' | 'skipped';
+  step: number;
+  tabActions?: Record<string, string[]>;
+}
 
 export interface WalkthroughContextType {
   isActive: boolean;

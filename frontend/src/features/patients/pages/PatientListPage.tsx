@@ -117,8 +117,8 @@ export default function PatientList() {
   const isAdmin = ['admin', 'administrator'].includes(userRole?.toLowerCase());
   const isDoctor = ['triage', 'doctor'].includes(userRole?.toLowerCase());
   const isTreatmentNurse = ['treatment', 'nurse'].includes(userRole?.toLowerCase());
-  const canRegisterExposure = ['registration', 'developer'].includes(userRole?.toLowerCase());
-  const canSendPortalInvite = ['registration'].includes(userRole?.toLowerCase());
+  const canRegisterExposure = ['registration', 'admin', 'developer'].includes(userRole?.toLowerCase());
+  const canSendPortalInvite = ['registration', 'admin', 'developer'].includes(userRole?.toLowerCase());
 
   const [tab,                  setTab]                  = useState<'today_queue' | 'all' | 'online' | 'pre_registered' | 'overdue'>('today_queue');
   const [tabCounts,            setTabCounts]            = useState({ today_queue: 0, all: 0, online: 0, pre_registered: 0, overdue: 0 });
@@ -1197,7 +1197,7 @@ export default function PatientList() {
               )}
             </div>
 
-            <button className="pm-print-btn" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowPrintModal(true); }} title="Print patient list">
+            <button data-patient-action="print" className="pm-print-btn" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowPrintModal(true); }} title="Print patient list">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <polyline points="6 9 6 2 18 2 18 9"/>
                 <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
@@ -1219,6 +1219,7 @@ export default function PatientList() {
               <div className="pm-bulk-bar-actions">
                 <button
                   className="pm-btn-bulk-send"
+                  data-patient-action="bulk-invite"
                   disabled={bulkInviting}
                   onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowBulkConfirm(true); }}
                 >
@@ -1226,6 +1227,7 @@ export default function PatientList() {
                 </button>
                 <button
                   className="pm-btn-bulk-clear"
+                  data-patient-action="clear-selection"
                   onClick={() => setSelectedWalkinIds([])}
                 >
                   Clear Selection
@@ -1260,7 +1262,7 @@ export default function PatientList() {
           )}
 
           {/* Table */}
-          <div className="pm-table-wrap" data-walkthrough="patients-table-actions">
+          <div className="pm-table-wrap" data-walkthrough="patients-table-actions" data-patient-tab={tab} aria-busy={loading}>
             {loading ? (
               <div className="pm-state"><div className="pm-spinner" /><p>Loading patients…</p></div>
             ) : error ? (
@@ -1450,6 +1452,7 @@ export default function PatientList() {
                               <button
                                 className="pm-btn-checkin"
                                 title="Confirm the patient has arrived, then send their submitted bite intake to the Doctor queue"
+                                data-patient-action="checkin-mobile"
                                 disabled={checkingInIntakeId === mobileIntakeForCheckIn.intake_id}
                                 onClick={(event) => {
                                   (event.currentTarget as HTMLElement).blur();
@@ -1479,6 +1482,7 @@ export default function PatientList() {
                               <button
                                 className="pm-btn-checkin"
                                 title="Patient returned with pending unadministered treatment from a previous visit. Collect updated vitals and route to Doctor Reassessment Queue."
+                                data-patient-action="checkin-reassessment"
                                 disabled={checkingInPatientId === patientId}
                                 style={{
                                   fontSize: '12px',
@@ -1505,6 +1509,7 @@ export default function PatientList() {
                               </button>
                             ) : canCheckInReturning ? (
                               <button
+                                data-patient-action="checkin"
                                 className="pm-btn-checkin"
                                 title={
                                   requiresCheckinQueue
@@ -1539,6 +1544,7 @@ export default function PatientList() {
                               <button
                                 className="pm-btn-checkin"
                                 title="Patient was not attended to within 1 day or needs follow-up vaccination. Re-check in to today's Nurse Treatment queue."
+                                data-patient-action="checkin-nurse"
                                 disabled={checkingInNursePatientId === patientId}
                                 style={{
                                   fontSize: '12px',
@@ -1570,6 +1576,7 @@ export default function PatientList() {
                               <button
                                 className="pm-btn-checkin"
                                 title="Register a distinct new rabies exposure incident (Re-Exposure)"
+                                data-patient-action="new-exposure"
                                 style={{
                                   backgroundColor: '#0284c7',
                                   borderColor: '#0284c7',
@@ -1593,6 +1600,7 @@ export default function PatientList() {
                             {!isOnline && canSendPortalInvite && (
                               <button
                                 className="pm-btn-invite"
+                                data-patient-action="portal-invite"
                                 title="Invite Walk-in Patient to Mobile Portal"
                                 onClick={(e) => {
                                   (e.currentTarget as HTMLElement)?.blur();
@@ -1621,6 +1629,7 @@ export default function PatientList() {
                             )}
                             <button
                               className="pm-btn-view"
+                              data-patient-action="view"
                               onClick={(e) => {
                                 (e.currentTarget as HTMLElement)?.blur();
                                 setSelectedViewPatient(p);

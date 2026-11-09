@@ -154,7 +154,10 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
   const printableRecord: PrintableFormRecord = {
     clinic: mergedClinic,
     logos: globalLogos,
-    patient,
+    patient: {
+      ...patient,
+      weight: activeConsultation?.weight || activeConsultation?.prophylaxis_orders?.rig_weight_kg || patient?.weight,
+    },
     bite,
     cardDate: activeConsultation?.consultation_date ? String(activeConsultation.consultation_date).slice(0, 10) : cardDate,
     registryNo,
@@ -174,6 +177,7 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, b
     latest_consultation: activeConsultation,
     consultation_history: consultList,
     selected_consultation_id: activeConsultation?.treatment_id || selectedTreatmentId,
+    appointments: cardData?.appointments || [],
   };
 
   return (

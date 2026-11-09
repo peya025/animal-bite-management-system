@@ -1,7 +1,6 @@
 import React from 'react';
 import SignatureImage from '../../../shared/components/SignatureImage';
-import { formatDate, formatBodyPart, formatModeOfExposure } from '../utils/printHelpers';
-import { getGlobalPrintLogos, resolveStorageUrl } from '../../../components/print';
+import { formatDate } from '../utils/printHelpers';
 
 export interface PrintableTreatmentRecord {
   dose_number?: number;
@@ -57,9 +56,11 @@ export interface PrintableFormRecord {
     philhealth_no?: string;
     philhealth_status?: string;
     hospital_no?: string;
+    weight?: number | string;
   };
   bite?: {
     bite_date?: string;
+    date_treatment_started?: string;
     bite_place?: string;
     exposure_category?: string;
     severity?: string;
@@ -68,6 +69,7 @@ export interface PrintableFormRecord {
     mode_of_exposure?: string;
     body_part_exposed?: string;
     animal_type?: string;
+    plan_type?: string;
   };
   cardDate?: string;
   registryNo?: string;
@@ -82,24 +84,14 @@ export interface PrintableFormRecord {
   pastBiteDates?: string;
   pastPepCompleted?: boolean;
   icd10Code?: string;
+  placeOfExposure?: string;
   treatment_records?: PrintableTreatmentRecord[];
   prophylaxis_records?: PrintableTreatmentRecord[];
-  latest_consultation?: {
-    prescribed_vaccine_type?: string | null;
-    medication_treatment?: string | null;
-    prophylaxis_orders?: {
-      tetanus_category?: string | null;
-      tetanus_vaccine?: string | null;
-      tetanus_passive?: string | null;
-      rig?: string | null;
-      notes?: string | null;
-    } | null;
-    diagnosis?: string | null;
-    remarks?: string | null;
-  } | null;
+  latest_consultation?: any;
   consultation_history?: any[];
   doses?: PrintableTreatmentRecord[];
   selected_consultation_id?: number | null;
+  appointments?: any[];
 }
 
 export interface PrintableFormProps {
@@ -111,7 +103,6 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
   const isBlank = mode === 'blank';
 
   const clinic = record?.clinic;
-  const logos = record?.logos;
   const patient = record?.patient;
   const bite = record?.bite;
   const baseRecords = record?.treatment_records || record?.doses || [];
@@ -122,6 +113,7 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
       records.push(pr);
     }
   });
+
   const consultationHistory = Array.isArray(record?.consultation_history) ? record!.consultation_history! : [];
   const selectedConsultationId = (record as any)?.selected_consultation_id;
   const targetedConsultation = selectedConsultationId
@@ -129,365 +121,256 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
     : null;
   const latestConsultation = targetedConsultation || record?.latest_consultation || (consultationHistory.length > 0 ? consultationHistory[consultationHistory.length - 1] : null);
 
-  const globalLogos = getGlobalPrintLogos(clinic as any);
-  const leftLogoUrl = resolveStorageUrl(logos?.leftLogoUrl || clinic?.left_print_logo_url, clinic?.left_print_logo_path) || globalLogos.leftLogoUrl;
-  const rightLogoUrl = resolveStorageUrl(logos?.rightLogoUrl || clinic?.right_print_logo_url, clinic?.right_print_logo_path) || globalLogos.rightLogoUrl;
-
-  const clinicName = (clinic?.name || 'TAGOLOAN').trim();
+  // Clinic Accreditation details
+  const clinicTitle = clinic?.name ? clinic.name.toUpperCase() : 'ABCARE';
+  const clinicSubtitle = 'Official Animal Bite Treatment Form · Tagoloan RHU (DOH Accredited)';
   const dohAccredNo = clinic?.doh_accreditation_no || '2022-10-037';
   const philhealthAccredNo = clinic?.philhealth_accreditation_no || 'B10034377';
   const philhealthPin = patient?.philhealth_no || '—';
 
-  const resolvedProvince = (clinic?.province || '').trim();
-  const resolvedMunicipality = (clinic?.municipality || '').trim();
-  const resolvedAddress = (clinic?.address || '').trim();
-  const resolvedPhone = (clinic?.contact_number || (clinic as any)?.phone || '').trim();
+  // Dates & Registries
+  const dateVal = formatDate(record?.cardDate || latestConsultation?.consultation_date || bite?.bite_date);
+  const registryNoVal = record?.registryNo || bite?.case_number || '—';
+  const hospitalNoVal = record?.hospitalNo || patient?.hospital_no || clinic?.hospital_no || '—';
+  const referredByVal = record?.referredBy || bite?.referred_from || '—';
 
-  const geoSubtitle = [resolvedProvince, resolvedMunicipality].filter(Boolean).join(' • ');
-  const contactParts = [
-    'Animal Bite Treatment Center',
-    resolvedPhone ? `Tel. ${resolvedPhone}` : '',
-    resolvedAddress,
-  ].filter(Boolean);
-  const facilitySubtitle = contactParts.length > 1
-    ? contactParts.join(' | ')
-    : dohAccredNo
-    ? `Animal Bite Treatment Center | DOH Accred. No. ${dohAccredNo}`
-    : 'Animal Bite Treatment Center';
-
-  // Format Patient Sex
-  const rawGender = (patient?.gender || '').toLowerCase();
-  const formattedSex = rawGender === 'male' || rawGender === 'm'
-    ? 'Male'
-    : rawGender === 'female' || rawGender === 'f'
-    ? 'Female'
-    : rawGender
-    ? String(patient?.gender)
-    : '—';
-
-  // Format PH Status
+  // PhilHealth Status
   const rawPhStatus = (patient?.philhealth_status || '').toLowerCase();
-  const formattedPhStatus = rawPhStatus === 'member'
-    ? 'Member'
-    : rawPhStatus === 'dependent'
-    ? 'Dependent'
-    : rawPhStatus
-    ? String(patient?.philhealth_status)
-    : '—';
+  const isMember = rawPhStatus === 'member';
+  const isDependent = rawPhStatus === 'dependent';
+  const formattedPhStatus = isMember ? 'Member' : isDependent ? 'Dependent' : rawPhStatus ? (rawPhStatus.charAt(0).toUpperCase() + rawPhStatus.slice(1)) : '—';
 
-  // Format Exposure Category
-  const severityFallback = bite?.severity === 'minor'
-    ? 'I'
-    : bite?.severity === 'moderate'
-    ? 'II'
-    : bite?.severity === 'severe'
-    ? 'III'
-    : '';
+  // Patient Demographic
+  const patientName = patient?.full_name || '—';
+  const age = patient?.age !== undefined && patient?.age !== null && patient?.age !== '' ? String(patient.age) : '—';
+  const dob = formatDate(patient?.date_of_birth);
+  const address = patient?.address || '—';
+
+  const rawGender = (patient?.gender || '').toLowerCase();
+  const isMale = rawGender === 'male' || rawGender === 'm';
+  const isFemale = rawGender === 'female' || rawGender === 'f';
+  const formattedSex = isMale ? 'Male' : isFemale ? 'Female' : '—';
+
+  // Exposure Category
+  const severityFallback = bite?.severity === 'minor' ? 'I' : bite?.severity === 'moderate' ? 'II' : bite?.severity === 'severe' ? 'III' : '';
   const rawCat = record?.exposureCategory || (latestConsultation as any)?.exposure_category || bite?.exposure_category || severityFallback || '';
   const normalizedCat = rawCat.replace(/^category\s*/i, '').trim().toUpperCase();
-  const isCat1 = normalizedCat === 'I';
-  const formattedCat = normalizedCat
-    ? `Category ${normalizedCat}`
-    : '—';
+  const formattedCat = normalizedCat ? `Category ${normalizedCat}` : '—';
 
-  // Format Animal Type
-  const animalType = record?.animalType || 'Dog';
-  const animalOthers = record?.animalTypeOthers || '';
-  const formattedAnimal = animalType === 'Others'
-    ? (animalOthers ? `Others: ${animalOthers}` : 'Others')
-    : (animalType || '—');
+  const exposureDate = formatDate(bite?.bite_date);
+  const placeOfExposure = bite?.bite_place || record?.placeOfExposure || '—';
 
-  // Format Past Bite History
+  // Mode of Animal Exposure
+  const rawMode = (record?.modeOfExposure || bite?.mode_of_exposure || '').toLowerCase();
+  const isMode = (type: string) => {
+    if (type === 'nibbling_uncovered') return rawMode.includes('uncovered') || rawMode.includes('nibbling');
+    if (type === 'nibbling_wounded') return rawMode.includes('broken') || rawMode.includes('wounded');
+    if (type === 'scratch_abrasion') return rawMode.includes('scratch') || rawMode.includes('abrasion');
+    if (type === 'transdermal_bite') return rawMode.includes('transdermal') || rawMode.includes('bite');
+    if (type === 'handling_ingestion') return rawMode.includes('ingestion') || rawMode.includes('handling') || rawMode.includes('meat');
+    return false;
+  };
+
+  const chosenModes: string[] = [];
+  if (isMode('nibbling_uncovered')) chosenModes.push('Nibbling/Licking of uncovered skin');
+  if (isMode('nibbling_wounded')) chosenModes.push('Nibbling/Licking of wounded/broken skin');
+  if (isMode('scratch_abrasion')) chosenModes.push('Scratch / Abrasion');
+  if (isMode('transdermal_bite')) chosenModes.push('Transdermal Bite');
+  if (isMode('handling_ingestion')) chosenModes.push('Handling / Ingestion of raw infected meat');
+
+  // Body Part Affected Exposed
+  const rawPart = (record?.bodyPartExposed || bite?.body_part_exposed || '').toLowerCase();
+  const isBodyPart = (type: string) => {
+    if (type === 'head_neck') return rawPart.includes('head') || rawPart.includes('neck');
+    if (type === 'other_parts') {
+      return rawPart.includes('upper') || rawPart.includes('lower') || rawPart.includes('extremities')
+        || rawPart.includes('trunk') || rawPart.includes('torso') || rawPart.includes('other')
+        || rawPart.includes('multiple') || rawPart.includes('site') || (!rawPart.includes('head') && !rawPart.includes('neck') && !rawPart.includes('na') && rawPart.length > 0);
+    }
+    if (type === 'na_ingestion') return rawPart.includes('na') || rawPart.includes('ingestion');
+    return false;
+  };
+
+  const chosenParts: string[] = [];
+  if (isBodyPart('head_neck')) chosenParts.push('Head and/or neck');
+  if (isBodyPart('other_parts')) chosenParts.push('Other parts of the body');
+  if (isBodyPart('na_ingestion')) chosenParts.push('N / A if Ingestion mode');
+
+  // Animal Type
+  const animal = (record?.animalType || bite?.animal_type || 'Dog').toLowerCase();
+  const isDog = animal === 'dog' || animal === 'canine';
+  const animalLabel = isDog ? 'Dog' : `Others: ${record?.animalTypeOthers || record?.animalType || 'unknown'}`;
+
+  // Past History
   const hasPastBite = record?.pastBiteHistory;
-  const biteDates = record?.pastBiteDates;
+  const pastBiteDates = record?.pastBiteDates ? formatDate(record.pastBiteDates) : '';
   const pepCompleted = record?.pastPepCompleted;
-  let formattedPastBite = '—';
-  if (hasPastBite === true) {
-    const dateText = biteDates ? ` (Dates: ${formatDate(biteDates)})` : '';
-    formattedPastBite = `Yes${dateText} / PEP completed: ${pepCompleted ? 'Yes' : 'No'}`;
-  } else if (hasPastBite === false) {
-    formattedPastBite = `No / PEP completed: ${pepCompleted ? 'Yes' : 'No'}`;
-  }
 
-  // Prescriptions from Doctor Form 2
+  // Prescriptions from Form 2
   const pOrders = latestConsultation?.prophylaxis_orders || {};
-  const tetCat = (pOrders.tetanus_category || '').toLowerCase();
-  const orderedTtProduct = pOrders.tetanus_vaccine && pOrders.tetanus_vaccine !== 'none' ? pOrders.tetanus_vaccine : null;
-  const orderedAtsProduct = pOrders.tetanus_passive && pOrders.tetanus_passive !== 'none' ? pOrders.tetanus_passive : null;
-  const orderedRigProduct = pOrders.rig && pOrders.rig !== 'none' ? pOrders.rig : null;
-  const isTtPrescribed = Boolean(orderedTtProduct && (tetCat === 'tt' || tetCat === 'ats_tt' || !tetCat));
-  const isAtsPrescribed = Boolean(orderedAtsProduct && (tetCat === 'ats' || tetCat === 'ats_tt' || !tetCat));
-  const isRigPrescribed = Boolean(orderedRigProduct);
-  const prescribedRabiesProduct = !isCat1 && latestConsultation?.prescribed_vaccine_type && latestConsultation.prescribed_vaccine_type !== 'none'
-    ? latestConsultation.prescribed_vaccine_type
-    : null;
+  const orderedRigProduct = (pOrders.rig && pOrders.rig !== 'none' ? pOrders.rig : '').trim().toLowerCase();
+  const orderedTtProduct = (pOrders.tetanus_vaccine && pOrders.tetanus_vaccine !== 'none' ? pOrders.tetanus_vaccine : '').trim().toLowerCase();
+  const orderedAtsProduct = (pOrders.tetanus_passive && pOrders.tetanus_passive !== 'none' ? pOrders.tetanus_passive : '').trim().toLowerCase();
 
   const isRecordGiven = (r?: PrintableTreatmentRecord) =>
     Boolean(r && !r.voided_at && r.status !== 'cancelled' && r.outcome !== 'not_administered' && (r.status === 'completed' || Boolean(r.treatment_date)));
 
-  const isRecordNotAdministered = (r?: PrintableTreatmentRecord) =>
-    Boolean(r && !r.voided_at && (r.status === 'cancelled' || r.outcome === 'not_administered'));
-
-  const findTtRecord = () =>
-    records.find((r) => {
-      if (r.voided_at) return false;
-      const med = (r.medication_given || '').trim();
-      const medUpper = med.toUpperCase();
-      if (r.dose_number === 300 || r.period === 'TT') return true;
-      if (['TT', 'TD', 'TDAP', 'DTAP'].includes(medUpper)) return true;
-      if (orderedTtProduct && medUpper === orderedTtProduct.toUpperCase()) return true;
-      if (/tetan|toxoid|tetav/i.test(med) && !/anti[- ]?tetanus|serum|\bATS\b/i.test(med)) return true;
-      return false;
-    });
-
-  const findAtsRecord = () =>
-    records.find((r) => {
-      if (r.voided_at) return false;
-      const med = (r.medication_given || '').trim();
-      const medUpper = med.toUpperCase();
-      if (r.dose_number === 400 || r.dose_number === 401 || r.period === 'ATS') return true;
-      if (['ATS', 'TIG'].includes(medUpper)) return true;
-      if (orderedAtsProduct && medUpper === orderedAtsProduct.toUpperCase()) return true;
-      if (/anti[- ]?tetanus|tetanus serum|\bATS\b/i.test(med)) return true;
-      return false;
-    });
-
-  const findRigRecord = () =>
-    records.find(
-      (r) =>
-        !r.voided_at &&
-        (r.dose_number === 200 ||
-          r.dose_number === 201 ||
-          (r.medication_given ? ['ERIG', 'HRIG', 'RIG'].includes(r.medication_given.toUpperCase()) : false) ||
-          r.period === 'ERIG')
-    );
-
+  // Dose lookups
   const d0Rec = records.find((r) => !r.voided_at && (r.dose_number === 0 || r.period === 'Day 0'));
   const d3Rec = records.find((r) => !r.voided_at && (r.dose_number === 3 || r.period === 'Day 3'));
   const d7Rec = records.find((r) => !r.voided_at && (r.dose_number === 7 || r.period === 'Day 7'));
-  const rigRec = findRigRecord();
-  const ttRec = findTtRecord();
-  const atsRec = findAtsRecord();
+  const d28Rec = records.find((r) => !r.voided_at && (r.dose_number === 28 || r.period === 'Day 28' || r.dose_number === 14 || r.period === 'Day 14' || r.dose_number === 30 || r.period === 'Day 30'));
+  const b1Rec = records.find((r) => !r.voided_at && (r.dose_number === 90 || r.dose_number === 100 || r.period === 'Booster 1' || (r.route && (r as any).appointment_type === 'booster')));
+  const b2Rec = records.find((r) => !r.voided_at && (r.dose_number === 365 || r.dose_number === 101 || r.period === 'Booster 2'));
 
-  const rabiesAdministeredRecords = [d0Rec, d3Rec, d7Rec].filter((r): r is PrintableTreatmentRecord => isRecordGiven(r));
-  const ttGiven = isRecordGiven(ttRec);
-  const ttNotAdmin = isRecordNotAdministered(ttRec);
-  const atsGiven = isRecordGiven(atsRec);
-  const atsNotAdmin = isRecordNotAdministered(atsRec);
+  // Comprehensive RIG lookup: matches dose_number, period, route, brand, or prescribed order
+  const rigRec = records.find((r) => {
+    if (r.voided_at) return false;
+    if (r.dose_number === 200 || r.dose_number === 201 || r.period === 'ERIG') return true;
+    if (r.route === 'wound_infiltration') return true;
+    const med = (r.medication_given || r.vaccine_brand || '').trim().toLowerCase();
+    if (['erig', 'hrig', 'rig'].includes(med)) return true;
+    if (/erig|hrig|rig|rabies.*globulin|immuno|equirab|kamrab|berirab/i.test(med)) return true;
+    if (orderedRigProduct && med === orderedRigProduct) return true;
+    return false;
+  });
+
+  // Comprehensive TT lookup
+  const ttRec = records.find((r) => {
+    if (r.voided_at) return false;
+    if (r.dose_number === 300 || r.period === 'TT') return true;
+    const med = (r.medication_given || r.vaccine_brand || '').trim().toLowerCase();
+    if (['tt', 'td', 'tdap', 'dtap'].includes(med)) return true;
+    if (/tetan|toxoid|tetav/i.test(med) && !/anti[- ]?tetanus|serum|\bats\b/i.test(med)) return true;
+    if (orderedTtProduct && med === orderedTtProduct) return true;
+    return false;
+  });
+
+  // Comprehensive ATS lookup
+  const atsRec = records.find((r) => {
+    if (r.voided_at) return false;
+    if (r.dose_number === 400 || r.dose_number === 401 || r.period === 'ATS') return true;
+    const med = (r.medication_given || r.vaccine_brand || '').trim().toLowerCase();
+    if (['ats', 'tig'].includes(med)) return true;
+    if (/anti[- ]?tetanus|tetanus serum|\bats\b/i.test(med)) return true;
+    if (orderedAtsProduct && med === orderedAtsProduct) return true;
+    return false;
+  });
+
   const rigGiven = isRecordGiven(rigRec);
-  const rigNotAdmin = isRecordNotAdministered(rigRec);
+  const ttGiven = isRecordGiven(ttRec);
+  const atsGiven = isRecordGiven(atsRec);
 
-  const consultAdminStatus = (latestConsultation as any)?.administration_status;
-  const isConsultUnadministered = consultAdminStatus === 'Not Administered' || (consultAdminStatus && String(consultAdminStatus).toLowerCase() === 'not_administered');
-  const isConsultAdministered = consultAdminStatus === 'Administered' || (consultAdminStatus && String(consultAdminStatus).toLowerCase() === 'administered');
-  const isConsultNoInj = consultAdminStatus === 'Completed Without Injection' || (!prescribedRabiesProduct && !isTtPrescribed && !isAtsPrescribed && isCat1);
+  const allGiven = [d0Rec, d3Rec, d7Rec, d28Rec, b1Rec, b2Rec, rigRec, ttRec, atsRec].filter((r): r is PrintableTreatmentRecord => isRecordGiven(r));
+  const treatmentStartDate = allGiven.length > 0 && allGiven[0]?.treatment_date
+    ? formatDate(allGiven[0].treatment_date)
+    : bite?.date_treatment_started
+    ? formatDate(bite.date_treatment_started)
+    : '';
 
-  const antiRabiesStatusLabel = isConsultUnadministered && !isCat1
-    ? (prescribedRabiesProduct ? 'Not Administered' : 'Not Prescribed')
-    : rabiesAdministeredRecords.length > 0
-    ? 'Administered'
-    : isCat1
-    ? 'Not Indicated'
-    : prescribedRabiesProduct
-    ? 'Prescribed – Pending Administration'
-    : normalizedCat === 'II' || normalizedCat === 'III'
-    ? 'Not Prescribed'
-    : 'Not Indicated';
+  // Appointments lookup for future scheduled doses
+  const appointments: any[] = (record as any)?.appointments || [];
+  const apt3 = appointments.find((a) => a.dose_number === 3 || a.notes?.toLowerCase().includes('day 3'));
+  const apt7 = appointments.find((a) => a.dose_number === 7 || a.notes?.toLowerCase().includes('day 7'));
+  const apt28 = appointments.find((a) => a.dose_number === 28 || a.notes?.toLowerCase().includes('day 28'));
 
-  const ttStatusLabel = isConsultUnadministered
-    ? (isTtPrescribed ? 'Not Administered' : 'Not Prescribed')
-    : ttGiven
-    ? 'Administered'
-    : ttNotAdmin
-    ? 'Not Administered'
-    : isTtPrescribed
-    ? (isConsultAdministered ? 'Administered' : 'Prescribed – Pending Administration')
-    : atsGiven
-    ? 'Not Administered'
-    : 'Not Prescribed';
+  // Weight & RIG Dosage
+  const patientWeight = Number(
+    latestConsultation?.prophylaxis_orders?.rig_weight_kg ||
+    latestConsultation?.weight ||
+    patient?.weight ||
+    record?.patient?.weight ||
+    (record as any)?.patient_reported_intake?.referral_weight ||
+    0
+  );
 
-  const atsStatusLabel = isConsultUnadministered
-    ? (isAtsPrescribed ? 'Not Administered' : 'Not Prescribed')
-    : atsGiven
-    ? 'Administered'
-    : atsNotAdmin
-    ? 'Not Administered'
-    : isAtsPrescribed
-    ? (isConsultAdministered ? 'Administered' : 'Prescribed – Pending Administration')
-    : ttGiven
-    ? 'Not Administered'
-    : 'Not Prescribed';
+  let rigCalculatedMl = '';
+  if (rigRec?.dosage_ml) {
+    rigCalculatedMl = String(rigRec.dosage_ml);
+  } else if (patientWeight > 0) {
+    rigCalculatedMl = (patientWeight * 40 / 200).toFixed(1);
+  }
 
-  const allAdministeredRecords: PrintableTreatmentRecord[] = [
-    ...rabiesAdministeredRecords,
-    ...(rigGiven && rigRec ? [rigRec] : []),
-    ...(ttGiven && ttRec ? [ttRec] : []),
-    ...(atsGiven && atsRec ? [atsRec] : []),
-  ];
+  // Treatment plan determinations for omitting unchosen rows in Filled mode
+  const planType = (bite?.plan_type || (bite as any)?.treatmentPlan?.plan_type || '').toLowerCase();
+  const isBoosterPlan = planType.includes('booster');
+  const hasD28 = isRecordGiven(d28Rec) || Boolean(apt28) || planType === 'full_pep_essen';
+  const hasB1 = isRecordGiven(b1Rec) || isBoosterPlan;
+  const hasB2 = isRecordGiven(b2Rec) || planType === 'two_dose_booster';
+  const hasRig = isRecordGiven(rigRec) || Boolean(orderedRigProduct && orderedRigProduct !== 'none');
+  const hasTt = isRecordGiven(ttRec) || Boolean(orderedTtProduct && orderedTtProduct !== 'none');
+  const hasAts = isRecordGiven(atsRec) || Boolean(orderedAtsProduct && orderedAtsProduct !== 'none');
 
-  const allNotAdministeredRecords: PrintableTreatmentRecord[] = [
-    ...(rigNotAdmin && rigRec ? [rigRec] : []),
-    ...(ttNotAdmin && ttRec ? [ttRec] : []),
-    ...(atsNotAdmin && atsRec ? [atsRec] : []),
-  ];
-
-  const hasPendingOrders =
-    (!isCat1 && Boolean(prescribedRabiesProduct) && rabiesAdministeredRecords.length === 0) ||
-    (isTtPrescribed && !ttGiven && !ttNotAdmin) ||
-    (isAtsPrescribed && !atsGiven && !atsNotAdmin) ||
-    (isRigPrescribed && !rigGiven && !rigNotAdmin);
-
-  const overallTreatmentStatus =
-    isConsultUnadministered
-      ? 'Not Administered'
-      : isConsultNoInj
-      ? 'No Injection Required'
-      : isConsultAdministered
-      ? 'Administered'
-      : isCat1 && !isTtPrescribed && !isAtsPrescribed && allAdministeredRecords.length === 0 && allNotAdministeredRecords.length === 0
-      ? 'No Injection Required'
-      : hasPendingOrders
-      ? 'Prescribed – Pending Administration'
-      : allAdministeredRecords.length > 0
-      ? 'Administered'
-      : allNotAdministeredRecords.length > 0
-      ? 'Not Administered'
-      : 'No Injection Required';
-
-  const getStaffDisplay = (r?: PrintableTreatmentRecord) => {
-    if (!r) return '';
-    const staff = r.administered_by || r.administeredBy;
-    const name = typeof staff === 'object' ? staff?.name : r.administered_by || '';
-    const lic = typeof staff === 'object' ? staff?.professional_license_no : r.professional_license_no || '';
-    if (!name) return '';
-    return lic ? `${name} (PRC: ${lic})` : String(name);
+  const getStaffName = (rec?: PrintableTreatmentRecord) => {
+    if (!rec) return '';
+    const staff = rec.administered_by || (rec as any)?.administeredBy;
+    if (typeof staff === 'object' && staff?.name) return staff.name;
+    if (typeof staff === 'string' && staff) return staff;
+    return 'Treatment Nurse';
   };
 
-  const administeredProductSummary = allAdministeredRecords.length > 0
-    ? Array.from(
-        new Set(
-          allAdministeredRecords.map(
-            (r) => r.vaccine_brand || r.vaccine_type || r.medication_given || 'Administered Vaccine'
-          )
-        )
-      ).join(', ')
-    : hasPendingOrders
-    ? `Pending (${[prescribedRabiesProduct, isTtPrescribed ? orderedTtProduct : null, isAtsPrescribed ? orderedAtsProduct : null, isRigPrescribed ? orderedRigProduct : null].filter(Boolean).join(', ')})`
-    : allNotAdministeredRecords.length > 0
-    ? `Not Administered (${allNotAdministeredRecords.map((r) => r.medication_given).filter(Boolean).join(', ')})`
-    : 'None (No Injection Required)';
-
-  const administeredDateSummary = allAdministeredRecords.length > 0
-    ? Array.from(
-        new Set(
-          allAdministeredRecords
-            .map((r) => (r.treatment_date ? formatDate(r.treatment_date) : ''))
-            .filter(Boolean)
-        )
-      ).join(', ')
-    : hasPendingOrders
-    ? 'Pending Administration'
-    : 'N/A';
-
-  const administeredDoseRouteSummary = allAdministeredRecords.length > 0
-    ? allAdministeredRecords
-        .map((r) => {
-          const parts: string[] = [];
-          if (r.dose_iu) parts.push(`${r.dose_iu} IU`);
-          if (r.dosage_ml) parts.push(`${r.dosage_ml} mL`);
-          if (r.route) parts.push(r.route.replaceAll('_', ' '));
-          if (r.injection_site) parts.push(`(${r.injection_site})`);
-          return parts.join(' ') || r.route || 'IM';
-        })
-        .join(' · ')
-    : hasPendingOrders
-    ? 'Pending Administration'
-    : 'N/A';
-
-  const administeredBySummary = allAdministeredRecords.length > 0
-    ? Array.from(new Set(allAdministeredRecords.map((r) => getStaffDisplay(r) || 'Staff Nurse'))).join(', ')
-    : allNotAdministeredRecords.length > 0
-    ? Array.from(new Set(allNotAdministeredRecords.map((r) => getStaffDisplay(r) || 'Staff Nurse'))).join(', ')
-    : 'N/A';
-
-  const remarksSummary = (() => {
-    const reasons = allNotAdministeredRecords
-      .map((r) => (r.remarks ? `${r.medication_given}: ${r.remarks}` : `${r.medication_given}: Not administered`))
-      .filter(Boolean);
-    if (reasons.length > 0) return reasons.join(' | ');
-    if (isCat1 && overallTreatmentStatus === 'No Injection Required') {
-      return 'Category I exposure — Anti-rabies PEP not indicated; no injection required.';
+  const renderSignature = (rec?: PrintableTreatmentRecord) => {
+    if (!rec) return null;
+    if (rec.treatment_id) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', maxHeight: '18px', overflow: 'hidden' }}>
+          <SignatureImage
+            endpoint={`/vaccination-records/${rec.treatment_id}/signature`}
+            style={{ maxHeight: '18px', maxWidth: '75px', objectFit: 'contain' }}
+            silentFallback={true}
+          />
+        </div>
+      );
     }
-    if (hasPendingOrders) {
-      return pOrders.notes
-        ? `Prescribed — Pending nurse administration (${pOrders.notes})`
-        : 'Prescribed by physician — Pending nurse administration.';
+    if (rec.signature) {
+      return <span style={{ fontSize: '7.5pt', color: '#111' }}>Signed</span>;
     }
-    if (pOrders.notes) return pOrders.notes;
-    return latestConsultation?.diagnosis || 'Administered as prescribed.';
-  })();
+    return null;
+  };
 
-  // Row definition for the unified vaccination table
-  const unifiedRows = [
-    {
-      item: 'Day 0',
-      rec: d0Rec,
-      defaultRoute: 'IM',
-      fallbackStatus: isCat1
-        ? 'Not Indicated'
-        : prescribedRabiesProduct
-        ? `Prescribed (${prescribedRabiesProduct}) – Pending Administration`
-        : '',
-    },
-    {
-      item: 'Day 3',
-      rec: d3Rec,
-      defaultRoute: 'IM',
-      fallbackStatus: isCat1 ? 'Not Indicated' : '',
-    },
-    {
-      item: 'Day 7',
-      rec: d7Rec,
-      defaultRoute: 'IM',
-      fallbackStatus: isCat1 ? 'Not Indicated' : '',
-    },
-    {
-      item: 'ERIG',
-      rec: rigRec,
-      defaultRoute: 'Infiltration / IM',
-      fallbackStatus: rigNotAdmin
-        ? `Not Administered${rigRec?.remarks ? ` (${rigRec.remarks})` : ''}`
-        : isRigPrescribed
-        ? `Prescribed (${orderedRigProduct}) – Pending Administration`
-        : isCat1 || normalizedCat === 'II'
-        ? 'Not Indicated'
-        : 'Not Prescribed',
-    },
-    {
-      item: 'Tetanus vaccine',
-      rec: ttRec,
-      defaultRoute: 'IM',
-      fallbackStatus: ttNotAdmin
-        ? `Not Administered${ttRec?.remarks ? ` (${ttRec.remarks})` : ''}`
-        : isTtPrescribed
-        ? `Prescribed (${orderedTtProduct}) – Pending Administration`
-        : atsGiven
-        ? 'Not Administered'
-        : 'Not Prescribed',
-    },
-    {
-      item: 'ATS',
-      rec: atsRec,
-      defaultRoute: 'IM',
-      fallbackStatus: atsNotAdmin
-        ? `Not Administered${atsRec?.remarks ? ` (${atsRec.remarks})` : ''}`
-        : isAtsPrescribed
-        ? `Prescribed (${orderedAtsProduct}) – Pending Administration`
-        : ttGiven
-        ? 'Not Administered'
-        : 'Not Prescribed',
-    },
-  ];
+  const renderTableRow = (period: string, rec?: PrintableTreatmentRecord, scheduledDate?: string) => {
+    const isGiven = isRecordGiven(rec);
+    const route = (rec?.route || '').toUpperCase();
+    const fallbackRoute = (d0Rec?.route || 'IM').toUpperCase();
+
+    return (
+      <tr key={period} style={{ height: '21px' }}>
+        <td style={{ border: '1px solid #000', padding: '2px 6px', fontWeight: 600 }}>{period}</td>
+        <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+          {isBlank ? (
+            <span>( ) ID &nbsp;&nbsp; ( ) IM</span>
+          ) : isGiven ? (
+            <span style={{ fontWeight: 600 }}>{route || 'IM'}</span>
+          ) : (
+            <span style={{ color: '#444' }}>{fallbackRoute}</span>
+          )}
+        </td>
+        <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+          {!isBlank ? (
+            isGiven && rec?.treatment_date ? (
+              formatDate(rec.treatment_date)
+            ) : scheduledDate ? (
+              <span style={{ fontStyle: 'italic', color: '#222' }}>{formatDate(scheduledDate)}</span>
+            ) : ''
+          ) : ''}
+        </td>
+        <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+          {!isBlank && isGiven ? getStaffName(rec) : ''}
+        </td>
+        <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+          {!isBlank && isGiven ? renderSignature(rec) : ''}
+        </td>
+      </tr>
+    );
+  };
+
+  const underlineStyle: React.CSSProperties = {
+    borderBottom: '1px solid #000',
+    display: 'inline-block',
+    padding: '0 5px',
+    fontWeight: 600,
+    verticalAlign: 'bottom',
+  };
 
   return (
     <div
@@ -499,42 +382,25 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
         margin: '0 auto',
         padding: '0',
         backgroundColor: '#ffffff',
-        color: '#111827',
-        fontFamily: "'Inter', Arial, sans-serif",
+        color: '#000000',
+        fontFamily: "'Arial', 'Helvetica', sans-serif",
+        fontSize: '8.5pt',
+        lineHeight: 1.3,
         boxSizing: 'border-box',
         WebkitPrintColorAdjust: 'exact',
         printColorAdjust: 'exact',
       }}
     >
       <style>{`
-        #tagoloan-printable-form { font-size: 9pt; line-height: 1.25; }
-        #tagoloan-printable-form .treatment-group-heading {
-          grid-column: 1 / -1;
-          margin: 0 0 4px;
-          font-size: 9pt;
-          font-weight: 700;
-          text-transform: uppercase;
-          color: #111827;
-          break-after: avoid;
+        #tagoloan-printable-form {
+          color: #000000 !important;
+          font-family: Arial, Helvetica, sans-serif !important;
+          font-size: 8.5pt !important;
+          line-height: 1.3 !important;
         }
-        #tagoloan-printable-form .treatment-record-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 6px 12px;
-        }
-        #tagoloan-printable-form .treatment-record-entry {
-          border: 1px solid #ccc;
-          padding: 5px 7px;
-          break-inside: avoid;
-        }
-        #tagoloan-printable-form .treatment-record-field {
-          min-height: 13px;
-          overflow-wrap: anywhere;
-        }
-        #tagoloan-printable-form section > div { min-width: 0; overflow-wrap: anywhere; }
         @page {
-          size: A4;
-          margin: 12mm;
+          size: A4 portrait;
+          margin: 10mm 12mm;
         }
         @media print {
           * {
@@ -565,687 +431,399 @@ export default function PrintableForm({ record, mode = 'filled' }: PrintableForm
           .no-print, button, .modal-footer {
             display: none !important;
           }
-          #tagoloan-printable-form .treatment-record-entry {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-          }
         }
       `}</style>
 
-      {/* 1. HEADER */}
-      <section
-        style={{
-          marginBottom: '8px',
-        }}
-      >
-        <div
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+        <h1
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '16px',
-            marginBottom: '6px',
+            fontSize: '13pt',
+            fontWeight: 800,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            margin: '0 0 2px 0',
+            color: '#000000',
+            fontFamily: "'Arial', 'Helvetica', sans-serif",
           }}
         >
-          {/* Left Seal */}
-          <div style={{ width: '60px', height: '60px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {leftLogoUrl ? (
-              <img
-                src={leftLogoUrl}
-                alt="Left Seal"
-                style={{ maxHeight: '60px', maxWidth: '60px', width: 'auto', height: 'auto', objectFit: 'contain' }}
-                onError={(e) => { (e.currentTarget as HTMLElement).style.visibility = 'hidden'; }}
-              />
-            ) : (
-              <div style={{ width: '60px', height: '60px' }} />
-            )}
-          </div>
-
-          {/* Center Details */}
-          <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
-            <div style={{ fontSize: '8.5pt', color: '#111827', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
-              Republic of the Philippines{geoSubtitle ? ` • ${geoSubtitle}` : ' • Department of Health'}
-            </div>
-            <h1 style={{ fontSize: '13.5pt', fontWeight: 800, color: '#111827', margin: '2px 0 2px 0', textTransform: 'uppercase', letterSpacing: '0.5px', lineHeight: 1.2 }}>
-              {clinicName}
-            </h1>
-            <div style={{ fontSize: '8.5pt', color: '#374151', lineHeight: 1.3 }}>
-              {facilitySubtitle}
-            </div>
-          </div>
-
-          {/* Right Seal */}
-          <div style={{ width: '60px', height: '60px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {rightLogoUrl ? (
-              <img
-                src={rightLogoUrl}
-                alt="Right Seal"
-                style={{ maxHeight: '60px', maxWidth: '60px', width: 'auto', height: 'auto', objectFit: 'contain' }}
-                onError={(e) => { (e.currentTarget as HTMLElement).style.visibility = 'hidden'; }}
-              />
-            ) : (
-              <div style={{ width: '60px', height: '60px' }} />
-            )}
-          </div>
+          {clinicTitle}
+        </h1>
+        <div style={{ fontSize: '8pt', color: '#333333', fontWeight: 500 }}>
+          {clinicSubtitle}
         </div>
+      </div>
 
-        {/* Double Separator Line */}
-        <div style={{ borderTop: '2px solid #000000', marginBottom: '2px' }} />
-        <div style={{ borderTop: '1px solid #000000' }} />
-      </section>
-
-      {/* 2. REGISTRY BLOCK */}
-      <section
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-          columnGap: '12px',
-          rowGap: '4px',
-          paddingBottom: '6px',
-          borderBottom: '1px solid #ccc',
-          marginBottom: '8px',
-        }}
-      >
-        <h2 className="treatment-group-heading">I. Card Information</h2>
-        {/* Date */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
-            Date
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank ? '________________________' : formatDate(record?.cardDate)}
+      {/* Row 1: Date & Registry No */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '3px' }}>
+        <div style={{ flex: 1 }}>
+          <strong>Date:</strong>
+          <span style={{ ...underlineStyle, minWidth: '140px' }}>
+            {!isBlank && dateVal && dateVal !== '—' ? dateVal : '\u00A0'}
           </span>
         </div>
-
-        {/* Registry No */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
-            Registry No.
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank ? '________________________' : record?.registryNo || bite?.case_number || '—'}
+        <div style={{ flex: 1, textAlign: 'right' }}>
+          <strong>Registry No:</strong>
+          <span style={{ ...underlineStyle, minWidth: '150px', textAlign: 'center' }}>
+            {!isBlank && registryNoVal ? registryNoVal : '\u00A0'}
           </span>
         </div>
+      </div>
 
-        {/* Hospital No */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
-            Hospital No.
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank ? '________________________' : record?.hospitalNo || patient?.hospital_no || '—'}
+      {/* Row 2: DOH Accreditation No & Hospital No */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '3px' }}>
+        <div style={{ flex: 1 }}>
+          <strong>DOH Accreditation No:</strong>
+          <span style={{ ...underlineStyle, minWidth: '120px' }}>
+            {dohAccredNo}
           </span>
         </div>
-
-        {/* Referred by */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
-            Referred by
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank ? '________________________' : record?.referredBy || bite?.referred_from || '—'}
+        <div style={{ flex: 1, textAlign: 'right' }}>
+          <strong>Hospital No:</strong>
+          <span style={{ ...underlineStyle, minWidth: '150px', textAlign: 'center' }}>
+            {!isBlank && hospitalNoVal ? hospitalNoVal : '\u00A0'}
           </span>
         </div>
+      </div>
 
-        {/* PhilHealth Accred / PIN */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
-            PhilHealth Accred / PIN
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank ? '________________________' : `${philhealthAccredNo} / ${philhealthPin}`}
+      {/* Row 3: PhilHealth Accreditation No & Referred by */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '3px' }}>
+        <div style={{ flex: 1 }}>
+          <strong>PhilHealth Accreditation No:</strong>
+          <span style={{ ...underlineStyle, minWidth: '110px' }}>
+            {philhealthAccredNo}
           </span>
         </div>
-
-        {/* PH Status */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
-            PH Status
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank ? '☐ Member   ☐ Dependent' : formattedPhStatus}
+        <div style={{ flex: 1, textAlign: 'right' }}>
+          <strong>Referred by:</strong>
+          <span style={{ ...underlineStyle, minWidth: '150px', textAlign: 'center' }}>
+            {!isBlank && referredByVal ? referredByVal : '\u00A0'}
           </span>
         </div>
-      </section>
+      </div>
 
-      {/* 3. PATIENT BLOCK */}
-      <section
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-          columnGap: '12px',
-          rowGap: '4px',
-          paddingBottom: '6px',
-          borderBottom: '1px solid #ccc',
-          marginBottom: '8px',
-        }}
-      >
-        <h2 className="treatment-group-heading">II. Patient Information</h2>
-        {/* Name */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
-            Patient Name
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 600 }}>
-            {isBlank ? '________________________' : patient?.full_name || '—'}
+      {/* Row 4: PhilHealth PIN & PhilHealth status */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '3px' }}>
+        <div style={{ flex: 1 }}>
+          <strong>PhilHealth PIN:</strong>
+          <span style={{ ...underlineStyle, minWidth: '150px' }}>
+            {!isBlank && philhealthPin && philhealthPin !== '—' ? philhealthPin : '\u00A0'}
           </span>
         </div>
-
-        {/* Age / Sex */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
-            Age / Sex
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank ? 'Age: ___  Sex: ☐ M ☐ F' : `${patient?.age ?? '—'} / ${formattedSex}`}
-          </span>
-        </div>
-
-        {/* DOB */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
-            Date of Birth
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank ? '____________________' : formatDate(patient?.date_of_birth)}
-          </span>
-        </div>
-
-        {/* Address */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
-            Address
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank ? '________________________' : patient?.address || '—'}
-          </span>
-        </div>
-
-        {/* Exposure Category */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
-            Exposure Category
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank ? '☐ Cat. I   ☐ Cat. II   ☐ Cat. III' : formattedCat}
-          </span>
-        </div>
-
-        {/* Exposure Date */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
-            Exposure Date
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank ? '____________________' : formatDate(bite?.bite_date)}
-          </span>
-        </div>
-
-        {/* Place of Exposure */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
-            Place of Exposure
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank ? '____________________' : bite?.bite_place || 'Tagoloan, Misamis Oriental'}
-          </span>
-        </div>
-
-        {/* Treatment Start */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '2px' }}>
-            Treatment Start
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank
-              ? '____________________'
-              : allAdministeredRecords.length > 0 && allAdministeredRecords[0]?.treatment_date
-              ? formatDate(allAdministeredRecords[0].treatment_date)
-              : hasPendingOrders
-              ? 'Pending Administration'
-              : overallTreatmentStatus === 'No Injection Required'
-              ? 'No Injection Required'
-              : 'Not Administered'}
-          </span>
-        </div>
-      </section>
-
-      {/* 4. EXPOSURE DETAILS */}
-      <section
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-          columnGap: '12px',
-          paddingBottom: '6px',
-          borderBottom: '1px solid #ccc',
-          marginBottom: '8px',
-        }}
-      >
-        <h2 className="treatment-group-heading">III. Exposure Details</h2>
-        {/* Mode of Exposure */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '4px' }}>
-            Mode of Exposure
-          </span>
+        <div style={{ textAlign: 'right' }}>
           {isBlank ? (
-            <div style={{ fontSize: '9pt', color: '#374151', lineHeight: 1.4 }}>
-              <div>☐ Lick, intact skin</div>
-              <div>☐ Lick, broken skin</div>
-              <div>☐ Scratch / abrasion</div>
-              <div>☐ Transdermal bite</div>
-              <div>☐ Raw meat contact</div>
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'baseline' }}>
+              <span>( ) Member</span>
+              <span>( ) Dependent</span>
             </div>
           ) : (
-            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-              {formatModeOfExposure(record?.modeOfExposure || bite?.mode_of_exposure)}
-            </span>
-          )}
-        </div>
-
-        {/* Body Part */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '4px' }}>
-            Body Part
-          </span>
-          <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-            {isBlank ? '________________________' : formatBodyPart(record?.bodyPartExposed || bite?.body_part_exposed)}
-          </span>
-        </div>
-
-        {/* Type of Animal */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '4px' }}>
-            Type of Animal
-          </span>
-          {isBlank ? (
-            <div style={{ fontSize: '9pt', color: '#374151', lineHeight: 1.5 }}>
-              <div>☐ Dog</div>
-              <div>☐ Cat</div>
-              <div>☐ Others: ____________</div>
-            </div>
-          ) : (
-            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-              {formattedAnimal}
-            </span>
-          )}
-        </div>
-
-        {/* Past Bite History */}
-        <div>
-          <span style={{ display: 'block', fontSize: '9pt', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '4px' }}>
-            Past Bite History
-          </span>
-          {isBlank ? (
-            <div style={{ fontSize: '9pt', color: '#374151', lineHeight: 1.5 }}>
-              <div>Bite history: ☐ Yes  ☐ No</div>
-              <div>PEP completed: ☐ Yes  ☐ No</div>
-            </div>
-          ) : (
-            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-              {formattedPastBite}
-            </span>
-          )}
-        </div>
-      </section>
-
-      {/* 5. TREATMENT / VACCINE ADMINISTRATION DETAILS */}
-      <section
-        style={{
-          padding: '6px 8px',
-          border: '1px solid #ccc',
-          backgroundColor: '#fafafa',
-          marginBottom: '8px',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid #d1d5db',
-            paddingBottom: '6px',
-            marginBottom: '8px',
-          }}
-        >
-          <span
-            style={{
-              fontSize: '9pt',
-              fontWeight: 700,
-              color: '#111827',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-            }}
-          >
-            IV. Treatment / Vaccine Administration Details
-            {latestConsultation && consultationHistory.length > 1 && (
-              <span style={{ fontSize: '8.5pt', fontWeight: 600, color: '#0284c7', marginLeft: '8px', textTransform: 'none' }}>
-                (Assessment #{consultationHistory.indexOf(latestConsultation) + 1}: {(latestConsultation as any)?.is_returning_reassessment ? 'Doctor Reassessment' : 'Initial Consultation'})
+            <div>
+              <strong>PhilHealth status:</strong>
+              <span style={{ ...underlineStyle, minWidth: '85px', textAlign: 'center' }}>
+                {formattedPhStatus}
               </span>
-            )}
-          </span>
-          {!isBlank && (
-            <span
-              style={{
-                fontSize: '9pt',
-                fontWeight: 700,
-                color:
-                  overallTreatmentStatus === 'Administered'
-                    ? '#047857'
-                    : overallTreatmentStatus === 'No Injection Required'
-                    ? '#1e40af'
-                    : overallTreatmentStatus === 'Not Administered'
-                    ? '#b45309'
-                    : '#4b5563',
-              }}
-            >
-              Treatment Status: {overallTreatmentStatus}
-            </span>
+            </div>
           )}
         </div>
+      </div>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-            columnGap: '12px',
-            rowGap: '4px',
-            marginBottom: '8px',
-          }}
-        >
+      {/* Row 5: Patient Name & Age / Date of birth */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '3px' }}>
+        <div style={{ flex: 1, marginRight: '14px' }}>
+          <strong>Patient name:</strong>
+          <span style={{ ...underlineStyle, minWidth: '200px' }}>
+            {!isBlank && patientName ? patientName : '\u00A0'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'baseline' }}>
           <div>
-            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
-              Exposure Category
-            </span>
-            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 600 }}>
-              {isBlank ? 'Cat. I / II / III' : formattedCat}
+            <strong>Age:</strong>
+            <span style={{ ...underlineStyle, minWidth: '35px', textAlign: 'center' }}>
+              {!isBlank && age ? age : '\u00A0'}
             </span>
           </div>
-
           <div>
-            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
-              Anti-Rabies Vaccine
-            </span>
-            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 600 }}>
-              {isBlank ? '☐ Administered ☐ Not Indicated' : antiRabiesStatusLabel}
-            </span>
-          </div>
-
-          <div>
-            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
-              TT (Tetanus Toxoid)
-            </span>
-            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 600 }}>
-              {isBlank ? '☐ Administered ☐ Not Administered' : ttStatusLabel}
-            </span>
-          </div>
-
-          <div>
-            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
-              ATS (Anti-Tetanus Serum)
-            </span>
-            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 600 }}>
-              {isBlank ? '☐ Administered ☐ Not Administered' : atsStatusLabel}
+            <strong>Date of birth:</strong>
+            <span style={{ ...underlineStyle, minWidth: '110px', textAlign: 'center' }}>
+              {!isBlank && dob && dob !== '—' ? dob : '\u00A0'}
             </span>
           </div>
         </div>
+      </div>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-            columnGap: '12px',
-            rowGap: '6px',
-            paddingTop: '6px',
-            borderTop: '1px dashed #d1d5db',
-          }}
-        >
-          <div>
-            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
-              Vaccine / Medicine Name
-            </span>
-            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-              {isBlank ? '________________________' : administeredProductSummary}
-            </span>
-          </div>
+      {/* Row 6: Address & Sex */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '3px' }}>
+        <div style={{ flex: 1, marginRight: '14px' }}>
+          <strong>Address:</strong>
+          <span style={{ ...underlineStyle, minWidth: '240px' }}>
+            {!isBlank && address ? address : '\u00A0'}
+          </span>
+        </div>
+        <div>
+          {isBlank ? (
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'baseline' }}>
+              <strong>Sex:</strong>
+              <span>( ) Male</span>
+              <span>( ) Female</span>
+            </div>
+          ) : (
+            <div>
+              <strong>Sex:</strong>
+              <span style={{ ...underlineStyle, minWidth: '55px', textAlign: 'center' }}>
+                {formattedSex}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
 
-          <div>
-            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
-              Date Administered
+      {/* Row 7: Exposure category & Date of exposure & Treatment started */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '3px' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'baseline' }}>
+          {isBlank ? (
+            <span>
+              <strong>Exposure:</strong>&nbsp; ( ) I&nbsp;&nbsp; ( ) II&nbsp;&nbsp; ( ) III
             </span>
-            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-              {isBlank ? '________________' : administeredDateSummary}
-            </span>
-          </div>
-
-          <div>
-            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
-              Dose / Route
-            </span>
-            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-              {isBlank ? '________________' : administeredDoseRouteSummary}
-            </span>
-          </div>
-
-          <div>
-            <span style={{ display: 'block', fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>
-              Administered By
-            </span>
-            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-              {isBlank ? '________________' : administeredBySummary}
-            </span>
-          </div>
-
-          <div style={{ gridColumn: '1 / -1', marginTop: '2px' }}>
-            <span style={{ fontSize: '8.5pt', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600, marginRight: '6px' }}>
-              Remarks:
-            </span>
-            <span style={{ fontSize: '9pt', color: '#111827', fontWeight: 500 }}>
-              {isBlank ? '________________________________________________________________________' : remarksSummary}
+          ) : (
+            <div>
+              <strong>Exposure category:</strong>
+              <span style={{ ...underlineStyle, minWidth: '85px', textAlign: 'center' }}>
+                {formattedCat}
+              </span>
+            </div>
+          )}
+          <div style={{ marginLeft: '10px' }}>
+            <strong>Date of exposure:</strong>
+            <span style={{ ...underlineStyle, minWidth: '95px', textAlign: 'center' }}>
+              {!isBlank && exposureDate && exposureDate !== '—' ? exposureDate : '\u00A0'}
             </span>
           </div>
         </div>
+        <div>
+          <strong>Treatment started:</strong>
+          <span style={{ ...underlineStyle, minWidth: '110px', textAlign: 'center' }}>
+            {!isBlank && treatmentStartDate && treatmentStartDate !== '—' ? treatmentStartDate : '\u00A0'}
+          </span>
+        </div>
+      </div>
 
-        {/* PREVIOUS vs RETURNING CONSULTATION BREAKDOWN */}
-        {!isBlank && consultationHistory.length > 1 && (
-          <div
+      {/* Row 8: Place of exposure */}
+      <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: '4px' }}>
+        <strong>Place of exposure:</strong>
+        <span style={{ ...underlineStyle, minWidth: '260px' }}>
+          {!isBlank && placeOfExposure ? placeOfExposure : '\u00A0'}
+        </span>
+      </div>
+
+      {/* Horizontal Divider Line */}
+      <div style={{ borderTop: '1.5px solid #000000', margin: '6px 0 8px 0' }} />
+
+      {/* Exposure Details: Mode & Body Part */}
+      {isBlank ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: '12px', marginBottom: '6px', lineHeight: 1.35 }}>
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: '2px' }}>1. Mode of Animal Exposure</div>
+            <div>( ) Nibbling/Licking of uncovered skin</div>
+            <div>( ) Nibbling/Licking of wounded/broken skin</div>
+            <div>( ) Scratch / Abrasion</div>
+            <div>( ) Transdermal Bite</div>
+            <div>( ) Handling / Ingestion of raw infected meat</div>
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: '2px' }}>2. Body Part Affected / Exposed</div>
+            <div>( ) Head and/or neck</div>
+            <div>( ) other parts of the body</div>
+            <div>( ) N / A if Ingestion mode</div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginBottom: '6px', lineHeight: 1.35 }}>
+          {chosenModes.length > 0 && (
+            <div style={{ marginBottom: '3px' }}>
+              <strong>1. Mode of Animal Exposure:</strong> &nbsp;
+              <span style={{ fontWeight: 600 }}>{chosenModes.join(', ')}</span>
+            </div>
+          )}
+          {chosenParts.length > 0 && (
+            <div style={{ marginBottom: '3px' }}>
+              <strong>2. Body Part Affected / Exposed:</strong> &nbsp;
+              <span style={{ fontWeight: 600 }}>{chosenParts.join(', ')}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 3. Type of Animal */}
+      <div style={{ marginBottom: '4px', lineHeight: 1.3 }}>
+        <strong>3. Type of Animal:</strong> &nbsp;
+        {isBlank ? (
+          <span>
+            ( ) Dog &nbsp;&nbsp;&nbsp;&nbsp; ( ) Others: <span style={{ ...underlineStyle, minWidth: '140px' }}>&nbsp;</span>
+          </span>
+        ) : (
+          <span style={{ fontWeight: 600 }}>{animalLabel}</span>
+        )}
+      </div>
+
+      {/* 4. Past History of animal bite */}
+      <div style={{ marginBottom: '8px', lineHeight: 1.3 }}>
+        <strong>4. Past history of animal bite:</strong> &nbsp;
+        {isBlank ? (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '2px' }}>
+            <div>
+              ( ) Yes &nbsp;&nbsp; ( ) No &nbsp;&nbsp;&nbsp;&nbsp; If yes, specify dates: <span style={{ ...underlineStyle, minWidth: '110px' }}>&nbsp;</span>
+            </div>
+            <div>
+              Was PEP Immunization completed: &nbsp;&nbsp; ( ) Yes &nbsp;&nbsp; ( ) No
+            </div>
+          </div>
+        ) : hasPastBite === true ? (
+          <span style={{ fontWeight: 600 }}>
+            Yes {pastBiteDates ? `(Dates: ${pastBiteDates})` : ''} — Was PEP Immunization completed: {pepCompleted ? 'Yes' : 'No'}
+          </span>
+        ) : (
+          <span style={{ fontWeight: 600 }}>No</span>
+        )}
+      </div>
+
+      {/* Vaccination Record Table + ICD 10 Code */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ flex: 1 }}>
+          <table
             style={{
-              marginTop: '8px',
-              paddingTop: '8px',
-              borderTop: '1px solid #d1d5db',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-              gap: '8px',
+              width: '100%',
+              borderCollapse: 'collapse',
+              border: '1.5px solid #000',
+              fontSize: '8.5pt',
             }}
           >
-            {consultationHistory.map((c: any, idx: number) => {
-              const isReturningVisit = idx > 0 || Boolean(c.is_reassessment);
-              const prescribedItems = [
-                c.prescribed_vaccine_type ? `PEP: ${c.prescribed_vaccine_type}` : (c.exposure_category === 'I' ? 'Anti-Rabies: Not Indicated' : null),
-                c.prescribed_tt ? `TT: ${c.prescribed_tt}` : null,
-                c.prescribed_ats ? `ATS: ${c.prescribed_ats}` : null,
-                c.prescribed_rig ? `ERIG: ${c.prescribed_rig}` : null,
-              ].filter(Boolean).join(' · ') || 'No Injection Prescribed';
-
-              const adminItems = Array.isArray(c.administered_items) && c.administered_items.length > 0
-                ? c.administered_items.map((a: any) => `${a.medication} (${a.date ? formatDate(a.date) : '—'}${a.administered_by ? ` by ${a.administered_by}` : ''})`).join(', ')
-                : null;
-
-              const statusText =
-                c.administration_status === 'administered'
-                  ? `Administered${adminItems ? `: ${adminItems}` : ''}`
-                  : (c.administration_status === 'Transferred/Referred' || c.administration_status === 'transferred_referred' || c.outcome === 'Transferred/Referred')
-                  ? `Transferred/Referred${c.referred_to ? ` to ${c.referred_to}` : ''}`
-                  : (c.administration_status === 'completed_without_injection' || c.administration_status === 'Completed Without Injection')
-                  ? 'Completed Without Injection'
-                  : c.administration_status === 'not_administered'
-                  ? `Not Administered${c.not_administered_reason ? ` (${c.not_administered_reason})` : ''}`
-                  : 'Pending Treatment / Not Administered';
-
-              return (
-                <div
-                  key={c.treatment_id || idx}
+            <thead>
+              <tr>
+                <th
+                  colSpan={5}
                   style={{
-                    backgroundColor: '#ffffff',
-                    border: '1px solid #d1d5db',
-                    padding: '6px 8px',
+                    border: '1px solid #000',
+                    padding: '2px 6px',
+                    textAlign: 'center',
+                    fontWeight: 700,
                     fontSize: '8.5pt',
-                    lineHeight: 1.35,
+                    backgroundColor: '#ffffff',
                   }}
                 >
-                  <div style={{ fontWeight: 700, color: '#111827', marginBottom: '2px', textTransform: 'uppercase' }}>
-                    {isReturningVisit ? `Returning Consultation (Reassessment)` : `Previous Consultation`} — {c.consultation_date ? formatDate(c.consultation_date) : '—'}
-                  </div>
-                  <div>
-                    <strong>Exposure Category:</strong> Category {c.exposure_category || '—'}
-                    {isReturningVisit && (c.blood_pressure || c.temperature || c.weight) && (
-                      <span> · <strong>Updated Vitals:</strong> BP {c.blood_pressure || '—'}, {c.temperature ? `${c.temperature}°C` : '—'}, {c.weight ? `${c.weight}kg` : '—'}</span>
+                  Period Exposure Vaccination Record
+                </th>
+              </tr>
+              <tr style={{ backgroundColor: '#ffffff' }}>
+                <th style={{ border: '1px solid #000', padding: '2px 6px', width: '22%', textAlign: 'left' }}>Period</th>
+                <th style={{ border: '1px solid #000', padding: '2px 4px', width: '24%', textAlign: 'center' }}>Adm Route</th>
+                <th style={{ border: '1px solid #000', padding: '2px 4px', width: '18%', textAlign: 'center' }}>Date</th>
+                <th style={{ border: '1px solid #000', padding: '2px 4px', width: '18%', textAlign: 'center' }}>Given by</th>
+                <th style={{ border: '1px solid #000', padding: '2px 4px', width: '18%', textAlign: 'center' }}>Signature</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Day 0 */}
+              {renderTableRow('Day 0', d0Rec)}
+
+              {/* Day 3 */}
+              {renderTableRow('Day 3', d3Rec, apt3?.appointment_date)}
+
+              {/* Day 7 */}
+              {renderTableRow('Day 7', d7Rec, apt7?.appointment_date)}
+
+              {/* Day 28 - rendered if blank or chosen/prescribed/given */}
+              {(isBlank || hasD28) && renderTableRow('Day 28', d28Rec, apt28?.appointment_date)}
+
+              {/* Booster 1 - rendered if blank or chosen */}
+              {(isBlank || hasB1) && renderTableRow('Booster 1', b1Rec)}
+
+              {/* Booster 2 - rendered if blank or chosen */}
+              {(isBlank || hasB2) && renderTableRow('Booster 2', b2Rec)}
+
+              {/* ERIG - rendered if blank or chosen */}
+              {(isBlank || hasRig) && (
+                <tr style={{ height: '21px' }}>
+                  <td style={{ border: '1px solid #000', padding: '2px 6px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {isBlank ? (
+                      <span>ERIG _________ ml</span>
+                    ) : (
+                      <span>ERIG {rigRec?.dosage_ml || rigCalculatedMl ? `${rigRec?.dosage_ml || rigCalculatedMl} ml` : ''}</span>
                     )}
-                  </div>
-                  {c.reassessment_decision && (
-                    <div>
-                      <strong>Doctor Reassessment:</strong> {String(c.reassessment_decision).replace(/_/g, ' ')}
-                      {c.reassessment_notes ? ` (${c.reassessment_notes})` : ''}
-                    </div>
-                  )}
-                  <div>
-                    <strong>Prescribed:</strong> {prescribedItems}
-                  </div>
-                  <div>
-                    <strong>Administration Status:</strong> {statusText}
-                  </div>
-                </div>
-              );
-            })}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+                    {!isBlank && rigGiven ? (rigRec?.route === 'wound_infiltration' ? 'Wound Infiltration' : (rigRec?.route || 'Wound Infiltration')) : ''}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+                    {!isBlank && rigGiven && rigRec?.treatment_date ? formatDate(rigRec.treatment_date) : ''}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+                    {!isBlank && rigGiven ? getStaffName(rigRec) : ''}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+                    {!isBlank && rigGiven ? renderSignature(rigRec) : ''}
+                  </td>
+                </tr>
+              )}
+
+              {/* TT - rendered if blank or chosen */}
+              {(isBlank || hasTt) && (
+                <tr style={{ height: '21px' }}>
+                  <td style={{ border: '1px solid #000', padding: '2px 6px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {isBlank ? 'TT' : (ttRec?.dosage_ml ? `TT ${ttRec.dosage_ml} ml` : 'TT')}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+                    {!isBlank && ttGiven ? (ttRec?.route || 'IM') : ''}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+                    {!isBlank && ttGiven && ttRec?.treatment_date ? formatDate(ttRec.treatment_date) : ''}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+                    {!isBlank && ttGiven ? getStaffName(ttRec) : ''}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+                    {!isBlank && ttGiven ? renderSignature(ttRec) : ''}
+                  </td>
+                </tr>
+              )}
+
+              {/* ATS - rendered if blank or chosen */}
+              {(isBlank || hasAts) && (
+                <tr style={{ height: '21px' }}>
+                  <td style={{ border: '1px solid #000', padding: '2px 6px', fontWeight: 600, whiteSpace: 'nowrap' }}>ATS</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+                    {!isBlank && atsGiven ? (atsRec?.route || 'IM') : ''}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+                    {!isBlank && atsGiven && atsRec?.treatment_date ? formatDate(atsRec.treatment_date) : ''}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+                    {!isBlank && atsGiven ? getStaffName(atsRec) : ''}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>
+                    {!isBlank && atsGiven ? renderSignature(atsRec) : ''}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ICD 10 Code on the right */}
+        <div style={{ width: '120px', textAlign: 'center', padding: '4px' }}>
+          <div style={{ fontWeight: 700, fontSize: '9pt', marginBottom: '6px' }}>ICD 10 Code</div>
+          <div
+            style={{
+              borderBottom: '1.5px solid #000',
+              paddingBottom: '2px',
+              fontWeight: 700,
+              fontSize: '9.5pt',
+              minHeight: '18px',
+            }}
+          >
+            {!isBlank ? (record?.icd10Code || 'Z20.3') : '\u00A0'}
           </div>
-        )}
-      </section>
-
-      {/* V. VACCINATION RECORD (TWO-COLUMN ENTRIES) */}
-      <section style={{ marginBottom: '8px' }}>
-        <h2 className="treatment-group-heading">V. Vaccination Record</h2>
-        <div className="treatment-record-grid">
-            {unifiedRows.map((row) => {
-              const rec = row.rec;
-              const isGiven = isRecordGiven(rec);
-              const isNotAdmin = isRecordNotAdministered(rec);
-              const staff = rec?.administered_by || (rec as any)?.administeredBy;
-              const staffName = typeof staff === 'object' ? staff?.name : rec?.administered_by || null;
-              const staffLicense = typeof staff === 'object' ? staff?.professional_license_no : null;
-
-              return (
-                <div key={row.item} className="treatment-record-entry">
-                  {/* 1. Item */}
-                  <div className="treatment-record-field"><strong>Item: </strong>
-                    {row.item}
-                  </div>
-
-                  {/* 2. Route */}
-                  <div className="treatment-record-field"><strong>Route: </strong>
-                    {isBlank ? (
-                      <span style={{ fontSize: '9pt', color: '#475569', whiteSpace: 'nowrap' }}>
-                        {row.item === 'ATS' || row.item === 'Tetanus vaccine' ? '☐ IM' : '☐ ID  ☐ IM'}
-                      </span>
-                    ) : isGiven ? (
-                      rec?.route ? rec.route.replaceAll('_', ' ') : 'IM'
-                    ) : (
-                      '—'
-                    )}
-                  </div>
-
-                  {/* 3. Date */}
-                  <div className="treatment-record-field"><strong>Date: </strong>
-                    {isBlank
-                      ? ''
-                      : isGiven && rec?.treatment_date
-                      ? formatDate(rec.treatment_date)
-                      : isNotAdmin && (rec?.scheduled_date || rec?.treatment_date)
-                      ? formatDate(rec.scheduled_date || rec.treatment_date)
-                      : '—'}
-                  </div>
-
-                  {/* 4. Vaccine / Lot */}
-                  <div className="treatment-record-field"><strong>Vaccine / Lot: </strong>
-                    {isBlank ? (
-                      ''
-                    ) : isGiven ? (
-                      <span>
-                        {rec?.vaccine_type || rec?.vaccine_brand || rec?.medication_given || '—'}
-                        {(rec?.batch_number || rec?.batch_no) && (
-                          <span style={{ color: '#4b5563', fontSize: '9pt' }}>
-                            {` · Lot: ${rec.batch_number || rec.batch_no}`}
-                          </span>
-                        )}
-                      </span>
-                    ) : (
-                      <span style={{ color: '#6b7280', fontSize: '9pt' }}>
-                        {row.fallbackStatus || '—'}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* 5. Given by */}
-                  <div className="treatment-record-field"><strong>Given by (Name + PRC): </strong>
-                    {isBlank ? (
-                      ''
-                    ) : isGiven ? (
-                      <span>
-                        {staffName || 'Staff Nurse'}
-                        {staffLicense && (
-                          <span style={{ color: '#4b5563', fontSize: '9pt' }}>
-                            {` (PRC: ${staffLicense})`}
-                          </span>
-                        )}
-                      </span>
-                    ) : (
-                      '—'
-                    )}
-                  </div>
-
-                  {/* 6. Signature */}
-                  <div className="treatment-record-field"><strong>Signature: </strong>
-                    {isBlank ? (
-                      ''
-                    ) : isGiven && rec?.treatment_id ? (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', maxHeight: '28px', overflow: 'hidden' }}>
-                        <SignatureImage
-                          endpoint={`/vaccination-records/${rec.treatment_id}/signature`}
-                          style={{ maxHeight: '28px', maxWidth: '85px', objectFit: 'contain' }}
-                          silentFallback={true}
-                        />
-                      </div>
-                    ) : isGiven && rec?.signature ? (
-                      <span style={{ fontSize: '9pt', color: '#374151' }}>Signed</span>
-                    ) : (
-                      ''
-                    )}
-                  </div>
-                </div>
-              );
-            })}
         </div>
-      </section>
-
-      {/* 6. FOOTER */}
-      <footer
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: '9pt',
-          color: '#6b7280',
-          paddingTop: '8px',
-        }}
-      >
-        <div>
-          <span>ICD-10 Code: </span>
-          <strong style={{ color: '#111827' }}>
-            {isBlank ? '________________' : record?.icd10Code || 'Z20.3'}
-          </strong>
-        </div>
-        <div>
-          Tagoloan RHU Official Animal Bite Treatment Form
-        </div>
-      </footer>
+      </div>
     </div>
   );
 }

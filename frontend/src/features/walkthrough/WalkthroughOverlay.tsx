@@ -4,6 +4,7 @@ import type { WalkthroughStep, WalkthroughPlacement } from './types';
 
 interface WalkthroughOverlayProps {
   step: WalkthroughStep;
+  moduleName: string;
   currentStepIndex: number;
   totalSteps: number;
   onNext: () => void;
@@ -209,6 +210,7 @@ function scrollElementIntoOptimalView(el: HTMLElement, placement: WalkthroughPla
 
 export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
   step,
+  moduleName,
   currentStepIndex,
   totalSteps,
   onNext,
@@ -562,7 +564,7 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
             y="0"
             width="100%"
             height="100%"
-            fill="rgba(15, 23, 42, 0.58)"
+            fill="rgba(15, 23, 42, 0.38)"
             mask="url(#walkthrough-spotlight-mask)"
           />
         </svg>
@@ -591,9 +593,8 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
         }}
       >
         <div className="walkthrough-header">
-          <span className="walkthrough-step-badge" data-testid="walkthrough-step-counter">
-            Step {currentStepIndex + 1} of {totalSteps}
-          </span>
+          <span className="walkthrough-step-badge">{moduleName}</span>
+          <span className="walkthrough-step-count" data-testid="walkthrough-step-counter">Step {currentStepIndex + 1} of {totalSteps}</span>
           <button
             type="button"
             className="walkthrough-close-btn"
@@ -606,6 +607,9 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
+        </div>
+        <div className="walkthrough-progress" role="progressbar" aria-label="Guide progress" aria-valuenow={currentStepIndex + 1} aria-valuemin={0} aria-valuemax={totalSteps}>
+          {Array.from({ length: totalSteps }, (_, index) => <span key={index} className={index <= currentStepIndex ? 'done' : ''} />)}
         </div>
 
         <h3 className="walkthrough-title" data-testid="walkthrough-step-title">

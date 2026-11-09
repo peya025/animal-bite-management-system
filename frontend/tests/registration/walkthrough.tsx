@@ -179,7 +179,7 @@ function MockPatients() {
 
 function MockQueue() {
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: 24 }} className="queue-header">
       <div
         data-walkthrough="queue-header"
         data-testid="queue-header-breadcrumb"
@@ -189,13 +189,27 @@ function MockQueue() {
           <h1 style={{ margin: 0 }}>Registration Queue Dashboard</h1>
           <div>Dashboard › Treatment Queues › Station 1: New &amp; Day 0</div>
         </div>
-        <button data-walkthrough="queue-display-btn" style={{ padding: '8px 14px' }}>
-          Queue Display
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            data-walkthrough="btn-vax-avail"
+            data-tour="btn-vaccine-availability"
+            style={{ padding: '8px 14px' }}
+          >
+            Vaccine Availability
+          </button>
+          <button
+            data-walkthrough="queue-display-btn"
+            data-tour="btn-queue-display"
+            style={{ padding: '8px 14px' }}
+          >
+            Queue Display
+          </button>
+        </div>
       </div>
 
       <div
         data-walkthrough="queue-kpi-strip"
+        data-tour="queue-kpi-cards"
         style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 }}
       >
         <div style={{ padding: 16, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12 }}>Waiting: 4</div>
@@ -208,7 +222,7 @@ function MockQueue() {
       <div
         id="queue-table-container"
         data-walkthrough="queue-table"
-        data-tour="registration-queue-table"
+        data-tour="queue-table"
         style={{ padding: 24, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 16, minHeight: 340 }}
       >
         <h2 style={{ marginTop: 0 }}>Registration Queue (4 patients waiting)</h2>
@@ -223,6 +237,64 @@ function MockQueue() {
         </div>
         <div style={{ padding: 24, border: '1px solid #f1f5f9', borderRadius: 8 }}>
           Queue #001 - Maria Clara - Waiting in Triage
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MockNursePatients() {
+  return (
+    <div style={{ padding: 24 }}>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ margin: 0 }}>Station 2: Follow-up Doses</h1>
+        <div>Dashboard › Treatment Queues › Station 2</div>
+      </div>
+
+      <div
+        data-tour="nurse-kpi-cards"
+        data-walkthrough="nurse-kpi-cards"
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}
+      >
+        <div style={{ padding: 16, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12 }}>Due Today: 8</div>
+        <div style={{ padding: 16, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12 }}>Overdue: 3</div>
+        <div style={{ padding: 16, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12 }}>Booked: 5</div>
+        <div style={{ padding: 16, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12 }}>Upcoming: 12</div>
+        <div style={{ padding: 16, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12 }}>Total Tracked: 28</div>
+      </div>
+
+      <div
+        data-tour="nurse-tabs"
+        data-walkthrough="nurse-tabs"
+        style={{ display: 'flex', gap: 10, marginBottom: 16 }}
+      >
+        <button style={{ padding: '8px 14px' }}>Due Today</button>
+        <button style={{ padding: '8px 14px' }}>Overdue Patients</button>
+        <button style={{ padding: '8px 14px' }}>Online Bookings</button>
+      </div>
+
+      <div
+        data-tour="nurse-filters"
+        data-walkthrough="nurse-filters"
+        style={{ display: 'flex', gap: 10, padding: 12, background: '#f8fafc', borderRadius: 8, marginBottom: 16 }}
+      >
+        <select><option>All PEP Milestones (Day 3, 7, 14, 28)</option></select>
+        <input placeholder="Search follow-up patient..." />
+      </div>
+
+      <div
+        data-tour="nurse-table"
+        data-walkthrough="nurse-table"
+        style={{ padding: 20, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12 }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottom: '1px solid #f1f5f9' }}>
+          <span>Juan Luna — Dose 2 (Day 3) — Due Today</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" style={{ padding: '6px 12px' }}>Reschedule</button>
+            <button type="button" className="btn-record-dose" style={{ padding: '6px 14px', background: '#10b981', color: '#fff', border: 'none', borderRadius: 6 }}>
+              Record Dose
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -615,6 +687,7 @@ function TestApp() {
                 <Route path="/dashboard" element={<MockDashboard />} />
                 <Route path="/patients" element={<MockPatients />} />
                 <Route path="/queue" element={<MockQueue />} />
+                <Route path="/nurse/patients" element={<MockNursePatients />} />
                 <Route path="/bite-cases" element={<MockBiteCasesSummary />} />
                 <Route path="/bite-map" element={<MockBiteMap />} />
                 <Route path="/reports" element={<MockReports />} />

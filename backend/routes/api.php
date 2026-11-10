@@ -77,6 +77,13 @@ Route::post('/auth/google', [AuthController::class, 'googleLogin'])
     ->middleware('throttle:20,1');  // 20 attempts per minute
 Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'getSettings']);
 Route::get('/public/vaccine-availability', [VaccineInventoryController::class, 'publicAvailability']);
+Route::get('/public/announcements', [\App\Http\Controllers\Settings\AnnouncementController::class, 'published']);
+
+Route::middleware(['auth:sanctum', 'active.user', 'role:admin,developer,registration,triage,treatment,doctor,nurse,staff'])->prefix('announcements')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Settings\AnnouncementController::class, 'index']);
+    Route::post('/', [\App\Http\Controllers\Settings\AnnouncementController::class, 'store']);
+    Route::post('/{announcement}', [\App\Http\Controllers\Settings\AnnouncementController::class, 'update']);
+});
 
 // Form 1 Printout Route
 // Form 1 Printout moved to authenticated group with PatientPolicy

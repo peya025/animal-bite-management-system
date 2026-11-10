@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app/app_routes.dart';
+import '../app/app_theme.dart';
 import '../services/api.dart';
 import '../widgets/common/app_toast.dart';
 import '../widgets/history/history_filters.dart';
@@ -169,129 +170,120 @@ class _HistoryViewState extends State<HistoryView> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
-            child: Column(
-              children: [
-                // 1. Top bar with inline summary subtitle & refresh/filter icon button
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Color(0xFFE5E7EB),
-                        width: 0.5,
+            child: RefreshIndicator(
+              onRefresh: _loadHistory,
+              color: const Color(0xFF1D9E75),
+              child: _loading && _records.isEmpty
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF1D9E75),
                       ),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      // Left: Title + Inline Summary Subtitle
-                      Expanded(
-                        child: KeyedSubtree(
-                          key: _summaryKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'History',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF111827),
-                                  height: 1.2,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                summaryText,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF9CA3AF),
-                                  height: 1.2,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // Guide walkthrough button
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _startHistoryWalkthrough,
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            margin: const EdgeInsets.only(right: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE1F5EE),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Icon(
-                              LucideIcons.compass,
-                              size: 16,
-                              color: Color(0xFF0F6E56),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // Right: Refresh / Filter button
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _showFilterMenu,
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: const Color(0xFFE5E7EB),
-                                width: 0.5,
-                              ),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Icon(
-                              Icons.refresh_rounded,
-                              size: 16,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Main Scrollable Content with Pull-To-Refresh
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: _loadHistory,
-                    color: const Color(0xFF1D9E75),
-                    child: _loading && _records.isEmpty
-                        ? const Center(
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF1D9E75),
-                            ),
-                          )
-                        : SingleChildScrollView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 90),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                    )
+                  : SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 90),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // 1. Care History Summary Header & Guide Action
+                          KeyedSubtree(
+                            key: _summaryKey,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                if (_error.isNotEmpty) ...[
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text(
+                                        'CARE HISTORY',
+                                        style: TextStyle(
+                                          color: Color(0xFF6B7280),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        summaryText,
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          color: Color(0xFF9CA3AF),
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: _startHistoryWalkthrough,
+                                  behavior: HitTestBehavior.opaque,
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: 4,
+                                      horizontal: 2,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          LucideIcons.compass,
+                                          size: 13,
+                                          color: AppColors.primary,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'History guide',
+                                          style: TextStyle(
+                                            color: AppColors.primary,
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Material(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: InkWell(
+                                    onTap: _showFilterMenu,
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: const Color(0xFFE5E7EB),
+                                          width: 0.8,
+                                        ),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: const Icon(
+                                        Icons.refresh_rounded,
+                                        size: 16,
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          if (_error.isNotEmpty) ...[
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     margin: const EdgeInsets.only(bottom: 12),
@@ -433,9 +425,6 @@ class _HistoryViewState extends State<HistoryView> {
                             ),
                           ),
                   ),
-                ),
-              ],
-            ),
           ),
         ),
       ),

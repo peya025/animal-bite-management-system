@@ -261,4 +261,30 @@ class MobileAppointmentCharacterizationTest extends TestCase
         $this->patchJson("/api/mobile/appointments/{$appointment->appointment_id}/cancel")
             ->assertStatus(422);
     }
+
+    public function test_cannot_cancel_followup_day3_or_booster_appointment(): void
+    {
+        $day3Appointment = Appointment::create([
+            'clinic_id'            => $this->clinic->id,
+            'patient_id'           => $this->patient->patient_id,
+            'appointment_type'     => 'vaccination',
+            'dose_number'          => 3,
+            'notes'                => 'Day 3 Dose',
+            'scheduled_date'       => Carbon::today()->addDays(3)->toDateString(),
+            'appointment_date'     => Carbon::today()->addDays(3)->toDateString(),
+            'status'               => 'scheduled',
+            'booked_by_account_id' => $this->patientAccount->id,
+        ]);
+
+        Sanctum::actingAs($this->patientAccount);
+
+        $response = $this->patchJson("/api/mobile/appointments/{$day3Appointment->appointment_id}/cancel", [
+            'reason' => 'Cannot attend',
+        ]);
+
+        $response->assertStatus(422);
+
+        $day3Appointment->refresh();
+        $this->assertEquals('scheduled', $day3Appointment->status);
+    }
 }

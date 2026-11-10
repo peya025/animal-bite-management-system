@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app/app_routes.dart';
 import '../services/api.dart';
@@ -9,6 +10,7 @@ import '../widgets/history/history_summary.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
+import '../widgets/walkthrough/app_walkthrough_sheet.dart';
 
 class HistoryView extends StatefulWidget {
   const HistoryView({super.key});
@@ -30,11 +32,48 @@ class _HistoryViewState extends State<HistoryView> {
     'active_cases': 0,
   };
   Map<String, dynamic>? _activeCase;
+  bool _walkthroughTriggered = false;
+
+  final GlobalKey _summaryKey = GlobalKey();
+  final GlobalKey _filtersKey = GlobalKey();
+  final GlobalKey _recordsKey = GlobalKey();
+
+  Map<int, GlobalKey> get _historyWalkthroughTargets => {
+    0: _summaryKey,
+    1: _filtersKey,
+    2: _recordsKey,
+  };
 
   @override
   void initState() {
     super.initState();
     _loadHistory();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args == 'walkthrough' && !_walkthroughTriggered) {
+      _walkthroughTriggered = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _startHistoryWalkthrough();
+      });
+    }
+  }
+
+  Future<void> _startHistoryWalkthrough() async {
+    for (var i = 0; i < 8 && _loading && mounted; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+    }
+    if (!mounted) return;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    await showAppWalkthrough(
+      context,
+      targetKeys: _historyWalkthroughTargets,
+      steps: kHistoryWalkthroughSteps,
+    );
   }
 
   Future<void> _loadHistory() async {
@@ -152,29 +191,56 @@ class _HistoryViewState extends State<HistoryView> {
                     children: [
                       // Left: Title + Inline Summary Subtitle
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'History',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF111827),
-                                height: 1.2,
+                        child: KeyedSubtree(
+                          key: _summaryKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'History',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF111827),
+                                  height: 1.2,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              summaryText,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF9CA3AF),
-                                height: 1.2,
+                              const SizedBox(height: 2),
+                              Text(
+                                summaryText,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF9CA3AF),
+                                  height: 1.2,
+                                ),
                               ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Guide walkthrough button
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _startHistoryWalkthrough,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            margin: const EdgeInsets.only(right: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE1F5EE),
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                          ],
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              LucideIcons.compass,
+                              size: 16,
+                              color: Color(0xFF0F6E56),
+                            ),
+                          ),
                         ),
                       ),
 
@@ -274,67 +340,95 @@ class _HistoryViewState extends State<HistoryView> {
                                 _buildProfileFilterBar(),
 
                                 // 4. Filter Chips (All | Appointments | Vaccinations)
-                                HistoryFilters(
-                                  selected: _filter,
-                                  onSelected: (filter) =>
-                                      setState(() => _filter = filter),
+                                KeyedSubtree(
+                                  key: _filtersKey,
+                                  child: HistoryFilters(
+                                    selected: _filter,
+                                    onSelected: (filter) =>
+                                        setState(() => _filter = filter),
+                                  ),
                                 ),
                                 const SizedBox(height: 16),
 
-                                if (visibleList.isEmpty)
-                                  Container(
-                                    padding: const EdgeInsets.all(32),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: const Color(0xFFE5E7EB),
-                                        width: 0.5,
-                                      ),
-                                    ),
-                                    child: Center(
-                                      child: Column(
-                                        children: [
-                                          Icon(
-                                            _filter == HistoryFilter.vaccinations
-                                                ? Icons.vaccines_outlined
-                                                : Icons.calendar_today_outlined,
-                                            size: 36,
-                                            color: const Color(0xFFD1D5DB),
-                                          ),
-                                          const SizedBox(height: 10),
-                                          Text(
-                                            _filter == HistoryFilter.vaccinations
-                                                ? 'No vaccination records yet'
-                                                : _filter == HistoryFilter.appointments
-                                                    ? 'No appointment records yet'
-                                                    : 'No records found',
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                              color: Color(0xFF6B7280),
+                                KeyedSubtree(
+                                  key: _recordsKey,
+                                  child: visibleList.isEmpty
+                                      ? Container(
+                                          padding: const EdgeInsets.all(32),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: const Color(0xFFE5E7EB),
+                                              width: 0.5,
                                             ),
                                           ),
-                                          const SizedBox(height: 4),
-                                          const Text(
-                                            'Your clinic visits and administered doses will appear here.',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xFF9CA3AF),
+                                          child: Center(
+                                            child: Column(
+                                              children: [
+                                                Icon(
+                                                  _filter ==
+                                                          HistoryFilter
+                                                              .vaccinations
+                                                      ? Icons.vaccines_outlined
+                                                      : Icons
+                                                          .calendar_today_outlined,
+                                                  size: 36,
+                                                  color: const Color(
+                                                    0xFFD1D5DB,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 10),
+                                                Text(
+                                                  _filter ==
+                                                          HistoryFilter
+                                                              .vaccinations
+                                                      ? 'No vaccination records yet'
+                                                      : _filter ==
+                                                              HistoryFilter
+                                                                  .appointments
+                                                          ? 'No appointment records yet'
+                                                          : 'No records found',
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight:
+                                                        FontWeight.w600,
+                                                    color: Color(0xFF6B7280),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                const Text(
+                                                  'Your clinic visits and administered doses will appear here.',
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xFF9CA3AF),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                    ),
-                                  )
-                                else
-                                  for (var i = 0; i < visibleList.length; i++)
-                                    HistoryTimelineItem(
-                                      record: visibleList[i],
-                                      isLast: i == visibleList.length - 1,
-                                      onTap: () => showDigitalVaccinationCard(context),
-                                    ),
+                                        )
+                                      : Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            for (var i = 0;
+                                                i < visibleList.length;
+                                                i++)
+                                              HistoryTimelineItem(
+                                                record: visibleList[i],
+                                                isLast:
+                                                    i == visibleList.length - 1,
+                                                onTap: () =>
+                                                    showDigitalVaccinationCard(
+                                                      context,
+                                                    ),
+                                              ),
+                                          ],
+                                        ),
+                                ),
                               ],
                             ),
                           ),

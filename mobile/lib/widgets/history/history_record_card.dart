@@ -116,24 +116,24 @@ class HistoryTimelineItem extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Left column (34px fixed width) with Icon Box + Connector Line
+            // Left column (36px fixed width) with Icon Box + Connector Line
             SizedBox(
-              width: 34,
+              width: 36,
               child: Column(
                 children: [
-                  // Icon box (34x34, 10px radius)
+                  // Icon box (36x36, 12px radius)
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: iconColors.bg,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     alignment: Alignment.center,
                     child: Icon(
                       record.icon,
                       color: iconColors.icon,
-                      size: 16,
+                      size: 17,
                     ),
                   ),
 
@@ -157,19 +157,26 @@ class HistoryTimelineItem extends StatelessWidget {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: onTap,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(18),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                      vertical: 12,
+                      horizontal: 14,
+                      vertical: 13,
                     ),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(18),
                       border: Border.all(
                         color: cardBorderColor,
-                        width: 0.5,
+                        width: 0.8,
                       ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x06111827),
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,7 +258,7 @@ class HistoryTimelineItem extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF9FAFB),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -375,7 +382,7 @@ class ProfileRecipientBadge extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: borderColor, width: 0.5),
       ),
       child: Row(

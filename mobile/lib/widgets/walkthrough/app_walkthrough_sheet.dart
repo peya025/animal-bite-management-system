@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../app/app_routes.dart';
 import '../../app/app_theme.dart';
 import '../../services/walkthrough_service.dart';
 
@@ -20,12 +21,13 @@ class WalkthroughStepData {
   final String tag;
 }
 
-const List<WalkthroughStepData> kDefaultWalkthroughSteps = [
+/// Home Menu Walkthrough (5 concise steps, confined to Home)
+const List<WalkthroughStepData> kHomeWalkthroughSteps = [
   WalkthroughStepData(
     tag: 'GUIDE & TUTORIALS',
     title: '',
     description:
-        'Watch tutorials or replay this walkthrough anytime on how to use the ABCare app.',
+        'Watch tutorials or replay menu walkthroughs anytime on how to use the ABCare app.',
     icon: LucideIcons.compass,
   ),
   WalkthroughStepData(
@@ -50,14 +52,17 @@ const List<WalkthroughStepData> kDefaultWalkthroughSteps = [
     icon: LucideIcons.qrCode,
   ),
   WalkthroughStepData(
-    tag: 'BOOK & BITE INTAKE',
-    title: 'Book a consultation:',
+    tag: 'MENU NAVIGATION',
+    title: 'Explore menus:',
     description:
-        'Tap Next to open the Book screen and see how to choose a patient profile, service type, and clinic date.',
-    icon: LucideIcons.calendarPlus,
+        'Use the bottom menu anytime to book consultations, inspect past treatment history, or update profile settings.',
+    icon: LucideIcons.layoutGrid,
   ),
 ];
 
+const List<WalkthroughStepData> kDefaultWalkthroughSteps = kHomeWalkthroughSteps;
+
+/// Booking Menu Walkthrough (3 focused steps)
 const List<WalkthroughStepData> kBookingWalkthroughSteps = [
   WalkthroughStepData(
     tag: 'BOOKING · PATIENT',
@@ -81,6 +86,321 @@ const List<WalkthroughStepData> kBookingWalkthroughSteps = [
     icon: LucideIcons.calendar,
   ),
 ];
+
+/// History / My Records Menu Walkthrough (3 focused steps)
+const List<WalkthroughStepData> kHistoryWalkthroughSteps = [
+  WalkthroughStepData(
+    tag: 'RECORDS · SUMMARY',
+    title: '1. Care summary:',
+    description:
+        'Track your total clinic visits, active bite cases, and upcoming next dose schedules at a glance.',
+    icon: LucideIcons.activity,
+  ),
+  WalkthroughStepData(
+    tag: 'RECORDS · FILTERS',
+    title: '2. Category filters:',
+    description:
+        'Easily filter between all records, bite case reports, vaccinations, and booster doses.',
+    icon: LucideIcons.filter,
+  ),
+  WalkthroughStepData(
+    tag: 'RECORDS · DOSE LOGS',
+    title: '3. Visit records:',
+    description:
+        'Review each completed dose, attending clinic station, and verified vaccination details.',
+    icon: LucideIcons.fileClock,
+  ),
+];
+
+/// Settings & Profile Menu Walkthrough (3 focused steps)
+const List<WalkthroughStepData> kSettingsWalkthroughSteps = [
+  WalkthroughStepData(
+    tag: 'SETTINGS · PROFILE',
+    title: '1. Account profile:',
+    description:
+        'Manage your contact information, emergency phone number, and address.',
+    icon: LucideIcons.user,
+  ),
+  WalkthroughStepData(
+    tag: 'SETTINGS · DEPENDENTS',
+    title: '2. Family dependents:',
+    description:
+        'Add and manage linked profiles for your children or family members who receive treatment.',
+    icon: LucideIcons.users,
+  ),
+  WalkthroughStepData(
+    tag: 'SETTINGS · SUPPORT',
+    title: '3. Support & guides:',
+    description:
+        'Access frequently asked questions, clinic policies, and individual menu guides anytime.',
+    icon: LucideIcons.helpCircle,
+  ),
+];
+
+/// Displays a bottom sheet allowing the user to select an individual menu walkthrough,
+/// avoiding an overwhelming monolithic tour across multiple screens.
+Future<void> showGuideMenuChooser(BuildContext context) async {
+  await showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (sheetContext) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE1F5EE),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      LucideIcons.compass,
+                      color: Color(0xFF0F6E56),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'App Guide Walkthroughs',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Select a menu walkthrough (3–5 quick steps each):',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      size: 20,
+                      color: Color(0xFF9CA3AF),
+                    ),
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _GuideMenuOptionTile(
+                icon: LucideIcons.home,
+                iconColor: const Color(0xFF0F6E56),
+                bgColor: const Color(0xFFE1F5EE),
+                title: 'Home Dashboard Tour',
+                stepsCount: '5 steps',
+                description:
+                    'PEP schedule, quick actions, and digital vaccination pass.',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  Navigator.of(context).pushReplacementNamed(
+                    AppRoutes.menu,
+                    arguments: 'walkthrough',
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+              _GuideMenuOptionTile(
+                icon: LucideIcons.calendarPlus,
+                iconColor: const Color(0xFF2563EB),
+                bgColor: const Color(0xFFEFF6FF),
+                title: 'Book Consultation Tour',
+                stepsCount: '3 steps',
+                description:
+                    'Patient profile selection, service types, and intake submission.',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  Navigator.of(context).pushReplacementNamed(
+                    AppRoutes.booking,
+                    arguments: 'walkthrough',
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+              _GuideMenuOptionTile(
+                icon: LucideIcons.fileClock,
+                iconColor: const Color(0xFF7C3AED),
+                bgColor: const Color(0xFFF5F3FF),
+                title: 'My Records & History Tour',
+                stepsCount: '3 steps',
+                description:
+                    'Care summary, active bite case tracker, and dose records.',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  Navigator.of(context).pushReplacementNamed(
+                    AppRoutes.history,
+                    arguments: 'walkthrough',
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+              _GuideMenuOptionTile(
+                icon: LucideIcons.settings,
+                iconColor: const Color(0xFFD97706),
+                bgColor: const Color(0xFFFEF3C7),
+                title: 'Profile & Settings Tour',
+                stepsCount: '3 steps',
+                description:
+                    'Personal details, family dependents, and clinic FAQs.',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  Navigator.of(context).pushReplacementNamed(
+                    AppRoutes.settings,
+                    arguments: 'walkthrough',
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _GuideMenuOptionTile extends StatelessWidget {
+  const _GuideMenuOptionTile({
+    required this.icon,
+    required this.iconColor,
+    required this.bgColor,
+    required this.title,
+    required this.stepsCount,
+    required this.description,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final Color bgColor;
+  final String title;
+  final String stepsCount;
+  final String description;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFFE5E7EB)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF111827),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            stepsCount,
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      description,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        height: 1.35,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                LucideIcons.chevronRight,
+                color: Color(0xFFD1D5DB),
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// Shows the spotlight walkthrough overlay.
 /// Returns `true` if the user stepped through to the end via Next/OK,

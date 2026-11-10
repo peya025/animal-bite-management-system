@@ -54,7 +54,7 @@ class ServiceSelector extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: const Color(0xFFE1F5EE),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,29 +100,44 @@ class _ServiceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(18),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFE1F5EE) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected ? AppColors.primary : Colors.grey.shade200,
-            width: isSelected ? 1.5 : 0.5,
+            width: isSelected ? 1.5 : 0.8,
           ),
+          boxShadow: isSelected
+              ? const [
+                  BoxShadow(
+                    color: Color(0x121D9E75),
+                    blurRadius: 10,
+                    offset: Offset(0, 3),
+                  ),
+                ]
+              : const [
+                  BoxShadow(
+                    color: Color(0x06111827),
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ],
         ),
         child: Row(
           children: [
-            // Left 36x36 icon container
+            // Left 40x40 icon container
             Container(
-              width: 36,
-              height: 36,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: isSelected
                     ? AppColors.primary.withValues(alpha: 0.15)
                     : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 service.icon,

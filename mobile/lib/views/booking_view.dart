@@ -6,7 +6,7 @@ import '../models/bite_intake_route_args.dart';
 import '../models/booking_draft.dart';
 import '../models/patient_profile.dart';
 import '../services/api.dart';
-import '../widgets/booking/booking_header.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../widgets/booking/booking_summary.dart';
 import '../widgets/booking/date_selector.dart';
 import '../widgets/booking/service_selector.dart';
@@ -80,13 +80,13 @@ class _BookingViewState extends State<BookingView> {
           !_walkthroughTriggered) {
         _walkthroughTriggered = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _startBookingWalkthrough(fromHomeTour: true);
+          _startBookingWalkthrough();
         });
       }
     }
   }
 
-  Future<void> _startBookingWalkthrough({bool fromHomeTour = false}) async {
+  Future<void> _startBookingWalkthrough() async {
     // Wait briefly if patient list is still loading so the Patient Profile card is rendered
     for (var i = 0; i < 8 && _loadingPatients && mounted; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 80));
@@ -98,10 +98,6 @@ class _BookingViewState extends State<BookingView> {
       context,
       targetKeys: _bookingWalkthroughTargets,
       steps: kBookingWalkthroughSteps,
-      stepOffset: fromHomeTour ? kDefaultWalkthroughSteps.length : 0,
-      totalStepsOverride: fromHomeTour
-          ? kDefaultWalkthroughSteps.length + kBookingWalkthroughSteps.length
-          : kBookingWalkthroughSteps.length,
     );
   }
 
@@ -221,7 +217,7 @@ class _BookingViewState extends State<BookingView> {
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (context) {
         return SafeArea(
@@ -360,6 +356,9 @@ class _BookingViewState extends State<BookingView> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
           icon: const Icon(
             Icons.block_rounded,
             color: Color(0xFFDC2626),
@@ -390,6 +389,9 @@ class _BookingViewState extends State<BookingView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28),
+        ),
         icon: const Icon(
           Icons.shield_outlined,
           color: AppColors.primary,
@@ -420,6 +422,9 @@ class _BookingViewState extends State<BookingView> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
           icon: const Icon(
             Icons.assignment_turned_in_outlined,
             color: AppColors.primary,
@@ -462,45 +467,72 @@ class _BookingViewState extends State<BookingView> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
-            child: Column(
-              children: [
-                BookingHeader(
-                  onGuidePressed: () =>
-                      _startBookingWalkthrough(fromHomeTour: false),
-                ),
-                Expanded(
-                  child: CustomScrollView(
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
-                        sliver: SliverList.list(
+            child: CustomScrollView(
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 90),
+                  sliver: SliverList.list(
+                    children: [
+                      // ─── 2. PATIENT PROFILE SECTION ───
+                      KeyedSubtree(
+                        key: _patientSectionKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // ─── 2. PATIENT PROFILE SECTION ───
-                            KeyedSubtree(
-                              key: _patientSectionKey,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'PATIENT PROFILE',
-                                    style: TextStyle(
-                                      color: Color(0xFF6B7280),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.8,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'PATIENT PROFILE',
+                                  style: TextStyle(
+                                    color: Color(0xFF6B7280),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: () => _startBookingWalkthrough(),
+                                  behavior: HitTestBehavior.opaque,
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: 4,
+                                      horizontal: 2,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          LucideIcons.compass,
+                                          size: 13,
+                                          color: AppColors.primary,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'How to book',
+                                          style: TextStyle(
+                                            color: AppColors.primary,
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
                                   if (_loadingPatients)
                                     Container(
                                       height: 60,
                                       alignment: Alignment.center,
                                       decoration: BoxDecoration(
                                         color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(18),
                                         border: Border.all(
                                           color: Colors.grey.shade200,
-                                          width: 0.5,
+                                          width: 0.8,
                                         ),
                                       ),
                                       child: const SizedBox.square(
@@ -515,10 +547,10 @@ class _BookingViewState extends State<BookingView> {
                                       padding: const EdgeInsets.all(14),
                                       decoration: BoxDecoration(
                                         color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(18),
                                         border: Border.all(
                                           color: Colors.grey.shade200,
-                                          width: 0.5,
+                                          width: 0.8,
                                         ),
                                       ),
                                       child: Column(
@@ -552,7 +584,7 @@ class _BookingViewState extends State<BookingView> {
                                               ),
                                               shape: RoundedRectangleBorder(
                                                 borderRadius:
-                                                    BorderRadius.circular(8),
+                                                    BorderRadius.circular(14),
                                               ),
                                             ),
                                           ),
@@ -563,7 +595,7 @@ class _BookingViewState extends State<BookingView> {
                                     // Patient Card
                                     InkWell(
                                       onTap: _openPatientPickerModal,
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(18),
                                       child: Container(
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
@@ -742,7 +774,7 @@ class _BookingViewState extends State<BookingView> {
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFFFFBEB),
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
                                     color: const Color(0xFFFDE68A),
                                     width: 0.8,
@@ -798,7 +830,7 @@ class _BookingViewState extends State<BookingView> {
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFFEF2F2),
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
                                     color: const Color(0xFFFCA5A5),
                                     width: 0.8,
@@ -865,7 +897,7 @@ class _BookingViewState extends State<BookingView> {
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFEFF6FF),
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
                                     color: const Color(0xFFBFDBFE),
                                     width: 0.8,
@@ -970,14 +1002,14 @@ class _BookingViewState extends State<BookingView> {
                                       fillColor: Colors.white,
                                       filled: true,
                                       border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(18),
                                         borderSide: BorderSide(
                                           color: Colors.grey.shade200,
                                           width: 0.5,
                                         ),
                                       ),
                                       enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(18),
                                         borderSide: BorderSide(
                                           color: Colors.grey.shade200,
                                           width: 0.5,
@@ -1009,11 +1041,8 @@ class _BookingViewState extends State<BookingView> {
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
       bottomNavigationBar: MenuNavigation(
         selectedIndex: 1,
         onSelected: _handleNavigation,

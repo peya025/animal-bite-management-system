@@ -85,23 +85,30 @@ class _ScheduleSectionState extends State<ScheduleSection> {
         // Appointment Card
         InkWell(
           onTap: widget.onOpenAppointments,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20),
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.shade200, width: 0.5),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey.shade200, width: 0.8),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x06111827),
+                  blurRadius: 10,
+                  offset: Offset(0, 2),
+                ),
+              ],
             ),
             child: Row(
               children: [
-                // Left 42x42 icon box (12px radius, #E1F5EE bg)
+                // Left 44x44 icon box (14px radius, #E1F5EE bg)
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     color: const Color(0xFFE1F5EE),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(
                     LucideIcons.calendarCheck,

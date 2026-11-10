@@ -214,6 +214,17 @@ class MobileAppointmentService
 
         abort_unless($appointment->status === 'scheduled', 422, 'Only scheduled appointments can be cancelled.');
 
+        // Follow-up vaccination appointments (Day 3 to booster) cannot be cancelled online
+        $isFollowUpOrBooster = ($appointment->dose_number !== null && $appointment->dose_number > 0)
+            || $appointment->appointment_type === 'booster'
+            || preg_match('/(Day [37]|Day 14|Day 28|Booster)/i', $appointment->notes ?? '');
+
+        abort_if(
+            $isFollowUpOrBooster,
+            422,
+            'Follow-up vaccination appointments (Day 3 to booster) cannot be cancelled from mobile to ensure complete rabies protection. Please contact or visit the animal bite clinic directly.'
+        );
+
         $appointment->update([
             'status'              => 'cancelled',
             'cancellation_reason' => $reason,

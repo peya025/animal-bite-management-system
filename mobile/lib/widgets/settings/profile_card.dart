@@ -51,7 +51,7 @@ class ProfileCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFE5E7EB), width: 0.8),
         boxShadow: const [
           BoxShadow(
@@ -97,7 +97,7 @@ class ProfileCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: const Color(0xFF1D9E75)
                                   .withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(22),
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,

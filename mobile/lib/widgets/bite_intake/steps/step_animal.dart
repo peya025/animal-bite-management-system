@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../app/app_theme.dart';
 import '../../menu/menu_surface.dart';
 import '../helpers/intake_ui_helpers.dart';
-
-typedef HugeiconsIcon = HugeIcon;
-// ignore: constant_identifier_names
-const CatIcon = HugeIcons.strokeRoundedCat;
 
 /// Step 3: Animal details (species, ownership, observation availability, condition).
 class StepAnimal extends StatelessWidget {
@@ -111,17 +106,7 @@ class StepAnimal extends StatelessWidget {
             children: [
               _animalTypeChip('dog', 'Dog', icon: LucideIcons.dog),
               const SizedBox(width: 8),
-              _animalTypeChip(
-                'cat',
-                'Cat',
-                customIcon: HugeiconsIcon(
-                  icon: CatIcon,
-                  size: 22,
-                  color: animalType == 'cat'
-                      ? AppColors.primary
-                      : const Color(0xFF6B7280),
-                ),
-              ),
+              _animalTypeChip('cat', 'Cat', icon: LucideIcons.cat),
             ],
           ),
           const SizedBox(height: 16),

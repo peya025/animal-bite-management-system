@@ -173,7 +173,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Book appointment'), findsOneWidget);
+    expect(find.text('PATIENT PROFILE'), findsOneWidget);
     expect(find.text('SERVICE TYPE'), findsOneWidget);
     expect(find.text('Bite consultation'), findsWidgets);
   });
@@ -279,7 +279,7 @@ void main() {
 
     expect(find.text('Digital Vaccination Card'), findsOneWidget);
     expect(
-      find.text('Official Post-Exposure Prophylaxis (PEP) Certificate'),
+      find.text('Official Rabies PEP Card'),
       findsOneWidget,
     );
   });

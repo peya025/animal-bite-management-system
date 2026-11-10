@@ -38,7 +38,7 @@ Future<void> showEnlargedQrDialog(
     context: context,
     builder: (dialogContext) => Dialog(
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 360),
@@ -295,7 +295,7 @@ class _DigitalVaccinationCardSheetState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Digital Vaccination Cards',
+                            'Digital Vaccination Card',
                             style: TextStyle(
                               color: Color(0xFF111827),
                               fontSize: 17,
@@ -888,7 +888,7 @@ class _InteractiveVaccinationCardDeckState
                 borderRadius: BorderRadius.circular(10),
                 child: Container(
                   width: 58,
-                  height: 42,
+                  height: 46,
                   decoration: BoxDecoration(
                     color: const Color(0xFFF9FAFB),
                     borderRadius: BorderRadius.circular(10),
@@ -899,6 +899,7 @@ class _InteractiveVaccinationCardDeckState
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         _currentIndex == 0

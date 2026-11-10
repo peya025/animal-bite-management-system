@@ -51,6 +51,8 @@ class _MenuViewState extends State<MenuView> {
     4: _bookTabKey,
   };
 
+  bool _routeWalkthroughTriggered = false;
+
   @override
   void initState() {
     super.initState();
@@ -63,26 +65,34 @@ class _MenuViewState extends State<MenuView> {
     });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_routeWalkthroughTriggered) {
+      _routeWalkthroughTriggered = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args == 'walkthrough') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _startWalkthrough();
+        });
+      }
+    }
+  }
+
   Future<void> _startWalkthrough() async {
     if (!mounted) return;
-    final completedHomeSteps = await showAppWalkthrough(
+    await showAppWalkthrough(
       context,
       targetKeys: _walkthroughTargets,
-      totalStepsOverride:
-          kDefaultWalkthroughSteps.length + kBookingWalkthroughSteps.length,
+      steps: kHomeWalkthroughSteps,
     );
-    if (completedHomeSteps && mounted) {
-      Navigator.of(
-        context,
-      ).pushReplacementNamed(AppRoutes.booking, arguments: 'walkthrough');
-    }
   }
 
   Future<void> _openFaqs([String? initialQuery]) async {
     if (!mounted) return;
     await showFaqBottomSheet(
       context,
-      onStartWalkthrough: _startWalkthrough,
+      onStartWalkthrough: () => showGuideMenuChooser(context),
       initialSearchQuery: initialQuery,
     );
   }

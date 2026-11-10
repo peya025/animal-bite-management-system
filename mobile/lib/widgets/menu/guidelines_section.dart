@@ -73,7 +73,7 @@ class _GuideCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const cardRadius = BorderRadius.all(Radius.circular(16));
+    const cardRadius = BorderRadius.all(Radius.circular(20));
 
     return Semantics(
       label: semanticLabel ?? '$title: $description',
@@ -100,7 +100,7 @@ class _GuideCard extends StatelessWidget {
               child: AspectRatio(
                 aspectRatio: 1.0,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(14),
                   child: Image.asset(
                     imagePath,
                     fit: BoxFit.cover,

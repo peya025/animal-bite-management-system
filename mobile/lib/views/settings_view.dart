@@ -28,11 +28,48 @@ class _SettingsViewState extends State<SettingsView> {
   PatientAccountProfile? _account;
   bool _loadingAccount = true;
   String? _accountError;
+  bool _walkthroughTriggered = false;
+
+  final GlobalKey _profileCardKey = GlobalKey();
+  final GlobalKey _dependentsKey = GlobalKey();
+  final GlobalKey _supportKey = GlobalKey();
+
+  Map<int, GlobalKey> get _settingsWalkthroughTargets => {
+    0: _profileCardKey,
+    1: _dependentsKey,
+    2: _supportKey,
+  };
 
   @override
   void initState() {
     super.initState();
     _loadAccount();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args == 'walkthrough' && !_walkthroughTriggered) {
+      _walkthroughTriggered = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _startSettingsWalkthrough();
+      });
+    }
+  }
+
+  Future<void> _startSettingsWalkthrough() async {
+    for (var i = 0; i < 8 && _loadingAccount && mounted; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+    }
+    if (!mounted) return;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    await showAppWalkthrough(
+      context,
+      targetKeys: _settingsWalkthroughTargets,
+      steps: kSettingsWalkthroughSteps,
+    );
   }
 
   Future<void> _loadAccount() async {
@@ -253,142 +290,147 @@ class _SettingsViewState extends State<SettingsView> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         // 1. Profile hero card
-                        if (_loadingAccount)
-                          Container(
-                            height: 200,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: const Color(0xFFE5E7EB),
-                                width: 0.8,
-                              ),
-                            ),
-                            alignment: Alignment.center,
-                            child: const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: Color(0xFF1D9E75),
-                              ),
-                            ),
-                          )
-                        else if (_account case final account?)
-                          ProfileCard(
-                            key: const ValueKey('settings_profile_card'),
-                            accountId: account.id,
-                            name: account.name,
-                            email: account.email,
-                            phone: account.phone,
-                            patientCount: account.patients.length,
-                            patients: account.patients,
-                            onEdit: _editAccount,
-                            onAddDependent: _addDependent,
-                            onOpenVaccinationCard: () =>
-                                showDigitalVaccinationCard(context),
-                          )
-                        else
-                          Material(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            child: InkWell(
-                              onTap: _loadAccount,
-                              borderRadius: BorderRadius.circular(14),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      LucideIcons.alertCircle,
-                                      color: Color(0xFFEF4444),
+                        KeyedSubtree(
+                          key: _profileCardKey,
+                          child: _loadingAccount
+                              ? Container(
+                                  height: 200,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: const Color(0xFFE5E7EB),
+                                      width: 0.8,
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        _accountError ??
-                                            'Could not load account. Tap to retry.',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: Color(0xFF111827),
-                                        ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: Color(0xFF1D9E75),
+                                    ),
+                                  ),
+                                )
+                              : _account != null
+                              ? ProfileCard(
+                                  key: const ValueKey('settings_profile_card'),
+                                  accountId: _account!.id,
+                                  name: _account!.name,
+                                  email: _account!.email,
+                                  phone: _account!.phone,
+                                  patientCount: _account!.patients.length,
+                                  patients: _account!.patients,
+                                  onEdit: _editAccount,
+                                  onAddDependent: _addDependent,
+                                  onOpenVaccinationCard: () =>
+                                      showDigitalVaccinationCard(context),
+                                )
+                              : Material(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: InkWell(
+                                    onTap: _loadAccount,
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            LucideIcons.alertCircle,
+                                            color: Color(0xFFEF4444),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              _accountError ??
+                                                  'Could not load account. Tap to retry.',
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                color: Color(0xFF111827),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ),
+                        ),
                         const SizedBox(height: 14),
 
                         // 2. Patient profiles section
                         if ((_account?.patients ?? const []).isNotEmpty) ...[
-                          SettingsGroup(
-                            title: context.tr('settings_patient_profiles'),
-                            children: [
-                              for (final patient
-                                  in _account?.patients ?? const [])
-                                SettingsTile(
-                                  icon: patient.relationship == 'child'
-                                      ? LucideIcons.smile
-                                      : LucideIcons.user,
-                                  iconBgColor: !patient.isActive
-                                      ? const Color(0xFFF3F4F6)
-                                      : const Color(0xFFE1F5EE),
-                                  iconColor: !patient.isActive
-                                      ? const Color(0xFF9CA3AF)
-                                      : const Color(0xFF1D9E75),
-                                  title: patient.name,
-                                  subtitle: !patient.isActive
-                                      ? '${_relationshipLabel(patient)} • ${context.tr('prof_archived_badge')}'
-                                      : _relationshipLabel(patient),
-                                  onTap: () async {
-                                    await Navigator.of(context).pushNamed(
-                                      AppRoutes.patientProfile,
-                                      arguments: patient,
-                                    );
-                                    if (mounted) {
-                                      await _loadAccount();
-                                    }
-                                  },
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (!patient.isActive)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFF3F4F6),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                            border: Border.all(
-                                              color: const Color(0xFFE5E7EB),
+                          KeyedSubtree(
+                            key: _dependentsKey,
+                            child: SettingsGroup(
+                              title: context.tr('settings_patient_profiles'),
+                              children: [
+                                for (final patient
+                                    in _account?.patients ?? const [])
+                                  SettingsTile(
+                                    icon: patient.relationship == 'child'
+                                        ? LucideIcons.smile
+                                        : LucideIcons.user,
+                                    iconBgColor: !patient.isActive
+                                        ? const Color(0xFFF3F4F6)
+                                        : const Color(0xFFE1F5EE),
+                                    iconColor: !patient.isActive
+                                        ? const Color(0xFF9CA3AF)
+                                        : const Color(0xFF1D9E75),
+                                    title: patient.name,
+                                    subtitle: !patient.isActive
+                                        ? '${_relationshipLabel(patient)} • ${context.tr('prof_archived_badge')}'
+                                        : _relationshipLabel(patient),
+                                    onTap: () async {
+                                      await Navigator.of(context).pushNamed(
+                                        AppRoutes.patientProfile,
+                                        arguments: patient,
+                                      );
+                                      if (mounted) {
+                                        await _loadAccount();
+                                      }
+                                    },
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (!patient.isActive)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
                                             ),
-                                          ),
-                                          child: Text(
-                                            context.tr('prof_archived_badge'),
-                                            style: const TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w600,
-                                              color: Color(0xFF6B7280),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF3F4F6),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              border: Border.all(
+                                                color: const Color(0xFFE5E7EB),
+                                              ),
                                             ),
-                                          ),
-                                        )
-                                      else if (patient.status == 'pending')
-                                        const PendingBadge(),
-                                      const SizedBox(width: 6),
-                                      const Icon(
-                                        LucideIcons.chevronRight,
-                                        color: Color(0xFFD1D5DB),
-                                        size: 16,
-                                      ),
-                                    ],
+                                            child: Text(
+                                              context.tr('prof_archived_badge'),
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
+                                          )
+                                        else if (patient.status == 'pending')
+                                          const PendingBadge(),
+                                        const SizedBox(width: 6),
+                                        const Icon(
+                                          LucideIcons.chevronRight,
+                                          color: Color(0xFFD1D5DB),
+                                          size: 16,
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 14),
                         ],
@@ -428,39 +470,44 @@ class _SettingsViewState extends State<SettingsView> {
                         const SizedBox(height: 14),
 
                         // 5. Support section
-                        SettingsGroup(
-                          title: context.tr('settings_support'),
-                          children: [
-                            SettingsTile(
-                              icon: LucideIcons.compass,
-                              iconBgColor: const Color(0xFFE1F5EE),
-                              iconColor: const Color(0xFF0F6E56),
-                              title: 'Guide walkthrough',
-                              subtitle: 'Interactive tour of app features',
-                              onTap: () => showAppWalkthrough(context),
-                            ),
-                            SettingsTile(
-                              icon: LucideIcons.helpCircle,
-                              iconBgColor: const Color(0xFFFFF7ED),
-                              iconColor: const Color(0xFFEA580C),
-                              title: context.tr('settings_help_center'),
-                              subtitle: 'Frequently asked questions & clinic answers',
-                              onTap: () => showFaqBottomSheet(
-                                context,
-                                onStartWalkthrough: () => showAppWalkthrough(context),
+                        KeyedSubtree(
+                          key: _supportKey,
+                          child: SettingsGroup(
+                            title: context.tr('settings_support'),
+                            children: [
+                              SettingsTile(
+                                icon: LucideIcons.compass,
+                                iconBgColor: const Color(0xFFE1F5EE),
+                                iconColor: const Color(0xFF0F6E56),
+                                title: 'Guide walkthrough',
+                                subtitle: 'Interactive tour of app features',
+                                onTap: () => showGuideMenuChooser(context),
                               ),
-                            ),
-                            SettingsTile(
-                              icon: LucideIcons.info,
-                              iconBgColor: const Color(0xFFF9FAFB),
-                              iconColor: const Color(0xFF6B7280),
-                              title: context.tr('settings_about'),
-                              subtitle: 'AnimalCare · v1.0.0',
-                              onTap: () => _showDemoMessage(
-                                'AnimalCare · v1.0.0',
+                              SettingsTile(
+                                icon: LucideIcons.helpCircle,
+                                iconBgColor: const Color(0xFFFFF7ED),
+                                iconColor: const Color(0xFFEA580C),
+                                title: context.tr('settings_help_center'),
+                                subtitle:
+                                    'Frequently asked questions & clinic answers',
+                                onTap: () => showFaqBottomSheet(
+                                  context,
+                                  onStartWalkthrough: () =>
+                                      showGuideMenuChooser(context),
+                                ),
                               ),
-                            ),
-                          ],
+                              SettingsTile(
+                                icon: LucideIcons.info,
+                                iconBgColor: const Color(0xFFF9FAFB),
+                                iconColor: const Color(0xFF6B7280),
+                                title: context.tr('settings_about'),
+                                subtitle: 'AnimalCare · v1.0.0',
+                                onTap: () => _showDemoMessage(
+                                  'AnimalCare · v1.0.0',
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 14),
 
@@ -469,11 +516,18 @@ class _SettingsViewState extends State<SettingsView> {
                           clipBehavior: Clip.antiAlias,
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: const Color(0xFFE5E7EB),
                               width: 0.5,
                             ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x06111827),
+                                blurRadius: 10,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: SettingsTile(
                             icon: LucideIcons.logOut,

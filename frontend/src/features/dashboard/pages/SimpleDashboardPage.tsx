@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { lazy, Suspense, useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import { Typography } from '@mui/material';
 import api from '../../../shared/services/api';
@@ -15,6 +15,8 @@ import type { PsgcItem } from '../../patients/types';
 const PSGC_API = 'https://psgc.gitlab.io/api';
 const MIS_OR_CODE = '104300000';
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const AnnouncementManager = lazy(() => import('../../announcements/AnnouncementsPage'));
+type DashboardTab = 'overview' | 'cases' | 'vaccinations' | 'announcements';
 
 function isAuthenticated(): boolean {
   const token = localStorage.getItem('authToken');
@@ -38,7 +40,18 @@ export function SimpleDashboardPage() {
   });
   const [isLoading, setIsLoading] = useState<boolean>(() => !localStorage.getItem('userData'));
   const [setupCheckDone, setSetupCheckDone] = useState<boolean>(() => !!localStorage.getItem('userData'));
-  const [activeTab, setActiveTab] = useState<'overview' | 'cases' | 'vaccinations'>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const canManageAnnouncements = !!user && user.is_active !== false &&
+    ['admin', 'developer', 'registration', 'triage', 'treatment', 'doctor', 'nurse', 'staff'].includes(user.role);
+  const requestedTab = searchParams.get('tab');
+  const activeTab: DashboardTab = requestedTab === 'cases' || requestedTab === 'vaccinations' ||
+    (requestedTab === 'announcements' && canManageAnnouncements) ? requestedTab : 'overview';
+  const setActiveTab = (tab: DashboardTab) => setSearchParams(previous => {
+    const next = new URLSearchParams(previous);
+    if (tab === 'overview') next.delete('tab');
+    else next.set('tab', tab);
+    return next;
+  }, { replace: true });
   const [caseDistPeriod, setCaseDistPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
 
   // Location / Place & Barangay Risk State (Using Registration PSGC API)
@@ -330,7 +343,7 @@ export function SimpleDashboardPage() {
             Overview · {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </Typography>
         </div>
-        <div className="sd-dash-tabs" data-walkthrough="dashboard-tabs" data-tour="dashboard-tabs">
+        <div className="sd-dash-tabs" data-walkthrough="dashboard-tabs" data-tour="dashboard-tabs" style={{ flexWrap: 'wrap' }}>
           <button
             className={`sd-dash-tab ${activeTab === 'overview' ? 'sd-dash-tab--active' : ''}`}
             onClick={() => setActiveTab('overview')}
@@ -352,8 +365,22 @@ export function SimpleDashboardPage() {
           >
             Vaccinations
           </button>
+          {canManageAnnouncements && <button
+            className={`sd-dash-tab ${activeTab === 'announcements' ? 'sd-dash-tab--active' : ''}`}
+            onClick={() => setActiveTab('announcements')}
+          >
+            Announcements
+          </button>}
         </div>
       </div>
+
+      {activeTab === 'announcements' && canManageAnnouncements && (
+        <section aria-label="Staff announcement management">
+          <Suspense fallback={<p role="status">Loading announcement controls…</p>}>
+            <AnnouncementManager />
+          </Suspense>
+        </section>
+      )}
 
       {activeTab === 'overview' && (
         <>

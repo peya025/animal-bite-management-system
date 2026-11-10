@@ -9,6 +9,7 @@ import '../services/api.dart';
 import '../services/walkthrough_service.dart';
 import '../widgets/learn_more_section.dart';
 import '../widgets/menu/campaign_banner.dart';
+import '../widgets/menu/announcement_carousel.dart';
 import '../widgets/menu/guidelines_section.dart';
 import '../widgets/menu/information_panels.dart';
 import '../widgets/menu/menu_navigation.dart';
@@ -38,6 +39,7 @@ class _MenuViewState extends State<MenuView> {
   bool _hasCompletedPEP = false;
 
   final GlobalKey _guideButtonKey = GlobalKey();
+  final _heroKey = GlobalKey<AnnouncementCarouselState>();
   final GlobalKey _scheduleKey = GlobalKey();
   final GlobalKey _quickActionsKey = GlobalKey();
   final GlobalKey _qrActionKey = GlobalKey();
@@ -80,6 +82,9 @@ class _MenuViewState extends State<MenuView> {
   }
 
   Future<void> _startWalkthrough() async {
+    if (!mounted) return;
+    _heroKey.currentState?.showWelcome();
+    await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
     await showAppWalkthrough(
       context,
@@ -190,10 +195,14 @@ class _MenuViewState extends State<MenuView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          CampaignBanner(
-                            walkthroughButtonKey: _guideButtonKey,
-                            onStartWalkthrough: _startWalkthrough,
-                            onOpenFaq: _openFaqs,
+                          AnnouncementCarousel(
+                            key: _heroKey,
+                            refreshTrigger: _resourcesRefreshTrigger,
+                            welcome: CampaignBanner(
+                              walkthroughButtonKey: _guideButtonKey,
+                              onStartWalkthrough: _startWalkthrough,
+                              onOpenFaq: _openFaqs,
+                            ),
                           ),
                           const SizedBox(height: 20),
                           KeyedSubtree(

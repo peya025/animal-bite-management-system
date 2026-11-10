@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import AnnouncementHero from '../features/announcements/AnnouncementHero';
 import { API_BASE_URL } from '../shared/services/api';
 import PublicVaccineAvailability from '../features/inventory/components/PublicVaccineAvailability';
 import { APP_SHORT_NAME } from '../constants';
@@ -759,6 +760,7 @@ export default function LandingPage() {
 
       <main>
         {/* Full Feature Hero Section */}
+        <AnnouncementHero>
         <section className="hero-sec" id="hero">
           <div className="hero-parallax-wrapper">
             <img src="/assets/rhu_tagoloan_hero.jpg" alt="RHU Tagoloan Animal Bite Treatment Center" />
@@ -785,6 +787,8 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+
+        </AnnouncementHero>
 
         <PublicVaccineAvailability
           schedule={dynSettings.operating_schedule}

@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../app/api_config.dart';
+import '../models/announcement.dart';
 
 import '../models/booking_draft.dart';
 import '../models/bite_intake_draft.dart';
@@ -49,6 +50,24 @@ class MobileApi {
   String? _token;
 
   bool get isAuthenticated => _token != null;
+
+  /// This public feed contains only published, unexpired announcements.
+  Future<List<Announcement>> fetchAnnouncements() async {
+    final rootUrl = _baseUrl.replaceFirst(RegExp(r'/mobile$'), '');
+    final response = await http
+        .get(
+          Uri.parse('$rootUrl/public/announcements'),
+          headers: {'Accept': 'application/json'},
+        )
+        .timeout(_requestTimeout);
+    if (response.statusCode != 200) {
+      throw const ApiException('Announcements are temporarily unavailable.');
+    }
+    final data = jsonDecode(response.body) as List<dynamic>;
+    return data
+        .map((item) => Announcement.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
 
   Future<void> initialize() async {
     _token = await _storage.read(key: _tokenKey);

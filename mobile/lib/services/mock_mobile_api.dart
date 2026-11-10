@@ -2,6 +2,7 @@
 // Import this instead of mobile_api.dart to test the mobile flows locally.
 
 import 'dart:convert';
+import '../models/announcement.dart';
 
 import '../models/app_notification.dart';
 import '../models/appointment_summary.dart';
@@ -22,6 +23,8 @@ class MockMobileApi {
   final Set<int> _patientBoosterActive = <int>{};
 
   bool get isAuthenticated => _isAuthenticated;
+
+  Future<List<Announcement>> fetchAnnouncements() async => const [];
 
   Future<void> initialize() async {
     await Future.delayed(const Duration(milliseconds: 500));

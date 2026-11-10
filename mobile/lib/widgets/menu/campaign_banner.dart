@@ -115,12 +115,14 @@ class CampaignBanner extends StatelessWidget {
                                 color: AppColors.primaryDark,
                               ),
                               SizedBox(width: 6),
-                              Text(
-                                'Guide walkthrough',
-                                style: TextStyle(
-                                  color: AppColors.primaryDark,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                              Flexible(
+                                child: Text(
+                                  'Guide walkthrough',
+                                  style: TextStyle(
+                                    color: AppColors.primaryDark,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                               SizedBox(width: 4),

@@ -18,6 +18,7 @@ export type WalkthroughModule =
 export interface WalkthroughStep {
   id: string;
   module: WalkthroughModule;
+  section?: string;
   route: string;
   targetSelector: string;
   fallbackSelector?: string;

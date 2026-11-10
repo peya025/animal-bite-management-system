@@ -33,9 +33,9 @@ function MockDashboard() {
           <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>Overview · November 2026</p>
         </div>
         <div className="sd-dash-tabs" data-walkthrough="dashboard-tabs" data-tour="dashboard-tabs" style={{ display: 'flex', gap: 8 }}>
-          <button type="button" style={{ padding: '6px 14px' }}>Overview</button>
-          <button type="button" style={{ padding: '6px 14px' }}>Cases</button>
-          <button type="button" style={{ padding: '6px 14px' }}>Vaccinations</button>
+          <button type="button" data-walkthrough="dashboard-tab-overview" style={{ padding: '6px 14px' }}>Overview</button>
+          <button type="button" data-walkthrough="dashboard-tab-cases" style={{ padding: '6px 14px' }}>Cases</button>
+          <button type="button" data-walkthrough="dashboard-tab-vaccinations" style={{ padding: '6px 14px' }}>Vaccinations</button>
         </div>
       </div>
 
@@ -49,7 +49,9 @@ function MockDashboard() {
           data-tour="dashboard-calendar"
           style={{ minHeight: 280, padding: 20, background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0' }}
         >
-          <strong>November 2026 Calendar</strong>
+          <div data-walkthrough="calendar-nav">
+            <strong>November 2026 Calendar</strong>
+          </div>
         </div>
 
         <div
@@ -58,15 +60,15 @@ function MockDashboard() {
           data-tour="dashboard-summary-cards"
           style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}
         >
-          <div style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Total Patients: 120</div>
-          <div style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Today's Queue: 5</div>
-          <div style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>New Today: 3</div>
-          <div style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Total Bite Cases: 45</div>
-          <div style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Active Cases: 12</div>
-          <div style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Completed Cases: 33</div>
-          <div style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Pending Doses: 8</div>
-          <div style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Total Scheduled: 19</div>
-          <div style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Queue Count: 5</div>
+          <div data-walkthrough="card-total-patients" style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Total Patients: 120</div>
+          <div data-walkthrough="card-today-queue" style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Today's Queue: 5</div>
+          <div data-walkthrough="card-new-today" style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>New Today: 3</div>
+          <div data-walkthrough="card-total-bite-cases" style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Total Bite Cases: 45</div>
+          <div data-walkthrough="card-active-cases" style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Active Cases: 12</div>
+          <div data-walkthrough="card-completed-cases" style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Completed Cases: 33</div>
+          <div data-walkthrough="card-pending-doses" style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Pending Doses: 8</div>
+          <div data-walkthrough="card-total-scheduled" style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Total Scheduled: 19</div>
+          <div data-walkthrough="card-queue-count" style={{ padding: 18, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Queue Count: 5</div>
         </div>
       </div>
 
@@ -74,11 +76,11 @@ function MockDashboard() {
         <div data-walkthrough="dashboard-filters" data-tour="dashboard-filters" style={{ marginBottom: 20 }}>
           <p style={{ margin: '0 0 10px', fontWeight: 700 }}>Filters</p>
           <div className="sd-filters-bar-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
-            <select><option>All Roles</option></select>
-            <select><option>All Status</option></select>
-            <select><option>This Month</option></select>
-            <button type="button">Patients</button>
-            <button type="button">Cases</button>
+            <select data-walkthrough="filter-role"><option>All Roles</option></select>
+            <select data-walkthrough="filter-status"><option>All Status</option></select>
+            <select data-walkthrough="filter-date-range"><option>This Month</option></select>
+            <button type="button" data-walkthrough="btn-goto-patients">Patients</button>
+            <button type="button" data-walkthrough="btn-goto-cases">Cases</button>
           </div>
         </div>
         <div
@@ -87,8 +89,8 @@ function MockDashboard() {
           data-tour="dashboard-trends"
           style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, minHeight: 230 }}
         >
-          <div style={{ background: '#f8fafc', padding: 16, borderRadius: 12 }}>Cases Over Time (last 6 months)</div>
-          <div style={{ background: '#f8fafc', padding: 16, borderRadius: 12 }}>Vaccination Trend (last 6 months)</div>
+          <div data-walkthrough="chart-cases-over-time" style={{ background: '#f8fafc', padding: 16, borderRadius: 12 }}>Cases Over Time (last 6 months)</div>
+          <div data-walkthrough="chart-vaccination-trend" style={{ background: '#f8fafc', padding: 16, borderRadius: 12 }}>Vaccination Trend (last 6 months)</div>
         </div>
       </div>
 
@@ -98,8 +100,19 @@ function MockDashboard() {
         data-tour="dashboard-risk-row"
         style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, minHeight: 235 }}
       >
-        <div style={{ background: '#fff', padding: 20, borderRadius: 20, border: '1px solid #e2e8f0' }}>Case Distribution</div>
-        <div style={{ background: '#fff', padding: 20, borderRadius: 20, border: '1px solid #e2e8f0' }}>High &amp; Low Risk Places</div>
+        <div data-walkthrough="chart-case-distribution" style={{ background: '#fff', padding: 20, borderRadius: 20, border: '1px solid #e2e8f0' }}>
+          <div data-walkthrough="case-dist-period-controls">Case Distribution</div>
+        </div>
+        <div data-walkthrough="chart-risk-places" style={{ background: '#fff', padding: 20, borderRadius: 20, border: '1px solid #e2e8f0' }}>
+          <span data-walkthrough="risk-places-municipality">Tagoloan</span>
+          <button type="button" data-walkthrough="btn-risk-places-bitemap">Bite Map</button>
+          <div>High &amp; Low Risk Places</div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div data-walkthrough="table-recent-cases" style={{ padding: 16, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Recent Cases Table</div>
+        <div data-walkthrough="table-recent-vaccinations" style={{ padding: 16, background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>Recent Vaccinations Table</div>
       </div>
     </div>
   );

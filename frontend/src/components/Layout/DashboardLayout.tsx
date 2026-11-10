@@ -305,6 +305,7 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
             {sidebarOpen && (
               <button
                 className="header-toggle"
+                data-walkthrough="header-toggle"
                 onClick={() => setSidebarOpen(false)}
                 title="Collapse Sidebar"
                 type="button"
@@ -318,10 +319,10 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
             )}
             {pageTitle && <span className="guide-page-title">{pageTitle}</span>}
           </div>
-          <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <NotificationButton />
-            <WalkthroughHelpButton />
-            <ThemeToggle />
+          <div className="header-right" data-walkthrough="header-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span data-walkthrough="header-notifications"><NotificationButton /></span>
+            <span data-walkthrough="header-walkthrough"><WalkthroughHelpButton /></span>
+            <span data-walkthrough="header-theme"><ThemeToggle /></span>
           </div>
         </header>
 

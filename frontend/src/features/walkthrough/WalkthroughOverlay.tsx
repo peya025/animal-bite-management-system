@@ -418,6 +418,14 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
     const tryResolve = () => {
       if (cancelled) return;
 
+      // If step targets an element inside a tab, trigger activateSelector first if not yet active
+      if (step.activateSelector) {
+        const tabEl = document.querySelector<HTMLElement>(step.activateSelector);
+        if (tabEl && !tabEl.classList.contains('sd-dash-tab--active') && !tabEl.classList.contains('pm-tab-btn--active') && tabEl.getAttribute('aria-selected') !== 'true') {
+          tabEl.click();
+        }
+      }
+
       const primaryEl = queryPrioritySelector(step.targetSelector);
       if (primaryEl) {
         const wasDifferent = activeElementRef.current !== primaryEl || isFallbackRef.current;
@@ -593,7 +601,26 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
         }}
       >
         <div className="walkthrough-header">
-          <span className="walkthrough-step-badge">{moduleName}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <span className="walkthrough-step-badge" data-testid="walkthrough-module-badge">
+              {step.module || moduleName}
+            </span>
+            {step.section && (
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: '#047857',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                }}
+              >
+                {step.section}
+              </span>
+            )}
+          </div>
           <span className="walkthrough-step-count" data-testid="walkthrough-step-counter">Step {currentStepIndex + 1} of {totalSteps}</span>
           <button
             type="button"

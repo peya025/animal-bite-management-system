@@ -1,6 +1,6 @@
 import { getNavItemsForRole } from '../../shared/config/navigationConfig';
 import { ROUTES } from '../../shared/config/routes';
-import { REGISTRATION_WALKTHROUGH_STEPS } from './walkthroughSteps';
+import { REGISTRATION_WALKTHROUGH_STEPS, getDashboardStepsForRole, getDashboardModuleInfoForRole } from './walkthroughSteps';
 import type { GuideModule, WalkthroughStep } from './types';
 import { getPatientRegistrationSteps } from './patientGuide';
 
@@ -73,6 +73,11 @@ export function getGuideModules(role?: string): GuideModule[] {
     : item.path ? [{ name: item.label, route: item.path }] : []);
   const seen = new Set<string>();
   return entries.filter(entry => !seen.has(entry.route) && !!seen.add(entry.route)).map(({ name, route }) => {
+    if (route === ROUTES.DASHBOARD) {
+      const info = getDashboardModuleInfoForRole(role);
+      const steps = getDashboardStepsForRole(role);
+      return { id: route, name: info.name, route, description: info.description, steps };
+    }
     const guide = tailored[route] || genericGuide(name, route);
     return { id: route, name, route, description: guide.description, steps: guide.steps };
   });

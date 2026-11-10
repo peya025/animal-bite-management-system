@@ -334,18 +334,21 @@ export function SimpleDashboardPage() {
           <button
             className={`sd-dash-tab ${activeTab === 'overview' ? 'sd-dash-tab--active' : ''}`}
             onClick={() => setActiveTab('overview')}
+            data-walkthrough="dashboard-tab-overview"
           >
             Overview
           </button>
           <button
             className={`sd-dash-tab ${activeTab === 'cases' ? 'sd-dash-tab--active' : ''}`}
             onClick={() => setActiveTab('cases')}
+            data-walkthrough="dashboard-tab-cases"
           >
             Cases
           </button>
           <button
             className={`sd-dash-tab ${activeTab === 'vaccinations' ? 'sd-dash-tab--active' : ''}`}
             onClick={() => setActiveTab('vaccinations')}
+            data-walkthrough="dashboard-tab-vaccinations"
           >
             Vaccinations
           </button>
@@ -419,7 +422,7 @@ export function SimpleDashboardPage() {
                 }}
                 className="sd-filters-bar-grid"
               >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }} data-walkthrough="filter-role">
                   <span className="sd-filter-label">
                     Role
                   </span>
@@ -429,7 +432,7 @@ export function SimpleDashboardPage() {
                   </select>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }} data-walkthrough="filter-status">
                   <span className="sd-filter-label">
                     Status
                   </span>
@@ -439,7 +442,7 @@ export function SimpleDashboardPage() {
                   </select>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }} data-walkthrough="filter-date-range">
                   <span className="sd-filter-label">
                     Date Range
                   </span>
@@ -449,7 +452,7 @@ export function SimpleDashboardPage() {
                   </select>
                 </div>
 
-                <div>
+                <div data-walkthrough="btn-goto-patients">
                   <button
                     className="sd-filter-link"
                     onClick={() => { navigate('/patients'); }}
@@ -463,7 +466,7 @@ export function SimpleDashboardPage() {
                   </button>
                 </div>
 
-                <div>
+                <div data-walkthrough="btn-goto-cases">
                   <button
                     className="sd-filter-link"
                     onClick={() => { navigate('/bite-cases'); }}
@@ -499,6 +502,7 @@ export function SimpleDashboardPage() {
                   flexDirection: 'column',
                   minHeight: '230px',
                 }}
+                data-walkthrough="chart-cases-over-time"
               >
                 <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Cases Over Time <span>(last 6 months)</span></p>
                 <div style={{ flex: 1, minHeight: 0 }}>
@@ -513,6 +517,7 @@ export function SimpleDashboardPage() {
                   flexDirection: 'column',
                   minHeight: '230px',
                 }}
+                data-walkthrough="chart-vaccination-trend"
               >
                 <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Vaccination Trend <span>(last 6 months)</span></p>
                 <div style={{ flex: 1, minHeight: 0 }}>
@@ -536,6 +541,7 @@ export function SimpleDashboardPage() {
             {/* Case Distribution */}
             <div
               className="sd-chart-card"
+              data-walkthrough="chart-case-distribution"
               style={{
                 borderRadius: '20px',
                 padding: '20px 24px',
@@ -549,6 +555,7 @@ export function SimpleDashboardPage() {
                   Case Distribution
                 </p>
                 <div
+                  data-walkthrough="case-dist-period-controls"
                   style={{
                     display: 'flex',
                     gap: '3px',
@@ -622,6 +629,7 @@ export function SimpleDashboardPage() {
             {/* High & Low Risk Places Card with Registration PSGC API */}
             <div
               className="sd-chart-card"
+              data-walkthrough="chart-risk-places"
               style={{
                 borderRadius: '20px',
                 padding: '20px 24px',
@@ -640,7 +648,7 @@ export function SimpleDashboardPage() {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {/* Registration PSGC Municipality Dropdown Selector */}
-                  <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                  <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }} data-walkthrough="risk-places-municipality">
                     <select
                       value={selectedMunicipality}
                       onChange={(e) => setSelectedMunicipality(e.target.value)}
@@ -677,6 +685,7 @@ export function SimpleDashboardPage() {
                   {/* Bite Map link button */}
                   <button
                     type="button"
+                    data-walkthrough="btn-risk-places-bitemap"
                     onClick={() => navigate((ROUTES as any).BITE_MAP || '/bite-cases/map')}
                     style={{
                       display: 'inline-flex',
@@ -739,14 +748,14 @@ export function SimpleDashboardPage() {
       )}
 
       {activeTab === 'cases' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="sd-cards-grid">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} data-walkthrough="cases-tab-view">
+          <div className="sd-cards-grid" data-walkthrough="cases-tab-cards">
             <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" />
             <SdCard color="blue" label="Active Cases" value={stats.activeCases.toString()} sub="Ongoing treatment" />
             <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" />
           </div>
 
-          <div className="sd-chart-card" style={{ borderRadius: '20px', padding: '24px' }}>
+          <div className="sd-chart-card" data-walkthrough="table-recent-cases" style={{ borderRadius: '20px', padding: '24px' }}>
             <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: 'var(--text-h)' }}>Recent Bite Incident Cases</p>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -799,14 +808,14 @@ export function SimpleDashboardPage() {
       )}
 
       {activeTab === 'vaccinations' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="sd-cards-grid">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} data-walkthrough="vaccinations-tab-view">
+          <div className="sd-cards-grid" data-walkthrough="vaccinations-tab-cards">
             <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
             <SdCard color="purple" label="Total Scheduled" value={stats.followupPatients.toString()} sub="Doses tracked" />
             <SdCard color="teal" label="Queue Count" value={stats.todayQueue.toString()} sub="Today waiting" />
           </div>
 
-          <div className="sd-chart-card" style={{ borderRadius: '20px', padding: '24px' }}>
+          <div className="sd-chart-card" data-walkthrough="table-recent-vaccinations" style={{ borderRadius: '20px', padding: '24px' }}>
             <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: 'var(--text-h)' }}>Recent Vaccinations & Scheduled Doses</p>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -903,7 +912,7 @@ function SdCalendar() {
         <p className="sd-chart-title" style={{ margin: 0 }}>
           {monthNames[month]} {year}
         </p>
-        <div style={{ display: 'flex', gap: '5px' }}>
+        <div style={{ display: 'flex', gap: '5px' }} data-walkthrough="calendar-nav">
           <button
             onClick={prevMonth}
             style={{
@@ -1017,8 +1026,9 @@ function SdCalendar() {
 }
 
 function SdCard({ color, label, value, sub }: { color: string; label: string; value: string; sub: string }) {
+  const autoId = `card-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   return (
-    <div className={`sd-card sd-card--${color}`}>
+    <div className={`sd-card sd-card--${color}`} data-walkthrough={autoId} data-card-label={label}>
       <p className="sd-card-label">{label}</p>
       <p className="sd-card-value">{value}</p>
       <p className="sd-card-sub">{sub}</p>

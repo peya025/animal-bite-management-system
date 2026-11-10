@@ -23,7 +23,7 @@ interface DashboardLayoutProps {
   pageTitle?: string;
 }
 
-export default function DashboardLayout({ children, pageTitle: _pageTitle }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, pageTitle }: DashboardLayoutProps) {
   const { user, clinic, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -316,10 +316,11 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                 </svg>
               </button>
             )}
+            {pageTitle && <span className="guide-page-title">{pageTitle}</span>}
           </div>
           <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <WalkthroughHelpButton />
             <NotificationButton />
+            <WalkthroughHelpButton />
             <ThemeToggle />
           </div>
         </header>

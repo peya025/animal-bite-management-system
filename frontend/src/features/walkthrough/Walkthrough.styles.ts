@@ -8,7 +8,7 @@ export const walkthroughStyles = `
   width: 100vw;
   height: 100vh;
   z-index: ${WALKTHROUGH_Z_INDEX};
-  background: rgba(15, 23, 42, 0.62);
+  background: rgba(15, 23, 42, 0.42);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   pointer-events: auto;
@@ -50,13 +50,13 @@ export const walkthroughStyles = `
 .walkthrough-tooltip-card {
   position: fixed;
   z-index: ${WALKTHROUGH_Z_INDEX + 2};
-  width: 360px;
+  width: 332px;
   max-width: calc(100vw - 32px);
   background: var(--card-bg, #ffffff);
   color: var(--text-h, #0f172a);
   border: 1px solid var(--border-glow, rgba(16, 185, 129, 0.35));
   border-radius: 16px;
-  padding: 18px 20px;
+  padding: 16px 18px;
   box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(16, 185, 129, 0.12);
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   box-sizing: border-box;
@@ -93,6 +93,52 @@ export const walkthroughStyles = `
   letter-spacing: 0.02em;
   border: 1px solid #a7f3d0;
 }
+
+.walkthrough-progress { display: flex; gap: 3px; height: 5px; margin: 2px 0 15px; }
+.walkthrough-progress span { display: block; flex: 1; height: 100%; border-radius: 8px; background: #edf0ef; transition: background .22s ease; }
+.walkthrough-progress span.done { background: #12b981; }
+.walkthrough-step-count { font-size: 11px; color: #6b7280; margin-left: auto; margin-right: 10px; }
+.guide-page-title { color: var(--text-h, #173b32); font-weight: 650; font-size: 14px; }
+.guide-center { margin: 0 0 18px; padding: 17px 20px; background: var(--card-bg, #fff); border: 1px solid #cce7df; border-radius: 14px; box-shadow: 0 2px 10px rgba(8, 70, 54, .05); }
+.guide-center-heading, .guide-center-card-top, .guide-center-card-bottom { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.guide-center h2 { margin: 0 0 3px; color: var(--text-h, #173b32); font-size: 17px; }
+.guide-center-heading p, .guide-center-card p { margin: 0; color: var(--text-secondary, #64748b); font-size: 12px; line-height: 1.5; }
+.guide-center-toggle, .guide-center-card button { border: 1px solid #15956f; background: #effaf6; color: #087b59; border-radius: 8px; padding: 7px 11px; cursor: pointer; font-size: 12px; font-weight: 650; white-space: nowrap; }
+.guide-center-toggle:hover, .guide-center-card button:hover { background: #dcf5ea; }
+.guide-center-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(235px, 1fr)); gap: 10px; margin-top: 16px; }
+.guide-center-card { border: 1px solid #dce9e4; border-radius: 10px; padding: 13px; display: flex; flex-direction: column; gap: 10px; min-height: 116px; }
+.guide-center-card h3 { margin: 0; color: var(--text-h, #173b32); font-size: 13px; }
+.guide-center-card-bottom { margin-top: auto; font-size: 11px; color: #64748b; }
+.guide-complete { color: #087b59; font-size: 10px; font-weight: 700; }
+.guide-header-icon { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; border-radius: 8px; border: 1px solid var(--card-border, #e5e7eb); background: var(--btn-outlined-bg, #fff); color: var(--text-h, #111827); cursor: pointer; box-shadow: var(--shadow); transition: background .2s, border-color .2s, color .2s; }
+.guide-header-icon:hover { background: rgba(16,185,129,.09); color: #059669; border-color: #10b981; }
+.guide-header-icon:focus-visible, .guide-center-dialog button:focus-visible { outline: 2px solid #059669; outline-offset: 3px; }
+.guide-center-dialog { font-family: 'Poppins', sans-serif; }
+.guide-center-dialog h2 { margin: 0 0 4px; font-size: 18px; color: var(--text-h, #171a19); }
+.guide-center-dialog p { margin-top: 0; font-size: 13px; line-height: 1.5; color: var(--text-secondary, #737977); }
+.guide-center-dialog button { font-family: inherit; }
+.guide-center-card { transition: border-color .2s, background .2s; }
+.guide-center-card:hover { border-color: #8ecdb4; background: #f4fbf7; }
+.guide-center-entry { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 16px; padding: 15px 20px; border: 1px solid #e3e8e5; border-radius: 14px; background: #fff; }
+.guide-center-entry h2 { margin: 0 0 3px; font-size: 16px; color: #171a19; }
+.guide-center-entry p { margin: 0; color: #737977; font-size: 12px; }
+.guide-center-backdrop { position: fixed; inset: 0; z-index: 99996; display: grid; place-items: center; padding: 16px; background: rgba(18, 28, 25, .35); backdrop-filter: blur(3px); }
+.guide-center-dialog { width: min(960px, 100%); max-height: min(88vh, 850px); overflow: auto; padding: 20px 16px 14px; background: #fafafa; border: 1px solid #dedede; border-radius: 24px; box-shadow: 0 25px 65px rgba(0,0,0,.18); }
+.guide-center-heading { justify-content: flex-start; align-items: flex-start; padding: 0 8px 0 10px; }
+.guide-center-heading h2 { font-size: 18px; }
+.guide-center-heading p { font-size: 14px; }
+.guide-center-icon { font-size: 25px; line-height: 1; margin: 3px 6px 0 0; color: #222; }
+.guide-center-close { margin-left: auto; background: transparent; border: 0; color: #969696; cursor: pointer; font-size: 25px; line-height: 1; }
+.guide-center-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 15px; }
+.guide-center-card { min-height: 156px; background: #fafafa; border-color: #dedede; border-radius: 16px; padding: 15px; }
+.guide-center-card-icon { font-size: 22px; color: #616665; height: 25px; }
+.guide-center-card h3 { font-size: 16px; color: #171a19; }
+.guide-center-card p { font-size: 12px; }
+.guide-center-card button { border-color: #d4d4d4; border-radius: 999px; background: transparent; color: #555; font-size: 14px; padding: 5px 12px; }
+.guide-center-card button:hover { background: #eef6f1; border-color: #9cceb5; }
+.guide-center-optional { text-align: right; margin: 16px 0 0; font-size: 13px; color: #777; }
+@media (max-width: 650px) { .guide-center-grid { grid-template-columns: 1fr; } .guide-center-dialog { border-radius: 16px; } }
+@media (max-width: 600px) { .guide-center-heading { align-items: flex-start; flex-direction: column; } .walkthrough-tooltip-card { width: min(332px, calc(100vw - 24px)); } .guide-page-title { display: none; } }
 
 .walkthrough-close-btn {
   background: none;
@@ -188,13 +234,13 @@ export const walkthroughStyles = `
 }
 
 .walkthrough-btn-primary {
-  background: #10b981;
+  background: #171717;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+  box-shadow: none;
 }
 
 .walkthrough-btn-primary:hover {
-  background: #059669;
+  background: #303030;
 }
 
 /* ── Header Restart Button ── */

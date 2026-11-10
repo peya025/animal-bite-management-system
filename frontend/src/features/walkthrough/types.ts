@@ -24,6 +24,24 @@ export interface WalkthroughStep {
   title: string;
   content: string;
   placement: WalkthroughPlacement;
+  activateSelector?: string;
+  tabKey?: string;
+  actions?: WalkthroughStep[];
+  actionStep?: boolean;
+}
+
+export interface GuideModule {
+  id: string;
+  name: string;
+  description: string;
+  route: string;
+  steps: WalkthroughStep[];
+}
+
+export interface GuideProgress {
+  status: 'in_progress' | 'completed' | 'skipped';
+  step: number;
+  tabActions?: Record<string, string[]>;
 }
 
 export interface WalkthroughContextType {
@@ -33,6 +51,12 @@ export interface WalkthroughContextType {
   currentStep: WalkthroughStep | null;
   totalSteps: number;
   isRegistrationStaff: boolean;
+  modules: GuideModule[];
+  activeModuleId: string | null;
+  progress: Record<string, GuideProgress>;
+  startGuide: (moduleId: string, restart?: boolean) => void;
+  skipGuide: () => void;
+  finishGuide: () => void;
   startWalkthrough: () => void;
   stopWalkthrough: () => void;
   nextStep: () => void;

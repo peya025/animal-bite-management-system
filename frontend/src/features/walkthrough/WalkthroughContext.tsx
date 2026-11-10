@@ -1,11 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../shared/contexts/AuthContext';
+import { ROUTES } from '../../shared/config/routes';
 import { getGuideModules } from './guideModules';
 import type { GuideProgress, WalkthroughContextType } from './types';
 import { walkthroughStyles } from './Walkthrough.styles';
 import WalkthroughOverlay from './WalkthroughOverlay';
+import WalkthroughWelcomeModal from './WalkthroughWelcomeModal';
+import WalkthroughCompletionModal from './WalkthroughCompletionModal';
 import { availablePatientActions, expandPatientSteps } from './patientGuide';
+import { getDashboardModuleInfoForRole } from './dashboardWalkthroughSteps';
 
 const noop = () => {};
 export const defaultWalkthroughContext: WalkthroughContextType = {
@@ -28,10 +32,15 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [reachedRoute, setReachedRoute] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [stepReady, setStepReady] = useState(true);
+  const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
+  const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
+
   const baseModule = modules.find(module => module.id === activeModuleId);
   const tabActions = activeModuleId ? progress[activeModuleId]?.tabActions : undefined;
   const activeModule = useMemo(() => baseModule ? { ...baseModule, steps: expandPatientSteps(baseModule.steps, tabActions) } : undefined, [baseModule, tabActions]);
   const currentStep = activeModule?.steps[currentStepIndex] || null;
+
+  const dashboardModule = useMemo(() => modules.find(m => m.id === ROUTES.DASHBOARD || m.route === ROUTES.DASHBOARD), [modules]);
 
   useEffect(() => {
     let style = document.getElementById('abtc-walkthrough-styles');
@@ -51,6 +60,27 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     catch { setProgress({}); }
   }, [storageKey]);
 
+  // First-time visit to /dashboard shows the Welcome Modal
+  useEffect(() => {
+    if (!user?.id) return;
+    const isDashboard = location.pathname === ROUTES.DASHBOARD || location.pathname === '/' || location.pathname.includes('/walkthrough.html');
+    if (!isDashboard) {
+      setIsWelcomeModalOpen(false);
+      return;
+    }
+
+    const isCompletedOrSkipped =
+      progress[ROUTES.DASHBOARD]?.status === 'completed' ||
+      progress[ROUTES.DASHBOARD]?.status === 'skipped' ||
+      localStorage.getItem(`abtc_walkthrough_status_${user.id}`) === 'completed' ||
+      localStorage.getItem(`abtc_walkthrough_status_admin_${user.id}`) === 'completed' ||
+      localStorage.getItem(`abtc_walkthrough_registration_seen_v1_${user.id}`) === 'true';
+
+    if (!isCompletedOrSkipped && !activeModuleId) {
+      setIsWelcomeModalOpen(true);
+    }
+  }, [user?.id, location.pathname, progress, activeModuleId]);
+
   const saveProgress = useCallback((id: string, value: GuideProgress) => {
     setProgress(previous => {
       const next = { ...previous, [id]: value };
@@ -66,30 +96,61 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const index = !restart && saved?.status === 'in_progress' && saved.step < module.steps.length ? saved.step : 0;
     setCurrentStepIndex(index);
     setActiveModuleId(id);
+    setIsWelcomeModalOpen(false);
+    setIsCompletionModalOpen(false);
     setReachedRoute(location.pathname === module.route);
     saveProgress(id, { status: 'in_progress', step: index, tabActions: saved?.tabActions });
     if (location.pathname !== module.route) navigate(module.route);
   }, [modules, progress, saveProgress, location.pathname, navigate]);
 
   const skipGuide = useCallback(() => {
-    if (activeModuleId) saveProgress(activeModuleId, { status: 'skipped', step: currentStepIndex, tabActions });
+    if (activeModuleId) {
+      saveProgress(activeModuleId, { status: 'skipped', step: currentStepIndex, tabActions });
+      if (user?.id) {
+        localStorage.setItem(`abtc_walkthrough_status_${user.id}`, 'skipped');
+        localStorage.setItem(`abtc_walkthrough_status_admin_${user.id}`, 'skipped');
+      }
+    }
     setActiveModuleId(null);
-  }, [activeModuleId, currentStepIndex, saveProgress, tabActions]);
+  }, [activeModuleId, currentStepIndex, saveProgress, tabActions, user?.id]);
+
   const finishGuide = useCallback(() => {
-    if (activeModuleId) saveProgress(activeModuleId, { status: 'completed', step: activeModule?.steps.length || 0, tabActions });
-    setActiveModuleId(null);
-  }, [activeModuleId, activeModule, saveProgress, tabActions]);
+    if (activeModuleId) {
+      const isDashboard = activeModuleId === ROUTES.DASHBOARD;
+      saveProgress(activeModuleId, { status: 'completed', step: activeModule?.steps.length || 0, tabActions });
+      if (user?.id) {
+        localStorage.setItem(`abtc_walkthrough_status_${user.id}`, 'completed');
+        localStorage.setItem(`abtc_walkthrough_status_admin_${user.id}`, 'completed');
+      }
+      setActiveModuleId(null);
+      if (isDashboard) {
+        setIsCompletionModalOpen(true);
+      }
+    }
+  }, [activeModuleId, activeModule, saveProgress, tabActions, user?.id]);
+
   const goToStep = useCallback((index: number) => {
     if (!activeModule || index < 0 || index >= activeModule.steps.length) return;
     setCurrentStepIndex(index);
     saveProgress(activeModule.id, { status: 'in_progress', step: index, tabActions });
   }, [activeModule, saveProgress, tabActions]);
+
   const nextStep = useCallback(() => {
     if (!activeModule) return;
     if (currentStepIndex + 1 === activeModule.steps.length) finishGuide();
     else goToStep(currentStepIndex + 1);
   }, [activeModule, currentStepIndex, finishGuide, goToStep]);
+
   const prevStep = useCallback(() => goToStep(currentStepIndex - 1), [goToStep, currentStepIndex]);
+
+  const dismissWelcomeModal = useCallback(() => {
+    setIsWelcomeModalOpen(false);
+    saveProgress(ROUTES.DASHBOARD, { status: 'skipped', step: 0 });
+    if (user?.id) {
+      localStorage.setItem(`abtc_walkthrough_status_${user.id}`, 'skipped');
+      localStorage.setItem(`abtc_walkthrough_status_admin_${user.id}`, 'skipped');
+    }
+  }, [saveProgress, user?.id]);
 
   useEffect(() => {
     if (!currentStep || !activeModule) return;
@@ -102,7 +163,9 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (currentStep.activateSelector) {
       const selector = currentStep.activateSelector;
       const tab = document.querySelector<HTMLElement>(selector);
-      if (tab && !tab.classList.contains('pm-tab-btn--active') && tab.getAttribute('aria-selected') !== 'true') tab.click();
+      if (tab && !tab.classList.contains('sd-dash-tab--active') && !tab.classList.contains('pm-tab-btn--active') && tab.getAttribute('aria-selected') !== 'true') {
+        tab.click();
+      }
     }
     if (currentStep.tabKey && !currentStep.actionStep && activeModuleId) {
       setStepReady(false);
@@ -126,21 +189,58 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [currentStep, activeModule, location.pathname, navigate, reachedRoute, skipGuide, activeModuleId, storageKey, currentStepIndex]);
 
   const value = useMemo<WalkthroughContextType>(() => ({
-    isActive: !!activeModule, isWelcomeModalOpen: false, currentStepIndex, currentStep,
+    isActive: !!activeModule, isWelcomeModalOpen, currentStepIndex, currentStep,
     totalSteps: activeModule?.steps.length || 0, isRegistrationStaff: user?.role === 'registration',
     modules, activeModuleId, progress, startGuide, skipGuide, finishGuide,
-    startWalkthrough: () => startGuide(location.pathname), stopWalkthrough: skipGuide,
-    nextStep, prevStep, goToStep, dismissWelcomeModal: noop,
-    restartWalkthrough: () => startGuide(location.pathname, true),
-  }), [activeModule, currentStepIndex, currentStep, user?.role, modules, activeModuleId, progress,
-    startGuide, skipGuide, finishGuide, nextStep, prevStep, goToStep, location.pathname]);
+    startWalkthrough: () => startGuide(ROUTES.DASHBOARD, true), stopWalkthrough: skipGuide,
+    nextStep, prevStep, goToStep, dismissWelcomeModal,
+    restartWalkthrough: () => startGuide(ROUTES.DASHBOARD, true),
+  }), [activeModule, isWelcomeModalOpen, currentStepIndex, currentStep, user?.role, modules, activeModuleId, progress,
+    startGuide, skipGuide, finishGuide, nextStep, prevStep, goToStep, dismissWelcomeModal]);
 
-  return <WalkthroughContext.Provider value={value}>
-    {children}
-    {activeModule && currentStep && stepReady && <WalkthroughOverlay key={`${activeModule.id}-${currentStep.id}`}
-      step={currentStep} moduleName={activeModule.name} currentStepIndex={currentStepIndex} totalSteps={activeModule.steps.length}
-      onNext={nextStep} onPrev={prevStep} onSkip={skipGuide} onFinish={finishGuide} />}
-  </WalkthroughContext.Provider>;
+  const roleLabel = user?.role === 'admin' ? 'Administrator'
+    : user?.role === 'registration' ? 'Registration Staff'
+    : user?.role === 'treatment' ? 'Treatment Nurse'
+    : user?.role === 'triage' ? 'Triage Doctor' : '';
+
+  return (
+    <WalkthroughContext.Provider value={value}>
+      {children}
+
+      {/* First-time Welcome Modal */}
+      <WalkthroughWelcomeModal
+        open={isWelcomeModalOpen}
+        roleName={getDashboardModuleInfoForRole(user?.role).name}
+        totalSteps={dashboardModule?.steps.length || 0}
+        onStart={() => {
+          setIsWelcomeModalOpen(false);
+          startGuide(ROUTES.DASHBOARD, true);
+        }}
+        onDismiss={dismissWelcomeModal}
+      />
+
+      {/* Active Walkthrough Step Spotlight & Tooltip Overlay */}
+      {activeModule && currentStep && stepReady && (
+        <WalkthroughOverlay
+          key={`${activeModule.id}-${currentStep.id}`}
+          step={currentStep}
+          moduleName={activeModule.name}
+          currentStepIndex={currentStepIndex}
+          totalSteps={activeModule.steps.length}
+          onNext={nextStep}
+          onPrev={prevStep}
+          onSkip={skipGuide}
+          onFinish={finishGuide}
+        />
+      )}
+
+      {/* Completion Modal */}
+      <WalkthroughCompletionModal
+        open={isCompletionModalOpen}
+        onFinish={() => setIsCompletionModalOpen(false)}
+      />
+    </WalkthroughContext.Provider>
+  );
 };
 
 export const useWalkthrough = () => useContext(WalkthroughContext);

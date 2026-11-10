@@ -426,4 +426,5 @@ export const REGISTRATION_WALKTHROUGH_STEPS: WalkthroughStep[] = [
 ];
 
 export const WALKTHROUGH_STEPS = REGISTRATION_WALKTHROUGH_STEPS;
+export * from './dashboardWalkthroughSteps';
 export default REGISTRATION_WALKTHROUGH_STEPS;

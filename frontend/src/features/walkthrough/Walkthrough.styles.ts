@@ -234,13 +234,14 @@ export const walkthroughStyles = `
 }
 
 .walkthrough-btn-primary {
-  background: #171717;
+  background: #059669;
   color: #ffffff;
-  box-shadow: none;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.25);
 }
 
 .walkthrough-btn-primary:hover {
-  background: #303030;
+  background: #047857;
+  color: #ffffff;
 }
 
 /* ── Header Restart Button ── */
@@ -266,12 +267,13 @@ export const walkthroughStyles = `
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
 }
 
-/* ── Welcome Modal ── */
+/* ── Welcome & Completion Modals ── */
 .walkthrough-welcome-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: ${WALKTHROUGH_Z_INDEX + 10};
   display: flex;
   align-items: center;
@@ -286,17 +288,39 @@ export const walkthroughStyles = `
 }
 
 .walkthrough-welcome-card {
+  position: relative;
   width: 440px;
   max-width: 100%;
   background: var(--card-bg, #ffffff);
   border-radius: 20px;
-  border: 1px solid var(--border-glow, rgba(16, 185, 129, 0.3));
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-glow, rgba(16, 185, 129, 0.35));
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.15);
   padding: 28px 24px 24px;
   text-align: center;
   font-family: 'Poppins', sans-serif;
   animation: walkthroughCardPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
+}
+
+.walkthrough-modal-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.walkthrough-modal-close-btn:hover {
+  color: #1e293b;
+  background: rgba(0, 0, 0, 0.05);
 }
 
 @keyframes walkthroughCardPop {
@@ -328,6 +352,7 @@ export const walkthroughStyles = `
   font-size: 20px;
   font-weight: 700;
   color: var(--text-h, #0f172a);
+  font-family: 'Poppins', sans-serif;
 }
 
 .walkthrough-welcome-text {
@@ -335,12 +360,13 @@ export const walkthroughStyles = `
   font-size: 13.5px;
   line-height: 1.6;
   color: var(--text-secondary, #475569);
+  font-family: 'Poppins', sans-serif;
 }
 
 .walkthrough-welcome-actions {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
 }
 `;

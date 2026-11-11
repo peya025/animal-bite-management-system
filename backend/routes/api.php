@@ -214,8 +214,14 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     });
 
     // Clinic Module Configuration (all authenticated users can view, admin can update)
+    Route::get('/clinic-module-config', [ClinicModuleConfigController::class, 'show']);
+    Route::put('/clinic-module-config', [ClinicModuleConfigController::class, 'update']);
+    Route::get('/clinic-module-config/history', [ClinicModuleConfigController::class, 'history']);
+
+    // Backwards-compatibility aliases for rollout window
     Route::get('/setup/module-config', [ClinicModuleConfigController::class, 'show']);
     Route::put('/setup/module-config', [ClinicModuleConfigController::class, 'update']);
+    Route::get('/setup/module-config/history', [ClinicModuleConfigController::class, 'history']);
     
     // Staff Module Assignment (admin only)
     Route::put('/users/{id}/assigned-module', [UserController::class, 'updateAssignedModule']);

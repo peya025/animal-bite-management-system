@@ -79,18 +79,9 @@ class ClinicSetupService
             ]);
 
             // 3. Create default module config
-            ClinicModuleConfig::create([
-                'clinic_id'             => $clinic->id,
-                'triage_module_enabled' => true,
-                'field_rules'           => [
-                    'bite_location'     => 'required',
-                    'exposure_category' => 'required',
-                    'animal_status'     => 'optional',
-                    'philhealth_info'   => 'optional',
-                    'fourps_info'       => 'optional',
-                    'wound_washing'     => 'optional',
-                ],
-            ]);
+            /** @var ClinicModuleConfigService $configService */
+            $configService = app(ClinicModuleConfigService::class);
+            $configService->getOrCreateConfigForClinic($clinic->id);
 
             // 4. Create authentication token
             $token = $admin->createToken('setup-token')->plainTextToken;

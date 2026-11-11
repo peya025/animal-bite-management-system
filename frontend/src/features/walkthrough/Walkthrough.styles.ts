@@ -130,7 +130,8 @@ export const walkthroughStyles = `
 .guide-center-icon { font-size: 25px; line-height: 1; margin: 3px 6px 0 0; color: #222; }
 .guide-center-close { margin-left: auto; background: transparent; border: 0; color: #969696; cursor: pointer; font-size: 25px; line-height: 1; }
 .guide-center-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 15px; }
-.guide-center-card { min-height: 156px; background: #fafafa; border-color: #dedede; border-radius: 16px; padding: 15px; }
+.guide-center-card { min-height: 156px; background: #fafafa; border: 1px solid #dedede; border-radius: 16px; padding: 15px; transition: border-color .2s, background .2s, box-shadow .2s; }
+.guide-center-card:hover { border-color: #8ecdb4; background: #f4fbf7; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.07); }
 .guide-center-card-icon { font-size: 22px; color: #616665; height: 25px; }
 .guide-center-card h3 { font-size: 16px; color: #171a19; }
 .guide-center-card p { font-size: 12px; }

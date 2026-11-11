@@ -94,13 +94,16 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!module?.steps.length) return;
     const saved = progress[id];
     const index = !restart && saved?.status === 'in_progress' && saved.step < module.steps.length ? saved.step : 0;
+    const targetStep = module.steps[index];
+    const stepRoute = targetStep?.route || module.route;
     setCurrentStepIndex(index);
     setActiveModuleId(id);
     setIsWelcomeModalOpen(false);
     setIsCompletionModalOpen(false);
-    setReachedRoute(location.pathname === module.route);
+    const matchesCurrent = location.pathname === stepRoute;
+    setReachedRoute(matchesCurrent);
     saveProgress(id, { status: 'in_progress', step: index, tabActions: saved?.tabActions });
-    if (location.pathname !== module.route) navigate(module.route);
+    if (!matchesCurrent) navigate(stepRoute);
   }, [modules, progress, saveProgress, location.pathname, navigate]);
 
   const skipGuide = useCallback(() => {
@@ -131,9 +134,14 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const goToStep = useCallback((index: number) => {
     if (!activeModule || index < 0 || index >= activeModule.steps.length) return;
+    const targetStep = activeModule.steps[index];
     setCurrentStepIndex(index);
+    if (targetStep && targetStep.route !== location.pathname) {
+      setReachedRoute(false);
+      navigate(targetStep.route);
+    }
     saveProgress(activeModule.id, { status: 'in_progress', step: index, tabActions });
-  }, [activeModule, saveProgress, tabActions]);
+  }, [activeModule, saveProgress, tabActions, location.pathname, navigate]);
 
   const nextStep = useCallback(() => {
     if (!activeModule) return;

@@ -1,14 +1,36 @@
 import React, { useEffect, useState } from 'react';
 import { Dialog, Tooltip } from '@mui/material';
 import { useLocation } from 'react-router-dom';
-import { MenuBookOutlined, PeopleOutlined, FormatListNumbered, PlaceOutlined, BarChartOutlined, DashboardOutlined, MedicalServicesOutlined } from '@mui/icons-material';
+import {
+  MenuBookOutlined,
+  PeopleOutlined,
+  FormatListNumbered,
+  PlaceOutlined,
+  BarChartOutlined,
+  DashboardOutlined,
+  MedicalServicesOutlined,
+  Inventory2Outlined,
+  TuneOutlined,
+  ManageAccountsOutlined,
+  EventAvailableOutlined,
+  BuildOutlined,
+} from '@mui/icons-material';
 import { useAuth } from '../../shared/contexts/AuthContext';
 import { useWalkthrough } from './WalkthroughContext';
 
-function ModuleIcon({ route }: { route: string }) {
-  const Icon = route.includes('map') ? PlaceOutlined : route.includes('report') ? BarChartOutlined
-    : route.includes('queue') ? FormatListNumbered : route.includes('patient') ? PeopleOutlined
-    : route.includes('dashboard') ? DashboardOutlined : MedicalServicesOutlined;
+function ModuleIcon({ route, id }: { route: string; id: string }) {
+  const norm = (id + ' ' + route).toLowerCase();
+  const Icon = norm.includes('map') ? PlaceOutlined
+    : norm.includes('report') ? BarChartOutlined
+    : norm.includes('queue') ? FormatListNumbered
+    : norm.includes('inventory') || norm.includes('vaccine-stock') ? Inventory2Outlined
+    : norm.includes('clinic') || norm.includes('setup') ? TuneOutlined
+    : norm.includes('user') ? ManageAccountsOutlined
+    : norm.includes('vax') || norm.includes('vaccination') ? EventAvailableOutlined
+    : norm.includes('patient') ? PeopleOutlined
+    : norm.includes('dev') ? BuildOutlined
+    : norm.includes('dashboard') ? DashboardOutlined
+    : MedicalServicesOutlined;
   return <Icon fontSize="small" />;
 }
 
@@ -93,7 +115,7 @@ export const GuideTourCenter: React.FC = () => {
           const isCurrentRoute = module.route === location.pathname;
 
           return <article className="guide-center-card" key={module.id}>
-            <div className="guide-center-card-icon" aria-hidden="true"><ModuleIcon route={module.route} /></div>
+            <div className="guide-center-card-icon" aria-hidden="true"><ModuleIcon route={module.route} id={module.id} /></div>
             <div className="guide-center-card-top">
               <h3>{module.name}</h3>
               {saved?.status === 'completed' && <span className="guide-complete">Completed</span>}

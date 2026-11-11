@@ -109,14 +109,14 @@ const Map<String, List<String>> referralBarangaysMap = {
 };
 
 /// Generates a suggested facility name based on selected municipality code and barangay name.
+/// For referrals, only Barangay Health Stations (BHS) are used (no RHU).
 String suggestReferralFacility(String municipalityCode, String barangayName) {
-  final munObj = referralMunicipalities.firstWhere(
-    (m) => m['code'] == municipalityCode,
-    orElse: () => {'code': '', 'name': 'Tagoloan'},
-  );
-  final munName = munObj['name']!;
-  if (barangayName.toLowerCase() == 'poblacion') {
-    return '$munName Rural Health Unit (RHU) / BHS';
-  }
-  return 'Barangay $barangayName Health Station (BHS)';
+  final cleanName = barangayName.trim();
+  if (cleanName.isEmpty) return '';
+
+  final stripped = cleanName
+      .replaceFirst(RegExp(r'^Barangay\s+', caseSensitive: false), '')
+      .trim();
+
+  return '$stripped Barangay Health Station';
 }

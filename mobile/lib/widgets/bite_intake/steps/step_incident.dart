@@ -370,7 +370,7 @@ class StepIncident extends StatelessWidget {
                       ),
                       SizedBox(height: 2),
                       Text(
-                        'Barangay Health Station (BHS), RHU, or clinic',
+                        'Barangay Health Station (BHS)',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.gray600,
@@ -474,7 +474,7 @@ class StepIncident extends StatelessWidget {
                     enabled: !isSubmitting,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
-                      hintText: 'e.g. Barangay Kimalok Health Station (BHS)',
+                      hintText: 'e.g. Poblacion Barangay Health Station',
                     ),
                   ),
                 ],

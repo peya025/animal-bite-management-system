@@ -301,14 +301,14 @@ void main() {
       expect(
         find.widgetWithText(
           TextFormField,
-          'Tagoloan Rural Health Unit (RHU) / BHS',
+          'Poblacion Barangay Health Station',
         ),
         findsOneWidget,
       );
       await tester.enterText(
         find.widgetWithText(
           TextFormField,
-          'Tagoloan Rural Health Unit (RHU) / BHS',
+          'Poblacion Barangay Health Station',
         ),
         'Barangay Kimalok Health Station (BHS)',
       );

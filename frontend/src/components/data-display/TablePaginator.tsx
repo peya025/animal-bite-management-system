@@ -59,7 +59,7 @@ export default function TablePaginator({
       }}
     >
       {/* Left — rows per page */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Box data-walkthrough="table-rows-per-page" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Typography
           sx={{
             fontFamily: "'Poppins', sans-serif",
@@ -151,7 +151,7 @@ export default function TablePaginator({
       </Box>
 
       {/* Right — pagination buttons */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+      <Box data-walkthrough="table-pagination-controls" sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
         <IconButton size="small" onClick={() => onPageChange(0)} disabled={page === 0} sx={btnSx(page === 0)} title="First Page">
           <FirstPage sx={{ fontSize: 16 }} />
         </IconButton>

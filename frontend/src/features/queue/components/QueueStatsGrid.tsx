@@ -118,6 +118,7 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
         return (
           <Box
             key={card.id}
+            data-walkthrough={`queue-stat-${card.id}`}
             onClick={card.isWaiting ? onWaitingClick : undefined}
             sx={{
               p: '16px 16px 14px',
@@ -218,6 +219,7 @@ export function SecondaryCountersRow({ stats }: SecondaryCountersRowProps) {
 
   return (
     <Box
+      data-walkthrough="queue-secondary-counters"
       sx={{
         display: 'flex',
         alignItems: 'center',

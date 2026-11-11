@@ -109,6 +109,8 @@ export default function DataTable<T>({
             {columns.map(col => (
               <TableCell
                 key={col.key}
+                data-col-key={col.key}
+                data-walkthrough={`th-col-${col.key}`}
                 align={col.align ?? 'left'}
                 width={col.width}
                 sx={{

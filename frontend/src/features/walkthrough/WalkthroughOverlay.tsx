@@ -410,6 +410,13 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
       return;
     }
 
+    // Reset scroll position to top when starting at the first step
+    if (currentStepIndex === 0) {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+      const pageContent = document.querySelector<HTMLElement>('.page-content');
+      if (pageContent) pageContent.scrollTop = 0;
+    }
+
     let cancelled = false;
     let attempts = 0;
     const maxAttempts = 25;

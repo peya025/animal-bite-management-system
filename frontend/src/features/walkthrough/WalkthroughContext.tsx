@@ -8,7 +8,7 @@ import { walkthroughStyles } from './Walkthrough.styles';
 import WalkthroughOverlay from './WalkthroughOverlay';
 import WalkthroughWelcomeModal from './WalkthroughWelcomeModal';
 import WalkthroughCompletionModal from './WalkthroughCompletionModal';
-import { availablePatientActions, expandPatientSteps } from './patientGuide';
+import { availablePatientActions, expandPatientSteps } from './patientRegistrationWalkthroughSteps';
 import { getDashboardModuleInfoForRole } from './dashboardWalkthroughSteps';
 
 const noop = () => {};
@@ -93,13 +93,28 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const module = modules.find(item => item.id === id);
     if (!module?.steps.length) return;
     const saved = progress[id];
-    const index = !restart && saved?.status === 'in_progress' && saved.step < module.steps.length ? saved.step : 0;
+    let index = !restart && saved?.status === 'in_progress' && saved.step < module.steps.length ? saved.step : 0;
+
+    // When starting or restarting a guide while already on a sub-route/station of the module:
+    if (restart || !saved || saved.status !== 'in_progress') {
+      const currentRouteIndex = module.steps.findIndex(step => step.route === location.pathname);
+      if (currentRouteIndex > 0) {
+        index = currentRouteIndex;
+      }
+    }
+
     const targetStep = module.steps[index];
     const stepRoute = targetStep?.route || module.route;
     setCurrentStepIndex(index);
     setActiveModuleId(id);
     setIsWelcomeModalOpen(false);
     setIsCompletionModalOpen(false);
+
+    // Reset scroll to top before highlighting the first element
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    const pageContent = document.querySelector<HTMLElement>('.page-content');
+    if (pageContent) pageContent.scrollTop = 0;
+
     const matchesCurrent = location.pathname === stepRoute;
     setReachedRoute(matchesCurrent);
     saveProgress(id, { status: 'in_progress', step: index, tabActions: saved?.tabActions });

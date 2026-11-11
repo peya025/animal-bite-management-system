@@ -427,4 +427,12 @@ export const REGISTRATION_WALKTHROUGH_STEPS: WalkthroughStep[] = [
 
 export const WALKTHROUGH_STEPS = REGISTRATION_WALKTHROUGH_STEPS;
 export * from './dashboardWalkthroughSteps';
+export * from './patientRegistrationWalkthroughSteps';
+export * from './treatmentQueuesWalkthroughSteps';
+export * from './biteCasesWalkthroughSteps';
+export * from './biteMapWalkthroughSteps';
+export * from './vaccineStockWalkthroughSteps';
+export * from './reportsAnalyticsWalkthroughSteps';
+export * from './userManagementWalkthroughSteps';
+export * from './clinicSetupWalkthroughSteps';
 export default REGISTRATION_WALKTHROUGH_STEPS;

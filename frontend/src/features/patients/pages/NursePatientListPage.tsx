@@ -376,7 +376,7 @@ export default function NursePatientListPage() {
       align: 'center',
       width: '100px',
       render: (patient) => (
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+        <Box data-walkthrough="nurse-col-patient-id" sx={{ display: 'flex', justifyContent: 'center' }}>
           <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.25, bgcolor: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 1.5, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: '#374151' }}>
             #{patient.patient_id}
           </Box>
@@ -395,7 +395,7 @@ export default function NursePatientListPage() {
           ((patient as any).accounts && (patient as any).accounts.length > 0)
         );
         return (
-          <Box>
+          <Box data-walkthrough="nurse-col-patient-name">
             <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mb: 0.25 }}>
               <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: '#111827', lineHeight: 1.3 }}>
                 {patient.last_name}, {patient.first_name} {patient.middle_name || ''}
@@ -443,7 +443,7 @@ export default function NursePatientListPage() {
         const status = getDoseStatus(patient);
         const record = patient.latest_treatment_record;
         return (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 44 }}>
+          <Box data-walkthrough="nurse-col-last-dose" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 44 }}>
             <Chip
               label={status.label}
               size="small"
@@ -469,7 +469,7 @@ export default function NursePatientListPage() {
       render: (patient) => {
         const status = getVaccinationStatus(patient);
         return (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 44 }}>
+          <Box data-walkthrough="nurse-col-status" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 44 }}>
             <Chip
               label={status.label}
               size="small"
@@ -532,7 +532,7 @@ export default function NursePatientListPage() {
 
         if (appt.status === 'confirmed') {
           return (
-            <Box>
+            <Box data-walkthrough="nurse-col-next-appointment">
               <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#047857' }}>
                 {appointmentTitle}
               </Typography>
@@ -548,7 +548,7 @@ export default function NursePatientListPage() {
 
         if (isCurrentlyInClinic) {
           return (
-            <Box>
+            <Box data-walkthrough="nurse-col-next-appointment">
               <Typography sx={{ fontSize: 13, fontWeight: 600, color: isPast ? '#b45309' : '#047857' }}>
                 {appointmentTitle}
               </Typography>
@@ -562,7 +562,7 @@ export default function NursePatientListPage() {
         }
 
         return (
-          <Box>
+          <Box data-walkthrough="nurse-col-next-appointment">
             <Typography sx={{ fontSize: 13, fontWeight: 600, color: isPast ? '#991b1b' : isToday ? '#047857' : '#111827' }}>
               {appointmentTitle}
             </Typography>
@@ -619,9 +619,10 @@ export default function NursePatientListPage() {
         );
 
         return (
-          <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center' }}>
+          <Stack data-walkthrough="nurse-col-actions" direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center' }}>
             {isSeriesCompleted ? (
               <Button
+                data-walkthrough="nurse-action-view-card"
                 size="small"
                 variant="outlined"
                 onClick={() => {
@@ -646,6 +647,7 @@ export default function NursePatientListPage() {
               </Button>
             ) : canCheckIn ? (
               <Button
+                data-walkthrough="nurse-action-checkin"
                 size="small"
                 variant="contained"
                 disabled={checkingInId === patient.patient_id}
@@ -667,6 +669,7 @@ export default function NursePatientListPage() {
             ) : (
               <>
                 <Button
+                  data-walkthrough="nurse-action-record-dose"
                   size="small"
                   variant="outlined"
                   onClick={() => {
@@ -692,6 +695,7 @@ export default function NursePatientListPage() {
 
                 <Tooltip title="Cancel check-in (mistakenly clicked check-in)">
                   <Button
+                    data-walkthrough="nurse-action-cancel-checkin"
                     size="small"
                     variant="outlined"
                     disabled={cancellingCheckInId === patient.patient_id}
@@ -718,6 +722,7 @@ export default function NursePatientListPage() {
 
             <Tooltip title="View Treatment Record Card (Printable)">
               <IconButton
+                data-walkthrough="nurse-action-view-card"
                 size="small"
                 onClick={() => {
                   setSelectedCardPatientId(patient.patient_id);
@@ -790,6 +795,7 @@ export default function NursePatientListPage() {
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography
+            data-walkthrough="nurse-header"
             component="h1"
             sx={{
               fontFamily: 'Poppins',
@@ -828,7 +834,7 @@ export default function NursePatientListPage() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
           <Tooltip title="Refresh Patients List">
-            <IconButton onClick={loadPatients} disabled={loading} sx={{ bgcolor: 'var(--card-bg-solid, #ffffff)', border: '1px solid var(--border-glow, #e0eae3)', borderRadius: 2, color: 'var(--text-m, #6b7280)' }}>
+            <IconButton data-walkthrough="nurse-refresh-btn" onClick={loadPatients} disabled={loading} sx={{ bgcolor: 'var(--card-bg-solid, #ffffff)', border: '1px solid var(--border-glow, #e0eae3)', borderRadius: 2, color: 'var(--text-m, #6b7280)' }}>
               <HugeiconsIcon icon={RefreshIcon} size={18} />
             </IconButton>
           </Tooltip>
@@ -846,26 +852,26 @@ export default function NursePatientListPage() {
       )}
 
       {/* ── Top Circular Ring Summary Cards ── */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 3 }}>
-        <Box sx={{ cursor: 'pointer' }} onClick={() => { setTab('due_today'); setPage(0); }}>
+      <Box data-walkthrough="nurse-kpi-cards" sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 3 }}>
+        <Box data-walkthrough="nurse-kpi-due-today" sx={{ cursor: 'pointer' }} onClick={() => { setTab('due_today'); setPage(0); }}>
           <StatCard label="DUE TODAY" value={kpiStats.dueToday} color="info" total={totalCount || 1} loading={loading} />
         </Box>
-        <Box sx={{ cursor: 'pointer' }} onClick={() => { setTab('overdue'); setPage(0); }}>
+        <Box data-walkthrough="nurse-kpi-overdue" sx={{ cursor: 'pointer' }} onClick={() => { setTab('overdue'); setPage(0); }}>
           <StatCard label="OVERDUE DOSES" value={kpiStats.overdue} color="error" total={totalCount || 1} loading={loading} />
         </Box>
-        <Box sx={{ cursor: 'pointer' }} onClick={() => { setTab('online'); setPage(0); }}>
+        <Box data-walkthrough="nurse-kpi-online" sx={{ cursor: 'pointer' }} onClick={() => { setTab('online'); setPage(0); }}>
           <StatCard label="ONLINE APPOINTMENTS" value={kpiStats.online} color="primary" total={totalCount || 1} loading={loading} />
         </Box>
-        <Box sx={{ cursor: 'pointer' }} onClick={() => { setTab('upcoming'); setPage(0); }}>
+        <Box data-walkthrough="nurse-kpi-upcoming" sx={{ cursor: 'pointer' }} onClick={() => { setTab('upcoming'); setPage(0); }}>
           <StatCard label="UPCOMING DOSES" value={kpiStats.upcoming} color="success" total={totalCount || 1} loading={loading} />
         </Box>
-        <Box sx={{ cursor: 'pointer' }} onClick={() => { setTab('all'); setPage(0); }}>
+        <Box data-walkthrough="nurse-kpi-total" sx={{ cursor: 'pointer' }} onClick={() => { setTab('all'); setPage(0); }}>
           <StatCard label="TOTAL TRACKED" value={totalCount} color="info" total={totalCount || 1} loading={loading} />
         </Box>
       </Box>
 
       {/* ── Tabs Bar with Soft Count Badges ── */}
-      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', mb: 3 }}>
+      <Paper data-walkthrough="nurse-tabs-bar" elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', mb: 3 }}>
         <Tabs
           value={tab}
           onChange={(_, v) => { setTab(v); setPage(0); }}
@@ -951,10 +957,11 @@ export default function NursePatientListPage() {
       </Paper>
 
       {/* ── Patient Table Container ── */}
-      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>
+      <Paper data-walkthrough="nurse-table-container" elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>
         {/* Search Bar & Dose Filter */}
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 3, alignItems: 'stretch' }}>
           <TextField
+            data-walkthrough="nurse-search-bar"
             fullWidth
             size="small"
             placeholder="Search by name, patient number, or contact phone..."
@@ -983,7 +990,7 @@ export default function NursePatientListPage() {
             }}
           />
 
-          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 220 } }}>
+          <FormControl data-walkthrough="nurse-dose-filter" size="small" sx={{ minWidth: { xs: '100%', sm: 220 } }}>
             <InputLabel id="dose-filter-label" sx={{ fontSize: 13, fontWeight: 500 }}>
               Dose Filter
             </InputLabel>

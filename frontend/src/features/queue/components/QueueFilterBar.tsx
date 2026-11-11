@@ -94,6 +94,7 @@ export function QueueFilterBar({
         {/* Search */}
         <Grid size={{ xs: 12, sm: onVisitTypeChange ? 3.5 : (onCategoryChange ? 5 : 8), md: onVisitTypeChange ? 3.5 : (onCategoryChange ? 5 : 8) }}>
           <TextField
+            data-walkthrough="queue-filter-search"
             fullWidth
             size="small"
             value={search}
@@ -124,7 +125,7 @@ export function QueueFilterBar({
 
         {/* Status filter */}
         <Grid size={{ xs: 12, sm: onVisitTypeChange ? 2 : 3, md: onVisitTypeChange ? 2 : 3 }}>
-          <FormControl fullWidth size="small">
+          <FormControl data-walkthrough="queue-filter-status" fullWidth size="small">
             <InputLabel sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 13, color: isDark ? '#94a3b8' : undefined, '&.Mui-focused': { color: '#10b981' } }}>Status</InputLabel>
             <Select label="Status" value={statusFilter} onChange={e => onStatusChange(e.target.value)} MenuProps={menuPaperSx} sx={selectSx}>
               <MenuItem value="">All Statuses</MenuItem>
@@ -203,6 +204,7 @@ export function QueueFilterBar({
         {lockedVisitTypeLabel ? (
           <Grid size={{ xs: 12, sm: 2.5, md: 2.5 }}>
             <TextField
+              data-walkthrough="queue-filter-view"
               fullWidth
               size="small"
               label="Queue view"
@@ -257,7 +259,7 @@ export function QueueFilterBar({
         {/* Category filter */}
         {onCategoryChange && (
           <Grid size={{ xs: 12, sm: onVisitTypeChange ? 2.5 : 3, md: onVisitTypeChange ? 2.5 : 3 }}>
-            <FormControl fullWidth size="small">
+            <FormControl data-walkthrough="queue-filter-category" fullWidth size="small">
               <InputLabel sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 13, color: isDark ? '#94a3b8' : undefined, '&.Mui-focused': { color: '#10b981' } }}>Category</InputLabel>
               <Select label="Category" value={categoryFilter} onChange={e => onCategoryChange(e.target.value)} MenuProps={menuPaperSx} sx={selectSx}>
                 <MenuItem value="">All Categories</MenuItem>
@@ -274,7 +276,7 @@ export function QueueFilterBar({
 
         {/* Clear */}
         <Grid size={{ xs: 12, sm: onVisitTypeChange ? 1.5 : 2, md: onVisitTypeChange ? 1.5 : 2 }}>
-          <Button fullWidth variant="outlined" size="small" onClick={onClear}
+          <Button data-walkthrough="queue-filter-clear" fullWidth variant="outlined" size="small" onClick={onClear}
             sx={{
               fontFamily: "'Poppins', sans-serif",
               borderRadius: 2,

@@ -656,7 +656,7 @@ export default function QueueDashboard() {
         }
 
         return (
-          <Box sx={{
+          <Box data-walkthrough="queue-col-number" sx={{
             width: 38, height: 38, borderRadius: 2,
             bgcolor: boxBg,
             border: boxBorder,
@@ -675,7 +675,7 @@ export default function QueueDashboard() {
         const label = CATEGORY_LABEL[e.queue_category] ?? e.queue_category;
         const CatIcon = getCategoryHugeicon(e.queue_category);
         return (
-          <Box sx={{
+          <Box data-walkthrough="queue-col-category" sx={{
             display: 'inline-flex', alignItems: 'center', gap: 0.6,
             px: 1.25, py: 0.35,
             bgcolor: cfg.bg, color: cfg.color,
@@ -711,7 +711,7 @@ export default function QueueDashboard() {
         );
 
         return (
-          <Box>
+          <Box data-walkthrough="queue-col-patient">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
               <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text-h)', lineHeight: 1.3 }}>
                 {formatQueuePatientName(e.patient)}
@@ -771,7 +771,7 @@ export default function QueueDashboard() {
     {
       key: 'visit_type', header: 'Visit type', align: 'center',
       render: e => (
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+        <Box data-walkthrough="queue-col-visittype" sx={{ display: 'flex', justifyContent: 'center' }}>
           <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.35, bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, fontSize: 11.5, fontWeight: 500, color: 'var(--text)' }}>
             {VISIT_LABEL[e.visit_type] ?? e.visit_type}
           </Box>
@@ -786,7 +786,7 @@ export default function QueueDashboard() {
         const canEditPriority = isActive && !isRegistrationStaff;
         if (!canEditPriority) {
           return (
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Box data-walkthrough="queue-col-priority" sx={{ display: 'flex', justifyContent: 'center' }}>
               <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.35, borderRadius: 1.5, bgcolor: cfg.bg, color: cfg.color, fontSize: 11.5, fontWeight: 500 }}>
                 {e.priority === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
                 {e.priority === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
@@ -796,7 +796,7 @@ export default function QueueDashboard() {
           );
         }
         return (
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Box data-walkthrough="queue-col-priority" sx={{ display: 'flex', justifyContent: 'center' }}>
             <FormControl size="small" variant="outlined">
               <Select
                 value={e.priority}
@@ -837,7 +837,7 @@ export default function QueueDashboard() {
           ? getRegistrationStatusDisplay(e)
           : (STATUS_CFG[e.status] ?? STATUS_CFG.cancelled);
         return (
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Box data-walkthrough="queue-col-status" sx={{ display: 'flex', justifyContent: 'center' }}>
             <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.35, bgcolor: cfg.bg, color: cfg.color, borderRadius: 1.5, fontSize: 11.5, fontWeight: 500 }}>
               {cfg.label}
             </Box>
@@ -877,11 +877,11 @@ export default function QueueDashboard() {
       render: e => {
         const active = MAIN_STATUSES.includes(e.status);
         return active
-          ? <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+          ? <Box data-walkthrough="queue-col-waittime" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
               <WaitIcon sx={{ fontSize: 13, color: 'var(--text-secondary)' }} />
               <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>{waitTime(e.checked_in_at)}</Typography>
             </Box>
-          : <Box sx={{ display: 'flex', justifyContent: 'center' }}><Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</Typography></Box>;
+          : <Box data-walkthrough="queue-col-waittime" sx={{ display: 'flex', justifyContent: 'center' }}><Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</Typography></Box>;
       },
     },
     {
@@ -890,6 +890,7 @@ export default function QueueDashboard() {
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <Tooltip title="View Patient Details & Forms">
             <button
+              data-walkthrough="queue-col-record"
               onClick={() => {
                 dismissedQueueIdRef.current = null;
                 setSelectedQueueId(e.queue_id);
@@ -923,19 +924,19 @@ export default function QueueDashboard() {
 
         if (!hasActions) {
           return (
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Box data-walkthrough="queue-col-actions" sx={{ display: 'flex', justifyContent: 'center' }}>
               <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', px: 0.5 }}>—</Typography>
             </Box>
           );
         }
 
         return (
-          <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'center', alignItems: 'center' }}>
+          <Box data-walkthrough="queue-col-actions" sx={{ display: 'flex', gap: 0.75, justifyContent: 'center', alignItems: 'center' }}>
 
             {/* No Response / Second Chance — waiting or called */}
             {(isWaiting || isCalled) && (
               <Tooltip title={e.call_count >= 2 ? "No Response (3/3) — Mark Requires Registration Check-in" : `No Response (${e.call_count + 1}/3) — Move to Second Chance`}>
-                <IconButton size="small" onClick={() => setNoRespTarget(e)}
+                <IconButton data-walkthrough="queue-action-no-response" size="small" onClick={() => setNoRespTarget(e)}
                   sx={actionBtn('#9333ea', '#faf5ff', '#e9d5ff', '#f3e8ff', '#d8b4fe', '#7e22ce')}>
                   <HugeiconsIcon icon={UserBlock01Icon} size={16} strokeWidth={2} />
                 </IconButton>
@@ -946,7 +947,7 @@ export default function QueueDashboard() {
             {isSecondChance && (
               <Tooltip title={e.call_count >= 3 ? "Patient did not respond 3 times. Please return to Registration for check-in." : "Return to Waiting Queue"}>
                 <span>
-                  <IconButton size="small" onClick={() => setReturnTarget(e)}
+                  <IconButton data-walkthrough="queue-action-return" size="small" onClick={() => setReturnTarget(e)}
                     disabled={e.call_count >= 3}
                     sx={actionBtn('#059669', '#ecfdf5', '#a7f3d0', '#d1fae5', '#6ee7b7', '#047857')}>
                     <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={16} strokeWidth={2} />
@@ -959,7 +960,7 @@ export default function QueueDashboard() {
             {isSecondChance && (
               <Tooltip title={e.call_count >= 3 ? "Patient did not respond 3 times. Please return to Registration for check-in." : "Recall Patient"}>
                 <span>
-                  <IconButton size="small" onClick={() => setRecallTarget(e)}
+                  <IconButton data-walkthrough="queue-action-recall" size="small" onClick={() => setRecallTarget(e)}
                     disabled={e.call_count >= 3}
                     sx={actionBtn('#ea580c', '#fff7ed', '#fed7aa', '#ffedd5', '#fdba74', '#c2410c')}>
                     <HugeiconsIcon icon={Call02Icon} size={16} strokeWidth={2} />
@@ -971,7 +972,7 @@ export default function QueueDashboard() {
             {/* Cancel — any active */}
             {canCancelOrTrash && isActive && (
               <Tooltip title="Cancel Queue Entry">
-                <IconButton size="small" onClick={() => setCancelTarget(e)}
+                <IconButton data-walkthrough="queue-action-cancel" size="small" onClick={() => setCancelTarget(e)}
                   sx={actionBtn('#dc2626', '#fef2f2', '#fecaca', '#fee2e2', '#fca5a5', '#b91c1c')}>
                   <HugeiconsIcon icon={CancelCircleIcon} size={16} strokeWidth={2} />
                 </IconButton>
@@ -981,7 +982,7 @@ export default function QueueDashboard() {
             {/* Trash — not serving/in-consultation */}
             {canCancelOrTrash && !isServing && !isDone && (
               <Tooltip title="Move to Trash">
-                <IconButton size="small" onClick={() => setTrashTarget(e)}
+                <IconButton data-walkthrough="queue-action-trash" size="small" onClick={() => setTrashTarget(e)}
                   sx={actionBtn('#64748b', '#f8fafc', '#e2e8f0', '#fee2e2', '#fca5a5', '#dc2626')}>
                   <HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={2} />
                 </IconButton>
@@ -1077,6 +1078,7 @@ export default function QueueDashboard() {
           {(isTriageDoctor || user?.role === 'admin') && (
             <Tooltip title="Search Returning Patient Consultation History">
               <button
+                data-walkthrough="queue-patient-history-btn"
                 onClick={() => setShowHistoryLookup(true)}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -1096,7 +1098,7 @@ export default function QueueDashboard() {
 
           <Tooltip title="Refresh">
             <span>
-              <IconButton size="small" onClick={reload} disabled={loading}><RefreshIcon sx={{ fontSize: 18 }} /></IconButton>
+              <IconButton data-walkthrough="queue-refresh-btn" size="small" onClick={reload} disabled={loading}><RefreshIcon sx={{ fontSize: 18 }} /></IconButton>
             </span>
           </Tooltip>
         </Stack>
@@ -1106,7 +1108,11 @@ export default function QueueDashboard() {
       <Box data-walkthrough="queue-kpi-strip"><QueueKPIStrip stats={stationStats} onWaitingClick={handleWaitingClick} /></Box>
 
       {/* ── 3. Condensed Vaccine Stock Strip ── */}
-      {stationMode !== 'follow_up' && <StockLevelIndicator variant="strip" collapsible showLegend={false} />}
+      {stationMode !== 'follow_up' && (
+        <Box data-walkthrough="queue-vaccine-availability">
+          <StockLevelIndicator variant="strip" collapsible showLegend={false} />
+        </Box>
+      )}
 
       {/* ── 4. Slim Inline Secondary Counters Row ── */}
       <SecondaryCountersRow stats={stationStats} />
@@ -1147,7 +1153,7 @@ export default function QueueDashboard() {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-            <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: 16, color: isDark ? '#ffffff' : 'var(--text-h)' }}>
+            <Typography data-walkthrough="queue-table-title" sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: 16, color: isDark ? '#ffffff' : 'var(--text-h)' }}>
               {queueSectionTitle}
             </Typography>
             <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 13, color: isDark ? '#94a3b8' : 'var(--text-secondary)', fontWeight: 500 }}>
@@ -1247,18 +1253,22 @@ export default function QueueDashboard() {
 
       {/* ── 7. Second Chance Queue (Middle) ── */}
       {!isRegistrationStaff && (
-        <SecondChanceQueuePanel
-          entries={visibleSecondChanceQueue}
-          loading={loading || actionPending}
-          onRecall={e => setRecallTarget(e)}
-          onReturnToQueue={handleReturnToQueue}
-          onAbsent={e => setAbsentTarget(e)}
-          canManage={!isRegistrationStaff}
-        />
+        <Box data-walkthrough="second-chance-panel">
+          <SecondChanceQueuePanel
+            entries={visibleSecondChanceQueue}
+            loading={loading || actionPending}
+            onRecall={e => setRecallTarget(e)}
+            onReturnToQueue={handleReturnToQueue}
+            onAbsent={e => setAbsentTarget(e)}
+            canManage={!isRegistrationStaff}
+          />
+        </Box>
       )}
 
       {/* ── 8. Today's Queue Progress (Bottom) ── */}
-      <QueueProgressBar stats={stationStats} />
+      <Box data-walkthrough="queue-progress-bar">
+        <QueueProgressBar stats={stationStats} />
+      </Box>
 
       {isTreatmentNurse && (
         <TreatmentCompletedPanel

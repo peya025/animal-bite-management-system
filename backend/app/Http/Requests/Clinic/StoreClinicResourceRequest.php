@@ -43,7 +43,8 @@ class StoreClinicResourceRequest extends FormRequest
             $merge['title'] = trim($this->input('title'));
         }
         if ($this->has('url') && is_string($this->input('url'))) {
-            $merge['url'] = trim($this->input('url'));
+            $trimmed = trim($this->input('url'));
+            $merge['url'] = $trimmed === '' ? null : $trimmed;
         }
         if (!empty($merge)) {
             $this->merge($merge);
@@ -62,7 +63,7 @@ class StoreClinicResourceRequest extends FormRequest
             'video_file' => [
                 'nullable',
                 'file',
-                'mimetypes:video/mp4,video/webm,video/quicktime,video/x-msvideo',
+                'mimetypes:video/mp4,video/webm,video/quicktime,video/x-msvideo,application/mp4,video/x-m4v,video/avi,video/msvideo',
                 'max:102400',
             ],
             'thumbnail_file' => [

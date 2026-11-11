@@ -867,9 +867,13 @@ export function PatientAppResourcesSection({
 
         if (editingItem) {
           formData.append('_method', 'PUT');
-          await api.post(`/setup/clinic-resources/${editingItem.id}`, formData);
+          await api.post(`/setup/clinic-resources/${editingItem.id}`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
         } else {
-          await api.post('/setup/clinic-resources', formData);
+          await api.post('/setup/clinic-resources', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
         }
       } else {
         const payload = {
@@ -899,11 +903,14 @@ export function PatientAppResourcesSection({
       setDialogOpen(false);
       await fetchResources();
     } catch (err: any) {
+      const fieldErrors = err?.response?.data?.errors;
+      const validationErrorsList =
+        fieldErrors && typeof fieldErrors === 'object'
+          ? Object.values(fieldErrors).flat().filter(Boolean).join(' ')
+          : null;
       const apiMessage =
+        validationErrorsList ||
         err?.response?.data?.message ||
-        Object.values(err?.response?.data?.errors || {})
-          .flat()
-          .join(' ') ||
         'Unable to save resource. Please check the fields and try again.';
       setServerError(String(apiMessage));
     } finally {

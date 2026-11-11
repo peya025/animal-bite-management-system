@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Support;
 use App\Http\Controllers\Controller;
 
 use App\Services\Storage\PublicStorageService;
-use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class PublicStorageController extends Controller
 {
@@ -17,7 +17,7 @@ class PublicStorageController extends Controller
      * Stream public storage files directly with CORS and caching headers.
      * Guarantees uploaded logos and media load without requiring `php artisan storage:link`.
      */
-    public function serve(string $path): Response
+    public function serve(string $path): SymfonyResponse
     {
         return $this->publicStorageService->serve($path);
     }

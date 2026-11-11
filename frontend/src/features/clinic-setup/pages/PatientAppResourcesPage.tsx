@@ -41,6 +41,7 @@ import {
   PhoneIphone as PhoneIphoneIcon,
   PlayArrowRounded as PlayIcon,
   Refresh as RefreshIcon,
+  StopRounded as StopIcon,
   VideocamOutlined as VideoIcon,
   VisibilityOutlined as PreviewIcon,
 } from '@mui/icons-material';
@@ -138,14 +139,11 @@ function extractDomain(url: string): string {
   }
 }
 
-function resolveVideoThumbnail(url: string, thumbnailUrl?: string | null): string | null {
-  const custom = (thumbnailUrl ?? '').trim();
-  if (custom && isValidHttpsUrl(custom)) {
-    return custom;
-  }
-
+export function extractYoutubeId(url: string): string | null {
   try {
-    const parsed = new URL(url.trim());
+    const trimmed = (url || '').trim();
+    if (!trimmed) return null;
+    const parsed = new URL(trimmed);
     const host = parsed.hostname.toLowerCase();
     let videoId: string | null = null;
 
@@ -161,10 +159,23 @@ function resolveVideoThumbnail(url: string, thumbnailUrl?: string | null): strin
     }
 
     if (videoId && /^[A-Za-z0-9_-]{6,20}$/.test(videoId)) {
-      return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+      return videoId;
     }
   } catch {
-    // Ignore parse error and fall back to gradient
+    // Ignore parse error
+  }
+  return null;
+}
+
+function resolveVideoThumbnail(url: string, thumbnailUrl?: string | null): string | null {
+  const custom = (thumbnailUrl ?? '').trim();
+  if (custom && isValidHttpsUrl(custom)) {
+    return custom;
+  }
+
+  const videoId = extractYoutubeId(url);
+  if (videoId) {
+    return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
   }
 
   return null;
@@ -304,11 +315,21 @@ export function MobileCardLivePreview({
   form,
   allowPlaceholders = true,
   overrideThumbnailUrl,
+  overrideVideoUrl,
 }: {
   form: Pick<ResourceFormState, 'type' | 'title' | 'subtitle' | 'url' | 'thumbnail_url' | 'duration_label'>;
   allowPlaceholders?: boolean;
   overrideThumbnailUrl?: string | null;
+  overrideVideoUrl?: string | null;
 }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const activeVideoUrl = (overrideVideoUrl || form.url || '').trim();
+  const youtubeId = useMemo(() => (activeVideoUrl ? extractYoutubeId(activeVideoUrl) : null), [activeVideoUrl]);
+
+  useEffect(() => {
+    setIsPlaying(false);
+  }, [activeVideoUrl]);
+
   const hasRealTitle = form.title.trim().length > 0;
   const previewTitle =
     form.title.trim() ||
@@ -336,6 +357,8 @@ export function MobileCardLivePreview({
 
   if (form.type === 'video') {
     const showImage = Boolean(resolvedThumb && !thumbFailed);
+    const canPlay = Boolean(activeVideoUrl);
+
     return (
       <Box
         sx={{
@@ -345,121 +368,192 @@ export function MobileCardLivePreview({
           overflow: 'hidden',
           maxWidth: 360,
           mx: 'auto',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
         }}
       >
-        <Box
-          sx={{
-            position: 'relative',
-            height: 150,
-            background: 'linear-gradient(135deg, #1D9E75 0%, #5cc7a5 100%)',
-            overflow: 'hidden',
-          }}
-        >
-          {/* Decorative depth circles on fallback teal placeholder */}
+        {/* Top Area: Either Inline Video Player or Thumbnail */}
+        {isPlaying && canPlay ? (
           <Box
             sx={{
-              position: 'absolute',
-              width: 140,
-              height: 140,
-              borderRadius: '50%',
-              bgcolor: 'rgba(255,255,255,0.10)',
-              top: -36,
-              right: -28,
+              position: 'relative',
+              height: 180,
+              bgcolor: '#000000',
+              overflow: 'hidden',
             }}
-          />
-          <Box
-            sx={{
-              position: 'absolute',
-              width: 96,
-              height: 96,
-              borderRadius: '50%',
-              bgcolor: 'rgba(255,255,255,0.08)',
-              bottom: -24,
-              left: -18,
-            }}
-          />
-
-          {showImage && (
-            <Box
-              component="img"
-              src={resolvedThumb!}
-              alt=""
-              onError={() => setThumbFailed(true)}
+          >
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPlaying(false);
+              }}
+              aria-label="Close inline preview"
               sx={{
                 position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
+                top: 8,
+                right: 8,
+                bgcolor: 'rgba(0,0,0,0.65)',
+                color: '#ffffff',
+                zIndex: 10,
+                '&:hover': { bgcolor: 'rgba(0,0,0,0.9)' },
+              }}
+            >
+              <ClearIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+
+            {youtubeId ? (
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1&rel=0`}
+                title={previewTitle}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ width: '100%', height: '100%', border: 0 }}
+              />
+            ) : (
+              <Box
+                component="video"
+                src={activeVideoUrl}
+                controls
+                autoPlay
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  bgcolor: '#000000',
+                }}
+              />
+            )}
+          </Box>
+        ) : (
+          <Box
+            onClick={() => {
+              if (canPlay) {
+                setIsPlaying(true);
+              }
+            }}
+            sx={{
+              position: 'relative',
+              height: 150,
+              background: 'linear-gradient(135deg, #1D9E75 0%, #5cc7a5 100%)',
+              overflow: 'hidden',
+              cursor: canPlay ? 'pointer' : 'default',
+            }}
+          >
+            {/* Decorative depth circles on fallback teal placeholder */}
+            <Box
+              sx={{
+                position: 'absolute',
+                width: 140,
+                height: 140,
+                borderRadius: '50%',
+                bgcolor: 'rgba(255,255,255,0.10)',
+                top: -36,
+                right: -28,
               }}
             />
-          )}
-
-          {/* Top-left orientation video tag */}
-          <Box
-            sx={{
-              position: 'absolute',
-              top: 10,
-              left: 10,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 0.6,
-              px: 1.25,
-              py: 0.4,
-              borderRadius: '20px',
-              bgcolor: 'rgba(0,0,0,0.28)',
-              color: '#ffffff',
-            }}
-          >
-            <VideoIcon sx={{ fontSize: 14, color: '#ffffff' }} />
-            <Typography sx={{ fontSize: '11px', fontWeight: 500, color: '#ffffff', lineHeight: 1.2 }}>
-              Orientation video
-            </Typography>
-          </Box>
-
-          {/* Center play button */}
-          <Box
-            sx={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: 52,
-              height: 52,
-              borderRadius: '50%',
-              bgcolor: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.16)',
-            }}
-          >
-            <PlayIcon sx={{ fontSize: 28, color: '#1D9E75' }} />
-          </Box>
-
-          {/* Bottom-right duration chip */}
-          {previewDuration && (
             <Box
               sx={{
                 position: 'absolute',
-                bottom: 10,
-                right: 10,
-                px: 1,
-                py: 0.25,
-                borderRadius: '6px',
-                bgcolor: 'rgba(0,0,0,0.45)',
+                width: 96,
+                height: 96,
+                borderRadius: '50%',
+                bgcolor: 'rgba(255,255,255,0.08)',
+                bottom: -24,
+                left: -18,
+              }}
+            />
+
+            {showImage && (
+              <Box
+                component="img"
+                src={resolvedThumb!}
+                alt=""
+                onError={() => setThumbFailed(true)}
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+              />
+            )}
+
+            {/* Top-left orientation video tag */}
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 10,
+                left: 10,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.6,
+                px: 1.25,
+                py: 0.4,
+                borderRadius: '20px',
+                bgcolor: 'rgba(0,0,0,0.28)',
                 color: '#ffffff',
               }}
             >
-              <Typography sx={{ fontSize: '11px', fontWeight: 600, color: '#ffffff', lineHeight: 1.3 }}>
-                {previewDuration}
+              <VideoIcon sx={{ fontSize: 14, color: '#ffffff' }} />
+              <Typography sx={{ fontSize: '11px', fontWeight: 500, color: '#ffffff', lineHeight: 1.2 }}>
+                Orientation video
               </Typography>
             </Box>
-          )}
-        </Box>
+
+            {/* Center play button */}
+            <Box
+              sx={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: 52,
+                height: 52,
+                borderRadius: '50%',
+                bgcolor: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.16)',
+                transition: 'transform 0.15s ease',
+                '&:hover': {
+                  transform: 'translate(-50%, -50%) scale(1.08)',
+                },
+              }}
+            >
+              <PlayIcon sx={{ fontSize: 28, color: '#1D9E75' }} />
+            </Box>
+
+            {/* Bottom-right duration chip */}
+            {previewDuration && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  bottom: 10,
+                  right: 10,
+                  px: 1,
+                  py: 0.25,
+                  borderRadius: '6px',
+                  bgcolor: 'rgba(0,0,0,0.45)',
+                  color: '#ffffff',
+                }}
+              >
+                <Typography sx={{ fontSize: '11px', fontWeight: 600, color: '#ffffff', lineHeight: 1.3 }}>
+                  {previewDuration}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        )}
 
         {/* Body */}
         <Box
+          onClick={() => {
+            if (canPlay) {
+              setIsPlaying((prev) => !prev);
+            }
+          }}
           sx={{
             px: '14px',
             py: '12px',
@@ -467,6 +561,7 @@ export function MobileCardLivePreview({
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 1.5,
+            cursor: canPlay ? 'pointer' : 'default',
           }}
         >
           <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -499,20 +594,27 @@ export function MobileCardLivePreview({
               </Typography>
             )}
           </Box>
-          <Box
-            sx={{
-              width: 30,
-              height: 30,
-              borderRadius: '8px',
-              bgcolor: '#e1f5ee',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <ExternalLinkIcon sx={{ fontSize: 16, color: '#1D9E75' }} />
-          </Box>
+          <Tooltip title={isPlaying ? 'Stop playback' : canPlay ? 'Play video inline' : 'No video source'}>
+            <Box
+              sx={{
+                width: 30,
+                height: 30,
+                borderRadius: '8px',
+                bgcolor: isPlaying ? '#fee2e2' : '#e1f5ee',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {isPlaying ? (
+                <StopIcon sx={{ fontSize: 18, color: '#dc2626' }} />
+              ) : (
+                <PlayIcon sx={{ fontSize: 18, color: '#1D9E75' }} />
+              )}
+            </Box>
+          </Tooltip>
         </Box>
       </Box>
     );
@@ -610,6 +712,7 @@ export function PatientAppResourcesSection({
 
   const [videoSource, setVideoSource] = useState<'url' | 'upload'>('url');
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [videoFileError, setVideoFileError] = useState<string | null>(null);
 
   const [thumbnailSource, setThumbnailSource] = useState<'url' | 'upload'>('url');
@@ -681,12 +784,19 @@ export function PatientAppResourcesSection({
       if (thumbnailPreviewUrl) {
         URL.revokeObjectURL(thumbnailPreviewUrl);
       }
+      if (videoPreviewUrl) {
+        URL.revokeObjectURL(videoPreviewUrl);
+      }
     };
-  }, [thumbnailPreviewUrl]);
+  }, [thumbnailPreviewUrl, videoPreviewUrl]);
 
   const handleVideoFileChange = (file: File | null) => {
     setVideoFile(file);
     setVideoFileError(null);
+    if (videoPreviewUrl) {
+      URL.revokeObjectURL(videoPreviewUrl);
+      setVideoPreviewUrl(null);
+    }
     if (!file) return;
 
     if (file.size > 100 * 1024 * 1024) {
@@ -694,12 +804,13 @@ export function PatientAppResourcesSection({
       return;
     }
 
+    const objUrl = URL.createObjectURL(file);
+    setVideoPreviewUrl(objUrl);
+
     try {
       const tempVideo = document.createElement('video');
       tempVideo.preload = 'metadata';
-      const objUrl = URL.createObjectURL(file);
       tempVideo.onloadedmetadata = () => {
-        URL.revokeObjectURL(objUrl);
         const durationSec = Math.round(tempVideo.duration);
         if (!Number.isNaN(durationSec) && durationSec > 0 && !form.duration_label) {
           const mins = Math.floor(durationSec / 60);
@@ -742,6 +853,8 @@ export function PatientAppResourcesSection({
     setTypeManuallyChosen(false);
     setVideoSource('url');
     setVideoFile(null);
+    if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
+    setVideoPreviewUrl(null);
     setVideoFileError(null);
     setThumbnailSource('url');
     setThumbnailFile(null);
@@ -772,6 +885,8 @@ export function PatientAppResourcesSection({
 
     setVideoSource(isUploadedVid ? 'upload' : 'url');
     setVideoFile(null);
+    if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
+    setVideoPreviewUrl(null);
     setVideoFileError(null);
     setThumbnailSource(isUploadedThumb ? 'upload' : 'url');
     setThumbnailFile(null);
@@ -797,6 +912,10 @@ export function PatientAppResourcesSection({
 
   const handleCloseDialog = () => {
     if (saving) return;
+    if (videoPreviewUrl) {
+      URL.revokeObjectURL(videoPreviewUrl);
+      setVideoPreviewUrl(null);
+    }
     setDialogOpen(false);
   };
 
@@ -2429,11 +2548,14 @@ export function PatientAppResourcesSection({
                     ? editingItem.thumbnail_url
                     : null)
                 }
+                overrideVideoUrl={
+                  videoPreviewUrl ||
+                  (form.type === 'video' && !videoFile && editingItem?.video_path ? editingItem.url : null)
+                }
               />
 
               <Typography sx={{ fontSize: '11.5px', color: '#6b7280', mt: 1.75, lineHeight: 1.45 }}>
-                Tapping this card in the mobile app opens the configured HTTPS URL externally in the patient&apos;s
-                browser or video app.
+                Click or tap this preview card anytime to test inline playback. In the mobile app, patients can play it directly in their feed (YouTube style) or tap fullscreen.
               </Typography>
             </Box>
           </Box>

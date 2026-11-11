@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/clinic_resource.dart';
-import '../utils/external_link_launcher.dart';
 import '../utils/video_thumbnail.dart';
+import 'fullscreen_video_page.dart';
+import 'inline_video_player.dart';
 
-class VideoResourceCard extends StatelessWidget {
+class VideoResourceCard extends StatefulWidget {
   const VideoResourceCard({
     super.key,
     required this.resource,
@@ -14,6 +15,70 @@ class VideoResourceCard extends StatelessWidget {
 
   final ClinicResource resource;
   final VoidCallback? onTapOverride;
+
+  /// Global notifier ensuring only one video card plays inline at any given time.
+  static final ValueNotifier<int?> activePlayingResourceId = ValueNotifier<int?>(null);
+
+  @override
+  State<VideoResourceCard> createState() => _VideoResourceCardState();
+}
+
+class _VideoResourceCardState extends State<VideoResourceCard> {
+  bool _isPlaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    VideoResourceCard.activePlayingResourceId.addListener(_onActivePlayerChanged);
+  }
+
+  @override
+  void dispose() {
+    VideoResourceCard.activePlayingResourceId.removeListener(_onActivePlayerChanged);
+    super.dispose();
+  }
+
+  void _onActivePlayerChanged() {
+    if (VideoResourceCard.activePlayingResourceId.value != widget.resource.id && _isPlaying) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+        });
+      }
+    }
+  }
+
+  void _startPlayback() {
+    if (widget.onTapOverride != null) {
+      widget.onTapOverride!();
+      return;
+    }
+
+    setState(() {
+      _isPlaying = true;
+    });
+    VideoResourceCard.activePlayingResourceId.value = widget.resource.id;
+  }
+
+  void _stopPlayback() {
+    setState(() {
+      _isPlaying = false;
+    });
+    if (VideoResourceCard.activePlayingResourceId.value == widget.resource.id) {
+      VideoResourceCard.activePlayingResourceId.value = null;
+    }
+  }
+
+  void _openFullscreen(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FullscreenVideoPage(
+          videoUrl: widget.resource.url,
+          title: widget.resource.title,
+        ),
+      ),
+    );
+  }
 
   String _buildSpokenDuration(BuildContext context, String? rawDuration) {
     final trimmed = rawDuration?.trim();
@@ -40,20 +105,20 @@ class VideoResourceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tagLabel = context.tr('learn_more_orientation_video');
-    final durationLabel = resource.durationLabel?.trim();
+    final durationLabel = widget.resource.durationLabel?.trim();
     final hasDuration = durationLabel != null && durationLabel.isNotEmpty;
-    final subtitle = resource.subtitle?.trim();
+    final subtitle = widget.resource.subtitle?.trim();
     final hasSubtitle = subtitle != null && subtitle.isNotEmpty;
 
     final thumbnailUrl = VideoThumbnail.resolve(
-      videoUrl: resource.url,
-      thumbnailUrl: resource.thumbnailUrl,
+      videoUrl: widget.resource.url,
+      thumbnailUrl: widget.resource.thumbnailUrl,
     );
 
     final semanticLabel = context.tr(
       'learn_more_video_semantics',
       params: {
-        'title': resource.title,
+        'title': widget.resource.title,
         'tag': tagLabel,
         'duration': _buildSpokenDuration(context, durationLabel),
       },
@@ -74,121 +139,137 @@ class VideoResourceCard extends StatelessWidget {
           ),
         ),
         clipBehavior: Clip.antiAlias,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTapOverride ?? () => openExternal(context, resource.url),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  height: 150,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      const _TealGradientFallback(),
-                      if (thumbnailUrl != null)
-                        Image.network(
-                          thumbnailUrl,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return const _TealGradientFallback();
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            return const _TealGradientFallback();
-                          },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Top area: either inline player or thumbnail preview
+            if (_isPlaying)
+              InlineVideoPlayer(
+                videoUrl: widget.resource.url,
+                title: widget.resource.title,
+                onClose: _stopPlayback,
+                onFullscreen: () => _openFullscreen(context),
+              )
+            else
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _startPlayback,
+                  child: SizedBox(
+                    height: 150,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        const _TealGradientFallback(),
+                        if (thumbnailUrl != null)
+                          Image.network(
+                            thumbnailUrl,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const _TealGradientFallback();
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return const _TealGradientFallback();
+                            },
+                          ),
+                        // Top-left Orientation video tag
+                        Positioned(
+                          top: 10,
+                          left: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color.fromRGBO(0, 0, 0, 0.28),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.videocam_outlined,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  tagLabel,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      // Top-left Orientation video tag
-                      Positioned(
-                        top: 10,
-                        left: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
+                        // Center 52x52 white play circle with teal play icon & soft shadow
+                        Center(
+                          child: Container(
+                            width: 52,
+                            height: 52,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Color.fromRGBO(0, 0, 0, 0.16),
+                                  blurRadius: 12,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
+                              size: 28,
+                              color: Color(0xFF1D9E75),
+                            ),
                           ),
-                          decoration: BoxDecoration(
-                            color: const Color.fromRGBO(0, 0, 0, 0.28),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.videocam_outlined,
-                                size: 14,
-                                color: Colors.white,
+                        ),
+                        // Bottom-right duration chip
+                        if (hasDuration)
+                          Positioned(
+                            right: 10,
+                            bottom: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
                               ),
-                              const SizedBox(width: 5),
-                              Text(
-                                tagLabel,
+                              decoration: BoxDecoration(
+                                color: const Color.fromRGBO(0, 0, 0, 0.45),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                durationLabel,
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
                                   height: 1.2,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      // Center 52x52 white play circle with teal play icon & soft shadow
-                      Center(
-                        child: Container(
-                          width: 52,
-                          height: 52,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Color.fromRGBO(0, 0, 0, 0.16),
-                                blurRadius: 12,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.play_arrow_rounded,
-                            size: 28,
-                            color: Color(0xFF1D9E75),
-                          ),
-                        ),
-                      ),
-                      // Bottom-right duration chip
-                      if (hasDuration)
-                        Positioned(
-                          right: 10,
-                          bottom: 10,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color.fromRGBO(0, 0, 0, 0.45),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              durationLabel,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                height: 1.2,
-                              ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-                // Card body (padding 12x14)
-                Padding(
+              ),
+
+            // Card body (padding 12x14)
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _isPlaying ? _stopPlayback : _startPlayback,
+                child: Padding(
                   padding: const EdgeInsets.symmetric(
                     vertical: 12,
                     horizontal: 14,
@@ -202,7 +283,7 @@ class VideoResourceCard extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              resource.title,
+                              widget.resource.title,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -229,26 +310,33 @@ class VideoResourceCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
+                      // Action icon button
                       Container(
                         width: 30,
                         height: 30,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE1F5EE),
+                          color: _isPlaying
+                              ? const Color(0xFFFEE2E2)
+                              : const Color(0xFFE1F5EE),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.open_in_new_rounded,
-                          size: 16,
-                          color: Color(0xFF1D9E75),
+                        child: Icon(
+                          _isPlaying
+                              ? Icons.stop_rounded
+                              : Icons.play_arrow_rounded,
+                          size: 18,
+                          color: _isPlaying
+                              ? const Color(0xFFDC2626)
+                              : const Color(0xFF1D9E75),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

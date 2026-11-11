@@ -47,6 +47,8 @@ dependencies:
   google_sign_in: ^6.2.2
   url_launcher: ^6.3.2
   flutter_svg: ^2.3.0
+  video_player: ^2.14.1
+  youtube_player_flutter: ^10.0.1
 
 dev_dependencies:
   flutter_test:

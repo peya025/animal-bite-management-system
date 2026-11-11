@@ -73,4 +73,20 @@ class PublicStorageCharacterizationTest extends TestCase
         $this->assertEquals('{"status":"ok"}', $response->getContent());
         $this->assertStringContainsString('application/json', $response->headers->get('Content-Type'));
     }
+
+    public function test_serve_supports_http_range_requests_for_video_streaming(): void
+    {
+        $videoBytes = '0123456789ABCDEF0123456789ABCDEF'; // 32 bytes
+        Storage::disk('public')->put('clinic-resources/videos/sample.mp4', $videoBytes);
+
+        $response = $this->get('/api/storage/clinic-resources/videos/sample.mp4', [
+            'Range' => 'bytes=0-9',
+        ]);
+
+        $response->assertStatus(206);
+        $this->assertEquals('0123456789', $response->getContent());
+        $this->assertEquals('bytes 0-9/32', $response->headers->get('Content-Range'));
+        $this->assertEquals('bytes', $response->headers->get('Accept-Ranges'));
+        $this->assertEquals('10', $response->headers->get('Content-Length'));
+    }
 }

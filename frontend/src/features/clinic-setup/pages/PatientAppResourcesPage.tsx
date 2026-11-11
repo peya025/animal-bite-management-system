@@ -2432,8 +2432,7 @@ export function PatientAppResourcesSection({
               />
 
               <Typography sx={{ fontSize: '11.5px', color: '#6b7280', mt: 1.75, lineHeight: 1.45 }}>
-                Tapping this card in the mobile app opens the configured HTTPS URL externally in the patient&apos;s
-                browser or video app.
+                Tapping this card in the mobile app plays the video instantly right inside the app with YouTube-style playback controls and fullscreen mode.
               </Typography>
             </Box>
           </Box>

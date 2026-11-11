@@ -17,17 +17,17 @@ class VideoThumbnail {
     final trimmedThumb = thumbnailUrl?.trim();
     if (trimmedThumb != null &&
         trimmedThumb.isNotEmpty &&
-        trimmedThumb.startsWith('https://')) {
+        (trimmedThumb.startsWith('https://') || trimmedThumb.startsWith('http://'))) {
       final thumbUri = Uri.tryParse(trimmedThumb);
       if (thumbUri != null &&
-          thumbUri.scheme == 'https' &&
+          (thumbUri.scheme == 'https' || thumbUri.scheme == 'http') &&
           thumbUri.host.isNotEmpty) {
         return trimmedThumb;
       }
     }
 
     final uri = Uri.tryParse(videoUrl.trim());
-    if (uri == null || uri.scheme != 'https') {
+    if (uri == null || (uri.scheme != 'https' && uri.scheme != 'http')) {
       return null;
     }
 

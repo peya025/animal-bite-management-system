@@ -9,6 +9,8 @@ use App\Models\PatientAccount;
 use App\Models\User;
 use Database\Seeders\ClinicResourceSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -326,5 +328,141 @@ class ClinicResourceTest extends TestCase
 
         $this->assertSame(2, ClinicResource::where('clinic_id', $this->clinic->id)->count());
         $this->assertSame(0, ClinicResource::where('clinic_id', $this->otherClinic->id)->count());
+    }
+
+    public function test_admin_can_upload_video_and_thumbnail_files_for_resource(): void
+    {
+        Storage::fake('public');
+        Sanctum::actingAs($this->admin);
+
+        $fakeVideo = UploadedFile::fake()->create('orientation.mp4', 5000, 'video/mp4');
+        $fakeThumbnail = UploadedFile::fake()->image('thumb.png', 640, 360);
+
+        $response = $this->postJson('/api/setup/clinic-resources', [
+            'type' => 'video',
+            'title' => 'Uploaded Video Guide',
+            'subtitle' => 'Self-hosted orientation',
+            'duration_label' => '4:20',
+            'video_file' => $fakeVideo,
+            'thumbnail_file' => $fakeThumbnail,
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.title', 'Uploaded Video Guide')
+            ->assertJsonPath('data.duration_label', '4:20');
+
+        $resourceId = $response->json('data.id');
+        $resource = ClinicResource::findOrFail($resourceId);
+
+        $this->assertNotNull($resource->video_path);
+        $this->assertNotNull($resource->thumbnail_path);
+        $this->assertStringContainsString('/api/storage/' . $resource->video_path, $resource->url);
+        $this->assertStringContainsString('/api/storage/' . $resource->thumbnail_path, $resource->thumbnail_url);
+
+        Storage::disk('public')->assertExists($resource->video_path);
+        Storage::disk('public')->assertExists($resource->thumbnail_path);
+    }
+
+    public function test_updating_uploaded_files_replaces_and_cleans_up_old_files(): void
+    {
+        Storage::fake('public');
+        Sanctum::actingAs($this->admin);
+
+        $initialVideo = UploadedFile::fake()->create('first.mp4', 1000, 'video/mp4');
+        $initialThumb = UploadedFile::fake()->image('first.jpg');
+
+        $createRes = $this->postJson('/api/setup/clinic-resources', [
+            'type' => 'video',
+            'title' => 'Initial Resource',
+            'video_file' => $initialVideo,
+            'thumbnail_file' => $initialThumb,
+        ])->assertCreated();
+
+        $resourceId = $createRes->json('data.id');
+        $oldResource = ClinicResource::findOrFail($resourceId);
+        $oldVideoPath = $oldResource->video_path;
+        $oldThumbPath = $oldResource->thumbnail_path;
+
+        Storage::disk('public')->assertExists($oldVideoPath);
+        Storage::disk('public')->assertExists($oldThumbPath);
+
+        // Update with new files
+        $newVideo = UploadedFile::fake()->create('second.webm', 2000, 'video/webm');
+        $newThumb = UploadedFile::fake()->image('second.png');
+
+        $updateRes = $this->postJson("/api/setup/clinic-resources/{$resourceId}", [
+            '_method' => 'PUT',
+            'title' => 'Updated Video Resource',
+            'video_file' => $newVideo,
+            'thumbnail_file' => $newThumb,
+        ])->assertOk();
+
+        $freshResource = $oldResource->fresh();
+
+        $this->assertNotEquals($oldVideoPath, $freshResource->video_path);
+        $this->assertNotEquals($oldThumbPath, $freshResource->thumbnail_path);
+
+        // Old files must be deleted
+        Storage::disk('public')->assertMissing($oldVideoPath);
+        Storage::disk('public')->assertMissing($oldThumbPath);
+
+        // New files must exist
+        Storage::disk('public')->assertExists($freshResource->video_path);
+        Storage::disk('public')->assertExists($freshResource->thumbnail_path);
+    }
+
+    public function test_deleting_resource_cleans_up_storage_files(): void
+    {
+        Storage::fake('public');
+        Sanctum::actingAs($this->admin);
+
+        $video = UploadedFile::fake()->create('cleanup_test.mp4', 1000, 'video/mp4');
+        $thumb = UploadedFile::fake()->image('cleanup_thumb.jpg');
+
+        $createRes = $this->postJson('/api/setup/clinic-resources', [
+            'type' => 'video',
+            'title' => 'Delete Me Later',
+            'video_file' => $video,
+            'thumbnail_file' => $thumb,
+        ])->assertCreated();
+
+        $resourceId = $createRes->json('data.id');
+        $resource = ClinicResource::findOrFail($resourceId);
+        $videoPath = $resource->video_path;
+        $thumbPath = $resource->thumbnail_path;
+
+        Storage::disk('public')->assertExists($videoPath);
+        Storage::disk('public')->assertExists($thumbPath);
+
+        $this->deleteJson("/api/setup/clinic-resources/{$resourceId}")->assertOk();
+
+        $this->assertDatabaseMissing('clinic_resources', ['id' => $resourceId]);
+        Storage::disk('public')->assertMissing($videoPath);
+        Storage::disk('public')->assertMissing($thumbPath);
+    }
+
+    public function test_invalid_file_uploads_are_rejected(): void
+    {
+        Storage::fake('public');
+        Sanctum::actingAs($this->admin);
+
+        // Non-video file uploaded to video_file
+        $notVideo = UploadedFile::fake()->create('bad.txt', 500, 'text/plain');
+        $this->postJson('/api/setup/clinic-resources', [
+            'type' => 'video',
+            'title' => 'Invalid Video File',
+            'video_file' => $notVideo,
+        ])->assertStatus(422)
+          ->assertJsonValidationErrors(['video_file']);
+
+        // Non-image file uploaded to thumbnail_file
+        $notImage = UploadedFile::fake()->create('bad_thumb.pdf', 500, 'application/pdf');
+        $this->postJson('/api/setup/clinic-resources', [
+            'type' => 'video',
+            'title' => 'Invalid Thumbnail File',
+            'url' => 'https://example.com/video',
+            'thumbnail_file' => $notImage,
+        ])->assertStatus(422)
+          ->assertJsonValidationErrors(['thumbnail_file']);
     }
 }

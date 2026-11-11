@@ -11,6 +11,7 @@ use App\Models\ClinicResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ClinicResourceController extends Controller
 {
@@ -40,6 +41,22 @@ class ClinicResourceController extends Controller
         $clinicId = (int) $request->user()->clinic_id;
         $validated = $request->validated();
 
+        $videoPath = null;
+        if ($request->hasFile('video_file')) {
+            $videoPath = $request->file('video_file')->store('clinic-resources/videos', 'public');
+            $validated['video_path'] = $videoPath;
+            $validated['url'] = url('/api/storage/' . $videoPath);
+        }
+
+        $thumbnailPath = null;
+        if ($request->hasFile('thumbnail_file')) {
+            $thumbnailPath = $request->file('thumbnail_file')->store('clinic-resources/thumbnails', 'public');
+            $validated['thumbnail_path'] = $thumbnailPath;
+            $validated['thumbnail_url'] = url('/api/storage/' . $thumbnailPath);
+        }
+
+        unset($validated['video_file'], $validated['thumbnail_file']);
+
         if (!array_key_exists('sort_order', $validated) || $validated['sort_order'] === null) {
             $maxOrder = ClinicResource::query()
                 ->where('clinic_id', $clinicId)
@@ -51,10 +68,20 @@ class ClinicResourceController extends Controller
             $validated['is_active'] = true;
         }
 
-        $resource = ClinicResource::create([
-            ...$validated,
-            'clinic_id' => $clinicId,
-        ]);
+        try {
+            $resource = ClinicResource::create([
+                ...$validated,
+                'clinic_id' => $clinicId,
+            ]);
+        } catch (\Throwable $e) {
+            if ($videoPath) {
+                Storage::disk('public')->delete($videoPath);
+            }
+            if ($thumbnailPath) {
+                Storage::disk('public')->delete($thumbnailPath);
+            }
+            throw $e;
+        }
 
         AuditLog::logCreated('ClinicResource', $resource->id, $resource->toArray());
 
@@ -75,8 +102,56 @@ class ClinicResourceController extends Controller
             ->where('clinic_id', $clinicId)
             ->findOrFail($id);
 
+        $validated = $request->validated();
+        $oldVideoPath = $resource->video_path;
+        $oldThumbPath = $resource->thumbnail_path;
+
+        $newVideoPath = null;
+        if ($request->hasFile('video_file')) {
+            $newVideoPath = $request->file('video_file')->store('clinic-resources/videos', 'public');
+            $validated['video_path'] = $newVideoPath;
+            $validated['url'] = url('/api/storage/' . $newVideoPath);
+        } elseif ($request->boolean('remove_video_file') || (!empty($validated['url']) && $validated['url'] !== $resource->url && !$request->hasFile('video_file'))) {
+            // Replaced with external URL or requested video file removal
+            $validated['video_path'] = null;
+        }
+
+        $newThumbPath = null;
+        if ($request->hasFile('thumbnail_file')) {
+            $newThumbPath = $request->file('thumbnail_file')->store('clinic-resources/thumbnails', 'public');
+            $validated['thumbnail_path'] = $newThumbPath;
+            $validated['thumbnail_url'] = url('/api/storage/' . $newThumbPath);
+        } elseif ($request->boolean('remove_thumbnail') || $request->boolean('remove_thumbnail_file')) {
+            $validated['thumbnail_path'] = null;
+            $validated['thumbnail_url'] = null;
+        } elseif (array_key_exists('thumbnail_url', $validated) && $validated['thumbnail_url'] !== null && $validated['thumbnail_url'] !== $resource->thumbnail_url) {
+            // Provided a new external thumbnail URL
+            $validated['thumbnail_path'] = null;
+        }
+
+        unset($validated['video_file'], $validated['thumbnail_file'], $validated['remove_thumbnail'], $validated['remove_thumbnail_file'], $validated['remove_video_file']);
+
         $oldValues = $resource->toArray();
-        $resource->update($request->validated());
+
+        try {
+            $resource->update($validated);
+        } catch (\Throwable $e) {
+            if ($newVideoPath) {
+                Storage::disk('public')->delete($newVideoPath);
+            }
+            if ($newThumbPath) {
+                Storage::disk('public')->delete($newThumbPath);
+            }
+            throw $e;
+        }
+
+        if ($oldVideoPath && $oldVideoPath !== $resource->video_path) {
+            Storage::disk('public')->delete($oldVideoPath);
+        }
+        if ($oldThumbPath && $oldThumbPath !== $resource->thumbnail_path) {
+            Storage::disk('public')->delete($oldThumbPath);
+        }
+
         $fresh = $resource->fresh();
 
         AuditLog::logUpdated('ClinicResource', $resource->id, $oldValues, $fresh->toArray());

@@ -27,11 +27,16 @@ import {
   ArrowDownward as ArrowDownwardIcon,
   ArrowUpward as ArrowUpwardIcon,
   AccountBalanceOutlined as BuildingIcon,
+  CheckCircleOutlined as CheckCircleIcon,
+  Close as ClearIcon,
+  CloudUploadOutlined as CloudUploadIcon,
   DeleteOutlined as DeleteIcon,
   EditOutlined as EditIcon,
   ErrorOutlined as ErrorOutlineIcon,
+  ImageOutlined as ImageIcon,
   Language as GlobeIcon,
   Link as LinkIcon,
+  MovieOutlined as MovieIcon,
   OpenInNew as ExternalLinkIcon,
   PhoneIphone as PhoneIphoneIcon,
   PlayArrowRounded as PlayIcon,
@@ -52,7 +57,9 @@ export interface ClinicResourceItem {
   title: string;
   subtitle: string | null;
   url: string;
+  video_path?: string | null;
   thumbnail_url: string | null;
+  thumbnail_path?: string | null;
   duration_label: string | null;
   sort_order: number;
   is_active: boolean;
@@ -163,8 +170,26 @@ function resolveVideoThumbnail(url: string, thumbnailUrl?: string | null): strin
   return null;
 }
 
-function validateForm(form: ResourceFormState): Partial<Record<keyof ResourceFormState, string>> {
-  const errors: Partial<Record<keyof ResourceFormState, string>> = {};
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function validateForm(
+  form: ResourceFormState,
+  options?: {
+    videoSource?: 'url' | 'upload';
+    hasVideoFile?: boolean;
+    hasExistingVideo?: boolean;
+    videoFileSize?: number;
+    thumbnailSource?: 'url' | 'upload';
+    hasThumbnailFile?: boolean;
+    thumbnailFileSize?: number;
+  }
+): Partial<Record<keyof ResourceFormState | 'video_file' | 'thumbnail_file', string>> {
+  const errors: Partial<Record<keyof ResourceFormState | 'video_file' | 'thumbnail_file', string>> = {};
 
   if (form.type !== 'video' && form.type !== 'link') {
     errors.type = 'Resource type must be Video or Website Link.';
@@ -181,22 +206,39 @@ function validateForm(form: ResourceFormState): Partial<Record<keyof ResourceFor
     errors.subtitle = 'Description must not exceed 160 characters.';
   }
 
-  const trimmedUrl = form.url.trim();
-  if (!trimmedUrl) {
-    errors.url = 'HTTPS URL is required.';
-  } else if (trimmedUrl.length > 500) {
-    errors.url = 'HTTPS URL must not exceed 500 characters.';
-  } else if (!isValidHttpsUrl(trimmedUrl)) {
-    errors.url = 'Enter a valid URL starting with https:// (unsafe or http:// links are rejected).';
+  const isVideoUpload = form.type === 'video' && options?.videoSource === 'upload';
+
+  if (isVideoUpload) {
+    if (!options?.hasVideoFile && !options?.hasExistingVideo) {
+      errors.video_file = 'Please choose a video file to upload (MP4, WebM, or MOV).';
+    } else if (options?.hasVideoFile && options?.videoFileSize && options.videoFileSize > 100 * 1024 * 1024) {
+      errors.video_file = 'Video file size must not exceed 100MB.';
+    }
+  } else {
+    const trimmedUrl = form.url.trim();
+    if (!trimmedUrl) {
+      errors.url = 'HTTPS URL is required.';
+    } else if (trimmedUrl.length > 500) {
+      errors.url = 'HTTPS URL must not exceed 500 characters.';
+    } else if (!isValidHttpsUrl(trimmedUrl)) {
+      errors.url = 'Enter a valid URL starting with https:// (unsafe or http:// links are rejected).';
+    }
   }
 
   if (form.type === 'video') {
-    const trimmedThumb = form.thumbnail_url.trim();
-    if (trimmedThumb) {
-      if (trimmedThumb.length > 500) {
-        errors.thumbnail_url = 'Thumbnail URL must not exceed 500 characters.';
-      } else if (!isValidHttpsUrl(trimmedThumb)) {
-        errors.thumbnail_url = 'Thumbnail URL must be a valid https:// address.';
+    const isThumbUpload = options?.thumbnailSource === 'upload';
+    if (isThumbUpload) {
+      if (options?.hasThumbnailFile && options?.thumbnailFileSize && options.thumbnailFileSize > 5 * 1024 * 1024) {
+        errors.thumbnail_file = 'Thumbnail image must not exceed 5MB.';
+      }
+    } else {
+      const trimmedThumb = form.thumbnail_url.trim();
+      if (trimmedThumb) {
+        if (trimmedThumb.length > 500) {
+          errors.thumbnail_url = 'Thumbnail URL must not exceed 500 characters.';
+        } else if (!isValidHttpsUrl(trimmedThumb)) {
+          errors.thumbnail_url = 'Thumbnail URL must be a valid https:// address.';
+        }
       }
     }
 
@@ -261,9 +303,11 @@ function FieldErrorText({ id, message }: { id: string; message?: string }) {
 export function MobileCardLivePreview({
   form,
   allowPlaceholders = true,
+  overrideThumbnailUrl,
 }: {
   form: Pick<ResourceFormState, 'type' | 'title' | 'subtitle' | 'url' | 'thumbnail_url' | 'duration_label'>;
   allowPlaceholders?: boolean;
+  overrideThumbnailUrl?: string | null;
 }) {
   const hasRealTitle = form.title.trim().length > 0;
   const previewTitle =
@@ -281,8 +325,8 @@ export function MobileCardLivePreview({
   const previewDuration = form.duration_label?.trim() || '';
   const previewDomain = form.url.trim() ? extractDomain(form.url) : 'doh.gov.ph';
   const resolvedThumb = useMemo(
-    () => (form.type === 'video' ? resolveVideoThumbnail(form.url, form.thumbnail_url) : null),
-    [form.type, form.url, form.thumbnail_url]
+    () => overrideThumbnailUrl || (form.type === 'video' ? resolveVideoThumbnail(form.url, form.thumbnail_url) : null),
+    [overrideThumbnailUrl, form.type, form.url, form.thumbnail_url]
   );
   const [thumbFailed, setThumbFailed] = useState(false);
 
@@ -564,6 +608,15 @@ export function PatientAppResourcesSection({
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
+  const [videoSource, setVideoSource] = useState<'url' | 'upload'>('url');
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoFileError, setVideoFileError] = useState<string | null>(null);
+
+  const [thumbnailSource, setThumbnailSource] = useState<'url' | 'upload'>('url');
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState<string | null>(null);
+  const [removeThumbnail, setRemoveThumbnail] = useState<boolean>(false);
+
   const [previewItem, setPreviewItem] = useState<ClinicResourceItem | null>(null);
   const [showSectionPreview, setShowSectionPreview] = useState(true);
 
@@ -580,7 +633,19 @@ export function PatientAppResourcesSection({
     severity: 'success',
   });
 
-  const validationErrors = useMemo(() => validateForm(form), [form]);
+  const validationErrors = useMemo(
+    () =>
+      validateForm(form, {
+        videoSource,
+        hasVideoFile: Boolean(videoFile),
+        hasExistingVideo: Boolean(editingItem?.video_path),
+        videoFileSize: videoFile?.size,
+        thumbnailSource,
+        hasThumbnailFile: Boolean(thumbnailFile),
+        thumbnailFileSize: thumbnailFile?.size,
+      }),
+    [form, videoSource, videoFile, editingItem, thumbnailSource, thumbnailFile]
+  );
 
   const activeResources = useMemo(
     () => resources.filter((item) => Boolean(item.is_active)),
@@ -611,6 +676,56 @@ export function PatientAppResourcesSection({
     void fetchResources();
   }, [fetchResources, refreshTrigger]);
 
+  useEffect(() => {
+    return () => {
+      if (thumbnailPreviewUrl) {
+        URL.revokeObjectURL(thumbnailPreviewUrl);
+      }
+    };
+  }, [thumbnailPreviewUrl]);
+
+  const handleVideoFileChange = (file: File | null) => {
+    setVideoFile(file);
+    setVideoFileError(null);
+    if (!file) return;
+
+    if (file.size > 100 * 1024 * 1024) {
+      setVideoFileError('Video file size exceeds 100MB.');
+      return;
+    }
+
+    try {
+      const tempVideo = document.createElement('video');
+      tempVideo.preload = 'metadata';
+      const objUrl = URL.createObjectURL(file);
+      tempVideo.onloadedmetadata = () => {
+        URL.revokeObjectURL(objUrl);
+        const durationSec = Math.round(tempVideo.duration);
+        if (!Number.isNaN(durationSec) && durationSec > 0 && !form.duration_label) {
+          const mins = Math.floor(durationSec / 60);
+          const secs = durationSec % 60;
+          setForm((prev) => ({ ...prev, duration_label: `${mins}:${secs < 10 ? '0' : ''}${secs}` }));
+        }
+      };
+      tempVideo.src = objUrl;
+    } catch {
+      // Ignore if metadata extraction is not supported
+    }
+  };
+
+  const handleThumbnailFileChange = (file: File | null) => {
+    setThumbnailFile(file);
+    setRemoveThumbnail(false);
+    if (thumbnailPreviewUrl) {
+      URL.revokeObjectURL(thumbnailPreviewUrl);
+    }
+    if (file) {
+      setThumbnailPreviewUrl(URL.createObjectURL(file));
+    } else {
+      setThumbnailPreviewUrl(null);
+    }
+  };
+
   const handleOpenCreate = (prefillUrl?: string) => {
     const trimmedUrl = (prefillUrl ?? '').trim();
     if (trimmedUrl && !isValidHttpsUrl(trimmedUrl)) {
@@ -625,6 +740,15 @@ export function PatientAppResourcesSection({
 
     setEditingItem(null);
     setTypeManuallyChosen(false);
+    setVideoSource('url');
+    setVideoFile(null);
+    setVideoFileError(null);
+    setThumbnailSource('url');
+    setThumbnailFile(null);
+    if (thumbnailPreviewUrl) URL.revokeObjectURL(thumbnailPreviewUrl);
+    setThumbnailPreviewUrl(null);
+    setRemoveThumbnail(false);
+
     setForm({
       ...INITIAL_FORM_STATE,
       type: detectedType,
@@ -643,6 +767,18 @@ export function PatientAppResourcesSection({
   const handleOpenEdit = (item: ClinicResourceItem) => {
     setEditingItem(item);
     setTypeManuallyChosen(true);
+    const isUploadedVid = Boolean(item.video_path || (item.url && item.url.includes('/api/storage/')));
+    const isUploadedThumb = Boolean(item.thumbnail_path || (item.thumbnail_url && item.thumbnail_url.includes('/api/storage/')));
+
+    setVideoSource(isUploadedVid ? 'upload' : 'url');
+    setVideoFile(null);
+    setVideoFileError(null);
+    setThumbnailSource(isUploadedThumb ? 'upload' : 'url');
+    setThumbnailFile(null);
+    if (thumbnailPreviewUrl) URL.revokeObjectURL(thumbnailPreviewUrl);
+    setThumbnailPreviewUrl(null);
+    setRemoveThumbnail(false);
+
     setForm({
       type: item.type,
       title: item.title ?? '',
@@ -668,8 +804,8 @@ export function PatientAppResourcesSection({
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
-  const showFieldError = (field: keyof ResourceFormState): string | undefined => {
-    if (!touched[field] && !submitAttempted) return undefined;
+  const showFieldError = (field: keyof ResourceFormState | 'video_file' | 'thumbnail_file'): string | undefined => {
+    if (!touched[field as keyof ResourceFormState] && !submitAttempted) return undefined;
     return validationErrors[field];
   };
 
@@ -693,32 +829,72 @@ export function PatientAppResourcesSection({
 
     setSaving(true);
     try {
-      const payload = {
-        type: form.type,
-        title: form.title.trim(),
-        subtitle: form.subtitle.trim() || null,
-        url: form.url.trim(),
-        thumbnail_url: form.type === 'video' ? form.thumbnail_url.trim() || null : null,
-        duration_label: form.type === 'video' ? form.duration_label.trim() || null : null,
-        sort_order: Number(form.sort_order) || 0,
-        is_active: form.is_active,
-      };
+      const isVideoUpload = form.type === 'video' && videoSource === 'upload';
+      const isThumbUpload = form.type === 'video' && thumbnailSource === 'upload';
 
-      if (editingItem) {
-        await api.put(`/setup/clinic-resources/${editingItem.id}`, payload);
-        setSnackbar({
-          open: true,
-          message: 'Resource updated successfully.',
-          severity: 'success',
-        });
+      if (isVideoUpload || isThumbUpload || videoFile || thumbnailFile || removeThumbnail) {
+        const formData = new FormData();
+        formData.append('type', form.type);
+        formData.append('title', form.title.trim());
+        if (form.subtitle.trim()) formData.append('subtitle', form.subtitle.trim());
+        if (!isVideoUpload && form.url.trim()) {
+          formData.append('url', form.url.trim());
+        }
+        if (form.type === 'video' && form.duration_label.trim()) {
+          formData.append('duration_label', form.duration_label.trim());
+        }
+        formData.append('sort_order', String(Number(form.sort_order) || 0));
+        formData.append('is_active', form.is_active ? '1' : '0');
+
+        if (videoFile) {
+          formData.append('video_file', videoFile);
+        } else if (!isVideoUpload && editingItem?.video_path) {
+          formData.append('remove_video_file', '1');
+        }
+
+        if (thumbnailFile) {
+          formData.append('thumbnail_file', thumbnailFile);
+        } else if (removeThumbnail) {
+          formData.append('remove_thumbnail', '1');
+        } else if (!isThumbUpload && form.type === 'video') {
+          if (form.thumbnail_url.trim()) {
+            formData.append('thumbnail_url', form.thumbnail_url.trim());
+          }
+          if (editingItem?.thumbnail_path) {
+            formData.append('remove_thumbnail_file', '1');
+          }
+        }
+
+        if (editingItem) {
+          formData.append('_method', 'PUT');
+          await api.post(`/setup/clinic-resources/${editingItem.id}`, formData);
+        } else {
+          await api.post('/setup/clinic-resources', formData);
+        }
       } else {
-        await api.post('/setup/clinic-resources', payload);
-        setSnackbar({
-          open: true,
-          message: 'Resource added successfully.',
-          severity: 'success',
-        });
+        const payload = {
+          type: form.type,
+          title: form.title.trim(),
+          subtitle: form.subtitle.trim() || null,
+          url: form.url.trim(),
+          thumbnail_url: form.type === 'video' ? form.thumbnail_url.trim() || null : null,
+          duration_label: form.type === 'video' ? form.duration_label.trim() || null : null,
+          sort_order: Number(form.sort_order) || 0,
+          is_active: form.is_active,
+        };
+
+        if (editingItem) {
+          await api.put(`/setup/clinic-resources/${editingItem.id}`, payload);
+        } else {
+          await api.post('/setup/clinic-resources', payload);
+        }
       }
+
+      setSnackbar({
+        open: true,
+        message: editingItem ? 'Resource updated successfully.' : 'Resource added successfully.',
+        severity: 'success',
+      });
 
       setDialogOpen(false);
       await fetchResources();
@@ -1221,27 +1397,48 @@ export function PatientAppResourcesSection({
                             )}
                           </th>
                           <td>
-                            <Box
-                              component="a"
-                              href={item.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              sx={{
-                                color: '#1D9E75',
-                                textDecoration: 'none',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 0.5,
-                                maxWidth: 240,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                fontSize: '12.5px',
-                                '&:hover': { textDecoration: 'underline' },
-                              }}
-                            >
-                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.url}</span>
-                              <ExternalLinkIcon sx={{ fontSize: 13, flexShrink: 0 }} />
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxWidth: 240 }}>
+                              <Box
+                                component="a"
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{
+                                  color: '#1D9E75',
+                                  textDecoration: 'none',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 0.5,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  fontSize: '12.5px',
+                                  '&:hover': { textDecoration: 'underline' },
+                                }}
+                              >
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.url}</span>
+                                <ExternalLinkIcon sx={{ fontSize: 13, flexShrink: 0 }} />
+                              </Box>
+                              {(item.video_path || item.thumbnail_path) && (
+                                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                  {item.video_path && (
+                                    <Chip
+                                      size="small"
+                                      label="Uploaded Video"
+                                      icon={<MovieIcon style={{ fontSize: 12 }} />}
+                                      sx={{ height: 18, fontSize: '10px', bgcolor: '#ecfdf5', color: '#047857' }}
+                                    />
+                                  )}
+                                  {item.thumbnail_path && (
+                                    <Chip
+                                      size="small"
+                                      label="Custom Thumb"
+                                      icon={<ImageIcon style={{ fontSize: 12 }} />}
+                                      sx={{ height: 18, fontSize: '10px', bgcolor: '#f0fdf4', color: '#047857' }}
+                                    />
+                                  )}
+                                </Box>
+                              )}
                             </Box>
                           </td>
                           <td>
@@ -1540,41 +1737,258 @@ export function PatientAppResourcesSection({
                 </Select>
               </Box>
 
-              <Box>
-                <Typography
-                  component="label"
-                  htmlFor="resource-url"
-                  sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}
-                >
-                  HTTPS URL *
-                </Typography>
-                <Typography id="resource-url-hint" sx={{ fontSize: 11.5, color: '#6b7280', mb: 0.5 }}>
-                  Must start with https:// (for example, https://www.youtube.com/watch?v=... or https://doh.gov.ph/...)
-                </Typography>
-                <TextField
-                  id="resource-url"
-                  type="url"
-                  fullWidth
-                  size="small"
-                  required
-                  placeholder="https://"
-                  value={form.url}
-                  onChange={(e) => handleUrlInputChange(e.target.value)}
-                  onBlur={() => markTouched('url')}
-                  error={Boolean(showFieldError('url'))}
-                  slotProps={{
-                    htmlInput: {
-                      maxLength: 500,
-                      pattern: 'https://.*',
-                      'aria-describedby': 'resource-url-hint',
-                      'aria-errormessage': showFieldError('url') ? 'resource-url-error' : undefined,
-                      'aria-invalid': Boolean(showFieldError('url')),
-                    },
-                  }}
-                  sx={fieldSx}
-                />
-                <FieldErrorText id="resource-url-error" message={showFieldError('url')} />
-              </Box>
+              {form.type === 'video' ? (
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+                    <Typography
+                      component="label"
+                      sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}
+                    >
+                      Video Source *
+                    </Typography>
+                    <Box sx={{ display: 'flex', bgcolor: '#f3f4f6', p: 0.5, borderRadius: '8px', gap: 0.5 }}>
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          setVideoSource('url');
+                          markTouched('url');
+                        }}
+                        startIcon={<LinkIcon sx={{ fontSize: 14 }} />}
+                        sx={{
+                          py: 0.3,
+                          px: 1,
+                          fontSize: '11.5px',
+                          fontWeight: videoSource === 'url' ? 600 : 500,
+                          color: videoSource === 'url' ? '#111827' : '#6b7280',
+                          bgcolor: videoSource === 'url' ? '#ffffff' : 'transparent',
+                          boxShadow: videoSource === 'url' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                          borderRadius: '6px',
+                          textTransform: 'none',
+                          minWidth: 0,
+                        }}
+                      >
+                        Paste URL
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          setVideoSource('upload');
+                        }}
+                        startIcon={<CloudUploadIcon sx={{ fontSize: 14 }} />}
+                        sx={{
+                          py: 0.3,
+                          px: 1,
+                          fontSize: '11.5px',
+                          fontWeight: videoSource === 'upload' ? 600 : 500,
+                          color: videoSource === 'upload' ? '#111827' : '#6b7280',
+                          bgcolor: videoSource === 'upload' ? '#ffffff' : 'transparent',
+                          boxShadow: videoSource === 'upload' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                          borderRadius: '6px',
+                          textTransform: 'none',
+                          minWidth: 0,
+                        }}
+                      >
+                        Upload File
+                      </Button>
+                    </Box>
+                  </Box>
+
+                  {videoSource === 'url' ? (
+                    <>
+                      <Typography id="resource-url-hint" sx={{ fontSize: 11.5, color: '#6b7280', mb: 0.5 }}>
+                        Must start with https:// (for example, YouTube, Vimeo, or direct MP4 link)
+                      </Typography>
+                      <TextField
+                        id="resource-url"
+                        type="url"
+                        fullWidth
+                        size="small"
+                        required
+                        placeholder="https://"
+                        value={form.url}
+                        onChange={(e) => handleUrlInputChange(e.target.value)}
+                        onBlur={() => markTouched('url')}
+                        error={Boolean(showFieldError('url'))}
+                        slotProps={{
+                          htmlInput: {
+                            maxLength: 500,
+                            pattern: 'https://.*',
+                            'aria-describedby': 'resource-url-hint',
+                            'aria-errormessage': showFieldError('url') ? 'resource-url-error' : undefined,
+                            'aria-invalid': Boolean(showFieldError('url')),
+                          },
+                        }}
+                        sx={fieldSx}
+                      />
+                      <FieldErrorText id="resource-url-error" message={showFieldError('url')} />
+                    </>
+                  ) : (
+                    <Box>
+                      <input
+                        id="video-file-input"
+                        type="file"
+                        hidden
+                        accept="video/mp4,video/webm,video/quicktime"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          handleVideoFileChange(file);
+                        }}
+                      />
+                      {videoFile ? (
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            p: 1.5,
+                            border: '1px solid #1D9E75',
+                            borderRadius: '10px',
+                            bgcolor: '#f0fdf4',
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+                            <MovieIcon sx={{ color: '#1D9E75', fontSize: 24, flexShrink: 0 }} />
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {videoFile.name}
+                              </Typography>
+                              <Typography sx={{ fontSize: '11px', color: '#6b7280' }}>
+                                {formatFileSize(videoFile.size)} · Ready to upload
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                            <Button
+                              component="label"
+                              htmlFor="video-file-input"
+                              size="small"
+                              sx={{ textTransform: 'none', fontSize: '12px', color: '#1D9E75', minWidth: 0, px: 1 }}
+                            >
+                              Change
+                            </Button>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleVideoFileChange(null)}
+                              sx={{ color: '#6b7280' }}
+                            >
+                              <ClearIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Box>
+                        </Box>
+                      ) : editingItem?.video_path ? (
+                        <Box
+                          sx={{
+                            p: 1.5,
+                            border: '1px solid #d1d5db',
+                            borderRadius: '10px',
+                            bgcolor: '#f9fafb',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+                            <CheckCircleIcon sx={{ color: '#1D9E75', fontSize: 20, flexShrink: 0 }} />
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography sx={{ fontSize: '12.5px', fontWeight: 600, color: '#374151' }}>
+                                Existing video stored on clinic server
+                              </Typography>
+                              <Typography sx={{ fontSize: '11px', color: '#6b7280' }}>
+                                Select a new file to replace it, or leave as is.
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Button
+                            component="label"
+                            htmlFor="video-file-input"
+                            variant="outlined"
+                            size="small"
+                            startIcon={<CloudUploadIcon sx={{ fontSize: 14 }} />}
+                            sx={{
+                              textTransform: 'none',
+                              fontSize: '11.5px',
+                              borderColor: '#d1d5db',
+                              color: '#374151',
+                              borderRadius: '8px',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            Replace Video
+                          </Button>
+                        </Box>
+                      ) : (
+                        <Box
+                          component="label"
+                          htmlFor="video-file-input"
+                          sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '1.5px dashed #cbd5e1',
+                            borderRadius: '10px',
+                            py: 2.5,
+                            px: 2,
+                            bgcolor: '#f9fafb',
+                            cursor: 'pointer',
+                            textAlign: 'center',
+                            transition: 'all 0.2s',
+                            '&:hover': {
+                              borderColor: '#1D9E75',
+                              bgcolor: '#f0fdf4',
+                            },
+                          }}
+                        >
+                          <CloudUploadIcon sx={{ fontSize: 28, color: '#1D9E75', mb: 0.5 }} />
+                          <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>
+                            Click to upload video file
+                          </Typography>
+                          <Typography sx={{ fontSize: '11.5px', color: '#6b7280', mt: 0.25 }}>
+                            MP4, WebM, or QuickTime (MOV) · Max 100MB
+                          </Typography>
+                        </Box>
+                      )}
+                      <FieldErrorText id="resource-video-file-error" message={videoFileError || showFieldError('video_file')} />
+                    </Box>
+                  )}
+                </Box>
+              ) : (
+                <Box>
+                  <Typography
+                    component="label"
+                    htmlFor="resource-url"
+                    sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}
+                  >
+                    HTTPS URL *
+                  </Typography>
+                  <Typography id="resource-url-hint" sx={{ fontSize: 11.5, color: '#6b7280', mb: 0.5 }}>
+                    Must start with https:// (for example, https://doh.gov.ph/...)
+                  </Typography>
+                  <TextField
+                    id="resource-url"
+                    type="url"
+                    fullWidth
+                    size="small"
+                    required
+                    placeholder="https://"
+                    value={form.url}
+                    onChange={(e) => handleUrlInputChange(e.target.value)}
+                    onBlur={() => markTouched('url')}
+                    error={Boolean(showFieldError('url'))}
+                    slotProps={{
+                      htmlInput: {
+                        maxLength: 500,
+                        pattern: 'https://.*',
+                        'aria-describedby': 'resource-url-hint',
+                        'aria-errormessage': showFieldError('url') ? 'resource-url-error' : undefined,
+                        'aria-invalid': Boolean(showFieldError('url')),
+                      },
+                    }}
+                    sx={fieldSx}
+                  />
+                  <FieldErrorText id="resource-url-error" message={showFieldError('url')} />
+                </Box>
+              )}
 
               <Box>
                 <Typography
@@ -1651,45 +2065,226 @@ export function PatientAppResourcesSection({
                 <Box
                   sx={{
                     display: 'grid',
-                    gridTemplateColumns: { xs: '1fr', sm: '1fr 150px' },
+                    gridTemplateColumns: { xs: '1fr', sm: '1fr 140px' },
                     gap: 1.5,
+                    alignItems: 'start',
                   }}
                 >
                   <Box>
-                    <Typography
-                      component="label"
-                      htmlFor="resource-thumbnail"
-                      sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}
-                    >
-                      Thumbnail URL (optional)
-                    </Typography>
-                    <Typography id="resource-thumbnail-hint" sx={{ fontSize: 11.5, color: '#6b7280', mb: 0.5 }}>
-                      https:// image URL. Leave blank to auto-detect YouTube thumbnail or use the teal placeholder.
-                    </Typography>
-                    <TextField
-                      id="resource-thumbnail"
-                      type="url"
-                      fullWidth
-                      size="small"
-                      placeholder="https://"
-                      value={form.thumbnail_url}
-                      onChange={(e) => setForm((prev) => ({ ...prev, thumbnail_url: e.target.value }))}
-                      onBlur={() => markTouched('thumbnail_url')}
-                      error={Boolean(showFieldError('thumbnail_url'))}
-                      slotProps={{
-                        htmlInput: {
-                          maxLength: 500,
-                          pattern: 'https://.*',
-                          'aria-describedby': 'resource-thumbnail-hint',
-                          'aria-errormessage': showFieldError('thumbnail_url')
-                            ? 'resource-thumbnail-error'
-                            : undefined,
-                          'aria-invalid': Boolean(showFieldError('thumbnail_url')),
-                        },
-                      }}
-                      sx={fieldSx}
-                    />
-                    <FieldErrorText id="resource-thumbnail-error" message={showFieldError('thumbnail_url')} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+                      <Typography
+                        component="label"
+                        sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}
+                      >
+                        Thumbnail Image
+                      </Typography>
+                      <Box sx={{ display: 'flex', bgcolor: '#f3f4f6', p: 0.5, borderRadius: '8px', gap: 0.5 }}>
+                        <Button
+                          size="small"
+                          onClick={() => setThumbnailSource('url')}
+                          startIcon={<LinkIcon sx={{ fontSize: 13 }} />}
+                          sx={{
+                            py: 0.2,
+                            px: 0.8,
+                            fontSize: '11px',
+                            fontWeight: thumbnailSource === 'url' ? 600 : 500,
+                            color: thumbnailSource === 'url' ? '#111827' : '#6b7280',
+                            bgcolor: thumbnailSource === 'url' ? '#ffffff' : 'transparent',
+                            boxShadow: thumbnailSource === 'url' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                            borderRadius: '6px',
+                            textTransform: 'none',
+                            minWidth: 0,
+                          }}
+                        >
+                          Auto / URL
+                        </Button>
+                        <Button
+                          size="small"
+                          onClick={() => setThumbnailSource('upload')}
+                          startIcon={<ImageIcon sx={{ fontSize: 13 }} />}
+                          sx={{
+                            py: 0.2,
+                            px: 0.8,
+                            fontSize: '11px',
+                            fontWeight: thumbnailSource === 'upload' ? 600 : 500,
+                            color: thumbnailSource === 'upload' ? '#111827' : '#6b7280',
+                            bgcolor: thumbnailSource === 'upload' ? '#ffffff' : 'transparent',
+                            boxShadow: thumbnailSource === 'upload' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                            borderRadius: '6px',
+                            textTransform: 'none',
+                            minWidth: 0,
+                          }}
+                        >
+                          Upload File
+                        </Button>
+                      </Box>
+                    </Box>
+
+                    {thumbnailSource === 'url' ? (
+                      <>
+                        <Typography id="resource-thumbnail-hint" sx={{ fontSize: 11.5, color: '#6b7280', mb: 0.5 }}>
+                          https:// image URL. Leave blank to auto-detect YouTube thumbnail.
+                        </Typography>
+                        <TextField
+                          id="resource-thumbnail"
+                          type="url"
+                          fullWidth
+                          size="small"
+                          placeholder="https://"
+                          value={form.thumbnail_url}
+                          onChange={(e) => setForm((prev) => ({ ...prev, thumbnail_url: e.target.value }))}
+                          onBlur={() => markTouched('thumbnail_url')}
+                          error={Boolean(showFieldError('thumbnail_url'))}
+                          slotProps={{
+                            htmlInput: {
+                              maxLength: 500,
+                              pattern: 'https://.*',
+                              'aria-describedby': 'resource-thumbnail-hint',
+                              'aria-errormessage': showFieldError('thumbnail_url')
+                                ? 'resource-thumbnail-error'
+                                : undefined,
+                              'aria-invalid': Boolean(showFieldError('thumbnail_url')),
+                            },
+                          }}
+                          sx={fieldSx}
+                        />
+                        <FieldErrorText id="resource-thumbnail-error" message={showFieldError('thumbnail_url')} />
+                      </>
+                    ) : (
+                      <Box>
+                        <input
+                          id="thumb-file-input"
+                          type="file"
+                          hidden
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            handleThumbnailFileChange(file);
+                          }}
+                        />
+                        {thumbnailFile || thumbnailPreviewUrl ? (
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              p: 1,
+                              border: '1px solid #1D9E75',
+                              borderRadius: '10px',
+                              bgcolor: '#f0fdf4',
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                              {thumbnailPreviewUrl && (
+                                <Box
+                                  component="img"
+                                  src={thumbnailPreviewUrl}
+                                  alt=""
+                                  sx={{ width: 44, height: 32, borderRadius: '6px', objectFit: 'cover' }}
+                                />
+                              )}
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {thumbnailFile ? thumbnailFile.name : 'Custom thumbnail'}
+                                </Typography>
+                                {thumbnailFile && (
+                                  <Typography sx={{ fontSize: '11px', color: '#6b7280' }}>
+                                    {formatFileSize(thumbnailFile.size)}
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Box>
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                handleThumbnailFileChange(null);
+                                setRemoveThumbnail(true);
+                              }}
+                              sx={{ color: '#6b7280' }}
+                            >
+                              <ClearIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Box>
+                        ) : editingItem?.thumbnail_path && !removeThumbnail ? (
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              p: 1,
+                              border: '1px solid #d1d5db',
+                              borderRadius: '10px',
+                              bgcolor: '#f9fafb',
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                              {editingItem.thumbnail_url && (
+                                <Box
+                                  component="img"
+                                  src={editingItem.thumbnail_url}
+                                  alt=""
+                                  sx={{ width: 44, height: 32, borderRadius: '6px', objectFit: 'cover' }}
+                                />
+                              )}
+                              <Typography sx={{ fontSize: '11.5px', color: '#374151' }}>
+                                Uploaded thumbnail on server
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', gap: 0.5 }}>
+                              <Button
+                                component="label"
+                                htmlFor="thumb-file-input"
+                                size="small"
+                                sx={{ textTransform: 'none', fontSize: '11.5px', color: '#1D9E75' }}
+                              >
+                                Change
+                              </Button>
+                              <IconButton
+                                size="small"
+                                onClick={() => setRemoveThumbnail(true)}
+                                sx={{ color: '#6b7280' }}
+                              >
+                                <ClearIcon sx={{ fontSize: 15 }} />
+                              </IconButton>
+                            </Box>
+                          </Box>
+                        ) : (
+                          <Box
+                            component="label"
+                            htmlFor="thumb-file-input"
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 1,
+                              border: '1.5px dashed #cbd5e1',
+                              borderRadius: '10px',
+                              py: 1.5,
+                              px: 1.5,
+                              bgcolor: '#f9fafb',
+                              cursor: 'pointer',
+                              textAlign: 'center',
+                              transition: 'all 0.2s',
+                              '&:hover': {
+                                borderColor: '#1D9E75',
+                                bgcolor: '#f0fdf4',
+                              },
+                            }}
+                          >
+                            <ImageIcon sx={{ fontSize: 20, color: '#1D9E75' }} />
+                            <Box>
+                              <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>
+                                Choose thumbnail image
+                              </Typography>
+                              <Typography sx={{ fontSize: '10.5px', color: '#6b7280' }}>
+                                JPG, PNG, WebP · Max 5MB
+                              </Typography>
+                            </Box>
+                          </Box>
+                        )}
+                        <FieldErrorText id="resource-thumbnail-file-error" message={showFieldError('thumbnail_file')} />
+                      </Box>
+                    )}
                   </Box>
 
                   <Box>
@@ -1698,7 +2293,7 @@ export function PatientAppResourcesSection({
                       htmlFor="resource-duration"
                       sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'block' }}
                     >
-                      Duration Label (optional)
+                      Duration Label
                     </Typography>
                     <Typography id="resource-duration-hint" sx={{ fontSize: 11.5, color: '#6b7280', mb: 0.5 }}>
                       Format m:ss (e.g. 3:45)
@@ -1819,7 +2414,15 @@ export function PatientAppResourcesSection({
                 </Typography>
               </Box>
 
-              <MobileCardLivePreview form={form} />
+              <MobileCardLivePreview
+                form={form}
+                overrideThumbnailUrl={
+                  thumbnailPreviewUrl ||
+                  (form.type === 'video' && thumbnailSource === 'upload' && !removeThumbnail && editingItem?.thumbnail_path
+                    ? editingItem.thumbnail_url
+                    : null)
+                }
+              />
 
               <Typography sx={{ fontSize: '11.5px', color: '#6b7280', mt: 1.75, lineHeight: 1.45 }}>
                 Tapping this card in the mobile app opens the configured HTTPS URL externally in the patient&apos;s

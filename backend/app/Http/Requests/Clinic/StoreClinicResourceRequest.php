@@ -59,8 +59,22 @@ class StoreClinicResourceRequest extends FormRequest
             'type' => ['required', 'string', 'in:video,link'],
             'title' => ['required', 'string', 'max:120'],
             'subtitle' => ['nullable', 'string', 'max:160'],
+            'video_file' => [
+                'nullable',
+                'file',
+                'mimetypes:video/mp4,video/webm,video/quicktime,video/x-msvideo',
+                'max:102400',
+            ],
+            'thumbnail_file' => [
+                'nullable',
+                'file',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:5120',
+            ],
             'url' => [
-                'required',
+                'required_without:video_file',
+                'nullable',
                 'string',
                 'max:500',
                 'starts_with:https://',
@@ -96,8 +110,14 @@ class StoreClinicResourceRequest extends FormRequest
     {
         return [
             'type.in' => 'The resource type must be either video or link.',
+            'url.required_without' => 'Please provide a valid video URL or upload a video file.',
             'url.starts_with' => 'The URL must start with https://.',
             'url.url' => 'The URL must be a valid https:// address.',
+            'video_file.mimetypes' => 'The video must be a valid MP4, WebM, or QuickTime (MOV) video file.',
+            'video_file.max' => 'The video file must not exceed 100MB.',
+            'thumbnail_file.image' => 'The thumbnail must be a valid image file.',
+            'thumbnail_file.mimes' => 'The thumbnail must be a JPG, PNG, or WebP image.',
+            'thumbnail_file.max' => 'The thumbnail image must not exceed 5MB.',
             'thumbnail_url.starts_with' => 'The thumbnail URL must start with https://.',
             'thumbnail_url.url' => 'The thumbnail URL must be a valid https:// address.',
             'duration_label.regex' => 'The duration must be formatted as m:ss or mm:ss (for example, 3:45).',

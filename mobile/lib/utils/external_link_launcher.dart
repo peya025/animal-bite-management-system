@@ -33,7 +33,7 @@ Future<void> openExternal(BuildContext context, String url) async {
   }
 
   final uri = Uri.tryParse(url.trim());
-  if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) return;
+  if (uri == null || (uri.scheme != 'https' && uri.scheme != 'http') || uri.host.isEmpty) return;
 
   _isLaunchingExternalLink = true;
   _lastExternalLaunchAt = now;

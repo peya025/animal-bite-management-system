@@ -39,10 +39,11 @@ class MobileClinicResourceController extends Controller
             ])
             ->filter(function (ClinicResource $resource): bool {
                 $url = trim((string) $resource->url);
-                if ($url === '' || !str_starts_with(strtolower($url), 'https://')) {
+                $lowerUrl = strtolower($url);
+                if ($url === '' || (!str_starts_with($lowerUrl, 'https://') && !str_starts_with($lowerUrl, 'http://'))) {
                     return false;
                 }
-                if (str_contains(strtolower($url), 'replace-with-')) {
+                if (str_contains($lowerUrl, 'replace-with-')) {
                     return false;
                 }
                 return true;

@@ -12,15 +12,26 @@ const LAST_ACTIVITY_KEY = 'lastActivityAt';
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json',
     Accept: 'application/json',
   },
   withCredentials: false,
 });
 
-// Attach the auth token to every request
+// Attach the auth token to every request and ensure FormData headers are clean
 api.interceptors.request.use(
   config => {
+    // If sending FormData, remove Content-Type so the browser/Axios sets multipart/form-data with the boundary
+    if (config.data instanceof FormData) {
+      if (config.headers) {
+        delete (config.headers as any)['Content-Type'];
+        delete (config.headers as any)['content-type'];
+        if (typeof (config.headers as any).delete === 'function') {
+          (config.headers as any).delete('Content-Type');
+          (config.headers as any).delete('content-type');
+        }
+      }
+    }
+
     const token = localStorage.getItem('authToken');
     const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY) || 0);
     if (token && lastActivity && Date.now() - lastActivity >= IDLE_TIMEOUT_MS) {

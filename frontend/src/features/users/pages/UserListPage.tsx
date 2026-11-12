@@ -1,10 +1,11 @@
 // @ts-nocheck
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
 import {
   Alert,
   Box,
+  Button,
   Chip,
   Dialog,
   DialogActions,
@@ -13,6 +14,7 @@ import {
   FormControl,
   InputLabel,
   MenuItem,
+  Paper,
   Select,
   Snackbar,
   Stack,
@@ -25,7 +27,7 @@ import {
   Grid,
   useTheme,
 } from '@mui/material';
-import { Add, Edit, People, Person, Email, Phone, Shield, CheckCircle, PersonOutlined, Lock, Visibility, VisibilityOff, Close } from '@mui/icons-material';
+import { Add, Edit, People, Person, Email, Phone, Shield, CheckCircle, PersonOutlined, Lock, Visibility, VisibilityOff, Close, Search, Refresh } from '@mui/icons-material';
 import api from '../../../services/api';
 import SignatureUpload from '../components/SignatureUpload';
 import DataTable from '../../../components/ui/DataTable';
@@ -249,9 +251,14 @@ export default function UserListPage() {
   // Tab: 'staff' | 'patients'
   const [activeTab, setActiveTab] = useState<'staff' | 'patients'>('staff');
 
+  // Staff search
+  const [staffSearch, setStaffSearch] = useState('');
+
   // Patient accounts
   const [patientAccounts, setPatientAccounts] = useState<PatientAccount[]>([]);
   const [patientAccountsLoading, setPatientAccountsLoading] = useState(false);
+  const [patientSearch, setPatientSearch] = useState('');
+  const [patientStatusFilter, setPatientStatusFilter] = useState<'ALL' | 'active' | 'inactive'>('ALL');
   const [togglePatientTarget, setTogglePatientTarget] = useState<PatientAccount | null>(null);
   const [viewingProfilesAccount, setViewingProfilesAccount] = useState<PatientAccount | null>(null);
   const [selectedViewPatient, setSelectedViewPatient] = useState<any>(null);
@@ -611,16 +618,51 @@ export default function UserListPage() {
   ];
 
   const shown = users.filter((u) => {
-    if (!filter) return true;
-    const info = getUserWorkstationInfo(u);
-    if (filter === 'solo_nurse') return info.slug === 'solo_nurse';
-    if (filter === 'intake_nurse') return info.slug === 'intake_nurse';
-    if (filter === 'follow_up_nurse') return info.slug === 'follow_up_nurse';
-    if (filter === 'doctor') return info.slug === 'doctor';
-    if (filter === 'receptionist') return info.slug === 'receptionist';
-    if (filter === 'clinic_admin') return info.slug === 'clinic_admin';
-    return u.role === filter;
+    if (filter) {
+      const info = getUserWorkstationInfo(u);
+      if (filter === 'solo_nurse' && info.slug !== 'solo_nurse') return false;
+      if (filter === 'intake_nurse' && info.slug !== 'intake_nurse') return false;
+      if (filter === 'follow_up_nurse' && info.slug !== 'follow_up_nurse') return false;
+      if (filter === 'doctor' && info.slug !== 'doctor') return false;
+      if (filter === 'receptionist' && info.slug !== 'receptionist') return false;
+      if (filter === 'clinic_admin' && info.slug !== 'clinic_admin') return false;
+      if (!['solo_nurse', 'intake_nurse', 'follow_up_nurse', 'doctor', 'receptionist', 'clinic_admin'].includes(filter) && u.role !== filter) return false;
+    }
+    if (staffSearch.trim()) {
+      const q = staffSearch.trim().toLowerCase();
+      const matchesName = u.name?.toLowerCase().includes(q);
+      const matchesEmail = u.email?.toLowerCase().includes(q);
+      const matchesPhone = u.phone?.toLowerCase().includes(q);
+      const matchesLicense = u.professional_license_no?.toLowerCase().includes(q);
+      if (!matchesName && !matchesEmail && !matchesPhone && !matchesLicense) return false;
+    }
+    return true;
   });
+
+  const filteredPatientAccounts = useMemo(() => {
+    return patientAccounts.filter((acc) => {
+      if (patientStatusFilter === 'active' && !acc.is_active) return false;
+      if (patientStatusFilter === 'inactive' && acc.is_active) return false;
+
+      if (patientSearch.trim()) {
+        const q = patientSearch.trim().toLowerCase();
+        const matchesName = acc.name?.toLowerCase().includes(q);
+        const matchesEmail = acc.email?.toLowerCase().includes(q);
+        const matchesPhone = acc.phone?.toLowerCase().includes(q);
+        const matchesLinked = acc.patients?.some(
+          (p) =>
+            p.first_name?.toLowerCase().includes(q) ||
+            p.last_name?.toLowerCase().includes(q) ||
+            p.patient_number?.toLowerCase().includes(q)
+        );
+        if (!matchesName && !matchesEmail && !matchesPhone && !matchesLinked) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [patientAccounts, patientSearch, patientStatusFilter]);
 
   // Toggle patient account active status
   const togglePatientAccount = async (account: PatientAccount) => {
@@ -772,6 +814,8 @@ export default function UserListPage() {
         </Box>
         <Stack direction="row" spacing={2}>
           <AppButton
+            data-walkthrough="admin-users-invite-btn"
+            data-tour="admin-users-invite-btn"
             variant="secondary"
             startIcon={<Email fontSize="small" />}
             onClick={() => setInviteModalOpen(true)}
@@ -779,6 +823,8 @@ export default function UserListPage() {
             Invite Staff
           </AppButton>
           <AppButton
+            data-walkthrough="admin-users-add-btn"
+            data-tour="admin-users-add-btn"
             startIcon={<Add fontSize="small" />}
             onClick={() => setCreateModalOpen(true)}
           >
@@ -788,13 +834,19 @@ export default function UserListPage() {
       </Box>
 
       {/* Tabs */}
-      <Box sx={{ display: 'flex', gap: 0, mb: 3, borderBottom: isDark ? '2px solid rgba(16, 185, 129, 0.2)' : '2px solid #e5e7eb' }}>
+      <Box
+        data-walkthrough="admin-users-tabs"
+        data-tour="admin-users-tabs"
+        sx={{ display: 'flex', gap: 0, mb: 3, borderBottom: isDark ? '2px solid rgba(16, 185, 129, 0.2)' : '2px solid #e5e7eb' }}
+      >
         {[
           { key: 'staff',    label: 'Staff Users',      count: users.length },
           { key: 'patients', label: 'Patient Accounts', count: patientAccounts.length },
         ].map(tab => (
           <button
             key={tab.key}
+            data-walkthrough={`admin-users-tab-${tab.key}`}
+            data-tour={`admin-users-tab-${tab.key}`}
             onClick={() => setActiveTab(tab.key as 'staff' | 'patients')}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
@@ -821,39 +873,113 @@ export default function UserListPage() {
       {/* Staff Users Tab */}
       {activeTab === 'staff' && (
         <Box>
-          <Box sx={{ mb: 2, maxWidth: 320 }}>
-            <FormControl size="small" fullWidth sx={{
-              fontFamily: "'Poppins', sans-serif",
-              '& .MuiOutlinedInput-root': {
-                bgcolor: isDark ? '#111827' : '#ffffff',
-                borderRadius: 2,
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              mb: 2,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Box
+              data-walkthrough="admin-users-role-filter"
+              data-tour="admin-users-role-filter"
+              sx={{ minWidth: 220, maxWidth: 300 }}
+            >
+              <FormControl size="small" fullWidth sx={{
                 fontFamily: "'Poppins', sans-serif",
-                '& fieldset': { borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#e5e7eb' },
-                '&:hover fieldset': { borderColor: '#10b981' },
-                '&.Mui-focused fieldset': { borderColor: '#10b981' },
-              },
-              '& .MuiInputLabel-root': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#94a3b8' : undefined },
-              '& .MuiSelect-select': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#ffffff' : undefined },
-            }}>
-              <InputLabel>Filter by Role</InputLabel>
-              <Select label="Filter by Role" value={filter} onChange={(e) => { setFilter(e.target.value); setStaffPage(0); }}>
-                <MenuItem value="">All Staff Roles ({users.length})</MenuItem>
-                <MenuItem value="intake_nurse">Intake Nurse (Station 1)</MenuItem>
-                <MenuItem value="follow_up_nurse">Follow-Up Nurse (Station 2)</MenuItem>
-                <MenuItem value="solo_nurse">Dual-Role / Solo Nurse (Stations 1 & 2)</MenuItem>
-                <MenuItem value="doctor">Doctor / Triage Officer</MenuItem>
-                <MenuItem value="receptionist">Receptionist / Registration Staff</MenuItem>
-              </Select>
-            </FormControl>
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: isDark ? '#111827' : '#ffffff',
+                  borderRadius: 2,
+                  fontFamily: "'Poppins', sans-serif",
+                  '& fieldset': { borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#e5e7eb' },
+                  '&:hover fieldset': { borderColor: '#10b981' },
+                  '&.Mui-focused fieldset': { borderColor: '#10b981' },
+                },
+                '& .MuiInputLabel-root': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#94a3b8' : undefined },
+                '& .MuiSelect-select': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#ffffff' : undefined },
+              }}>
+                <InputLabel>Filter by Role</InputLabel>
+                <Select label="Filter by Role" value={filter} onChange={(e) => { setFilter(e.target.value); setStaffPage(0); }}>
+                  <MenuItem value="">All Staff Roles ({users.length})</MenuItem>
+                  <MenuItem value="intake_nurse">Intake Nurse (Station 1)</MenuItem>
+                  <MenuItem value="follow_up_nurse">Follow-Up Nurse (Station 2)</MenuItem>
+                  <MenuItem value="solo_nurse">Dual-Role / Solo Nurse (Stations 1 & 2)</MenuItem>
+                  <MenuItem value="doctor">Doctor / Triage Officer</MenuItem>
+                  <MenuItem value="receptionist">Receptionist / Registration Staff</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            <TextField
+              size="small"
+              placeholder="Search staff name, email, phone..."
+              value={staffSearch}
+              onChange={(e) => {
+                setStaffSearch(e.target.value);
+                setStaffPage(0);
+              }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search sx={{ fontSize: 18, color: isDark ? '#94a3b8' : '#9ca3af' }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={{
+                minWidth: 240,
+                flexGrow: 1,
+                maxWidth: 400,
+                fontFamily: "'Poppins', sans-serif",
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: isDark ? '#111827' : '#ffffff',
+                  borderRadius: 2,
+                  fontFamily: "'Poppins', sans-serif",
+                  '& fieldset': { borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#e5e7eb' },
+                  '&:hover fieldset': { borderColor: '#10b981' },
+                  '&.Mui-focused fieldset': { borderColor: '#10b981' },
+                },
+              }}
+            />
+
+            {(filter || staffSearch) && (
+              <Button
+                onClick={() => {
+                  setFilter('');
+                  setStaffSearch('');
+                  setStaffPage(0);
+                }}
+                sx={{ color: 'error.main', fontFamily: "'Poppins', sans-serif", textTransform: 'none' }}
+              >
+                Reset
+              </Button>
+            )}
+
+            <Button
+              type="button"
+              onClick={load}
+              disabled={loading}
+              sx={{ ml: { sm: 'auto' }, fontFamily: "'Poppins', sans-serif", textTransform: 'none' }}
+              startIcon={<Refresh />}
+            >
+              Refresh
+            </Button>
           </Box>
-          <Box sx={{ border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e5e7eb', borderRadius: 3, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#ffffff' }}>
+          <Box
+            data-walkthrough="admin-users-staff-table"
+            data-tour="admin-users-staff-table"
+            sx={{ border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e5e7eb', borderRadius: 3, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#ffffff' }}
+          >
             <DataTable
               columns={columns}
               rows={shown.slice(staffPage * staffRowsPerPage, staffPage * staffRowsPerPage + staffRowsPerPage)}
               loading={loading}
               getRowKey={(u) => u.id}
               emptyIcon={<People />}
-              emptyTitle="No staff users found"
+              emptyTitle={staffSearch || filter ? 'No matching staff users found' : 'No staff users found'}
             />
             <TablePaginator
               count={shown.length}
@@ -870,18 +996,131 @@ export default function UserListPage() {
       {/* Patient Accounts Tab */}
       {activeTab === 'patients' && (
         <Box>
-          <Box sx={{ border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e5e7eb', borderRadius: 3, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#ffffff' }}>
+          {/* Filter Bar with Search — same style layout as Reports Patients registry */}
+          <Paper
+            data-walkthrough="admin-users-patient-search"
+            data-tour="admin-users-patient-search"
+            component="div"
+            elevation={0}
+            sx={{
+              border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e5e7eb',
+              borderRadius: 2.5,
+              bgcolor: isDark ? '#111827' : '#ffffff',
+              p: 2,
+              mb: 2.5,
+              boxShadow: 'none',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <TextField
+                size="small"
+                placeholder="Search account name, email, phone..."
+                value={patientSearch}
+                onChange={(e) => {
+                  setPatientSearch(e.target.value);
+                  setPatientPage(0);
+                }}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search sx={{ fontSize: 18, color: isDark ? '#94a3b8' : '#9ca3af' }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+                sx={{
+                  minWidth: 260,
+                  flexGrow: 1,
+                  fontFamily: "'Poppins', sans-serif",
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: isDark ? '#0b1120' : '#ffffff',
+                    borderRadius: 2,
+                    fontFamily: "'Poppins', sans-serif",
+                    '& fieldset': { borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#e5e7eb' },
+                    '&:hover fieldset': { borderColor: '#10b981' },
+                    '&.Mui-focused fieldset': { borderColor: '#10b981' },
+                  },
+                }}
+              />
+
+              <TextField
+                select
+                size="small"
+                label="Status"
+                value={patientStatusFilter}
+                onChange={(e) => {
+                  setPatientStatusFilter(e.target.value as any);
+                  setPatientPage(0);
+                }}
+                sx={{
+                  minWidth: 150,
+                  fontFamily: "'Poppins', sans-serif",
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: isDark ? '#0b1120' : '#ffffff',
+                    borderRadius: 2,
+                    fontFamily: "'Poppins', sans-serif",
+                    '& fieldset': { borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#e5e7eb' },
+                    '&:hover fieldset': { borderColor: '#10b981' },
+                    '&.Mui-focused fieldset': { borderColor: '#10b981' },
+                  },
+                  '& .MuiInputLabel-root': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#94a3b8' : undefined },
+                  '& .MuiSelect-select': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#ffffff' : undefined },
+                }}
+              >
+                <MenuItem value="ALL">All Statuses ({patientAccounts.length})</MenuItem>
+                <MenuItem value="active">Active Only</MenuItem>
+                <MenuItem value="inactive">Inactive Only</MenuItem>
+              </TextField>
+
+              {(patientSearch || patientStatusFilter !== 'ALL') && (
+                <Button
+                  onClick={() => {
+                    setPatientSearch('');
+                    setPatientStatusFilter('ALL');
+                    setPatientPage(0);
+                  }}
+                  sx={{ color: 'error.main', fontFamily: "'Poppins', sans-serif", textTransform: 'none' }}
+                >
+                  Reset
+                </Button>
+              )}
+
+              <Button
+                type="button"
+                onClick={loadPatientAccounts}
+                disabled={patientAccountsLoading}
+                sx={{ ml: { sm: 'auto' }, fontFamily: "'Poppins', sans-serif", textTransform: 'none' }}
+                startIcon={<Refresh />}
+              >
+                Refresh
+              </Button>
+            </Box>
+
+            <Typography
+              variant="caption"
+              sx={{ color: isDark ? '#94a3b8' : '#6b7280', display: 'block', mt: 1.5, fontFamily: "'Poppins', sans-serif" }}
+            >
+              Showing {filteredPatientAccounts.length} of {patientAccounts.length} registered patient accounts.
+            </Typography>
+          </Paper>
+
+          <Box
+            data-walkthrough="admin-users-patient-table"
+            data-tour="admin-users-patient-table"
+            sx={{ border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e5e7eb', borderRadius: 3, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#ffffff' }}
+          >
             <DataTable
               columns={patientColumns}
-              rows={patientAccounts.slice(patientPage * patientRowsPerPage, patientPage * patientRowsPerPage + patientRowsPerPage)}
+              rows={filteredPatientAccounts.slice(patientPage * patientRowsPerPage, patientPage * patientRowsPerPage + patientRowsPerPage)}
               loading={patientAccountsLoading}
               getRowKey={(a) => a.id}
               emptyIcon={<PersonOutlined />}
-              emptyTitle="No patient accounts found"
-              emptySubtitle="Patient accounts are created via the mobile app"
+              emptyTitle={patientSearch || patientStatusFilter !== 'ALL' ? 'No matching patient accounts found' : 'No patient accounts found'}
+              emptySubtitle={patientSearch || patientStatusFilter !== 'ALL' ? 'Try adjusting your search or filters' : 'Patient accounts are created via the mobile app'}
             />
             <TablePaginator
-              count={patientAccounts.length}
+              count={filteredPatientAccounts.length}
               page={patientPage}
               rowsPerPage={patientRowsPerPage}
               onPageChange={setPatientPage}

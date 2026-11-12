@@ -4,7 +4,21 @@ import type { WalkthroughStep } from './types';
 // ── Admin Reports & Analytics (9 Steps corresponding to Images 1 to 9) ──
 export function getAdminReportsSteps(route: string = ROUTES.REPORTS.LIST): WalkthroughStep[] {
   return [
-    // Step 1: Navigation Tabs (Image 1)
+    // Step 1: Uniform Welcome / Overview Modal (Centered in viewport)
+    {
+      id: 'admin-reports-overview',
+      module: 'Reports & Analytics',
+      section: 'Overview',
+      route,
+      title: 'Reports & Analytics Overview',
+      content:
+        'Welcome to Reports & Analytics! Generate official clinic surveillance reports, animal bite epidemiology summaries, DOH quarterly submissions, patient registries, and vaccine inventory compliance analytics.',
+      targetSelector: 'main.page-content, .page-content',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 2: Navigation Tabs (Image 1)
     {
       id: 'admin-reports-tabs',
       module: 'Reports & Analytics',

@@ -74,7 +74,7 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
   },
   {
     label: 'Vaccine Stock Management',
-    path: ROUTES.INVENTORY.LIST,
+    path: ROUTES.INVENTORY.TYPES,
     icon: GLOBAL_NAV_ICONS['Vaccine Stock Management'],
     roles: ['admin', 'treatment'],
     submenu: [
@@ -133,7 +133,9 @@ export function getNavItemsForRole(role?: string): NavItemConfig[] {
     if (!item.submenu) return item;
     // Filter submenu items by role if specified
     const filteredSubmenu = item.submenu.filter((sub) => !sub.roles || sub.roles.includes(role));
-    return { ...item, submenu: filteredSubmenu };
+    // When a nav item has a submenu, route to its first available submenu item
+    const firstSubPath = filteredSubmenu.length > 0 ? filteredSubmenu[0].path : item.path;
+    return { ...item, path: firstSubPath, submenu: filteredSubmenu };
   });
 }
 

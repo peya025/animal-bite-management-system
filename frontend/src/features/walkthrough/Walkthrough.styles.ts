@@ -52,6 +52,9 @@ export const walkthroughStyles = `
   z-index: ${WALKTHROUGH_Z_INDEX + 2};
   width: 332px;
   max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 84px);
+  overflow-y: auto;
+  box-sizing: border-box;
   background: var(--card-bg, #ffffff);
   color: var(--text-h, #0f172a);
   border: 1px solid var(--border-glow, rgba(16, 185, 129, 0.35));
@@ -59,7 +62,6 @@ export const walkthroughStyles = `
   padding: 16px 18px;
   box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(16, 185, 129, 0.12);
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  box-sizing: border-box;
   animation: walkthroughCardFadeIn 0.2s ease;
 }
 

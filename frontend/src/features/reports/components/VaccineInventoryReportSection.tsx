@@ -1019,6 +1019,8 @@ export default function VaccineInventoryReportSection({
 
       {/* ── Stock Metrics Overview Cards ────────────────────────── */}
       <Box
+        data-walkthrough="admin-reports-inventory-kpis"
+        data-tour="admin-reports-inventory-kpis"
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(5, 1fr)' },
@@ -1128,7 +1130,12 @@ export default function VaccineInventoryReportSection({
       </Box>
 
       {/* ── NEW ANALYTICS SECTION: Vaccine Usage by Patient ───────── */}
-      <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2, sm: 2.5 }, mb: 3 }}>
+      <Paper
+        data-walkthrough="admin-reports-inventory-patient-usage"
+        data-tour="admin-reports-inventory-patient-usage"
+        elevation={0}
+        sx={{ ...panelSx, p: { xs: 2, sm: 2.5 }, mb: 3 }}
+      >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
           <Box>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5 }}>
@@ -1225,7 +1232,12 @@ export default function VaccineInventoryReportSection({
       </Paper>
 
       {/* ── Detailed Batch Utilization & Wastage Audit Log ──────── */}
-      <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2, sm: 2.5 } }}>
+      <Paper
+        data-walkthrough="admin-reports-inventory-audit-log"
+        data-tour="admin-reports-inventory-audit-log"
+        elevation={0}
+        sx={{ ...panelSx, p: { xs: 2, sm: 2.5 } }}
+      >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
           <Box>
             <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, fontFamily: POPPINS }}>

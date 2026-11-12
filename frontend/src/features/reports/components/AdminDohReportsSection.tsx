@@ -162,6 +162,8 @@ export default function AdminDohReportsSection() {
           return (
             <ButtonBase
               key={type}
+              data-walkthrough={`admin-doh-card-${type}`}
+              data-tour={`admin-doh-card-${type}`}
               component="button"
               type="button"
               aria-pressed={active}
@@ -182,7 +184,11 @@ export default function AdminDohReportsSection() {
         })}
       </Box>
 
-      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', overflow: 'hidden' }}>
+      <Box
+        data-walkthrough="admin-doh-report-preview"
+        data-tour="admin-doh-report-preview"
+        sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', overflow: 'hidden' }}
+      >
         <Box sx={{ p: { xs: 2, md: 2.5 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
           <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700 }}>{selected.title}</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>

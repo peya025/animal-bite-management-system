@@ -159,19 +159,19 @@ function scrollElementIntoOptimalView(el: HTMLElement, placement: WalkthroughPla
     // Case 3: Medium/Large container (>= 180px tall) with 'bottom' placement
     if (elRect.height >= 180 && placement === 'bottom') {
       // If it already fits at current scroll with room for tooltip below, keep it steady
-      if (elRect.top >= topHeaderBottom + 10 && elRect.bottom + 200 <= vh) {
+      if (elRect.top >= topHeaderBottom + 10 && elRect.bottom + 280 <= vh) {
         return;
       }
       const desiredTopForBelowTooltip = topHeaderBottom + 14;
       const projectedBottom = desiredTopForBelowTooltip + elRect.height;
-      if (minPossibleTop <= desiredTopForBelowTooltip + 16 && projectedBottom + 195 <= vh) {
+      if (minPossibleTop <= desiredTopForBelowTooltip + 16 && projectedBottom + 280 <= vh) {
         const delta = elRect.top - desiredTopForBelowTooltip;
         if (Math.abs(delta) > 6) {
           pageContent.scrollTop = Math.max(0, Math.min(maxScrollTop, pageContent.scrollTop + delta));
         }
       } else {
         // Too tall or too close to bottom of document for 'bottom' tooltip; position for 'top' tooltip
-        const desiredTopForAboveTooltip = Math.min(278, Math.max(topHeaderBottom + 204, Math.round(vh * 0.36)));
+        const desiredTopForAboveTooltip = Math.max(topHeaderBottom + 285, Math.round(vh * 0.4));
         const delta = elRect.top - desiredTopForAboveTooltip;
         if (Math.abs(delta) > 6) {
           pageContent.scrollTop = Math.max(0, Math.min(maxScrollTop, pageContent.scrollTop + delta));
@@ -381,20 +381,27 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
             const spaceBelow = vh - MARGIN - sBottom;
 
             if (spaceBelow >= spaceAbove) {
-              // Position strictly below sBottom
+              // Position strictly below sBottom, strictly clamped within viewport boundaries
               chosen = {
-                top: sBottom + GAP,
+                top: Math.max(minTooltipTop, Math.min(vh - cardH - MARGIN, sBottom + GAP)),
                 left: clampedHorizontalLeft,
               };
             } else {
-              // Position strictly above sTop
+              // Position strictly above sTop, strictly clamped within viewport boundaries
               chosen = {
-                top: Math.max(minTooltipTop, sTop - cardH - GAP),
+                top: Math.max(minTooltipTop, Math.min(vh - cardH - MARGIN, sTop - cardH - GAP)),
                 left: clampedHorizontalLeft,
               };
             }
           }
         }
+      }
+
+      // Guarantee 100% that tooltip card stays completely within viewport boundaries
+      if (chosen) {
+        const maxTop = Math.max(minTooltipTop, vh - cardH - MARGIN);
+        chosen.top = Math.max(minTooltipTop, Math.min(maxTop, chosen.top));
+        chosen.left = Math.max(MARGIN, Math.min(vw - cardW - MARGIN, chosen.left));
       }
 
       setTooltipCoords((prev) => {

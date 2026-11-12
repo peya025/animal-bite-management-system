@@ -188,7 +188,7 @@ export function getGuideModules(role?: string): GuideModule[] {
         name: 'Reports & Analytics',
         route: ROUTES.REPORTS.LIST,
         description: 'View, filter, and export clinic reports and surveillance charts.',
-        steps: getReportsAnalyticsSteps(ROUTES.REPORTS.LIST),
+        steps: getReportsAnalyticsSteps(role, ROUTES.REPORTS.LIST),
       };
     }
 

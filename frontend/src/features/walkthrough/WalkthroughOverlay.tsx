@@ -181,8 +181,8 @@ function scrollElementIntoOptimalView(el: HTMLElement, placement: WalkthroughPla
     }
 
     // Case 4: Standard element (buttons, tabs, filter bars, rows)
-    const topReserve = placement === 'top' ? 210 : 24;
-    const bottomReserve = placement === 'bottom' ? 215 : 32;
+    const topReserve = placement === 'top' ? 270 : 24;
+    const bottomReserve = placement === 'bottom' ? 285 : 32;
     const safeTop = topHeaderBottom + topReserve;
     const safeBottom = vh - bottomReserve;
 
@@ -191,9 +191,9 @@ function scrollElementIntoOptimalView(el: HTMLElement, placement: WalkthroughPla
       if (safeTop <= safeBottom - elRect.height) {
         idealTop = safeTop + (safeBottom - safeTop - elRect.height) / 2;
       } else if (placement === 'top') {
-        idealTop = topHeaderBottom + 198;
+        idealTop = topHeaderBottom + 265;
       } else {
-        idealTop = topHeaderBottom + 18;
+        idealTop = topHeaderBottom + 16;
       }
       const delta = elRect.top - idealTop;
       pageContent.scrollTop = Math.max(0, Math.min(maxScrollTop, pageContent.scrollTop + delta));
@@ -305,13 +305,27 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
       const minTooltipTop = isInsidePageContent || sRight >= 60 ? 74 : MARGIN;
       const clampedVerticalTop = Math.max(minTooltipTop, Math.min(vh - cardH - MARGIN, preferredVerticalTop));
 
+      // Helper to strictly ensure the modal never overlaps the highlighted spotlight bounding box
+      const overlapsSpotlight = (top: number, left: number): boolean => {
+        const mTop = top;
+        const mBottom = top + cardH;
+        const mLeft = left;
+        const mRight = left + cardW;
+        return !(
+          mRight <= sLeft ||
+          mLeft >= sRight ||
+          mBottom <= sTop ||
+          mTop >= sBottom
+        );
+      };
+
       const candidates: WalkthroughPlacement[] = [
         step.placement,
-        'bottom',
-        'top',
-        'right',
-        'left',
+        step.placement === 'bottom' ? 'top' : 'bottom',
+        step.placement === 'right' ? 'left' : 'right',
+        step.placement === 'left' ? 'right' : 'left',
       ];
+      const uniqueCandidates = Array.from(new Set(candidates));
 
       let chosen: TooltipCoords | null = null;
 
@@ -321,28 +335,28 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
         const left = Math.max(MARGIN, Math.round((vw - cardW) / 2));
         chosen = { top, left };
       } else {
-        for (const p of candidates) {
+        for (const p of uniqueCandidates) {
           if (p === 'bottom') {
             const top = sBottom + GAP;
-            if (top + cardH <= vh - MARGIN) {
+            if (top + cardH <= vh - MARGIN && !overlapsSpotlight(top, clampedHorizontalLeft)) {
               chosen = { top, left: clampedHorizontalLeft };
               break;
             }
           } else if (p === 'top') {
             const top = sTop - cardH - GAP;
-            if (top >= minTooltipTop) {
+            if (top >= minTooltipTop && !overlapsSpotlight(top, clampedHorizontalLeft)) {
               chosen = { top, left: clampedHorizontalLeft };
               break;
             }
           } else if (p === 'right') {
             const left = sRight + GAP;
-            if (left + cardW <= vw - MARGIN) {
+            if (left + cardW <= vw - MARGIN && !overlapsSpotlight(clampedVerticalTop, left)) {
               chosen = { top: clampedVerticalTop, left };
               break;
             }
           } else if (p === 'left') {
             const left = sLeft - cardW - GAP;
-            if (left >= MARGIN) {
+            if (left >= MARGIN && !overlapsSpotlight(clampedVerticalTop, left)) {
               chosen = { top: clampedVerticalTop, left };
               break;
             }
@@ -350,41 +364,32 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
         }
 
         if (!chosen) {
-          const spaceAbove = sTop - minTooltipTop;
-          const spaceBelow = vh - MARGIN - sBottom;
-          const spaceLeft = sLeft - MARGIN;
-          const spaceRight = vw - MARGIN - sRight;
-
-          if (spaceAbove >= cardH - 16) {
-            chosen = {
-              top: Math.max(MARGIN, sTop - cardH - 10),
-              left: clampedHorizontalLeft,
-            };
-          } else if (spaceBelow >= cardH - 16) {
-            chosen = {
-              top: Math.min(vh - cardH - MARGIN, sBottom + 10),
-              left: clampedHorizontalLeft,
-            };
-          } else if (spaceLeft >= cardW + 8) {
+          // If strict candidate placement didn't fit inside viewport bounds,
+          // choose a non-overlapping position so it NEVER enters the highlighted box
+          if (sRight + GAP + cardW <= vw - MARGIN) {
             chosen = {
               top: clampedVerticalTop,
-              left: Math.max(MARGIN, sLeft - cardW - 12),
+              left: sRight + GAP,
             };
-          } else if (spaceRight >= cardW + 8) {
+          } else if (sLeft - cardW - GAP >= MARGIN) {
             chosen = {
               top: clampedVerticalTop,
-              left: Math.min(vw - cardW - MARGIN, sRight + 12),
+              left: sLeft - cardW - GAP,
             };
           } else {
-            // Keep tooltip outside the highlighted box
-            if (spaceBelow > spaceAbove) {
+            const spaceAbove = sTop - minTooltipTop;
+            const spaceBelow = vh - MARGIN - sBottom;
+
+            if (spaceBelow >= spaceAbove) {
+              // Position strictly below sBottom
               chosen = {
-                top: Math.min(vh - cardH - MARGIN, sBottom + 10),
+                top: sBottom + GAP,
                 left: clampedHorizontalLeft,
               };
             } else {
+              // Position strictly above sTop
               chosen = {
-                top: Math.max(minTooltipTop, sTop - cardH - 10),
+                top: Math.max(minTooltipTop, sTop - cardH - GAP),
                 left: clampedHorizontalLeft,
               };
             }

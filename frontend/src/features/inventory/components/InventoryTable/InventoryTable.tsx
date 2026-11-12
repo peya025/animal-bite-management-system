@@ -356,7 +356,12 @@ export default function InventoryTable({
 
   return (
     <Box>
-      <Paper elevation={0} sx={{ mb: 1.5, p: 1.25, border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`, borderRadius: 2.5, bgcolor: isDark ? '#111827' : '#fff' }}>
+      <Paper
+        data-walkthrough="vax-inv-filter-bar"
+        data-tour="vax-inv-filter-bar"
+        elevation={0}
+        sx={{ mb: 1.5, p: 1.25, border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`, borderRadius: 2.5, bgcolor: isDark ? '#111827' : '#fff' }}
+      >
         <Box sx={{
           display: 'grid',
           gridTemplateColumns: {
@@ -412,7 +417,12 @@ export default function InventoryTable({
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}><Button size="small" onClick={() => { onExpiryFromChange(''); onExpiryToChange(''); }} sx={{ color: secondaryText, textTransform: 'none', fontSize: 11 }}>Clear</Button><Button size="small" onClick={() => setExpiryAnchor(null)} sx={{ color: '#047857', textTransform: 'none', fontSize: 11, fontWeight: 700 }}>Done</Button></Box>
       </Popover>
 
-      <Paper elevation={0} sx={{ border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`, borderRadius: 2.5, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#fff' }}>
+      <Paper
+        data-walkthrough="vax-inv-batches-table"
+        data-tour="vax-inv-batches-table"
+        elevation={0}
+        sx={{ border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`, borderRadius: 2.5, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#fff' }}
+      >
         <Box sx={{ px: 1.75, py: 1.25, display: 'flex', alignItems: 'center', gap: 0.75, borderBottom: `1px solid ${isDark ? '#1e293b' : '#f1f5f9'}` }}>
           <InventoryIcon sx={{ fontSize: 18, color: '#059669' }} />
           <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: primaryText }}>Inventory Batches</Typography>

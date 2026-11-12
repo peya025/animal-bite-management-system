@@ -1,7 +1,7 @@
 import { Button } from '@mui/material';
 import { Visibility } from '@mui/icons-material';
 import BiteCaseDetailsModal from './BiteCaseDetailsModal';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import { Icon, LatLngBounds, divIcon, point } from 'leaflet';
@@ -45,6 +45,17 @@ function MapViewController({ cases, mapCenter, mapZoom }: { cases: BiteMapCase[]
       map.fitBounds(bounds, { padding: [50, 50] });
     }
   }, [cases, mapCenter, mapZoom, map]);
+
+  useEffect(() => {
+    const handleExpandCluster = () => {
+      if (cases.length > 0) {
+        const target = cases[0];
+        map.setView([target.latitude, target.longitude], 16, { animate: true });
+      }
+    };
+    window.addEventListener('abtc:bitemap-show-pins-popup', handleExpandCluster);
+    return () => window.removeEventListener('abtc:bitemap-show-pins-popup', handleExpandCluster);
+  }, [cases, map]);
 
   return null;
 }
@@ -157,7 +168,8 @@ const createClusterCustomIcon = (cluster: any) => {
   return divIcon({
     html: `
       <div 
-        data-tour="bite-map-marker" title="${tooltipText}"
+        data-tour="bite-map-cluster" data-walkthrough="bitemap-cluster" title="${tooltipText}"
+        onclick="window.dispatchEvent(new CustomEvent('abtc:bitemap-show-pins-popup'))"
         style="
           width: 42px;
           height: 42px;
@@ -196,6 +208,20 @@ const createClusterCustomIcon = (cluster: any) => {
 
 export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', onMarkerClick }: Props) {
   const [selectedCase, setSelectedCase] = useState<BiteMapCase | null>(null);
+  const firstMarkerRef = useRef<any>(null);
+
+  useEffect(() => {
+    const handleOpenPopup = () => {
+      setTimeout(() => {
+        if (firstMarkerRef.current) {
+          firstMarkerRef.current.openPopup();
+        }
+      }, 450);
+    };
+    window.addEventListener('abtc:bitemap-show-pins-popup', handleOpenPopup);
+    return () => window.removeEventListener('abtc:bitemap-show-pins-popup', handleOpenPopup);
+  }, []);
+
   const defaultCenter: [number, number] = mapCenter 
     ? [mapCenter.latitude, mapCenter.longitude]
     : [14.5995, 120.9842];
@@ -281,10 +307,20 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
           <MarkerClusterGroup
             chunkedLoading
             iconCreateFunction={createClusterCustomIcon}
+            eventHandlers={{
+              clusterclick: () => {
+                window.dispatchEvent(new CustomEvent('abtc:bitemap-show-pins-popup'));
+              },
+            }}
           >
-            {cases.map((caseData) => (
+            {cases.map((caseData, idx) => (
               <Marker
                 key={caseData.bite_id}
+                ref={(node) => {
+                  if (idx === 0) {
+                    firstMarkerRef.current = node;
+                  }
+                }}
                 position={[caseData.latitude, caseData.longitude]}
                 icon={createCustomIcon(caseData.severity)}
                 title={caseData.severity}

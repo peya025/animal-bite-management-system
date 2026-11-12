@@ -3,6 +3,8 @@ import { Box, Card, CardContent, Typography } from '@mui/material';
 export default function MapLegend() {
   return (
     <Card 
+      data-walkthrough="bitemap-legend"
+      data-tour="bitemap-legend"
       sx={{ 
         position: 'absolute', 
         bottom: 20, 

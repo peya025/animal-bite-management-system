@@ -254,6 +254,8 @@ export default function BiteMapPage() {
 
         return (
           <Box
+            data-walkthrough="bitemap-kpi-cards"
+            data-tour="bitemap-kpi-cards"
             sx={{
               display: 'grid',
               gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },

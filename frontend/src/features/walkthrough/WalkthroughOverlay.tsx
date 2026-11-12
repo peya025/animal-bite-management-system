@@ -433,6 +433,10 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
         }
       }
 
+      if (step.id === 'bitemap-markers') {
+        window.dispatchEvent(new CustomEvent('abtc:bitemap-show-pins-popup'));
+      }
+
       const primaryEl = queryPrioritySelector(step.targetSelector);
       if (primaryEl) {
         const wasDifferent = activeElementRef.current !== primaryEl || isFallbackRef.current;
@@ -548,6 +552,29 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isFirstStep, isLastStep, onNext, onPrev, onSkip, handleFinish]);
 
+  const handleSpotlightHoleClick = (e: React.MouseEvent) => {
+    if (!targetRect) return;
+    const x = e.clientX;
+    const y = e.clientY;
+    if (
+      x >= targetRect.left &&
+      x <= targetRect.left + targetRect.width &&
+      y >= targetRect.top &&
+      y <= targetRect.top + targetRect.height
+    ) {
+      const elements = document.elementsFromPoint(x, y);
+      const target = elements.find(
+        (el) =>
+          !el.closest('[data-testid="walkthrough-overlay"]') &&
+          !el.classList.contains('walkthrough-spotlight-glow') &&
+          !el.classList.contains('walkthrough-backdrop-svg')
+      );
+      if (target && target instanceof HTMLElement) {
+        target.click();
+      }
+    }
+  };
+
   return (
     <div data-testid="walkthrough-overlay" role="dialog" aria-modal="true" aria-label={step.title}>
       {isFirstStep ? (
@@ -557,7 +584,7 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
           aria-hidden="true"
         />
       ) : (
-        <svg className="walkthrough-backdrop-svg" aria-hidden="true">
+        <svg className="walkthrough-backdrop-svg" aria-hidden="true" onClick={handleSpotlightHoleClick}>
           <defs>
             <mask id="walkthrough-spotlight-mask">
               <rect x="0" y="0" width="100%" height="100%" fill="white" />

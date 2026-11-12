@@ -272,7 +272,7 @@ export const REPORTS_ANALYTICS_STEPS: WalkthroughStep[] = [
 
 export function getReportsAnalyticsSteps(roleOrRoute?: string, maybeRoute?: string): WalkthroughStep[] {
   let role: string | undefined = undefined;
-  let route = ROUTES.REPORTS.LIST;
+  let route: string = ROUTES.REPORTS.LIST;
 
   if (roleOrRoute && roleOrRoute.startsWith('/')) {
     route = roleOrRoute;

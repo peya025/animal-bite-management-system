@@ -42,6 +42,13 @@ class TreatmentRecordController extends Controller
             $request->get('bite_id') ? (int) $request->get('bite_id') : null
         );
 
+        if ($result['status'] >= 400) {
+            \Illuminate\Support\Facades\Log::warning('TreatmentRecord store returned ' . $result['status'] . ':', [
+                'response' => $result['data'],
+                'input' => $request->validated(),
+            ]);
+        }
+
         return $this->json($result['data'], $result['status']);
     }
 

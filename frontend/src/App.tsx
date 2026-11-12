@@ -18,7 +18,7 @@ import BiteMapPage from './features/bite-cases/pages/BiteMapPage';
 import ClinicInformation from './features/clinic-setup/pages/ClinicInformationPage';
 import PatientAppResourcesPage from './features/clinic-setup/pages/PatientAppResourcesPage';
 import ClinicOperatingSchedulePage from './features/clinic-setup/pages/ClinicOperatingSchedulePage';
-import ModuleConfigPage from './features/clinic-setup/pages/ModuleConfigPage';
+import ModuleConfigPage from './pages/admin/ModuleConfigPage';
 import StaffAssignmentPage from './features/clinic-setup/pages/StaffAssignmentPage';
 import VaccinationSchedulePage from './features/vaccinations/pages/VaccinationSchedulePage';
 import UserListPage from './features/users/pages/UserListPage';
@@ -42,12 +42,15 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Unauthorized from './pages/Unauthorized';
 import { AccessDeniedProvider } from './shared/contexts/AccessDeniedContext';
 import { NotificationProvider } from './shared/contexts/NotificationContext';
+import { ClinicModuleConfigProvider } from './hooks/useClinicModuleConfig';
+
 function App() {
   return (
     <AppStyleScope>
       <AccessDeniedProvider>
         <NotificationProvider>
-          <Suspense
+          <ClinicModuleConfigProvider>
+            <Suspense
               fallback={
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#10b981' }}>
                   <span>Loading page...</span>
@@ -108,6 +111,7 @@ function App() {
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </Suspense>
+          </ClinicModuleConfigProvider>
         </NotificationProvider>
       </AccessDeniedProvider>
     </AppStyleScope>

@@ -1087,7 +1087,20 @@ export function useGeneralTreatmentForm({
         onClose();
       }
     } catch (err: any) {
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors && typeof serverErrors === 'object') {
+        const mappedErrors: Record<string, string> = {};
+        for (const [key, msgs] of Object.entries(serverErrors)) {
+          if (Array.isArray(msgs) && msgs.length > 0) {
+            mappedErrors[key] = String(msgs[0]);
+          } else if (typeof msgs === 'string') {
+            mappedErrors[key] = msgs;
+          }
+        }
+        setFieldErrors((prev) => ({ ...prev, ...mappedErrors }));
+      }
       setError(err.response?.data?.message || 'Failed to complete referral');
+      console.error('Complete referral save failed (422):', err.response?.data || err);
     } finally {
       setSaving(false);
     }
@@ -1302,7 +1315,21 @@ export function useGeneralTreatmentForm({
         onClose();
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save treatment record');
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors && typeof serverErrors === 'object') {
+        const mappedErrors: Record<string, string> = {};
+        for (const [key, msgs] of Object.entries(serverErrors)) {
+          if (Array.isArray(msgs) && msgs.length > 0) {
+            mappedErrors[key] = String(msgs[0]);
+          } else if (typeof msgs === 'string') {
+            mappedErrors[key] = msgs;
+          }
+        }
+        setFieldErrors((prev) => ({ ...prev, ...mappedErrors }));
+      }
+      const msg = err.response?.data?.message || 'Failed to save treatment record';
+      setError(msg);
+      console.error('Treatment record save failed (422):', err.response?.data || err);
     } finally {
       setSaving(false);
     }

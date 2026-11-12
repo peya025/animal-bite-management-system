@@ -140,4 +140,18 @@ class StoreTreatmentRecordRequest extends FormRequest
             }
         });
     }
+
+    /**
+     * Handle a failed validation attempt.
+     */
+    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator): void
+    {
+        \Illuminate\Support\Facades\Log::warning('StoreTreatmentRecordRequest validation failed:', [
+            'errors' => $validator->errors()->toArray(),
+            'payload' => $this->except(['password']),
+        ]);
+
+        parent::failedValidation($validator);
+    }
 }
+

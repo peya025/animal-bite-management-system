@@ -169,18 +169,18 @@ export interface FieldRules {
   mother_maiden_name: FieldRuleValue;
   civil_status: FieldRuleValue;
   spouse_name: FieldRuleValue;
-  
+
   // ADDRESS FIELDS
   address_municipality: FieldRuleValue;
   address_barangay: FieldRuleValue;
   address_purok: FieldRuleValue;
   province: FieldRuleValue;
-  
+
   // SOCIOECONOMIC FIELDS
   educational_attainment: FieldRuleValue;
   employment_status: FieldRuleValue;
   family_member: FieldRuleValue;
-  
+
   // GOVERNMENT PROGRAMS
   philhealth_member: FieldRuleValue;
   philhealth_status: FieldRuleValue;
@@ -188,7 +188,7 @@ export interface FieldRules {
   philhealth_category: FieldRuleValue;
   fourps_member: FieldRuleValue;
   dswd_nhts: FieldRuleValue;
-  
+
   // BITE INCIDENT INTAKE FIELDS
   bite_date: FieldRuleValue;
   bite_place: FieldRuleValue;
@@ -199,13 +199,13 @@ export interface FieldRules {
   animal_captured: FieldRuleValue;
   wound_location: FieldRuleValue;
   patient_description: FieldRuleValue;
-  
+
   // TRIAGE/ASSESSMENT FIELDS
-  exposure_category: FieldRuleValue;
+  exposure_category: FieldRuleValue; // Locked clinical safeguard (must be 'required')
   bite_site: FieldRuleValue;
   animal_observation_status: FieldRuleValue;
   treatment_given: FieldRuleValue;
-  
+
   // TREATMENT FIELDS
   protocol_type: FieldRuleValue;
   route: FieldRuleValue;
@@ -218,29 +218,136 @@ export interface FieldRules {
   medication_given: FieldRuleValue;
   adverse_reaction: FieldRuleValue;
   cost_recovery: FieldRuleValue;
-  [key: string]: FieldRuleValue;
 }
 
-export interface ClinicModuleConfig {
-  id: number;
-  clinic_id: number;
+export type FieldRuleKey = keyof FieldRules;
+
+export interface ClinicModuleSections {
+  patient_registration_enabled: boolean;
+  address_section_enabled: boolean;
+  socioeconomic_section_enabled: boolean;
+  gov_programs_section_enabled: boolean;
+  bite_intake_section_enabled: boolean;
+  triage_section_enabled: boolean;
+  treatment_section_enabled: boolean;
+}
+
+export type ClinicSectionKey = keyof ClinicModuleSections;
+
+export interface ClinicStationModules {
   triage_module_enabled: boolean;
-  registration_module_enabled?: boolean;
-  treatment_module_enabled?: boolean;
-  patient_registration_enabled?: boolean;
-  address_section_enabled?: boolean;
-  socioeconomic_section_enabled?: boolean;
-  gov_programs_section_enabled?: boolean;
-  bite_intake_section_enabled?: boolean;
-  triage_section_enabled?: boolean;
-  treatment_section_enabled?: boolean;
+  registration_module_enabled: boolean;
+  treatment_module_enabled: boolean;
+}
+
+export type ClinicStationKey = keyof ClinicStationModules;
+
+export interface ClinicModuleConfig extends ClinicModuleSections, ClinicStationModules {
+  id?: number;
+  schema_version: number;
+  revision: number;
+  clinic_id: number;
+  can_edit: boolean;
   google_sso_enabled?: boolean;
   google_sso_roles?: string[];
   google_sso_domain?: string | null;
   field_rules: FieldRules;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
+
+export interface ClinicModuleConfigUpdatePayload extends ClinicModuleSections, ClinicStationModules {
+  revision: number;
+  field_rules: FieldRules;
+}
+
+export interface ClinicModuleConfigUpdateResponse {
+  message: string;
+  config: ClinicModuleConfig;
+}
+
+export interface ClinicModuleConfigConflictResponse {
+  message: string;
+  current_revision: number;
+  supplied_revision: number;
+  config: ClinicModuleConfig;
+}
+
+export interface ClinicModuleConfigHistoryItem {
+  id: number;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+  };
+  action: string;
+  description: string;
+  old_values: Partial<ClinicModuleConfig> & { field_rules?: Partial<FieldRules> };
+  new_values: Partial<ClinicModuleConfig> & { field_rules?: Partial<FieldRules> };
+  ip_address: string | null;
+  created_at: string;
+}
+
+export const DEFAULT_CANONICAL_FIELD_RULES: Readonly<FieldRules> = Object.freeze({
+  blood_type: 'optional',
+  mother_maiden_name: 'optional',
+  civil_status: 'optional',
+  spouse_name: 'optional',
+  address_municipality: 'required',
+  address_barangay: 'required',
+  address_purok: 'optional',
+  province: 'required',
+  educational_attainment: 'optional',
+  employment_status: 'optional',
+  family_member: 'optional',
+  philhealth_member: 'optional',
+  philhealth_status: 'optional',
+  philhealth_no: 'optional',
+  philhealth_category: 'optional',
+  fourps_member: 'optional',
+  dswd_nhts: 'optional',
+  bite_date: 'required',
+  bite_place: 'required',
+  site_washed: 'required',
+  exposure_type: 'required',
+  animal_type: 'required',
+  animal_status: 'required',
+  animal_captured: 'optional',
+  wound_location: 'required',
+  patient_description: 'optional',
+  exposure_category: 'required',
+  bite_site: 'required',
+  animal_observation_status: 'optional',
+  treatment_given: 'optional',
+  protocol_type: 'required',
+  route: 'optional',
+  injection_site: 'optional',
+  dosage_ml: 'optional',
+  vaccine_brand: 'optional',
+  vaccine_generic: 'optional',
+  batch_no: 'optional',
+  tt_status: 'optional',
+  medication_given: 'optional',
+  adverse_reaction: 'optional',
+  cost_recovery: 'optional',
+});
+
+export const DEFAULT_CANONICAL_SECTIONS: Readonly<ClinicModuleSections> = Object.freeze({
+  patient_registration_enabled: true,
+  address_section_enabled: true,
+  socioeconomic_section_enabled: true,
+  gov_programs_section_enabled: true,
+  bite_intake_section_enabled: true,
+  triage_section_enabled: true,
+  treatment_section_enabled: true,
+});
+
+export const DEFAULT_CANONICAL_MODULES: Readonly<ClinicStationModules> = Object.freeze({
+  triage_module_enabled: true,
+  registration_module_enabled: true,
+  treatment_module_enabled: true,
+});
 
 export type AssignedModule = 'all' | 'registration' | 'triage' | 'treatment' | 'inventory';
 

@@ -202,6 +202,8 @@ export default function PatientsReportSection({
     <Box sx={{ fontFamily: POPPINS }}>
       {/* ── Filter Bar ────────────────────────────────────────── */}
       <Paper
+        data-walkthrough="admin-reports-patients-filters"
+        data-tour="admin-reports-patients-filters"
         component="div"
         elevation={0}
         sx={{
@@ -330,7 +332,12 @@ export default function PatientsReportSection({
       )}
 
       {/* ── Patient Records Table Panel ─────────────────────────── */}
-      <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2, sm: 2.5 } }}>
+      <Paper
+        data-walkthrough="admin-reports-patients-registry"
+        data-tour="admin-reports-patients-registry"
+        elevation={0}
+        sx={{ ...panelSx, p: { xs: 2, sm: 2.5 } }}
+      >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
           <Box>
             <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, fontFamily: POPPINS }}>

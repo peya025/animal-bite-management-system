@@ -11,6 +11,8 @@ type ApiError = {
 import {
   Box,
   Button,
+  IconButton,
+  Tooltip,
   Snackbar,
   Stack,
   Tab,
@@ -436,25 +438,31 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
                 Back to Inventory Batches
               </Button>
 
-              <Button
-                variant="outlined"
-                onClick={loadData}
-                disabled={loading}
-                startIcon={<RefreshIcon sx={{ fontSize: 16, transition: 'transform 0.4s', ...(loading && { animation: 'spin 0.8s linear infinite' }) }} />}
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: 13,
-                  borderRadius: 2,
-                  px: 2,
-                  borderColor: '#d1d5db',
-                  color: '#374151',
-                  '&:hover': { borderColor: '#10b981', color: '#10b981', bgcolor: '#f0fdf4' },
-                  '&:disabled': { opacity: 0.5 },
-                }}
-              >
-                {loading ? 'Refreshing…' : 'Refresh'}
-              </Button>
+              <Tooltip title="Refresh Stock Card">
+                <span>
+                  <IconButton
+                    onClick={loadData}
+                    disabled={loading}
+                    sx={{
+                      bgcolor: '#f1f5f9',
+                      color: '#475569',
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      border: '1px solid #e2e8f0',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: '#e2e8f0',
+                        color: '#0f172a',
+                        borderColor: '#cbd5e1',
+                      },
+                      '&:disabled': { opacity: 0.5 },
+                    }}
+                  >
+                    <RefreshIcon sx={{ fontSize: 19, transition: 'transform 0.4s', ...(loading && { animation: 'spin 0.8s linear infinite' }) }} />
+                  </IconButton>
+                </span>
+              </Tooltip>
             </>
           ) : (
             <>
@@ -490,6 +498,8 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
 
               {/* Stock Card Button: only with stroke, turns green on hover */}
               <Button
+                data-walkthrough="vax-inv-btn-stockcard vax-tx-btn-stockcard"
+                data-tour="vax-inv-btn-stockcard"
                 variant="outlined"
                 onClick={() => {
                   setView('stockcard');
@@ -518,28 +528,10 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
                 Stock Card
               </Button>
 
-              <Button
-                variant="outlined"
-                onClick={loadData}
-                disabled={loading}
-                startIcon={<RefreshIcon sx={{ fontSize: 16, transition: 'transform 0.4s', ...(loading && { animation: 'spin 0.8s linear infinite' }) }} />}
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: 13,
-                  borderRadius: 2,
-                  px: 2,
-                  borderColor: '#d1d5db',
-                  color: '#374151',
-                  '&:hover': { borderColor: '#10b981', color: '#10b981', bgcolor: '#f0fdf4' },
-                  '&:disabled': { opacity: 0.5 },
-                }}
-              >
-                {loading ? 'Refreshing…' : 'Refresh'}
-              </Button>
-
               {user?.role === 'admin' && view !== 'administrations' && (
                 <Button
+                  data-walkthrough="vax-inv-btn-add-batch"
+                  data-tour="vax-inv-btn-add-batch"
                   variant="contained"
                   startIcon={<AddIcon />}
                   onClick={() => {
@@ -553,6 +545,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
                     fontSize: 13,
                     borderRadius: 2,
                     px: 2.25,
+                    minHeight: 36,
                     bgcolor: '#059669',
                     '&:hover': { bgcolor: '#047857' },
                     boxShadow: '0 2px 8px rgba(5,150,105,0.25)',
@@ -561,6 +554,41 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
                   Add Stock Batch
                 </Button>
               )}
+
+              {/* Circular Refresh button beside Add Stock Batch */}
+              <Tooltip title="Refresh Inventory">
+                <span>
+                  <IconButton
+                    data-walkthrough="vax-inv-btn-refresh vax-tx-btn-refresh"
+                    data-tour="vax-inv-btn-refresh"
+                    onClick={loadData}
+                    disabled={loading}
+                    sx={{
+                      bgcolor: '#f1f5f9',
+                      color: '#475569',
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      border: '1px solid #e2e8f0',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: '#e2e8f0',
+                        color: '#0f172a',
+                        borderColor: '#cbd5e1',
+                      },
+                      '&:disabled': { opacity: 0.5 },
+                    }}
+                  >
+                    <RefreshIcon
+                      sx={{
+                        fontSize: 19,
+                        transition: 'transform 0.4s',
+                        ...(loading && { animation: 'spin 0.8s linear infinite' }),
+                      }}
+                    />
+                  </IconButton>
+                </span>
+              </Tooltip>
             </>
           )}
 
@@ -570,7 +598,11 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
       </Box>
 
       {view === 'table' && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 2, mb: 2.5 }}>
+        <Box
+          data-walkthrough="vax-inv-summary-cards"
+          data-tour="vax-inv-summary-cards"
+          sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 2, mb: 2.5 }}
+        >
           <InventorySummaryCard label="Available Vials" value={stats.available_vials} subtitle="Usable sealed stock" tone="green" icon={<InventoryIcon />} loading={loading} />
           <InventorySummaryCard label="Active Batches" value={stats.active_batches} subtitle="In current inventory" tone="blue" icon={<ActiveIcon />} loading={loading} />
           <InventorySummaryCard label="Expiring Soon" value={stats.expiring_soon} subtitle="Within 30 days" tone="amber" icon={<ExpiringIcon />} loading={loading} />

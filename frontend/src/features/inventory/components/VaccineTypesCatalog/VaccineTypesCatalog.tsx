@@ -184,6 +184,8 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
         <Tooltip title={isAdmin ? 'Add a new vaccine to the catalog' : 'Admin only'}>
           <span>
             <Button
+              data-walkthrough="vax-setup-add-btn"
+              data-tour="vax-setup-add-btn"
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => {
@@ -211,7 +213,12 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
       </Box>
 
       {/* ── Search & Filter Controls ── */}
-      <Paper elevation={0} sx={{ p: 1.75, mb: 3, border: '1px solid var(--card-border, #e2e8f0)', borderRadius: 2.5, bgcolor: 'var(--card-bg, #fff)' }}>
+      <Paper
+        data-walkthrough="vax-setup-filter-bar"
+        data-tour="vax-setup-filter-bar"
+        elevation={0}
+        sx={{ p: 1.75, mb: 3, border: '1px solid var(--card-border, #e2e8f0)', borderRadius: 2.5, bgcolor: 'var(--card-bg, #fff)' }}
+      >
         <Grid container spacing={2} sx={{ alignItems: 'center' }}>
           <Grid size={{ xs: 12, md: 5 }}>
             <TextField
@@ -290,7 +297,12 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
           )}
         </Paper>
       ) : (
-        <Grid container spacing={2.5}>
+        <Grid
+          container
+          spacing={2.5}
+          data-walkthrough="vax-setup-cards-grid"
+          data-tour="vax-setup-cards-grid"
+        >
           {filteredPresets.map((preset) => {
             const categoryStyle = CATEGORY_COLORS[preset.category || ''] || { bg: '#f8fafc', color: '#475569', border: '#cbd5e1' };
 

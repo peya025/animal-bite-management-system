@@ -233,7 +233,7 @@ export default function NurseVaccineList() {
   return (
     <Box sx={{ width: '100%' }}>
       {/* ── Header & Stat Cards ── */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 3 }} data-walkthrough="vax-tx-summary-cards" data-tour="vax-tx-summary-cards">
         {/* ── Summary Stats ── */}
         <Grid container spacing={2}>
           {[
@@ -335,6 +335,8 @@ export default function NurseVaccineList() {
 
       {/* ── Filter Bar ── */}
       <Paper
+        data-walkthrough="vax-tx-filter-bar"
+        data-tour="vax-tx-filter-bar"
         elevation={0}
         sx={{
           p: 1.25,
@@ -520,6 +522,8 @@ export default function NurseVaccineList() {
 
       {/* ── Data Table ── */}
       <Paper
+        data-walkthrough="vax-tx-table"
+        data-tour="vax-tx-table"
         elevation={0}
         sx={{
           borderRadius: '20px',

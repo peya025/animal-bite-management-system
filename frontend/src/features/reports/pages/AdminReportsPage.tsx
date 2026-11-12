@@ -389,15 +389,31 @@ export default function AdminReportsPage({ initialTab }: { initialTab?: 'summary
       </Typography>
     </Box>
 
-    <Tabs value={section} onChange={(_, value: Section) => setSection(value)} variant="scrollable" allowScrollButtonsMobile aria-label="Administrator report sections" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-      <Tab value="overview" label="Clinic overview" />
-      <Tab value="trends" label="Trends & records" />
-      <Tab value="doh" label="DOH submissions" />
-      <Tab value="patients" label="Patients" />
-      <Tab value="inventory" label="Vaccine inventory & wastage" />
+    <Tabs
+      data-walkthrough="admin-reports-tabs"
+      data-tour="admin-reports-tabs"
+      value={section}
+      onChange={(_, value: Section) => setSection(value)}
+      variant="scrollable"
+      allowScrollButtonsMobile
+      aria-label="Administrator report sections"
+      sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
+    >
+      <Tab value="overview" label="Clinic overview" data-walkthrough="admin-reports-tab-overview" data-tour="admin-reports-tab-overview" />
+      <Tab value="trends" label="Trends & records" data-walkthrough="admin-reports-tab-trends" data-tour="admin-reports-tab-trends" />
+      <Tab value="doh" label="DOH submissions" data-walkthrough="admin-reports-tab-doh" data-tour="admin-reports-tab-doh" />
+      <Tab value="patients" label="Patients" data-walkthrough="admin-reports-tab-patients" data-tour="admin-reports-tab-patients" />
+      <Tab value="inventory" label="Vaccine inventory & wastage" data-walkthrough="admin-reports-tab-inventory" data-tour="admin-reports-tab-inventory" />
     </Tabs>
 
-    {(section === 'overview' || section === 'trends') && <Paper component="form" onSubmit={applyFilters} elevation={0} sx={{ ...panelSx, p: 2, mb: 3 }}>
+    {(section === 'overview' || section === 'trends') && <Paper
+      data-walkthrough="admin-reports-filters"
+      data-tour="admin-reports-filters"
+      component="form"
+      onSubmit={applyFilters}
+      elevation={0}
+      sx={{ ...panelSx, p: 2, mb: 3 }}
+    >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
         <TextField select size="small" label="Period" value={preset} onChange={event => {
           const next = event.target.value;
@@ -430,7 +446,11 @@ export default function AdminReportsPage({ initialTab }: { initialTab?: 'summary
         <Typography variant="caption" color="text.secondary">Current actions as of {summary?.period.as_of || today}</Typography>
       </Box>
       {summaryLoading && !summary ? <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 1.5, mb: 3 }}>{[1, 2, 3, 4].map(item => <Skeleton key={item} variant="rounded" height={125} />)}</Box> : summary && <>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4, minmax(0, 1fr))' }, gap: 1.5, mb: 3 }}>
+        <Box
+          data-walkthrough="admin-reports-kpi-cards"
+          data-tour="admin-reports-kpi-cards"
+          sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4, minmax(0, 1fr))' }, gap: 1.5, mb: 3 }}
+        >
           <Metric label="Bite episodes" value={summary.stats.incidents} detail="Incident dates in selected period" onClick={() => openReport('surveillance')} />
           <Metric label="Eligible PEP completion" value={summary.stats.completion.rate === null ? '—' : `${summary.stats.completion.rate}%`} detail={`${summary.stats.completion.completed} of ${summary.stats.completion.eligible} eligible D0 courses`} onClick={() => openReport('pep')} />
           <Metric label="Patients with overdue doses" value={summary.stats.overdue_patients} detail="Current, across all incident dates" onClick={() => openReport('followup')} />
@@ -441,7 +461,11 @@ export default function AdminReportsPage({ initialTab }: { initialTab?: 'summary
         </Alert>}
       </>}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 2fr) minmax(270px, 1fr)' }, gap: 2 }}>
+      <Box
+        data-walkthrough="admin-reports-action-cards"
+        data-tour="admin-reports-action-cards"
+        sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 2fr) minmax(270px, 1fr)' }, gap: 2 }}
+      >
         <Paper elevation={0} sx={{ ...panelSx, p: 2.5 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 1, flexWrap: 'wrap', mb: 2 }}>
             <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700 }}>Overdue dose follow-up</Typography>
@@ -476,7 +500,11 @@ export default function AdminReportsPage({ initialTab }: { initialTab?: 'summary
 
     {section === 'trends' && <>
       {summaryLoading && !summary ? <Skeleton variant="rounded" height={230} sx={{ mb: 2 }} /> : summary && <>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.4fr) minmax(270px, 1fr)' }, gap: 1.5, mb: 1.5 }}>
+        <Box
+          data-walkthrough="admin-reports-trends-charts"
+          data-tour="admin-reports-trends-charts"
+          sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.4fr) minmax(270px, 1fr)' }, gap: 1.5, mb: 1.5 }}
+        >
           <CategoryTrend months={summary.months} />
           <Breakdown title="Incident barangays" rows={summary.breakdowns.barangays} limit={5} />
         </Box>
@@ -492,7 +520,12 @@ export default function AdminReportsPage({ initialTab }: { initialTab?: 'summary
         </Box>
       </>}
 
-      <Paper elevation={0} sx={{ ...panelSx, p: { xs: 1.5, sm: 2.5 } }}>
+      <Paper
+        data-walkthrough="admin-reports-clinic-records"
+        data-tour="admin-reports-clinic-records"
+        elevation={0}
+        sx={{ ...panelSx, p: { xs: 1.5, sm: 2.5 } }}
+      >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
           <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700 }}>Clinic records</Typography>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>

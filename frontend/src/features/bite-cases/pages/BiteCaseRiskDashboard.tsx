@@ -310,6 +310,7 @@ function StatCard({
   tooltip,
   active,
   onClick,
+  dataWalkthrough,
 }: {
   label: string;
   value: string | number;
@@ -319,10 +320,13 @@ function StatCard({
   tooltip?: string;
   active?: boolean;
   onClick?: () => void;
+  dataWalkthrough?: string;
 }) {
   return (
     <Paper
       elevation={0}
+      data-walkthrough={dataWalkthrough}
+      data-tour={dataWalkthrough}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -2253,6 +2257,7 @@ export default function BiteCaseRiskDashboard() {
           tooltip="Total recorded animal bite incidents. Click to show all."
           active={statFilter === 'total'}
           onClick={() => handleStatFilterToggle('total')}
+          dataWalkthrough="bite-cases-kpi-total"
         />
         <StatCard
           label="ACTIVE CASES"
@@ -2263,6 +2268,7 @@ export default function BiteCaseRiskDashboard() {
           tooltip="Cases undergoing evaluation or vaccination. Click to filter."
           active={statFilter === 'active'}
           onClick={() => handleStatFilterToggle('active')}
+          dataWalkthrough="bite-cases-kpi-active"
         />
         <StatCard
           label="COMPLETED"
@@ -2273,6 +2279,7 @@ export default function BiteCaseRiskDashboard() {
           tooltip="Cases with full vaccination course completed. Click to filter."
           active={statFilter === 'completed'}
           onClick={() => handleStatFilterToggle('completed')}
+          dataWalkthrough="bite-cases-kpi-completed"
         />
         <StatCard
           label="HIGH-PRIORITY AREAS"
@@ -2283,6 +2290,7 @@ export default function BiteCaseRiskDashboard() {
           tooltip="Areas classified as High Priority (score ≥70). Click to filter."
           active={statFilter === 'high_priority'}
           onClick={() => handleStatFilterToggle('high_priority')}
+          dataWalkthrough="bite-cases-kpi-priority"
         />
         <StatCard
           label="OVERDUE DOSES"
@@ -2293,6 +2301,7 @@ export default function BiteCaseRiskDashboard() {
           tooltip="Patients with missed PEP vaccine doses. Click to filter."
           active={statFilter === 'overdue'}
           onClick={() => handleStatFilterToggle('overdue')}
+          dataWalkthrough="bite-cases-kpi-overdue"
         />
         <StatCard
           label="PEP COMPLIANCE"
@@ -2303,6 +2312,7 @@ export default function BiteCaseRiskDashboard() {
           tooltip="Up-to-date PEP vaccination rate. Click to filter non-compliant."
           active={statFilter === 'compliance'}
           onClick={() => handleStatFilterToggle('compliance')}
+          dataWalkthrough="bite-cases-kpi-compliance"
         />
       </Box>
 
@@ -2468,11 +2478,14 @@ export default function BiteCaseRiskDashboard() {
       >
         {/* Tabs: Location Priority vs All Cases */}
         <Box
+          data-walkthrough="bite-cases-view-tabs"
+          data-tour="bite-cases-view-tabs"
           sx={{
             display: 'inline-flex',
-            p: 0.3,
-            bgcolor: 'var(--bc-surface-3)',
+            p: 0.35,
+            bgcolor: 'var(--bc-surface-3, #f1f5f9)',
             borderRadius: '8px',
+            border: '1px solid var(--bc-border, #e2e8f0)',
             gap: 0.4,
             flexShrink: 0,
           }}
@@ -2482,12 +2495,17 @@ export default function BiteCaseRiskDashboard() {
             onClick={() => setTab('risk')}
             disableElevation
             sx={{
-              bgcolor: tab === 'risk' ? 'var(--bc-brand)' : 'transparent',
-              color: tab === 'risk' ? '#fff' : 'var(--bc-text-3)',
-              '&:hover': { bgcolor: tab === 'risk' ? 'var(--bc-brand-hover)' : 'var(--bc-track)' },
+              bgcolor: tab === 'risk' ? 'var(--bc-surface, #ffffff)' : 'transparent',
+              color: tab === 'risk' ? 'var(--bc-text, #0f172a)' : 'var(--bc-text-2, #334155)',
+              boxShadow: tab === 'risk' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              border: tab === 'risk' ? '1px solid var(--bc-border, #e2e8f0)' : '1px solid transparent',
+              '&:hover': {
+                bgcolor: tab === 'risk' ? 'var(--bc-surface, #ffffff)' : 'rgba(0,0,0,0.04)',
+                color: 'var(--bc-text, #0f172a)',
+              },
               textTransform: 'none',
               borderRadius: '6px',
-              fontWeight: 600,
+              fontWeight: tab === 'risk' ? 700 : 600,
               fontSize: 11.5,
               px: 1.2,
               py: 0.35,
@@ -2501,12 +2519,17 @@ export default function BiteCaseRiskDashboard() {
             onClick={() => setTab('cases')}
             disableElevation
             sx={{
-              bgcolor: tab === 'cases' ? 'var(--bc-brand)' : 'transparent',
-              color: tab === 'cases' ? '#fff' : 'var(--bc-text-3)',
-              '&:hover': { bgcolor: tab === 'cases' ? 'var(--bc-brand-hover)' : 'var(--bc-track)' },
+              bgcolor: tab === 'cases' ? 'var(--bc-surface, #ffffff)' : 'transparent',
+              color: tab === 'cases' ? 'var(--bc-text, #0f172a)' : 'var(--bc-text-2, #334155)',
+              boxShadow: tab === 'cases' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              border: tab === 'cases' ? '1px solid var(--bc-border, #e2e8f0)' : '1px solid transparent',
+              '&:hover': {
+                bgcolor: tab === 'cases' ? 'var(--bc-surface, #ffffff)' : 'rgba(0,0,0,0.04)',
+                color: 'var(--bc-text, #0f172a)',
+              },
               textTransform: 'none',
               borderRadius: '6px',
-              fontWeight: 600,
+              fontWeight: tab === 'cases' ? 700 : 600,
               fontSize: 11.5,
               px: 1.2,
               py: 0.35,
@@ -2519,6 +2542,8 @@ export default function BiteCaseRiskDashboard() {
 
         {/* Search */}
         <TextField
+          data-walkthrough="bite-cases-search"
+          data-tour="bite-cases-search"
           size="small"
           placeholder="Search case, patient, location…"
           value={filters.search}
@@ -2636,6 +2661,8 @@ export default function BiteCaseRiskDashboard() {
 
         {/* Bite Map Link */}
         <Button
+          data-walkthrough="bite-cases-map-button"
+          data-tour="bite-cases-map-button"
           onClick={() => handleOpenMap()}
           variant="outlined"
           size="small"
@@ -2734,6 +2761,8 @@ export default function BiteCaseRiskDashboard() {
             </>
           )}
           <Button
+            data-walkthrough="bite-cases-export-csv"
+            data-tour="bite-cases-export-csv"
             onClick={exportCsv}
             disabled={tab === 'risk' ? !sortedLocations.length : !displayedCases.length}
             startIcon={<FileDownloadOutlined fontSize="small" />}

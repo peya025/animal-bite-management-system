@@ -11,6 +11,7 @@ interface PlaceOfExposureSectionProps {
   error?: string;
   onClearError?: () => void;
   disabled?: boolean;
+  required?: boolean;
 }
 
 export default function PlaceOfExposureSection({
@@ -21,6 +22,7 @@ export default function PlaceOfExposureSection({
   error,
   onClearError,
   disabled = false,
+  required = true,
 }: PlaceOfExposureSectionProps) {
   return (
     <div
@@ -41,7 +43,7 @@ export default function PlaceOfExposureSection({
             color: error ? '#dc2626' : 'var(--text-h, #374151)',
           }}
         >
-          Place of Exposure <span style={{ color: '#dc2626' }}>*</span>
+          Place of Exposure {required && <span style={{ color: '#dc2626' }}>*</span>}
         </label>
         <button
           type="button"
@@ -86,7 +88,7 @@ export default function PlaceOfExposureSection({
               marginBottom: 4,
             }}
           >
-            Municipality <span style={{ color: '#dc2626' }}>*</span>
+            Municipality {required && <span style={{ color: '#dc2626' }}>*</span>}
           </label>
           {expLoc.useManual ? (
             <input
@@ -164,7 +166,7 @@ export default function PlaceOfExposureSection({
               marginBottom: 4,
             }}
           >
-            Barangay <span style={{ color: '#dc2626' }}>*</span>
+            Barangay {required && <span style={{ color: '#dc2626' }}>*</span>}
           </label>
           {expLoc.useManual ? (
             <input

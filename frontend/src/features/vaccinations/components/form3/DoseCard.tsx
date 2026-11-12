@@ -11,6 +11,7 @@ import {
 import { SegmentedControl } from './SegmentedControl';
 import SignatureImage from '../../../../shared/components/SignatureImage';
 import { sanitizeDateInput } from '../../../../shared/utils/date';
+import { useClinicModuleConfig } from '../../../../hooks/useClinicModuleConfig';
 
 interface DoseCardProps {
   dose: any;
@@ -59,6 +60,7 @@ export function DoseCard({
   onSignatureReady,
   onRefreshSignature,
 }: DoseCardProps) {
+  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
   const isExternal = Boolean(dose.is_external);
   const routeOptions = [
     { value: 'ID', label: 'ID' },
@@ -161,19 +163,28 @@ export function DoseCard({
         }}
       >
         {/* 1. Route */}
-        <div id={`field-dose_route-${dose.period}`}>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: routeError ? '#dc2626' : 'var(--text-h, #374151)', marginBottom: 6 }}>
-            Route
-          </label>
-          <SegmentedControl
-            options={routeOptions}
-            value={dose.route || 'ID'}
-            onChange={(val) => onDoseChange(index, 'route', val)}
-            disabled={isLocked}
-            error={routeError}
-            ariaLabel={`Route for ${dose.period}`}
-          />
-        </div>
+        {isSectionEnabled('treatment_section_enabled') && isFieldVisible('route') ? (
+          <div id={`field-dose_route-${dose.period}`}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: routeError ? '#dc2626' : 'var(--text-h, #374151)', marginBottom: 6 }}>
+              Route {isFieldRequired('route') && <span style={{ color: '#dc2626' }}>*</span>}
+            </label>
+            <SegmentedControl
+              options={routeOptions}
+              value={dose.route || 'ID'}
+              onChange={(val) => onDoseChange(index, 'route', val)}
+              disabled={isLocked}
+              error={routeError}
+              ariaLabel={`Route for ${dose.period}`}
+            />
+          </div>
+        ) : isCompleted && dose.route ? (
+          <div id={`field-dose_route-${dose.period}`}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary, #6b7280)', marginBottom: 6 }}>
+              Route (Recorded)
+            </label>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-h, #111827)' }}>{dose.route}</span>
+          </div>
+        ) : null}
 
         {/* 2. Date */}
         <div id={`field-dose_date-${dose.period}`}>

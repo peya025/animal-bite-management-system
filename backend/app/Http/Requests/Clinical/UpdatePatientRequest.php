@@ -3,7 +3,9 @@
 namespace App\Http\Requests\Clinical;
 
 use App\Models\Patient;
+use App\Services\Clinic\EffectiveFieldRuleComposer;
 use App\Services\PatientMembershipService;
+use App\Support\RegistrationAnimal;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -45,6 +47,23 @@ class UpdatePatientRequest extends FormRequest
     }
 
     /**
+     * Prepare inputs for validation (reconciling common UI aliases).
+     */
+    protected function prepareForValidation(): void
+    {
+        $merges = [];
+        if (!$this->has('gender') && $this->has('sex')) {
+            $merges['gender'] = $this->input('sex');
+        }
+        if (!$this->has('emergency_contact_number') && $this->has('emergency_contact_phone')) {
+            $merges['emergency_contact_number'] = $this->input('emergency_contact_phone');
+        }
+        if (!empty($merges)) {
+            $this->merge($merges);
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
@@ -54,54 +73,21 @@ class UpdatePatientRequest extends FormRequest
         $patientId = $this->route('id') ?? $this->route('patient');
         $patient = Patient::where('clinic_id', $this->user()->clinic_id)->find($patientId);
         $membershipService = app(PatientMembershipService::class);
+        $composer = app(EffectiveFieldRuleComposer::class);
+
+        $clinicId = $this->user()?->clinic_id;
+        $dynamicRules = $composer->composePatientRules($clinicId, true, $this->all(), $patient?->details?->id);
 
         return array_merge([
-            ...\App\Support\RegistrationAnimal::rules(),
-            'animal_bite_id' => ['nullable', 'integer', Rule::exists('bite_incidents', 'bite_id')->where('patient_id', $patientId)->where('clinic_id', $this->user()->clinic_id)],
-            'first_name' => 'sometimes|required|string|max:255',
-            'middle_name' => 'nullable|string|max:255',
-            'last_name' => 'sometimes|required|string|max:255',
-            'suffix' => 'nullable|string|max:50',
-            'gender' => 'sometimes|required|in:male,female',
-            'age' => 'nullable|integer|min:0|max:150',
-            'date_of_birth' => 'nullable|date|before_or_equal:today',
-            'address' => 'nullable|string',
-            'contact_number' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
-            'email' => 'nullable|string|email|max:255',
-            'emergency_contact_name' => 'nullable|string|max:255',
-            'emergency_contact_number' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
-            'hospital_no' => 'nullable|string|max:100',
-            // Extended Form 1 fields
-            'blood_type' => 'nullable|string|max:10',
-            'mother_maiden_name' => 'nullable|string|max:255',
-            'civil_status' => 'nullable|in:single,married,widowed,separated,annulled,cohabitation',
-            'spouse_name' => 'nullable|string|max:255',
-            'address_municipality' => 'nullable|string|max:255',
-            'address_barangay' => 'nullable|string|max:255',
-            'address_purok' => 'nullable|string|max:255',
-            'province' => 'nullable|string|max:100',
-            'educational_attainment' => 'nullable|string|max:50',
-            'employment_status' => 'nullable|string|max:50',
-            'family_member' => 'nullable|string|max:50',
-            'philhealth_member' => 'nullable|in:yes,no',
-            'philhealth_status' => 'nullable|in:member,dependent',
-            'philhealth_no' => [
+            ...RegistrationAnimal::rules(),
+            'animal_bite_id' => [
                 'nullable',
-                'string',
-                'max:50',
-                Rule::unique('patient_details', 'philhealth_no')->ignore($patient?->details?->id),
+                'integer',
+                Rule::exists('bite_incidents', 'bite_id')
+                    ->where('patient_id', $patientId)
+                    ->where('clinic_id', $this->user()->clinic_id),
             ],
-            'philhealth_category' => 'nullable|string|max:50',
-            'fourps_member' => 'nullable|in:yes,no',
-            'fourps_category' => 'nullable|string|max:50',
-            'fourps_relationship' => 'nullable|string|max:50',
-            'registered_fourps_beneficiary' => 'nullable|string|max:50',
-            'dswd_nhts' => 'nullable|in:yes,no',
-            'has_membership' => 'nullable|string|max:10',
-            'other_membership' => 'nullable|string|max:500',
-            'other_membership_name' => 'nullable|string|max:500',
-            'other_membership_no' => 'nullable|string|max:500',
-        ], $membershipService->validationRules());
+        ], $dynamicRules, $membershipService->validationRules());
     }
 
     /**
@@ -114,6 +100,14 @@ class UpdatePatientRequest extends FormRequest
         return [
             'contact_number.regex' => 'Mobile number must start with 09 and contain 11 digits.',
             'emergency_contact_number.regex' => 'Mobile number must start with 09 and contain 11 digits.',
+            'blood_type.required' => 'Blood type is required.',
+            'spouse_name.required' => 'Spouse name is required.',
+            'mother_maiden_name.required' => "Mother's maiden name is required.",
+            'civil_status.required' => 'Civil status is required.',
+            'address_municipality.required' => 'Municipality is required.',
+            'address_barangay.required' => 'Barangay is required.',
+            'address_purok.required' => 'Purok is required.',
+            'province.required' => 'Province is required.',
         ];
     }
 }

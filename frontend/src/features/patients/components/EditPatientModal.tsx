@@ -11,6 +11,7 @@ import api from '../../../shared/services/api';
 import { buildEnrolmentFromPatient, buildLegacyMembershipFields, toRecord } from '../utils/memberships';
 import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import {
   PatientInfoSection,
   AddressSection,
@@ -27,6 +28,7 @@ interface EditPatientModalProps {
 }
 
 export default function EditPatientModal({ open, patient, onClose, onSuccess }: EditPatientModalProps) {
+  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
   const patientId = patient ? (patient.patient_id ?? patient.id) : null;
   const draft = useFormDraft(patientId ? `edit-patient-${patientId}` : null);
 
@@ -104,6 +106,7 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
   };
 
   const handleSubmit = async () => {
+    // Identity invariants
     if (!enrolment.last_name || !enrolment.first_name || !enrolment.date_of_birth || !enrolment.sex) {
       setError('Please fill in all required fields (Last Name, First Name, Date of Birth, Sex).');
       return;
@@ -117,6 +120,26 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
     if (enrolment.date_of_birth > new Date().toISOString().split('T')[0]) {
       setError('Date of Birth cannot be a future date.');
       return;
+    }
+
+    // Dynamic checks
+    if (isSectionEnabled('patient_registration_enabled')) {
+      if (isFieldRequired('blood_type') && !enrolment.blood_type) {
+        setError('Blood type is required.');
+        return;
+      }
+      if (isFieldRequired('mother_maiden_name') && !enrolment.mother_maiden_name?.trim()) {
+        setError("Mother's maiden name is required.");
+        return;
+      }
+      if (isFieldRequired('civil_status') && !enrolment.civil_status) {
+        setError('Civil status is required.');
+        return;
+      }
+      if (enrolment.civil_status === 'married' && isFieldRequired('spouse_name') && !enrolment.spouse_name?.trim()) {
+        setError("Spouse's name is required.");
+        return;
+      }
     }
 
     if (enrolment.contact_number && !/^09\d{9}$/.test(enrolment.contact_number.trim())) {
@@ -150,7 +173,8 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
     const patientDetails = toRecord(patientRecord.details);
     const membershipFields = buildLegacyMembershipFields(enrolment);
 
-    const payload = {
+    // Build payload: Only include fields that are visible/enabled to prevent wiping existing history
+    const payload: Record<string, any> = {
       ...(enrolment.animal_bite_id ? {
         animal_bite_id: enrolment.animal_bite_id,
         animal_type: enrolment.animal_type || undefined,
@@ -165,48 +189,91 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
       suffix: cleanField(enrolment.suffix),
       gender: enrolment.sex,
       date_of_birth: cleanField(enrolment.date_of_birth),
-      address: loc.full || (typeof patientRecord.address === 'string' ? patientRecord.address : patient.address),
-      address_municipality: cleanField(loc.munName) || toRecord(patientDetails).address_municipality || null,
-      address_barangay: cleanField(loc.brgyName) || toRecord(patientDetails).address_barangay || null,
-      address_purok: cleanField(loc.purok) || toRecord(patientDetails).address_purok || null,
-      province: toRecord(patientDetails).province || 'Misamis Oriental',
       contact_number: cleanField(enrolment.contact_number),
       email: cleanField(enrolment.email),
       emergency_contact_name: cleanField(enrolment.emergency_contact_name),
       emergency_contact_number: cleanField(enrolment.emergency_contact_phone),
-      civil_status: cleanField(enrolment.civil_status),
-      blood_type: cleanField(enrolment.blood_type),
-      spouse_name: cleanField(enrolment.spouse_name),
-      mother_maiden_name: cleanField(enrolment.mother_maiden_name),
-      family_member: cleanField(enrolment.family_member),
-      educational_attainment: cleanField(enrolment.educational_attainment),
-      employment_status: cleanField(enrolment.employment_status),
-      philhealth_member: membershipFields.philhealth_member,
-      philhealth_status: cleanField(membershipFields.philhealth_status ?? enrolment.philhealth_status),
-      philhealth_no: cleanField(membershipFields.philhealth_no ?? enrolment.philhealth_no),
-      philhealth_category: cleanField(membershipFields.philhealth_category ?? enrolment.philhealth_category),
-      fourps_member: membershipFields.fourps_member,
-      fourps_category: cleanField(membershipFields.fourps_category ?? enrolment.fourps_category),
-      fourps_relationship: cleanField(membershipFields.fourps_relationship ?? enrolment.fourps_relationship),
-      registered_fourps_beneficiary: cleanField(membershipFields.registered_fourps_beneficiary ?? enrolment.registered_fourps_beneficiary),
-      dswd_nhts: membershipFields.dswd_nhts,
-      has_membership: membershipFields.has_membership,
-      other_membership: membershipFields.other_membership,
-      other_membership_name: membershipFields.other_membership_name,
-      other_membership_no: membershipFields.other_membership_no,
-      memberships: membershipFields.memberships,
     };
+
+    if (isSectionEnabled('address_section_enabled')) {
+      payload.address = loc.full || (typeof patientRecord.address === 'string' ? patientRecord.address : patient.address);
+      if (isFieldVisible('address_municipality')) {
+        payload.address_municipality = cleanField(loc.munName) || toRecord(patientDetails).address_municipality || null;
+      }
+      if (isFieldVisible('address_barangay')) {
+        payload.address_barangay = cleanField(loc.brgyName) || toRecord(patientDetails).address_barangay || null;
+      }
+      if (isFieldVisible('address_purok')) {
+        payload.address_purok = cleanField(loc.purok) || toRecord(patientDetails).address_purok || null;
+      }
+      if (isFieldVisible('province')) {
+        payload.province = toRecord(patientDetails).province || 'Misamis Oriental';
+      }
+    }
+
+    if (isSectionEnabled('patient_registration_enabled')) {
+      if (isFieldVisible('civil_status')) {
+        payload.civil_status = cleanField(enrolment.civil_status);
+      }
+      if (isFieldVisible('blood_type')) {
+        payload.blood_type = cleanField(enrolment.blood_type);
+      }
+      if (isFieldVisible('spouse_name')) {
+        payload.spouse_name = cleanField(enrolment.spouse_name);
+      }
+      if (isFieldVisible('mother_maiden_name')) {
+        payload.mother_maiden_name = cleanField(enrolment.mother_maiden_name);
+      }
+    }
+
+    if (isSectionEnabled('socioeconomic_section_enabled')) {
+      if (isFieldVisible('family_member')) {
+        payload.family_member = cleanField(enrolment.family_member);
+      }
+      if (isFieldVisible('educational_attainment')) {
+        payload.educational_attainment = cleanField(enrolment.educational_attainment);
+      }
+      if (isFieldVisible('employment_status')) {
+        payload.employment_status = cleanField(enrolment.employment_status);
+      }
+    }
+
+    if (isSectionEnabled('gov_programs_section_enabled')) {
+      payload.has_membership = membershipFields.has_membership;
+      if (isFieldVisible('philhealth_member')) {
+        payload.philhealth_member = membershipFields.philhealth_member;
+      }
+      if (isFieldVisible('philhealth_status')) {
+        payload.philhealth_status = cleanField(membershipFields.philhealth_status ?? enrolment.philhealth_status);
+      }
+      if (isFieldVisible('philhealth_no')) {
+        payload.philhealth_no = cleanField(membershipFields.philhealth_no ?? enrolment.philhealth_no);
+      }
+      if (isFieldVisible('philhealth_category')) {
+        payload.philhealth_category = cleanField(membershipFields.philhealth_category ?? enrolment.philhealth_category);
+      }
+      if (isFieldVisible('fourps_member')) {
+        payload.fourps_member = membershipFields.fourps_member;
+      }
+      payload.fourps_category = cleanField(membershipFields.fourps_category ?? enrolment.fourps_category);
+      payload.fourps_relationship = cleanField(membershipFields.fourps_relationship ?? enrolment.fourps_relationship);
+      payload.registered_fourps_beneficiary = cleanField(membershipFields.registered_fourps_beneficiary ?? enrolment.registered_fourps_beneficiary);
+      if (isFieldVisible('dswd_nhts')) {
+        payload.dswd_nhts = membershipFields.dswd_nhts;
+      }
+      payload.other_membership = membershipFields.other_membership;
+      payload.other_membership_name = membershipFields.other_membership_name;
+      payload.other_membership_no = membershipFields.other_membership_no;
+      payload.memberships = membershipFields.memberships;
+    }
 
     try {
       await api.put(`/patients/${patientId}`, payload);
       draft.clearDraft();
       onSuccess();
-      onClose();
-    } catch (e: unknown) {
-      const message = typeof e === 'object' && e !== null && 'response' in e
-        ? (e as { response?: { data?: { message?: string } } }).response?.data?.message
-        : undefined;
-      setError(message || (e instanceof Error ? e.message : 'Failed to update patient record.'));
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e.response?.data?.message || e.message || 'Failed to update patient record.');
     } finally {
       setSaving(false);
     }
@@ -214,49 +281,33 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
 
   return (
     <FormModal
-      title="Edit Patient Record"
-      subtitle={`Form 1 — Update Patient Profile (#${patient.patient_number || patient.id})`}
+      title="Edit Patient Information"
+      subtitle={`Form 1 — Updating ${patient.first_name} ${patient.last_name}`}
       onClose={onClose}
-      maxWidth={850}
+      maxWidth={900}
       footer={
         <>
           <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
-          {error && <p style={{ flex: 1, fontSize: 13, color: '#ef4444', margin: 0, alignSelf: 'center' }}>{error}</p>}
-          <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Saving…' : 'Save Changes'}
+          <button type="button" className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="button" className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
+            {saving ? 'Saving\u2026' : 'Save Changes'}
           </button>
         </>
       }
     >
       <PatientFormContent>
-        <PatientInfoSection data={enrolment} onChange={handleFieldChange} />
-        <AddressSection loc={loc} />
-        <ContactSection data={enrolment} onChange={handleFieldChange} />
-        <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />
-        <GovProgramsSection data={enrolment} onChange={handleFieldChange} onDirectChange={handleDirectChange} />
-        <label>Animal information for bite incident
-          <select aria-label="Animal bite incident" value={enrolment.animal_bite_id || ''} onChange={event => {
-            const incident = (toRecord(fullPatient).bite_incidents as any[] || []).find(item => item.bite_id === Number(event.target.value));
-            const intake = incident?.intake || {};
-            const available = incident?.animal_available_answered ? incident.animal_available : (incident?.animal_available ?? intake.animal_available);
-            const condition = incident?.animal_observation_status || incident?.animal_condition_reported || intake.animal_condition_reported || '';
-            const next = { ...enrolment, animal_bite_id: incident?.bite_id,
-              animal_type: incident?.animal_type || intake.animal_type || '',
-              animal_type_others: incident?.animal_type_others || intake.animal_type_others || '',
-              animal_status: (incident?.animal_status === 'unassessed' ? '' : incident?.animal_status) || intake.animal_status || '',
-              animal_available: available == null ? (incident?.animal_available_answered ? 'unknown' : '') : available ? 'yes' : 'no',
-              animal_condition: condition === 'apparently_healthy' ? 'healthy' : condition === 'dead' ? 'died' : condition,
-            };
-            setEnrolment(next); draft.saveDraft(next);
-          }}>
-            <option value="">Select incident</option>
-            {(toRecord(fullPatient).bite_incidents as any[] || []).map(incident => <option key={incident.bite_id} value={incident.bite_id}>
-              {incident.case_number || `Incident ${incident.bite_id}`}  -  {String(incident.bite_date).split('T')[0]}
-            </option>)}
-          </select>
-        </label>
-        {enrolment.animal_bite_id && <AnimalSection data={enrolment} onChange={handleDirectChange} />}
+        <form className="registration-form" onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
+          <p className="registration-intro">Update patient details below. Click <strong>Save Changes</strong> to apply updates.</p>
+          {error && <div className="registration-error">{error}</div>}
+          <PatientInfoSection data={enrolment} onChange={handleFieldChange} />
+          {enrolment.animal_bite_id && (
+            <AnimalSection data={enrolment} onChange={handleFieldChange} />
+          )}
+          <AddressSection loc={loc} />
+          <ContactSection data={enrolment} onChange={handleFieldChange} />
+          <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />
+          <GovProgramsSection data={enrolment} onChange={handleFieldChange} onDirectChange={handleDirectChange} />
+        </form>
       </PatientFormContent>
     </FormModal>
   );

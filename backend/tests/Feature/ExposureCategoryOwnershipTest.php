@@ -32,9 +32,17 @@ class ExposureCategoryOwnershipTest extends TestCase
 
     private function form2(array $changes = []): array
     {
-        return array_replace(['patient_id' => $this->incident->patient_id, 'bite_id' => $this->incident->bite_id,
-            'exposure_category' => 'III', 'nature_of_visit' => 'new_consultation', 'consultation_types' => ['injury'],
-            'chief_complaints' => 'Animal bite', 'consultation_date' => '2026-10-03'], $changes);
+        return array_replace([
+            'patient_id' => $this->incident->patient_id,
+            'bite_id' => $this->incident->bite_id,
+            'exposure_category' => 'III',
+            'nature_of_visit' => 'new_consultation',
+            'consultation_types' => ['injury'],
+            'chief_complaints' => 'Animal bite',
+            'consultation_date' => '2026-10-03',
+            'place_of_exposure' => 'Poblacion, Tagoloan',
+            'treatment_plan' => 'full_pep',
+        ], $changes);
     }
 
     private function card(string $category = 'II'): TagoloanTreatmentCard

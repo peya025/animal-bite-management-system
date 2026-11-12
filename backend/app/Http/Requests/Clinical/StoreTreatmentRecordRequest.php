@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Clinical;
 
+use App\Services\Clinic\EffectiveFieldRuleComposer;
 use App\Services\ProphylaxisService;
 use App\Support\BiteIntakeContract;
 use Illuminate\Foundation\Http\FormRequest;
@@ -23,18 +24,42 @@ class StoreTreatmentRecordRequest extends FormRequest
     }
 
     /**
+     * Prepare inputs for validation (reconciling Form 2 aliases).
+     */
+    protected function prepareForValidation(): void
+    {
+        $merges = [];
+        if (!$this->has('consultation_date') && $this->has('date_of_consultation')) {
+            $merges['consultation_date'] = $this->input('date_of_consultation');
+        }
+        if (!$this->has('medication_treatment') && $this->has('treatment_given')) {
+            $merges['medication_treatment'] = $this->input('treatment_given');
+        }
+        if (!$this->has('treatment_given') && $this->has('medication_treatment')) {
+            $merges['treatment_given'] = $this->input('medication_treatment');
+        }
+        if (!empty($merges)) {
+            $this->merge($merges);
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
-        return [
+        $composer = app(EffectiveFieldRuleComposer::class);
+        $clinicId = $this->user()?->clinic_id;
+        $dynamicRules = $composer->composeTreatmentRecordRules($clinicId, $this->all());
+
+        return array_merge([
             ...ProphylaxisService::orderRules(),
             'patient_id' => 'required|exists:patients,patient_id',
             'queue_id' => 'nullable|exists:queues,queue_id',
             'bite_id' => 'nullable|exists:bite_incidents,bite_id',
-            'exposure_category' => 'sometimes|required|in:I,II,III',
+            'exposure_category' => 'required|in:I,II,III',
             'treatment_plan' => 'nullable|in:full_pep,single_booster,two_dose_booster,continue_existing_schedule,no_vaccine',
 
             // Place of Exposure & Optional Bite Incident updates from Doctor Form 2
@@ -88,6 +113,7 @@ class StoreTreatmentRecordRequest extends FormRequest
             'chief_complaints' => 'required|string',
             'diagnosis' => 'nullable|string',
             'medication_treatment' => 'nullable|string',
+            'treatment_given' => 'nullable|string|max:500',
             'prescribed_vaccine_type' => 'nullable|string|max:100',
             'laboratory_findings' => 'nullable|string',
             'performed_lab_test' => 'nullable|string',
@@ -102,7 +128,7 @@ class StoreTreatmentRecordRequest extends FormRequest
 
             // Outcome
             'outcome' => 'nullable|string|max:100',
-        ];
+        ], $dynamicRules);
     }
 
     /**
@@ -148,10 +174,9 @@ class StoreTreatmentRecordRequest extends FormRequest
     {
         \Illuminate\Support\Facades\Log::warning('StoreTreatmentRecordRequest validation failed:', [
             'errors' => $validator->errors()->toArray(),
-            'payload' => $this->except(['password']),
+            'payload' => $this->all(),
         ]);
 
         parent::failedValidation($validator);
     }
 }
-

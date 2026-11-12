@@ -19,6 +19,7 @@ import {
   GovProgramsSection,
   RegistrationVitalsSection,
 } from './sections';
+import { useClinicModuleConfig } from '../../../../hooks/useClinicModuleConfig';
 
 export default function AddPatientModal({
   onClose,
@@ -26,6 +27,7 @@ export default function AddPatientModal({
   onSelectExistingPatient,
   role,
 }: AddPatientModalProps) {
+  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
   const draft = useFormDraft('add-patient');
 
   const [enrolment, setEnrolment] = useState<EnrolmentFormData>(() => {
@@ -281,6 +283,58 @@ export default function AddPatientModal({
       newFieldErrors.emergency_contact_phone = 'Emergency contact phone must start with 09 and contain 11 digits.';
     }
 
+    // Dynamic Configurable Patient Registration fields
+    if (isSectionEnabled('patient_registration_enabled')) {
+      if (isFieldRequired('blood_type') && !enrolment.blood_type) {
+        newFieldErrors.blood_type = 'Blood type is required';
+      }
+      if (isFieldRequired('mother_maiden_name') && !enrolment.mother_maiden_name?.trim()) {
+        newFieldErrors.mother_maiden_name = "Mother's maiden name is required";
+      }
+      if (isFieldRequired('civil_status') && !enrolment.civil_status) {
+        newFieldErrors.civil_status = 'Civil status is required';
+      }
+      if (enrolment.civil_status === 'married' && isFieldRequired('spouse_name') && !enrolment.spouse_name?.trim()) {
+        newFieldErrors.spouse_name = "Spouse's name is required";
+      }
+    }
+
+    // Dynamic Configurable Address fields
+    if (isSectionEnabled('address_section_enabled')) {
+      if (isFieldRequired('address_purok') && !loc.purok?.trim()) {
+        newFieldErrors.purok = 'Purok is required';
+      }
+    }
+
+    // Dynamic Configurable Socioeconomic fields
+    if (isSectionEnabled('socioeconomic_section_enabled')) {
+      if (isFieldRequired('educational_attainment') && !enrolment.educational_attainment) {
+        newFieldErrors.educational_attainment = 'Educational attainment is required';
+      }
+      if (isFieldRequired('employment_status') && !enrolment.employment_status) {
+        newFieldErrors.employment_status = 'Employment status is required';
+      }
+      if (isFieldRequired('family_member') && !enrolment.family_member) {
+        newFieldErrors.family_member = 'Family member position is required';
+      }
+    }
+
+    // Dynamic Configurable Government Program fields
+    if (isSectionEnabled('gov_programs_section_enabled')) {
+      if (isFieldRequired('philhealth_member') && !enrolment.philhealth_member) {
+        newFieldErrors.philhealth_member = 'PhilHealth membership status is required';
+      }
+      if (isFieldRequired('fourps_member') && !enrolment.fourps_member) {
+        newFieldErrors.fourps_member = '4Ps membership status is required';
+      }
+      if (isFieldRequired('dswd_nhts') && !enrolment.dswd_nhts) {
+        newFieldErrors.dswd_nhts = 'DSWD NHTS membership status is required';
+      }
+      if (enrolment.philhealth_member === 'yes' && isFieldRequired('philhealth_no') && !enrolment.philhealth_no?.trim()) {
+        newFieldErrors.philhealth_no = 'PhilHealth number is required';
+      }
+    }
+
     if (enrolment.philhealth_no && enrolment.philhealth_no.replace(/\D/g, '').length !== 12) {
       newFieldErrors.philhealth_no = 'PhilHealth number must be exactly 12 digits.';
     }
@@ -299,64 +353,66 @@ export default function AddPatientModal({
     }
 
     // Section III: Consultation Details & Vitals (Required before proceeding to Doctor)
-    if (!enrolment.reg_date_of_consultation || !enrolment.reg_date_of_consultation.trim()) {
-      newFieldErrors.reg_date_of_consultation = 'Date of Consultation is required.';
-    } else if (!isValidFourDigitYearDate(enrolment.reg_date_of_consultation)) {
-      newFieldErrors.reg_date_of_consultation = 'Please enter a valid 4-digit year.';
-    } else if (enrolment.reg_date_of_consultation > today) {
-      newFieldErrors.reg_date_of_consultation = 'Date of Consultation cannot be a future date.';
-    }
-
-    if (!enrolment.reg_consultation_time || !enrolment.reg_consultation_time.trim()) {
-      newFieldErrors.reg_consultation_time = 'Consultation time is required.';
-    }
-
-    const bp = enrolment.reg_blood_pressure ? enrolment.reg_blood_pressure.trim() : '';
-    const [sys, dia] = bp ? bp.split('/') : ['', ''];
-    const hasSys = Boolean(sys && sys.trim());
-    const hasDia = Boolean(dia && dia.trim());
-    if (!hasSys || !hasDia) {
-      newFieldErrors.reg_blood_pressure = 'Blood pressure (both systolic and diastolic) is required.';
-    } else {
-      const s = Number(sys);
-      const d = Number(dia);
-      if (isNaN(s) || isNaN(d) || s < 40 || s > 300 || d < 20 || d > 200) {
-        newFieldErrors.reg_blood_pressure = 'Please enter a valid blood pressure (e.g. 120/80).';
+    if (isSectionEnabled('triage_section_enabled')) {
+      if (!enrolment.reg_date_of_consultation || !enrolment.reg_date_of_consultation.trim()) {
+        newFieldErrors.reg_date_of_consultation = 'Date of Consultation is required.';
+      } else if (!isValidFourDigitYearDate(enrolment.reg_date_of_consultation)) {
+        newFieldErrors.reg_date_of_consultation = 'Please enter a valid 4-digit year.';
+      } else if (enrolment.reg_date_of_consultation > today) {
+        newFieldErrors.reg_date_of_consultation = 'Date of Consultation cannot be a future date.';
       }
-    }
 
-    const tempStr = enrolment.reg_temperature ? enrolment.reg_temperature.trim() : '';
-    if (!tempStr) {
-      newFieldErrors.reg_temperature = 'Temperature is required.';
-    } else {
-      const temp = Number(tempStr);
-      if (isNaN(temp) || temp < 30 || temp > 45) {
-        newFieldErrors.reg_temperature = 'Please enter a valid temperature between 30°C and 45°C.';
+      if (!enrolment.reg_consultation_time || !enrolment.reg_consultation_time.trim()) {
+        newFieldErrors.reg_consultation_time = 'Consultation time is required.';
       }
-    }
 
-    const heightStr = enrolment.reg_height ? enrolment.reg_height.trim() : '';
-    if (!heightStr) {
-      newFieldErrors.reg_height = 'Height is required.';
-    } else {
-      const h = Number(heightStr);
-      if (isNaN(h) || h < 20 || h > 300) {
-        newFieldErrors.reg_height = 'Please enter a valid height in cm (e.g. 170).';
+      const bp = enrolment.reg_blood_pressure ? enrolment.reg_blood_pressure.trim() : '';
+      const [sys, dia] = bp ? bp.split('/') : ['', ''];
+      const hasSys = Boolean(sys && sys.trim());
+      const hasDia = Boolean(dia && dia.trim());
+      if (!hasSys || !hasDia) {
+        newFieldErrors.reg_blood_pressure = 'Blood pressure (both systolic and diastolic) is required.';
+      } else {
+        const s = Number(sys);
+        const d = Number(dia);
+        if (isNaN(s) || isNaN(d) || s < 40 || s > 300 || d < 20 || d > 200) {
+          newFieldErrors.reg_blood_pressure = 'Please enter a valid blood pressure (e.g. 120/80).';
+        }
       }
-    }
 
-    const weightStr = enrolment.reg_weight ? enrolment.reg_weight.trim() : '';
-    if (!weightStr) {
-      newFieldErrors.reg_weight = 'Weight is required.';
-    } else {
-      const w = Number(weightStr);
-      if (isNaN(w) || w < 1 || w > 500) {
-        newFieldErrors.reg_weight = 'Please enter a valid weight in kg (e.g. 70).';
+      const tempStr = enrolment.reg_temperature ? enrolment.reg_temperature.trim() : '';
+      if (!tempStr) {
+        newFieldErrors.reg_temperature = 'Temperature is required.';
+      } else {
+        const temp = Number(tempStr);
+        if (isNaN(temp) || temp < 30 || temp > 45) {
+          newFieldErrors.reg_temperature = 'Please enter a valid temperature between 30°C and 45°C.';
+        }
       }
-    }
 
-    if (!enrolment.reg_attending_provider || !enrolment.reg_attending_provider.trim()) {
-      newFieldErrors.reg_attending_provider = 'Name of attending provider is required.';
+      const heightStr = enrolment.reg_height ? enrolment.reg_height.trim() : '';
+      if (!heightStr) {
+        newFieldErrors.reg_height = 'Height is required.';
+      } else {
+        const h = Number(heightStr);
+        if (isNaN(h) || h < 20 || h > 300) {
+          newFieldErrors.reg_height = 'Please enter a valid height in cm (e.g. 170).';
+        }
+      }
+
+      const weightStr = enrolment.reg_weight ? enrolment.reg_weight.trim() : '';
+      if (!weightStr) {
+        newFieldErrors.reg_weight = 'Weight is required.';
+      } else {
+        const w = Number(weightStr);
+        if (isNaN(w) || w < 1 || w > 500) {
+          newFieldErrors.reg_weight = 'Please enter a valid weight in kg (e.g. 70).';
+        }
+      }
+
+      if (!enrolment.reg_attending_provider || !enrolment.reg_attending_provider.trim()) {
+        newFieldErrors.reg_attending_provider = 'Name of attending provider is required.';
+      }
     }
 
     focusErrorsRef.current = true;

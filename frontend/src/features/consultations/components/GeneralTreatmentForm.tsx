@@ -97,6 +97,9 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     purok,
     setPurok,
     handleClearPlaceOfExposureError,
+    isFieldVisible,
+    isFieldRequired,
+    isSectionEnabled,
   } = useGeneralTreatmentForm(props);
 
   const selectedIncident = entry?.incident || entry?.bite_incident || entry?.biteIncident;
@@ -105,8 +108,8 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     if (formRef.current && focusErrorsRef.current && Object.keys(fieldErrors).length) {
       focusErrorsRef.current = false;
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
+        ? ['nature_of_visit', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
       const firstKey = fieldOrder.find((key) => fieldErrors[key]);
       focusFirstError(formRef.current, firstKey, summaryRef.current);
     }
@@ -297,12 +300,14 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         />
 
         {/* SECTION 3: Consultation Details & Vitals */}
+        {isSectionEnabled('triage_section_enabled') && (
         <VitalsConsultationSection
           formData={formData}
           isFormDisabled={isFormDisabled}
           onFieldChange={handleFieldChange}
           onSetReferredBy={(val) => setFormData((prev) => ({ ...prev, referred_by: val }))}
         />
+        )}
 
         {/* SECTION 4: Nature of Visit */}
         <NatureOfVisitSection
@@ -448,6 +453,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         )}
 
         {/* Place of Exposure Section */}
+        {isFieldVisible('bite_site') && (
         <PlaceOfExposureSection
           expLoc={expLoc}
           purok={purok}
@@ -456,7 +462,9 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           error={fieldErrors.place_of_exposure}
           onClearError={handleClearPlaceOfExposureError}
           disabled={isFormDisabled}
+          required={isFieldRequired('bite_site')}
         />
+        )}
 
         {/* Exposure Category Selection */}
         <div className="fm-section">
@@ -508,6 +516,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         />
 
         {/* Prophylaxis Order (Tetanus & RIG) */}
+        {isSectionEnabled('treatment_section_enabled') && (
         <ProphylaxisOrderSection
           value={formData.prophylaxis_orders}
           recordedWeight={formData.weight}
@@ -519,8 +528,10 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           errors={fieldErrors}
           onChange={handleProphylaxisChange}
         />
+        )}
 
         {/* SECTION 8: Prescribed PEP Vaccine */}
+        {isSectionEnabled('treatment_section_enabled') && isFieldVisible('treatment_given') && (
         <PrescribedVaccineSection
           prescribedVaccineType={formData.prescribed_vaccine_type}
           medicationTreatment={formData.medication_treatment}
@@ -528,8 +539,11 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           vaccineNames={vaccineNames}
           vaccineStockMap={vaccineStockMap}
           isCategory1={isCategory1}
+          isRequired={isFieldRequired('treatment_given')}
+          error={fieldErrors.prescribed_vaccine_type}
           onChange={handlePrescribedVaccineChange}
         />
+        )}
 
         {/* SECTION 9: Provider Findings & Plan */}
         <ProviderFindingsSection

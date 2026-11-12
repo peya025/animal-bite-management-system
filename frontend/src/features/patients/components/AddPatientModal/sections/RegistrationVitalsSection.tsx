@@ -4,6 +4,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { FormField } from './FormField';
 import { RegistrationErrors } from '../registrationAccessibility';
 import type { EnrolmentFormData } from '../../../types';
+import { useClinicModuleConfig } from '../../../../../hooks/useClinicModuleConfig';
 import {
   MISAMIS_ORIENTAL_MUNICIPALITIES,
   FALLBACK_BARANGAYS,
@@ -166,6 +167,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
 }: RegistrationVitalsSectionProps<T>) {
   const contextErrors = useContext(RegistrationErrors);
   const errors = propsErrors || contextErrors || {};
+  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
 
   // --- Blood pressure split/combine ---
   const splitBP = (bp: string) => {
@@ -484,6 +486,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
       <AnimalSection data={data} onChange={onDirectChange} />
 
       {/* SECTION III: Consultation Details & Vitals */}
+      {isSectionEnabled('triage_section_enabled') && (
       <div className="fm-section">
         <h3 className="fm-section-title">III. Consultation Details &amp; Vitals</h3>
         <OnlineReferralPhoto patient={referralPatient} />
@@ -965,6 +968,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
         </>
       )}
     </div>
+    )}
     </RegistrationErrors.Provider>
   );
 }

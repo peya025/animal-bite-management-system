@@ -10,6 +10,7 @@ import api from '../../../shared/services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { formatPhilHealthNumber } from '../../../shared/utils';
 import { isValidFourDigitYearDate } from '../../../shared/utils/date';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import {
   getNextFifoBatch,
   getVaccineNames,
@@ -400,6 +401,7 @@ const hasAnyProphylaxisOrder = (orders: any): boolean => {
 };
 
 export default function VaccinationRecordForm({ open, entry, onClose, onSave, readOnly = false, inline = false }: VaccinationRecordFormProps) {
+  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
   const { user: currentUser } = useAuth();
 
   // Draft key is scoped to patient + bite episode so each case has an isolated draft
@@ -1186,6 +1188,12 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       if (!activeDose.vaccine_type) {
         newFieldErrors[`dose_${activeDose.period}_vaccine_type`] = 'Please select an option.';
         newFieldErrors.vaccine_type = 'Please select an option.';
+      }
+      if (isSectionEnabled('treatment_section_enabled') && isFieldRequired('route')) {
+        if (!activeDose.route) {
+          newFieldErrors[`dose_${activeDose.period}_route`] = 'Route is required.';
+          newFieldErrors.route = 'Route is required.';
+        }
       }
       if (!activeDose.date) {
         newFieldErrors[`dose_${activeDose.period}_date`] = 'Please enter a valid date.';

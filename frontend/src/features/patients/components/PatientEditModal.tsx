@@ -22,6 +22,7 @@ import type { Patient } from '../types';
 import ButtonSpinner from '../../../components/common/ButtonSpinner';
 import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 
 interface PatientEditModalProps {
   open: boolean;
@@ -47,6 +48,7 @@ export default function PatientEditModal({
   onClose,
   onSave,
 }: PatientEditModalProps) {
+  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
   const [userRole] = useState<string>(() => getStoredUserRole());
   const isAdminOrReg = ['admin', 'registration', 'developer'].includes(userRole);
 
@@ -175,11 +177,20 @@ export default function PatientEditModal({
         email: formData.email || null,
         emergency_contact_name: formData.emergency_contact_name || null,
         emergency_contact_number: formData.emergency_contact_number || null,
-        address: formData.address || null,
-        address_purok: formData.address_purok || null,
-        address_barangay: formData.address_barangay || null,
-        address_municipality: formData.address_municipality || null,
       };
+
+      if (isSectionEnabled('address_section_enabled')) {
+        payload.address = formData.address || null;
+        if (isFieldVisible('address_purok')) {
+          payload.address_purok = formData.address_purok || null;
+        }
+        if (isFieldVisible('address_barangay')) {
+          payload.address_barangay = formData.address_barangay || null;
+        }
+        if (isFieldVisible('address_municipality')) {
+          payload.address_municipality = formData.address_municipality || null;
+        }
+      }
 
       // Only include legal identity fields if user has permission
       if (isAdminOrReg) {
@@ -189,7 +200,9 @@ export default function PatientEditModal({
         payload.suffix = formData.suffix.trim() || null;
         payload.gender = formData.gender;
         if (formData.date_of_birth) payload.date_of_birth = formData.date_of_birth;
-        if (formData.philhealth_no) payload.philhealth_no = formData.philhealth_no.trim();
+        if (isSectionEnabled('gov_programs_section_enabled') && isFieldVisible('philhealth_no') && formData.philhealth_no) {
+          payload.philhealth_no = formData.philhealth_no.trim();
+        }
       }
 
       const res = await api.put(`/patients/${patientId}`, payload);
@@ -336,18 +349,20 @@ export default function PatientEditModal({
                 <MenuItem value="female">Female</MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                size="small"
-                label="PhilHealth Number (PIN)"
-                value={formData.philhealth_no}
-                onChange={handleChange('philhealth_no')}
-                disabled={!isAdminOrReg}
-                placeholder="12-digit PIN"
-                helperText="12-digit PhilHealth identification number"
-              />
-            </Grid>
+            {isSectionEnabled('gov_programs_section_enabled') && isFieldVisible('philhealth_no') && (
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="PhilHealth Number (PIN)"
+                  value={formData.philhealth_no}
+                  onChange={handleChange('philhealth_no')}
+                  disabled={!isAdminOrReg}
+                  placeholder="12-digit PIN"
+                  helperText="12-digit PhilHealth identification number"
+                />
+              </Grid>
+            )}
           </Grid>
         </Box>
 
@@ -400,50 +415,58 @@ export default function PatientEditModal({
         </Box>
 
         {/* ── SECTION 3: RESIDENTIAL ADDRESS ── */}
-        <Box sx={{ mb: 1 }}>
-          <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1.5 }}>
-            III. Residential Address (Editable by all staff)
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Municipality"
-                value={formData.address_municipality}
-                onChange={handleChange('address_municipality')}
-              />
+        {isSectionEnabled('address_section_enabled') && (
+          <Box sx={{ mb: 1 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1.5 }}>
+              III. Residential Address (Editable by all staff)
+            </Typography>
+            <Grid container spacing={2}>
+              {isFieldVisible('address_municipality') && (
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Municipality"
+                    value={formData.address_municipality}
+                    onChange={handleChange('address_municipality')}
+                  />
+                </Grid>
+              )}
+              {isFieldVisible('address_barangay') && (
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Barangay"
+                    value={formData.address_barangay}
+                    onChange={handleChange('address_barangay')}
+                  />
+                </Grid>
+              )}
+              {isFieldVisible('address_purok') && (
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Purok / Zone / Street"
+                    value={formData.address_purok}
+                    onChange={handleChange('address_purok')}
+                  />
+                </Grid>
+              )}
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Complete Residential Address"
+                  value={formData.address}
+                  onChange={handleChange('address')}
+                  placeholder="Purok, Barangay, Municipality, Province"
+                />
+              </Grid>
             </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Barangay"
-                value={formData.address_barangay}
-                onChange={handleChange('address_barangay')}
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Purok / Zone / Street"
-                value={formData.address_purok}
-                onChange={handleChange('address_purok')}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Complete Residential Address"
-                value={formData.address}
-                onChange={handleChange('address')}
-                placeholder="Purok, Barangay, Municipality, Province"
-              />
-            </Grid>
-          </Grid>
-        </Box>
+          </Box>
+        )}
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e5e7eb', gap: 1 }}>

@@ -1,7 +1,20 @@
 import { FormField } from './sections/FormField';
 import type { AddressLocationState } from '../../hooks/useAddressLocation';
+import { useClinicModuleConfig } from '../../../../hooks/useClinicModuleConfig';
 
 export function RegistrationAddressSection({ loc, errors }: { loc: AddressLocationState; errors: Record<string, string> }) {
+  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
+  const addressSectionEnabled = isSectionEnabled('address_section_enabled');
+
+  if (!addressSectionEnabled) {
+    return null;
+  }
+
+  const municipalityRequired = isFieldRequired('address_municipality');
+  const barangayRequired = isFieldRequired('address_barangay');
+  const purokRequired = isFieldRequired('address_purok');
+  const purokVisible = isFieldVisible('address_purok');
+
   const municipalityError = errors.municipality || (errors.address && !(loc.useManual ? loc.manualMun : loc.municipality) ? errors.address : undefined);
   const barangayError = errors.barangay || (errors.address && !(loc.useManual ? loc.manualBrgy : loc.barangay) ? errors.address : undefined);
 
@@ -18,7 +31,7 @@ export function RegistrationAddressSection({ loc, errors }: { loc: AddressLocati
         <p className="registration-field-hint" role="status">Address service unavailable. You can use the available options or select “Switch to Manual Typing”.</p>
       )}
       <div className="fm-grid fm-grid--2">
-        <FormField label="City / Municipality" required errorText={municipalityError}>
+        <FormField label="City / Municipality" required={municipalityRequired} errorText={municipalityError}>
           {loc.useManual ? (
             <input className="fm-input" name="municipality" value={loc.manualMun}
               onChange={e => loc.setManualMun(e.target.value)} placeholder="e.g. Tagoloan" />
@@ -30,7 +43,7 @@ export function RegistrationAddressSection({ loc, errors }: { loc: AddressLocati
             </select>
           )}
         </FormField>
-        <FormField label="Barangay" required errorText={barangayError}
+        <FormField label="Barangay" required={barangayRequired} errorText={barangayError}
           hint={!loc.useManual && !loc.municipality ? 'Select a city or municipality first.' : undefined}>
           {loc.useManual ? (
             <input className="fm-input" name="barangay" value={loc.manualBrgy}
@@ -43,11 +56,13 @@ export function RegistrationAddressSection({ loc, errors }: { loc: AddressLocati
             </select>
           )}
         </FormField>
-        <FormField label="Purok / Zone / Street" errorText={errors.purok}>
-          <input className="fm-input" name="purok" value={loc.purok}
-            onChange={e => loc.setPurok(e.target.value)} placeholder="e.g. Purok 3, Zone 1"
-            disabled={!loc.useManual && !loc.barangay} />
-        </FormField>
+        {purokVisible && (
+          <FormField label="Purok / Zone / Street" required={purokRequired} errorText={errors.purok}>
+            <input className="fm-input" name="purok" value={loc.purok}
+              onChange={e => loc.setPurok(e.target.value)} placeholder="e.g. Purok 3, Zone 1"
+              disabled={!loc.useManual && !loc.barangay} />
+          </FormField>
+        )}
       </div>
       <output className="apm-address-preview" aria-label="Full Address preview">
         <strong>Full address (read-only)</strong>{loc.full}

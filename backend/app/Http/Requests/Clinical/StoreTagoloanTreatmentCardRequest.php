@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Clinical;
 
+use App\Services\Clinic\EffectiveFieldRuleComposer;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreTagoloanTreatmentCardRequest extends FormRequest
@@ -20,13 +21,38 @@ class StoreTagoloanTreatmentCardRequest extends FormRequest
     }
 
     /**
+     * Reconcile field aliases between Form 3 components and storage contract.
+     */
+    protected function prepareForValidation(): void
+    {
+        $merges = [];
+        if (!$this->has('animal_type_others') && $this->has('animal_type_other')) {
+            $merges['animal_type_others'] = $this->input('animal_type_other');
+        }
+        if (!$this->has('icd10_code') && $this->has('icd_code')) {
+            $merges['icd10_code'] = $this->input('icd_code');
+        }
+        if (!$this->has('body_part_exposed') && $this->has('body_part_affected')) {
+            $affected = $this->input('body_part_affected');
+            $merges['body_part_exposed'] = is_array($affected) ? implode(', ', $affected) : $affected;
+        }
+        if (!empty($merges)) {
+            $this->merge($merges);
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
-        return [
+        $composer = app(EffectiveFieldRuleComposer::class);
+        $clinicId = $this->user()?->clinic_id;
+        $dynamicRules = $composer->composeTreatmentCardRules($clinicId, $this->all());
+
+        return array_merge([
             'patient_id' => 'required|exists:patients,patient_id',
             'bite_id' => 'required|exists:bite_incidents,bite_id',
             'card_date' => 'required|date',
@@ -47,7 +73,7 @@ class StoreTagoloanTreatmentCardRequest extends FormRequest
             'past_bite_dates' => 'nullable|string|max:255',
             'past_pep_completed' => 'boolean',
             'icd10_code' => 'nullable|string|max:50',
-        ];
+        ], $dynamicRules);
     }
 
     /**

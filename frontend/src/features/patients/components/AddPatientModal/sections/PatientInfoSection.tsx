@@ -2,6 +2,7 @@ import React from 'react';
 import { FormField } from './FormField';
 import { DuplicatePatientBanner } from './DuplicatePatientBanner';
 import type { DuplicatePatientMatch, EnrolmentFormData } from '../../../types';
+import { useClinicModuleConfig } from '../../../../../hooks/useClinicModuleConfig';
 
 interface PatientInfoSectionProps {
   data: EnrolmentFormData;
@@ -30,11 +31,14 @@ export function PatientInfoSection({
   onSelectExistingPatient,
   highlightDuplicateConfirmation = false,
 }: PatientInfoSectionProps) {
+  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
+  const regSectionEnabled = isSectionEnabled('patient_registration_enabled');
+
   return (
     <div className="fm-section">
       <h3 className="fm-section-title">I. Patient Information</h3>
       <div className="registration-patient-grid">
-        {/* Row 1 & Row 2: Last Name | First Name, Middle Name | Suffix */}
+        {/* Row 1 & Row 2: Last Name | First Name, Middle Name | Suffix (Locked Identity Invariants) */}
         <div className="fm-grid fm-grid--4" style={{ marginBottom: 14 }}>
           <FormField id="field-last_name" label="Last Name" required error={!!errors.last_name} errorText={errors.last_name}>
             <input className="fm-input" name="last_name" value={data.last_name} onChange={onChange('last_name')} placeholder="Dela Cruz" style={errors.last_name ? { borderColor: '#ef4444' } : undefined} />
@@ -50,7 +54,7 @@ export function PatientInfoSection({
           </FormField>
         </div>
 
-        {/* Row 3: Sex (Kasarian) segmented cubes | Date of Birth */}
+        {/* Row 3: Sex (Kasarian) segmented cubes | Date of Birth (Locked Identity Invariants) */}
         <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
           <FormField id="field-sex" label="Sex (Kasarian)" required error={!!errors.sex} errorText={errors.sex}>
             <div
@@ -138,34 +142,79 @@ export function PatientInfoSection({
           highlightConfirmation={highlightDuplicateConfirmation}
         />
 
-        {/* Row 4: Blood Type | Mother's Maiden Name */}
-        <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
-          <FormField label="Blood Type">
-            <select className="fm-select" name="blood_type" value={data.blood_type} onChange={onChange('blood_type')}>
-              <option value="">— Select —</option>
-              {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(t => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Mother's Maiden Name">
-            <input className="fm-input" name="mother_maiden_name" value={data.mother_maiden_name} onChange={onChange('mother_maiden_name')} placeholder="Last, First Middle" />
-          </FormField>
-        </div>
+        {/* Row 4: Blood Type (RF1) | Mother's Maiden Name */}
+        {regSectionEnabled && (isFieldVisible('blood_type') || isFieldVisible('mother_maiden_name')) && (
+          <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
+            {isFieldVisible('blood_type') && (
+              <FormField
+                id="field-blood_type"
+                label="Blood Type"
+                required={isFieldRequired('blood_type')}
+                error={!!errors.blood_type}
+                errorText={errors.blood_type}
+              >
+                <select
+                  className="fm-select"
+                  name="blood_type"
+                  value={data.blood_type}
+                  onChange={onChange('blood_type')}
+                  style={errors.blood_type ? { borderColor: '#ef4444' } : undefined}
+                >
+                  <option value="">— Select —</option>
+                  {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(t => (
+                    <option key={t}>{t}</option>
+                  ))}
+                </select>
+              </FormField>
+            )}
+            {isFieldVisible('mother_maiden_name') && (
+              <FormField
+                id="field-mother_maiden_name"
+                label="Mother's Maiden Name"
+                required={isFieldRequired('mother_maiden_name')}
+                error={!!errors.mother_maiden_name}
+                errorText={errors.mother_maiden_name}
+              >
+                <input
+                  className="fm-input"
+                  name="mother_maiden_name"
+                  value={data.mother_maiden_name}
+                  onChange={onChange('mother_maiden_name')}
+                  placeholder="Last, First Middle"
+                  style={errors.mother_maiden_name ? { borderColor: '#ef4444' } : undefined}
+                />
+              </FormField>
+            )}
+          </div>
+        )}
 
         {/* Row 5: Civil Status | Priority Category */}
         <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
-          <FormField label="Civil Status">
-            <select className="fm-select" name="civil_status" value={data.civil_status} onChange={onChange('civil_status')}>
-              <option value="">— Select —</option>
-              <option value="single">Single</option>
-              <option value="married">Married</option>
-              <option value="widowed">Widowed</option>
-              <option value="separated">Separated</option>
-              <option value="annulled">Annulled</option>
-              <option value="cohabitation">Co-Habitation</option>
-            </select>
-          </FormField>
+          {regSectionEnabled && isFieldVisible('civil_status') && (
+            <FormField
+              id="field-civil_status"
+              label="Civil Status"
+              required={isFieldRequired('civil_status')}
+              error={!!errors.civil_status}
+              errorText={errors.civil_status}
+            >
+              <select
+                className="fm-select"
+                name="civil_status"
+                value={data.civil_status}
+                onChange={onChange('civil_status')}
+                style={errors.civil_status ? { borderColor: '#ef4444' } : undefined}
+              >
+                <option value="">— Select —</option>
+                <option value="single">Single</option>
+                <option value="married">Married</option>
+                <option value="widowed">Widowed</option>
+                <option value="separated">Separated</option>
+                <option value="annulled">Annulled</option>
+                <option value="cohabitation">Co-Habitation</option>
+              </select>
+            </FormField>
+          )}
 
           {showQueueFields && (
             <FormField id="field-queue_priority_group" label="Priority Category" required error={!!errors.queue_priority_group} errorText={errors.queue_priority_group}>
@@ -179,10 +228,23 @@ export function PatientInfoSection({
           )}
         </div>
 
-        {data.civil_status === 'married' && (
+        {/* Conditional Spouse Name (CF1) */}
+        {regSectionEnabled && data.civil_status === 'married' && isFieldVisible('spouse_name') && (
           <div className="registration-conditional" style={{ marginBottom: 14 }}>
-            <FormField label="Spouse's Name">
-              <input className="fm-input" name="spouse_name" value={data.spouse_name} onChange={onChange('spouse_name')} />
+            <FormField
+              id="field-spouse_name"
+              label="Spouse's Name"
+              required={isFieldRequired('spouse_name')}
+              error={!!errors.spouse_name}
+              errorText={errors.spouse_name}
+            >
+              <input
+                className="fm-input"
+                name="spouse_name"
+                value={data.spouse_name}
+                onChange={onChange('spouse_name')}
+                style={errors.spouse_name ? { borderColor: '#ef4444' } : undefined}
+              />
             </FormField>
           </div>
         )}

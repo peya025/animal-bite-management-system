@@ -36,6 +36,7 @@ import {
 } from '../services/consultationService';
 import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import { getManilaCurrentDateTime } from '../../../shared/utils';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 
 export function useGeneralTreatmentForm({
   open,
@@ -46,6 +47,7 @@ export function useGeneralTreatmentForm({
   inline = false,
   hideConsultationType,
 }: GeneralTreatmentFormProps) {
+  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
   const userRole = getCurrentUserRole();
   const shouldHideConsultationType =
     hideConsultationType ?? (userRole === 'triage' || userRole === 'doctor');
@@ -985,20 +987,23 @@ export function useGeneralTreatmentForm({
       newFieldErrors.transferred_to_facility = 'Please specify the receiving hospital or health facility.';
     }
 
-    if (expLoc.useManual) {
-      if (!expLoc.manualMun.trim() || !expLoc.manualBrgy.trim()) {
-        newFieldErrors.place_of_exposure = 'Please enter both Municipality and Barangay for Place of Exposure.';
-      }
-    } else {
-      if (!expLoc.municipality || !expLoc.barangay) {
-        if (!formData.place_of_exposure || !formData.place_of_exposure.trim()) {
-          newFieldErrors.place_of_exposure = 'Please select both Municipality and Barangay for Place of Exposure.';
+    const currentPlace = resolveCurrentPlace();
+
+    if (isFieldRequired('bite_site')) {
+      if (expLoc.useManual) {
+        if (!expLoc.manualMun.trim() || !expLoc.manualBrgy.trim()) {
+          newFieldErrors.place_of_exposure = 'Please enter both Municipality and Barangay for Place of Exposure.';
+        }
+      } else {
+        if (!expLoc.municipality || !expLoc.barangay) {
+          if (!formData.place_of_exposure || !formData.place_of_exposure.trim()) {
+            newFieldErrors.place_of_exposure = 'Please select both Municipality and Barangay for Place of Exposure.';
+          }
         }
       }
-    }
-    const currentPlace = resolveCurrentPlace();
-    if (!newFieldErrors.place_of_exposure && !currentPlace) {
-      newFieldErrors.place_of_exposure = 'Place of exposure is required.';
+      if (!newFieldErrors.place_of_exposure && !currentPlace) {
+        newFieldErrors.place_of_exposure = 'Place of exposure is required.';
+      }
     }
 
     if (Object.keys(newFieldErrors).length > 0) {
@@ -1129,27 +1134,30 @@ export function useGeneralTreatmentForm({
     }
 
     // Validate Place of Exposure (Required: Municipality and Barangay)
-    if (expLoc.useManual) {
-      if (!expLoc.manualMun.trim() || !expLoc.manualBrgy.trim()) {
-        newFieldErrors.place_of_exposure = 'Please enter both Municipality and Barangay for Place of Exposure.';
-      }
-    } else {
-      if (!expLoc.municipality || !expLoc.barangay) {
-        if (!formData.place_of_exposure || !formData.place_of_exposure.trim()) {
-          newFieldErrors.place_of_exposure = 'Please select both Municipality and Barangay for Place of Exposure.';
+    const currentPlace = resolveCurrentPlace();
+
+    if (isFieldRequired('bite_site')) {
+      if (expLoc.useManual) {
+        if (!expLoc.manualMun.trim() || !expLoc.manualBrgy.trim()) {
+          newFieldErrors.place_of_exposure = 'Please enter both Municipality and Barangay for Place of Exposure.';
+        }
+      } else {
+        if (!expLoc.municipality || !expLoc.barangay) {
+          if (!formData.place_of_exposure || !formData.place_of_exposure.trim()) {
+            newFieldErrors.place_of_exposure = 'Please select both Municipality and Barangay for Place of Exposure.';
+          }
         }
       }
-    }
-    const currentPlace = resolveCurrentPlace();
-    if (!newFieldErrors.place_of_exposure && !currentPlace) {
-      newFieldErrors.place_of_exposure = 'Place of exposure is required.';
+      if (!newFieldErrors.place_of_exposure && !currentPlace) {
+        newFieldErrors.place_of_exposure = 'Place of exposure is required.';
+      }
     }
 
     if (!formData.chief_complaints.trim()) {
       newFieldErrors.chief_complaints = 'Please enter Chief Complaints';
     }
 
-    if (requiresReExposureDecision && !treatmentPlan) {
+    if ((isFieldRequired('protocol_type') || requiresReExposureDecision) && !treatmentPlan) {
       newFieldErrors.treatment_plan = 'Please select a Doctor treatment decision.';
     }
 
@@ -1165,6 +1173,15 @@ export function useGeneralTreatmentForm({
         !formData.reassessment_notes?.trim()
       ) {
         newFieldErrors.reassessment_notes = 'Please provide the clinical reason for modifying, discontinuing, or determining no injection is required.';
+      }
+    }
+
+    // Prescribed Vaccine / Medication Treatment Validation (RF2)
+    if (isSectionEnabled('treatment_section_enabled') && isFieldRequired('treatment_given')) {
+      if (formData.exposure_category !== 'I' && !isNoInjectionReassessment) {
+        if (!formData.prescribed_vaccine_type && !formData.medication_treatment?.trim()) {
+          newFieldErrors.prescribed_vaccine_type = 'Please prescribe a PEP vaccine or medication treatment.';
+        }
       }
     }
 
@@ -1231,8 +1248,8 @@ export function useGeneralTreatmentForm({
       setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
+        ? ['nature_of_visit', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {
@@ -1411,5 +1428,9 @@ export function useGeneralTreatmentForm({
     purok,
     setPurok,
     handleClearPlaceOfExposureError,
+    // Dynamic clinic module config
+    isFieldVisible,
+    isFieldRequired,
+    isSectionEnabled,
   };
 }

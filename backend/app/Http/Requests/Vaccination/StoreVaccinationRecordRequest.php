@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Vaccination;
 
+use App\Services\Clinic\EffectiveFieldRuleComposer;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreVaccinationRecordRequest extends FormRequest
@@ -13,7 +14,11 @@ class StoreVaccinationRecordRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        $composer = app(EffectiveFieldRuleComposer::class);
+        $clinicId = $this->user()?->clinic_id;
+        $dynamicRules = $composer->composeVaccinationRecordRules($clinicId, $this->all());
+
+        return array_merge([
             'patient_id'                                    => 'required|exists:patients,patient_id',
             'bite_id'                                       => 'nullable|exists:bite_incidents,bite_id',
             'queue_id'                                      => 'nullable|exists:queues,queue_id',
@@ -81,7 +86,7 @@ class StoreVaccinationRecordRequest extends FormRequest
             'visit_outcome'                                 => 'nullable|in:administered,not_administered',
             'not_administered_reason'                       => 'nullable|required_if:visit_outcome,not_administered|string|max:500',
             'icd_code'                                      => 'nullable|string|max:20',
-        ];
+        ], $dynamicRules);
     }
 
     public function messages(): array
@@ -89,6 +94,7 @@ class StoreVaccinationRecordRequest extends FormRequest
         return [
             'doses.required' => "Please select a Vaccine Type for today's dose before saving.",
             'doses.min'      => "Please select a Vaccine Type for today's dose before saving.",
+            'doses.*.route.required' => 'Route is required for each administered dose.',
         ];
     }
 

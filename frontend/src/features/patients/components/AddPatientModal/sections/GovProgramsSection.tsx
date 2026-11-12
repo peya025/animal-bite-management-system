@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FormField } from './FormField';
 import type { EnrolmentFormData } from '../../../types';
 import { formatPWDNumber } from '../../../../../shared/utils';
+import { useClinicModuleConfig } from '../../../../../hooks/useClinicModuleConfig';
 
 interface GovProgramsSectionProps {
   data: EnrolmentFormData;
@@ -21,6 +22,18 @@ const PROGRAM_OPTIONS = [
 ];
 
 export function GovProgramsSection({ data, onChange, onDirectChange, errors = {} }: GovProgramsSectionProps) {
+  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
+
+  if (!isSectionEnabled('gov_programs_section_enabled')) {
+    return null;
+  }
+
+  const availablePrograms = PROGRAM_OPTIONS.filter(opt => {
+    if (opt.value === 'philhealth') return isFieldVisible('philhealth_member');
+    if (opt.value === 'fourps') return isFieldVisible('fourps_member');
+    if (opt.value === 'dswd_nhts') return isFieldVisible('dswd_nhts');
+    return true;
+  });
   // Derive current list of selected programs from data
   const getSelectedListFromData = (): string[] => {
     const list: string[] = [];
@@ -247,7 +260,7 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                         style={{ fontWeight: selectedProgram ? 600 : 400 }}
                       >
                         <option value="">— Select Government Program / Membership —</option>
-                        {PROGRAM_OPTIONS.map(opt => {
+                        {availablePrograms.map(opt => {
                           const isAlreadyChosen = otherSelected.includes(opt.value);
                           return (
                             <option 
@@ -301,38 +314,45 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                   <div className="registration-program-card" style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <div className="fm-grid fm-grid--2">
-                        <FormField label="Status Type">
-                          <select className="fm-select" name="philhealth_status" value={data.philhealth_status} onChange={onChange('philhealth_status')}>
+                        {isFieldVisible('philhealth_status') && (
+                          <FormField label="Status Type" required={isFieldRequired('philhealth_status')}>
+                            <select className="fm-select" name="philhealth_status" value={data.philhealth_status} onChange={onChange('philhealth_status')}>
+                              <option value="">— Select —</option>
+                              <option value="member">Member</option>
+                              <option value="dependent">Dependent</option>
+                            </select>
+                          </FormField>
+                        )}
+                        {isFieldVisible('philhealth_no') && (
+                          <FormField
+                            id="field-philhealth_no"
+                            label="PhilHealth No."
+                            required={isFieldRequired('philhealth_no')}
+                            error={!!errors.philhealth_no}
+                            errorText={errors.philhealth_no}
+                          >
+                            <input
+                              className="fm-input"
+                              name="philhealth_no" value={data.philhealth_no}
+                              onChange={onChange('philhealth_no')}
+                              maxLength={14}
+                              placeholder="XX-XXXXXXXXX-X"
+                              style={errors.philhealth_no ? { borderColor: '#ef4444' } : undefined}
+                            />
+                          </FormField>
+                        )}
+                      </div>
+                      {isFieldVisible('philhealth_category') && (
+                        <FormField label="Category" required={isFieldRequired('philhealth_category')}>
+                          <select className="fm-select" name="philhealth_category" value={data.philhealth_category} onChange={onChange('philhealth_category')}>
                             <option value="">— Select —</option>
-                            <option value="member">Member</option>
-                            <option value="dependent">Dependent</option>
+                            <option value="fe_private">FE – Private</option>
+                            <option value="fe_government">FE – Government</option>
+                            <option value="ie">IE</option>
+                            <option value="others">Others</option>
                           </select>
                         </FormField>
-                        <FormField
-                          id="field-philhealth_no"
-                          label="PhilHealth No."
-                          error={!!errors.philhealth_no}
-                          errorText={errors.philhealth_no}
-                        >
-                          <input
-                            className="fm-input"
-                            name="philhealth_no" value={data.philhealth_no}
-                            onChange={onChange('philhealth_no')}
-                            maxLength={14}
-                            placeholder="XX-XXXXXXXXX-X"
-                            style={errors.philhealth_no ? { borderColor: '#ef4444' } : undefined}
-                          />
-                        </FormField>
-                      </div>
-                      <FormField label="Category">
-                        <select className="fm-select" name="philhealth_category" value={data.philhealth_category} onChange={onChange('philhealth_category')}>
-                          <option value="">— Select —</option>
-                          <option value="fe_private">FE – Private</option>
-                          <option value="fe_government">FE – Government</option>
-                          <option value="ie">IE</option>
-                          <option value="others">Others</option>
-                        </select>
-                      </FormField>
+                      )}
                     </div>
                   </div>
                 )}

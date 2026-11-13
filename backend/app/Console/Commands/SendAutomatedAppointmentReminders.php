@@ -35,10 +35,10 @@ class SendAutomatedAppointmentReminders extends Command
             ['Metric', 'Count'],
             [
                 ['Eligible Tomorrow Reminders', $res['advance_reminders_eligible']],
-                ['Dispatched Tomorrow Reminders', $res['advance_reminders_sent']],
+                ['Processed Tomorrow Reminders', $res['advance_reminders_sent']],
                 ['Eligible Missed Recalls', $res['missed_recalls_eligible']],
-                ['Dispatched Missed Recalls', $res['missed_recalls_sent']],
-                ['Total Dispatches Today', $res['total_dispatched']],
+                ['Processed Missed Recalls', $res['missed_recalls_sent']],
+                ['Total Requests Processed', $res['total_dispatched']],
             ]
         );
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\ManageNurseUnattendedSample;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -9,11 +10,12 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Artisan::command('sample:nurse-unattended {action=seed : seed or remove}', function (string $action = 'seed') {
-    return $this->call(\App\Console\Commands\ManageNurseUnattendedSample::class, ['action' => $action]);
+    return $this->call(ManageNurseUnattendedSample::class, ['action' => $action]);
 })->purpose('Seed or remove sample unattended patient for testing Check In to Nurse');
 
 // Daily Automated Rabies PEP Reminders & Missed Dose Recalls at 8:00 AM
-Schedule::command('appointments:auto-recall')->dailyAt('08:00');
+Schedule::command('appointments:auto-recall')->dailyAt('08:00')->withoutOverlapping();
+Schedule::command('messaging:dispatch')->everyMinute()->withoutOverlapping();
 
 // Daily Queue Auto-Expiry Sweep after midnight (00:05)
 Schedule::command('queue:auto-expire')->dailyAt('00:05');

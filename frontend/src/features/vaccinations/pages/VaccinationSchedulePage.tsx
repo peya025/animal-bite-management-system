@@ -244,6 +244,47 @@ export default function VaccinationSchedulePage() {
   const [recallChannel, setRecallChannel] = useState<'all' | 'sms' | 'email' | 'in_app'>('all');
   const [recallMessage, setRecallMessage] = useState('');
   const [sendingRecall, setSendingRecall] = useState(false);
+  const [channels, setChannels] = useState({ sms: false, email: false, in_app: true });
+  const [preferences, setPreferences] = useState({ sms: false, email: false });
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
+  const [messagingLoaded, setMessagingLoaded] = useState(false);
+  const [deliveryHistory, setDeliveryHistory] = useState<Array<{ id: number; channel: string; delivery_status: string; created_at: string; sms_estimate?: { segments: number; encoding: string }; delivery?: { id: number; error_code?: string } }>>([]);
+
+  useEffect(() => {
+    api.get('/messaging/channels').then(res => setChannels(res.data)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const id = recallTarget?.next_appointment?.appointment_id;
+    setConsentConfirmed(false);
+    setMessagingLoaded(false);
+    setDeliveryHistory([]);
+    if (!id) return;
+    let active = true;
+    Promise.all([api.get(`/appointments/${id}/messaging`), api.get(`/appointments/${id}/reminders`)])
+      .then(([settings, history]) => {
+        if (!active) return;
+        setChannels(settings.data.channels);
+        setPreferences({ sms: Boolean(settings.data.preferences?.sms), email: Boolean(settings.data.preferences?.email) });
+        setDeliveryHistory(history.data.logs.data);
+        setMessagingLoaded(true);
+      }).catch(() => { if (active) setFeedback({ message: 'Could not load messaging preferences and history.', severity: 'error' }); });
+    return () => { active = false; };
+  }, [recallTarget?.next_appointment?.appointment_id]);
+
+  const savePreferences = async () => {
+    const id = recallTarget?.next_appointment?.appointment_id;
+    if (!id || !consentConfirmed) return;
+    setSavingPreferences(true);
+    try {
+      await api.put(`/appointments/${id}/messaging`, { ...preferences, consent_confirmed: true });
+      setConsentConfirmed(false);
+      setFeedback({ message: 'Communication preferences saved.', severity: 'success' });
+    } catch {
+      setFeedback({ message: 'Could not save communication preferences.', severity: 'error' });
+    } finally { setSavingPreferences(false); }
+  };
 
   // Bulk Recall Dialog
   const [bulkRecallOpen, setBulkRecallOpen] = useState(false);
@@ -340,22 +381,7 @@ export default function VaccinationSchedulePage() {
   const handleOpenRecall = (patient: PatientJourney) => {
     setRecallTarget(patient);
     setRecallChannel('all');
-    const isInitialTriage = !patient.bite_incident && (patient.next_appointment?.dose_number === 0 || !patient.next_appointment?.dose_number);
-    const doseNum = patient.next_appointment?.dose_number || 3;
-    const station = isInitialTriage
-      ? 'Doctor Triage & Bite Assessment (Day 0 Initial Dose)'
-      : `Treatment Desk (Day ${doseNum} Follow-Up Injection)`;
-    const clinicName = 'Tagoloan Animal Bite Treatment Center';
-
-    if (isInitialTriage) {
-      setRecallMessage(
-        `URGENT CLINICAL ADVISORY: ${patient.full_name}, you missed your Doctor Triage & Initial Assessment (Day 0). Prompt bite wound evaluation and immediate first dose are critical for rabies prevention. Please proceed to Doctor Triage at ${clinicName}.`
-      );
-    } else {
-      setRecallMessage(
-        `URGENT REMINDER: ${patient.full_name}, you missed your scheduled ${station}. Rabies PEP requires uninterrupted on-schedule doses to maintain active immunity. Please proceed to the Treatment Desk at ${clinicName} for your catch-up injection.`
-      );
-    }
+    setRecallMessage('');
   };
 
   // Submit single recall
@@ -372,8 +398,8 @@ export default function VaccinationSchedulePage() {
       fetchJourneyData();
       setSuccessModal({
         isOpen: true,
-        title: 'Recall Alert Dispatched',
-        message: res.data.message || `Recall alert has been successfully dispatched to ${patientName}.`,
+        title: 'Reminder Request Processed',
+        message: res.data.message || `Reminder request processed for ${patientName}. Check delivery history for status.`,
       });
     } catch (err: any) {
       setFeedback({
@@ -407,8 +433,8 @@ export default function VaccinationSchedulePage() {
       fetchJourneyData();
       setSuccessModal({
         isOpen: true,
-        title: 'Bulk Recall Dispatched',
-        message: res.data.message || `Recall alerts have been dispatched to ${overdueApptIds.length} overdue patients.`,
+        title: 'Bulk Reminder Requests Processed',
+        message: res.data.message || `Reminder requests processed for ${overdueApptIds.length} overdue patients. Receipt is not confirmed.`,
       });
     } catch (err: any) {
       setFeedback({
@@ -1229,7 +1255,7 @@ export default function VaccinationSchedulePage() {
                       )}
 
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                        {isMissed && (
+                        {patient.next_appointment && (
                           <Button
                             size="small"
                             variant="contained"
@@ -1249,7 +1275,7 @@ export default function VaccinationSchedulePage() {
                             }}
                           >
                             <HugeiconsIcon icon={MailSend01Icon} size={14} />
-                            Send Recall
+                            {isMissed ? 'Send Recall' : 'Reminder Settings'}
                           </Button>
                         )}
 
@@ -1410,16 +1436,14 @@ export default function VaccinationSchedulePage() {
           <Box sx={{ color: '#dc2626', display: 'flex', alignItems: 'center' }}>
             <HugeiconsIcon icon={AlertCircleIcon} size={22} />
           </Box>
-          Dispatch Multi-Channel Missed Recall Alert
+          {recallTarget?.compliance_status === 'overdue_missed' ? 'Missed Appointment Recall' : 'Reminder Settings'}
         </DialogTitle>
         <DialogContent dividers>
           {recallTarget && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Alert severity="warning" sx={{ borderRadius: '8px' }}>
-                <strong>{recallTarget.full_name}</strong> missed their scheduled{' '}
-                <strong>{recallTarget.next_appointment?.label}</strong> (was due on{' '}
-                {recallTarget.next_appointment?.scheduled_date_formatted} •{' '}
-                {recallTarget.next_appointment?.late_days}d late).
+              <Alert severity={recallTarget.compliance_status === 'overdue_missed' ? 'warning' : 'info'} sx={{ borderRadius: '8px' }}>
+                <strong>{recallTarget.full_name}</strong>: appointment on {recallTarget.next_appointment?.scheduled_date_formatted}.
+                {recallTarget.compliance_status === 'overdue_missed' ? ' This appointment is overdue.' : ' Manage preferences for future reminders here.'}
               </Alert>
 
               <Box>
@@ -1432,9 +1456,9 @@ export default function VaccinationSchedulePage() {
                   onChange={(e) => setRecallChannel(e.target.value as any)}
                 >
                   <FormControlLabel value="all" control={<Radio size="small" />} label="All Available (SMS + Email + In-App)" />
-                  <FormControlLabel value="sms" control={<Radio size="small" />} label="SMS Only" />
-                  <FormControlLabel value="email" control={<Radio size="small" />} label="Email Only" />
-                  <FormControlLabel value="in_app" control={<Radio size="small" />} label="In-App Push Only" />
+                  <FormControlLabel value="sms" control={<Radio size="small" />} label="SMS Only" disabled={!channels.sms} />
+                  <FormControlLabel value="email" control={<Radio size="small" />} label="Email Only" disabled={!channels.email} />
+                  <FormControlLabel value="in_app" control={<Radio size="small" />} label="In-App Only" />
                 </RadioGroup>
               </Box>
 
@@ -1459,15 +1483,46 @@ export default function VaccinationSchedulePage() {
               </Box>
 
               <Box>
+                <Typography variant="subtitle2">Patient communication preferences</Typography>
+                <FormControlLabel control={<Checkbox checked={preferences.sms} onChange={e => setPreferences(p => ({ ...p, sms: e.target.checked }))} />} label="Allow SMS reminders" />
+                <FormControlLabel control={<Checkbox checked={preferences.email} onChange={e => setPreferences(p => ({ ...p, email: e.target.checked }))} />} label="Allow email reminders" />
+                <FormControlLabel control={<Checkbox checked={consentConfirmed} onChange={e => setConsentConfirmed(e.target.checked)} />} label="I confirmed these preferences with the patient or authorized guardian." />
+                <Button onClick={savePreferences} disabled={!consentConfirmed || savingPreferences || !messagingLoaded}>Save preferences</Button>
+                <Typography variant="caption" sx={{ display: 'block' }}>Save changes before sending. Only the patient's recorded contacts are used. Unavailable channels are disabled.</Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2">Recent delivery history</Typography>
+                <Button size="small" onClick={async () => {
+                  try {
+                    const res = await api.get(`/appointments/${recallTarget.next_appointment?.appointment_id}/reminders`);
+                    setDeliveryHistory(res.data.logs.data);
+                  } catch { setFeedback({ message: 'Could not refresh delivery history.', severity: 'error' }); }
+                }}>Refresh history</Button>
+                <Typography variant="caption" sx={{ display: 'block' }}>Accepted means the provider accepted the message; delivered requires confirmation. Legacy records are unverified. Showing the latest 25 entries.</Typography>
+                {deliveryHistory.map(item => <Box key={item.id}>
+                  <Typography variant="body2">{item.channel}: {item.delivery_status.replaceAll('_', ' ')}{item.delivery?.error_code ? ` (${item.delivery.error_code.replaceAll('_', ' ')})` : ''} - {new Date(item.created_at).toLocaleString()}{item.sms_estimate ? ` - estimated ${item.sms_estimate.segments} SMS segment(s)` : ''}</Typography>
+                  {item.delivery && ['failed', 'skipped'].includes(item.delivery_status) && <Button size="small" onClick={async () => {
+                    try {
+                      const res = await api.post(`/appointments/${recallTarget.next_appointment?.appointment_id}/reminders/${item.delivery!.id}/retry`);
+                      setFeedback({ message: res.data.message, severity: 'info' });
+                      const history = await api.get(`/appointments/${recallTarget.next_appointment?.appointment_id}/reminders`);
+                      setDeliveryHistory(history.data.logs.data);
+                    } catch (err: any) { setFeedback({ message: err.response?.data?.message || 'Could not retry message.', severity: 'error' }); }
+                  }}>Retry</Button>}
+                </Box>)}
+              </Box>
+              <Box>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#334155', mb: 1 }}>
-                  Recall Message Preview:
+                  Optional Custom Recall Message:
                 </Typography>
                 <TextField
                   fullWidth
                   multiline
                   rows={3}
                   value={recallMessage}
+                  helperText="Leave blank to use the clinic-specific appointment reminder. Avoid unnecessary medical details."
                   onChange={(e) => setRecallMessage(e.target.value)}
+                  slotProps={{ htmlInput: { maxLength: 1000 } }}
                   sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: '13px' } }}
                 />
               </Box>
@@ -1475,14 +1530,14 @@ export default function VaccinationSchedulePage() {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setRecallTarget(null)} disabled={sendingRecall} sx={{ textTransform: 'none' }}>
+          <Button onClick={() => setRecallTarget(null)} disabled={sendingRecall || savingPreferences} sx={{ textTransform: 'none' }}>
             Cancel
           </Button>
           <Button
             variant="contained"
             color="error"
             onClick={handleSendSingleRecall}
-            disabled={sendingRecall}
+            disabled={sendingRecall || savingPreferences || !messagingLoaded || recallTarget?.compliance_status !== 'overdue_missed'}
             sx={{
               textTransform: 'none',
               fontWeight: 600,
@@ -1518,9 +1573,9 @@ export default function VaccinationSchedulePage() {
               onChange={(e) => setBulkChannel(e.target.value as any)}
             >
               <MenuItem value="all">All Channels (SMS, Email, In-App)</MenuItem>
-              <MenuItem value="sms">SMS Only</MenuItem>
-              <MenuItem value="email">Email Only</MenuItem>
-              <MenuItem value="in_app">In-App Push Only</MenuItem>
+              <MenuItem value="sms" disabled={!channels.sms}>SMS Only</MenuItem>
+              <MenuItem value="email" disabled={!channels.email}>Email Only</MenuItem>
+              <MenuItem value="in_app">In-App Only</MenuItem>
             </Select>
           </FormControl>
         </DialogContent>

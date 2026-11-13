@@ -364,6 +364,18 @@ class MobileApi {
     return data;
   }
 
+  Future<Map<String, dynamic>> updateAppointmentIntake({
+    required int appointmentId,
+    required Map<String, dynamic> intake,
+  }) async {
+    final data = await _send(
+      'PUT',
+      '/appointments/$appointmentId/intake',
+      body: {'intake': intake},
+    );
+    return data is Map<String, dynamic> ? data : {};
+  }
+
   Future<List<dynamic>> clinicFaqs() async {
     final response = await _send('GET', '/clinic-faqs?clinic_id=$clinicId')
         as Map<String, dynamic>;

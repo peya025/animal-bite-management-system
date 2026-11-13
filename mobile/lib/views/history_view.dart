@@ -396,6 +396,7 @@ class _HistoryViewState extends State<HistoryView> {
                                                     showDigitalVaccinationCard(
                                                       context,
                                                     ),
+                                                onIntakeUpdated: _loadHistory,
                                               ),
                                           ],
                                         ),

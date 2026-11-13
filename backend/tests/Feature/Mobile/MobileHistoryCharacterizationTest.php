@@ -507,4 +507,79 @@ class MobileHistoryCharacterizationTest extends TestCase
         $this->assertEquals(4, $records[0]['total_doses']);
         $this->assertEquals(2, $response->json('summary.total_vaccinations'));
     }
+
+    public function test_newly_booked_appointment_appears_in_history_with_intake_and_can_be_updated(): void
+    {
+        Sanctum::actingAs($this->patientAccount, ['*']);
+
+        // 1. Create a newly booked scheduled appointment for tomorrow
+        $tomorrow = Carbon::today()->addDay()->format('Y-m-d');
+        $appointment = Appointment::create([
+            'clinic_id'            => $this->clinic->id,
+            'patient_id'           => $this->patient2->patient_id,
+            'booked_by_account_id' => $this->patientAccount->id,
+            'appointment_type'     => 'consultation',
+            'scheduled_date'       => $tomorrow,
+            'appointment_date'     => $tomorrow,
+            'time_slot'            => 'morning',
+            'status'               => 'scheduled',
+        ]);
+
+        \App\Models\BiteIncidentIntake::create([
+            'clinic_id'          => $this->clinic->id,
+            'patient_id'         => $this->patient2->patient_id,
+            'patient_account_id' => $this->patientAccount->id,
+            'appointment_id'     => $appointment->appointment_id,
+            'bite_date'          => Carbon::today()->format('Y-m-d'),
+            'exposure_type'      => 'bite',
+            'animal_type'        => 'dog',
+            'animal_status'      => 'owned',
+            'wound_location'     => 'Leg',
+            'body_part_exposed'  => 'Right thigh',
+            'site_washed'        => true,
+            'status'             => 'pending',
+            'submitted_at'       => now(),
+        ]);
+
+        // 2. Fetch history and verify it appears immediately
+        $response = $this->getJson('/api/mobile/history');
+        $response->assertOk();
+
+        $records = collect($response->json('records'));
+        $bookedRecord = $records->firstWhere('appointment_id', $appointment->appointment_id);
+
+        $this->assertNotNull($bookedRecord);
+        $this->assertEquals('scheduled', $bookedRecord['status']);
+        $this->assertEquals('Bite consultation', $bookedRecord['title']);
+        $this->assertEquals('Baby Santos', $bookedRecord['patient_name']);
+        $this->assertEquals('child', $bookedRecord['relationship']);
+        $this->assertNotNull($bookedRecord['intake']);
+        $this->assertEquals('bite', $bookedRecord['intake']['reported_mode_of_exposure']);
+        $this->assertEquals('dog', $bookedRecord['intake']['animal_species']);
+
+        // 3. Update the intake details
+        $updateResponse = $this->putJson("/api/mobile/appointments/{$appointment->appointment_id}/intake", [
+            'intake' => [
+                'date_of_exposure'          => Carbon::today()->format('Y-m-d'),
+                'reported_mode_of_exposure' => 'scratch',
+                'animal_species'            => 'cat',
+                'animal_ownership'          => 'stray',
+                'body_part_group'           => 'upper_extremities',
+                'body_part_detail'          => 'Left forearm',
+                'incident_narrative'        => 'Updated scratch details by cat',
+            ],
+        ]);
+
+        $updateResponse->assertOk()
+            ->assertJsonPath('message', 'Bite intake updated successfully.')
+            ->assertJsonPath('intake.exposure_type', 'scratch_abrasion')
+            ->assertJsonPath('intake.animal_type', 'cat');
+
+        // 4. Verify history reflects updated intake
+        $afterUpdate = $this->getJson('/api/mobile/history');
+        $afterUpdate->assertOk();
+        $updatedRecord = collect($afterUpdate->json('records'))->firstWhere('appointment_id', $appointment->appointment_id);
+        $this->assertEquals('scratch_abrasion', $updatedRecord['intake']['reported_mode_of_exposure']);
+        $this->assertEquals('cat', $updatedRecord['intake']['animal_species']);
+    }
 }

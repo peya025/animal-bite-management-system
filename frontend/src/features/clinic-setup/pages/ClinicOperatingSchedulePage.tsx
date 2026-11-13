@@ -30,6 +30,7 @@ import { ROUTES } from '../../../shared/config/routes';
 import {
   CalendarMonth as CalendarIcon,
   EventBusy as ExceptionIcon,
+  EventAvailable as EventAvailableIcon,
   Policy as PolicyIcon,
   Save as SaveIcon,
   Add as AddIcon,
@@ -832,11 +833,11 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
       </Paper>
 
       {/* Exception Modal */}
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>
+      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 17, pb: 1 }}>
           {editingException ? 'Edit Calendar Override' : 'Add Calendar Override'}
         </DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: '10px !important' }}>
           <TextField
             type="date"
             label="Override Date"
@@ -847,58 +848,191 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
             onChange={(e) => setExceptionForm({ ...exceptionForm, exception_date: e.target.value })}
           />
 
-          <FormControlLabel
-            control={
-              <Switch
-                checked={exceptionForm.is_open}
-                onChange={(e) => setExceptionForm({ ...exceptionForm, is_open: e.target.checked })}
-                color="success"
-              />
-            }
-            label={exceptionForm.is_open ? 'Special Extra Open Day' : 'Closure / Public Holiday'}
-          />
+          {/* Visual Choice Cards for Override Type */}
+          <Box>
+            <Typography
+              variant="caption"
+              sx={{ fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', letterSpacing: 0.6, display: 'block', mb: 1 }}
+            >
+              Select Override Type
+            </Typography>
 
-          {exceptionForm.is_open && (
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                type="time"
-                label="Open"
-                size="small"
-                value={exceptionForm.open_time}
-                onChange={(e) => setExceptionForm({ ...exceptionForm, open_time: e.target.value })}
-                fullWidth
-              />
-              <TextField
-                type="time"
-                label="Close"
-                size="small"
-                value={exceptionForm.close_time}
-                onChange={(e) => setExceptionForm({ ...exceptionForm, close_time: e.target.value })}
-                fullWidth
-              />
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+              {/* Option 1: Holiday / Closure (Closed) */}
+              <Paper
+                variant="outlined"
+                onClick={() => setExceptionForm({ ...exceptionForm, is_open: false })}
+                sx={{
+                  p: 2,
+                  cursor: 'pointer',
+                  borderRadius: '10px',
+                  borderWidth: 2,
+                  borderColor: !exceptionForm.is_open ? '#dc2626' : '#e5e7eb',
+                  bgcolor: !exceptionForm.is_open ? '#fef2f2' : '#ffffff',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: 1,
+                  boxShadow: !exceptionForm.is_open ? '0 1px 4px rgba(220, 38, 38, 0.12)' : 'none',
+                  '&:hover': {
+                    borderColor: !exceptionForm.is_open ? '#dc2626' : '#d1d5db',
+                    bgcolor: !exceptionForm.is_open ? '#fef2f2' : '#f9fafb',
+                  },
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ExceptionIcon sx={{ color: !exceptionForm.is_open ? '#dc2626' : '#9ca3af', fontSize: 22 }} />
+                    <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: !exceptionForm.is_open ? '#991b1b' : '#374151' }}>
+                      Holiday / Closure
+                    </Typography>
+                  </Box>
+                  <Radio
+                    checked={!exceptionForm.is_open}
+                    onChange={() => setExceptionForm({ ...exceptionForm, is_open: false })}
+                    size="small"
+                    sx={{
+                      p: 0,
+                      color: '#dc2626',
+                      '&.Mui-checked': { color: '#dc2626' },
+                    }}
+                  />
+                </Box>
+                <Chip
+                  size="small"
+                  label="CLINIC CLOSED"
+                  sx={{
+                    width: 'fit-content',
+                    height: 20,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: 0.5,
+                    bgcolor: !exceptionForm.is_open ? '#fee2e2' : '#f3f4f6',
+                    color: !exceptionForm.is_open ? '#b91c1c' : '#6b7280',
+                  }}
+                />
+                <Typography sx={{ fontSize: 11.5, color: !exceptionForm.is_open ? '#7f1d1d' : '#6b7280', lineHeight: 1.35 }}>
+                  Clinic is closed all day. Displayed in <b>RED</b> on mobile and prevents bookings.
+                </Typography>
+              </Paper>
+
+              {/* Option 2: Special Open Day */}
+              <Paper
+                variant="outlined"
+                onClick={() => setExceptionForm({ ...exceptionForm, is_open: true })}
+                sx={{
+                  p: 2,
+                  cursor: 'pointer',
+                  borderRadius: '10px',
+                  borderWidth: 2,
+                  borderColor: exceptionForm.is_open ? '#16a34a' : '#e5e7eb',
+                  bgcolor: exceptionForm.is_open ? '#f0fdf4' : '#ffffff',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: 1,
+                  boxShadow: exceptionForm.is_open ? '0 1px 4px rgba(22, 163, 74, 0.12)' : 'none',
+                  '&:hover': {
+                    borderColor: exceptionForm.is_open ? '#16a34a' : '#d1d5db',
+                    bgcolor: exceptionForm.is_open ? '#f0fdf4' : '#f9fafb',
+                  },
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <EventAvailableIcon sx={{ color: exceptionForm.is_open ? '#16a34a' : '#9ca3af', fontSize: 22 }} />
+                    <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: exceptionForm.is_open ? '#166534' : '#374151' }}>
+                      Special Open Day
+                    </Typography>
+                  </Box>
+                  <Radio
+                    checked={exceptionForm.is_open}
+                    onChange={() => setExceptionForm({ ...exceptionForm, is_open: true })}
+                    size="small"
+                    sx={{
+                      p: 0,
+                      color: '#16a34a',
+                      '&.Mui-checked': { color: '#16a34a' },
+                    }}
+                  />
+                </Box>
+                <Chip
+                  size="small"
+                  label="CLINIC OPEN"
+                  sx={{
+                    width: 'fit-content',
+                    height: 20,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: 0.5,
+                    bgcolor: exceptionForm.is_open ? '#dcfce7' : '#f3f4f6',
+                    color: exceptionForm.is_open ? '#15803d' : '#6b7280',
+                  }}
+                />
+                <Typography sx={{ fontSize: 11.5, color: exceptionForm.is_open ? '#14532d' : '#6b7280', lineHeight: 1.35 }}>
+                  Overrides weekend or off-days. Enables booking during special operating hours.
+                </Typography>
+              </Paper>
             </Box>
+          </Box>
+
+          {/* Operating hours only if Special Open Day is selected */}
+          {exceptionForm.is_open ? (
+            <Box sx={{ bgcolor: '#f0fdf4', p: 1.5, borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#166534', display: 'block', mb: 1 }}>
+                Special Operating Hours
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1.5 }}>
+                <TextField
+                  type="time"
+                  label="Open Time"
+                  size="small"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  value={exceptionForm.open_time}
+                  onChange={(e) => setExceptionForm({ ...exceptionForm, open_time: e.target.value })}
+                  fullWidth
+                  sx={{ bgcolor: '#ffffff' }}
+                />
+                <TextField
+                  type="time"
+                  label="Close Time"
+                  size="small"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  value={exceptionForm.close_time}
+                  onChange={(e) => setExceptionForm({ ...exceptionForm, close_time: e.target.value })}
+                  fullWidth
+                  sx={{ bgcolor: '#ffffff' }}
+                />
+              </Box>
+            </Box>
+          ) : (
+            <Alert severity="info" sx={{ py: 0.5, fontSize: 12.5, bgcolor: '#fef2f2', color: '#991b1b', '& .MuiAlert-icon': { color: '#dc2626' } }}>
+              No operating hours required. Patients will not be able to book on this date.
+            </Alert>
           )}
 
           <TextField
             label="Reason / Notes"
-            placeholder="e.g. National Heroes Day, Typhoon Warning"
+            placeholder="e.g. National Heroes Day, Holy Week, Facility Maintenance"
             fullWidth
             size="small"
             value={exceptionForm.reason}
             onChange={(e) => setExceptionForm({ ...exceptionForm, reason: e.target.value })}
           />
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setModalOpen(false)} sx={{ textTransform: 'none' }}>
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
+          <Button onClick={() => setModalOpen(false)} sx={{ textTransform: 'none', color: '#4b5563' }}>
             Cancel
           </Button>
           <Button
             variant="contained"
             onClick={handleSaveException}
             disabled={saving}
-            sx={{ bgcolor: '#277a4b', '&:hover': { bgcolor: '#1e633d' }, textTransform: 'none' }}
+            sx={{ bgcolor: '#277a4b', '&:hover': { bgcolor: '#1e633d' }, textTransform: 'none', px: 3 }}
           >
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Saving...' : 'Save Override'}
           </Button>
         </DialogActions>
       </Dialog>

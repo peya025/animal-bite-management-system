@@ -151,6 +151,7 @@ Route::prefix('mobile')->group(function () {
         Route::get('/appointments', [MobileAppointmentController::class, 'index']);
         Route::post('/appointments', [MobileAppointmentController::class, 'store']);
         Route::patch('/appointments/{appointment}/cancel', [MobileAppointmentController::class, 'cancel']);
+        Route::put('/appointments/{appointment}/intake', [MobileAppointmentController::class, 'updateIntake']);
 
         Route::get('/history', [\App\Http\Controllers\Mobile\MobileHistoryController::class, 'index']);
 

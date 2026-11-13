@@ -247,6 +247,54 @@ class MobileAppointmentService
     }
 
     /**
+     * Update bite intake details for an existing scheduled appointment
+     */
+    public function updateAppointmentIntake(PatientAccount $account, int $appointmentId, array $intakeData): array
+    {
+        $patientIds = $account->patients()->pluck('patients.patient_id')->toArray();
+
+        $appointment = Appointment::where(function ($q) use ($patientIds, $account) {
+            $q->whereIn('patient_id', $patientIds)
+              ->orWhere('booked_by_account_id', $account->id);
+        })
+        ->where('appointment_id', $appointmentId)
+        ->firstOrFail();
+
+        if (in_array($appointment->status, ['completed', 'cancelled'])) {
+            throw new HttpResponseException(
+                response()->json([
+                    'message' => 'Intake cannot be modified for a completed or cancelled appointment.',
+                ], 422)
+            );
+        }
+
+        $storagePayload = BiteIntakeContract::storagePayload($intakeData);
+
+        $intake = $appointment->biteIntake;
+        if ($intake) {
+            $intake->update($storagePayload);
+        } else {
+            $intake = BiteIncidentIntake::create([
+                ...$storagePayload,
+                'clinic_id'          => $appointment->clinic_id,
+                'patient_id'         => $appointment->patient_id,
+                'patient_account_id' => $account->id,
+                'appointment_id'     => $appointment->appointment_id,
+                'status'             => 'pending',
+                'submitted_at'       => now(),
+            ]);
+        }
+
+        $this->invalidateAppointmentCaches($account->id);
+
+        return [
+            'appointment_id' => $appointment->appointment_id,
+            'message'        => 'Bite intake updated successfully.',
+            'intake'         => $intake->fresh(),
+        ];
+    }
+
+    /**
      * Invalidate appointment and notification caches for account
      */
     public function invalidateAppointmentCaches(int $accountId): void

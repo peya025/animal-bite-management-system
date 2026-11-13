@@ -420,6 +420,29 @@ class MockMobileApi {
       },
       'records': [
         {
+          'id': 'app-2',
+          'appointment_id': 2,
+          'type': 'appointments',
+          'title': 'Bite consultation',
+          'date_time': 'March 18, 2026 · 9:30 AM',
+          'status': 'scheduled',
+          'patient_name': 'Bird Dodo',
+          'relationship': 'self',
+          'intake': {
+            'intake_id': 1,
+            'date_of_exposure': '2026-03-17',
+            'time_of_exposure': '02:30 PM',
+            'place_of_exposure': 'Barangay Poblacion, Tagoloan',
+            'reported_mode_of_exposure': 'bite',
+            'animal_species': 'dog',
+            'animal_ownership': 'owned',
+            'body_part_group': 'lower_extremities',
+            'body_part_detail': 'Right calf',
+            'site_washed': true,
+            'incident_narrative': 'Bitten by neighbor dog while jogging',
+          },
+        },
+        {
           'id': 'app-1',
           'type': 'appointments',
           'title': 'Bite consultation',
@@ -448,6 +471,18 @@ class MockMobileApi {
           'dose_label': '3 of 4 · upcoming',
         },
       ],
+    };
+  }
+
+  Future<Map<String, dynamic>> updateAppointmentIntake({
+    required int appointmentId,
+    required Map<String, dynamic> intake,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return {
+      'appointment_id': appointmentId,
+      'message': 'Bite intake updated successfully.',
+      'intake': intake,
     };
   }
 

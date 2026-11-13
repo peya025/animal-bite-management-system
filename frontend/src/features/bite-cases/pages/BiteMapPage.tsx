@@ -760,7 +760,7 @@ export default function BiteMapPage() {
               <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading incident map data...</Typography>
             </Box>
           ) : data ? (
-            <Box data-walkthrough="bitemap-map-view" data-tour="bite-map-container" sx={{ position: 'relative', height: '650px', width: '100%' }}>
+            <Box data-walkthrough="bitemap-map-view" data-tour="bite-map-container" sx={{ position: 'relative', height: '650px', width: '100%', zIndex: 1, isolation: 'isolate' }}>
               <BiteMap
                 cases={data.cases}
                 mapCenter={mapCenterOverride}

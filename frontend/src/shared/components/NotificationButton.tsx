@@ -194,7 +194,7 @@ export default function NotificationButton() {
   }, [markAsRead, user, navigate, showAccessDenied]);
 
   return (
-    <div style={{ position: 'relative' }} ref={dropdownRef}>
+    <div style={{ position: 'relative', zIndex: isOpen ? 1100 : undefined }} ref={dropdownRef}>
       <BellButton
         type="button"
         title="Notifications"

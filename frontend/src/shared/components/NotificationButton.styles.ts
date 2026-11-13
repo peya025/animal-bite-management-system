@@ -72,11 +72,12 @@ export const NotificationDropdown = styled('div')`
   right: 0;
   width: 380px;
   max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 84px);
   background: var(--card-bg, #ffffff);
   border: 1px solid var(--card-border, #e0eae3);
   border-radius: 12px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-  z-index: 100;
+  z-index: 1100;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -214,6 +215,7 @@ export const TabBadge = styled('span')<{ $isActive?: boolean; isActive?: boolean
 export const NotificationList = styled('div')`
   max-height: 380px;
   overflow-y: auto;
+  flex: 1 1 auto;
 `;
 
 export const NotificationItem = styled('div')<{ isUnread?: boolean; $isUnread?: boolean }>`

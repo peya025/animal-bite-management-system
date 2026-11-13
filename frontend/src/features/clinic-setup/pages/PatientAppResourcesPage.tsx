@@ -1135,6 +1135,7 @@ export function PatientAppResourcesSection({
   return (
     <>
       <Paper
+        data-walkthrough="clinic-resources-section"
         elevation={0}
         sx={{
           border: embedded ? '1px solid var(--border-glow, #e0eae3)' : '0.5px solid #e5e7eb',
@@ -1164,6 +1165,7 @@ export function PatientAppResourcesSection({
 
         {/* Section Header */}
         <Box
+          data-walkthrough="clinic-resources-header"
           sx={{
             px: embedded ? 0 : 2.5,
             py: embedded ? 0 : 2,
@@ -1189,7 +1191,7 @@ export function PatientAppResourcesSection({
             </Typography>
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Box data-walkthrough="clinic-resources-controls" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <Chip
               size="small"
               label={`${activeResources.length} published`}
@@ -1202,6 +1204,7 @@ export function PatientAppResourcesSection({
               }}
             />
             <Button
+              data-walkthrough="clinic-resources-preview-toggle"
               variant="outlined"
               size="small"
               startIcon={<PhoneIphoneIcon sx={{ fontSize: 16 }} />}
@@ -1221,6 +1224,7 @@ export function PatientAppResourcesSection({
               {showSectionPreview ? 'Hide Mobile Preview' : 'Show Mobile Preview'}
             </Button>
             <Button
+              data-walkthrough="clinic-resources-refresh-btn"
               variant="outlined"
               size="small"
               startIcon={<RefreshIcon sx={{ fontSize: 16 }} />}
@@ -1241,6 +1245,7 @@ export function PatientAppResourcesSection({
               Refresh
             </Button>
             <Button
+              data-walkthrough="clinic-resources-add-btn"
               variant="contained"
               size="small"
               startIcon={<AddIcon sx={{ fontSize: 18 }} />}
@@ -1265,6 +1270,7 @@ export function PatientAppResourcesSection({
 
         {/* Quick Paste URL Bar */}
         <Box
+          data-walkthrough="clinic-resources-quick-add"
           sx={{
             px: embedded ? 0 : 2.5,
             py: 2,
@@ -1286,6 +1292,8 @@ export function PatientAppResourcesSection({
             <Box sx={{ flex: 1, minWidth: 220 }}>
               <TextField
                 id="quick-resource-url-input"
+                name="quick_resource_url"
+                data-walkthrough="clinic-resources-quick-input"
                 type="url"
                 size="small"
                 fullWidth
@@ -1311,6 +1319,8 @@ export function PatientAppResourcesSection({
                     ),
                   },
                   htmlInput: {
+                    id: 'quick-resource-url-input-native',
+                    name: 'quick_resource_url',
                     'aria-describedby': 'quick-resource-url-hint',
                     'aria-errormessage': quickUrlError ? 'quick-resource-url-error' : undefined,
                     'aria-invalid': Boolean(quickUrlError),
@@ -1321,6 +1331,7 @@ export function PatientAppResourcesSection({
               <FieldErrorText id="quick-resource-url-error" message={quickUrlError ?? undefined} />
             </Box>
             <Button
+              data-walkthrough="clinic-resources-paste-btn"
               variant="outlined"
               onClick={() => handleOpenCreate(quickUrl)}
               startIcon={<AddIcon />}
@@ -1360,6 +1371,7 @@ export function PatientAppResourcesSection({
 
         {/* Content: Table + Optional Live Mobile Section Preview */}
         <Box
+          data-walkthrough="clinic-resources-roster-preview"
           sx={{
             display: 'grid',
             gridTemplateColumns:
@@ -1428,6 +1440,7 @@ export function PatientAppResourcesSection({
               >
                 <Box
                   component="table"
+                  data-walkthrough="clinic-resources-table"
                   sx={{
                     width: '100%',
                     borderCollapse: 'separate',
@@ -1683,6 +1696,7 @@ export function PatientAppResourcesSection({
           {/* Right: Live Mobile Home -> Learn More Preview Panel */}
           {showSectionPreview && !loading && (
             <Box
+              data-walkthrough="clinic-resources-mobile-preview"
               sx={{
                 bgcolor: '#f4f6f5',
                 border: '1px solid #e5e7eb',
@@ -1844,6 +1858,8 @@ export function PatientAppResourcesSection({
                 </Typography>
                 <Select
                   id="resource-type"
+                  name="resource_type"
+                  inputProps={{ id: 'resource-type-input', name: 'resource_type' }}
                   fullWidth
                   size="small"
                   value={form.type}
@@ -1926,6 +1942,7 @@ export function PatientAppResourcesSection({
                       </Typography>
                       <TextField
                         id="resource-url"
+                        name="resource_url"
                         type="url"
                         fullWidth
                         size="small"
@@ -1952,6 +1969,7 @@ export function PatientAppResourcesSection({
                     <Box>
                       <input
                         id="video-file-input"
+                        name="video_file"
                         type="file"
                         hidden
                         accept="video/mp4,video/webm,video/quicktime"
@@ -2092,6 +2110,7 @@ export function PatientAppResourcesSection({
                   </Typography>
                   <TextField
                     id="resource-url"
+                    name="resource_url"
                     type="url"
                     fullWidth
                     size="small"
@@ -2129,6 +2148,7 @@ export function PatientAppResourcesSection({
                 </Typography>
                 <TextField
                   id="resource-title"
+                  name="resource_title"
                   fullWidth
                   size="small"
                   required
@@ -2167,6 +2187,7 @@ export function PatientAppResourcesSection({
                 </Typography>
                 <TextField
                   id="resource-subtitle"
+                  name="resource_subtitle"
                   fullWidth
                   size="small"
                   placeholder="Optional description..."
@@ -2253,6 +2274,7 @@ export function PatientAppResourcesSection({
                         </Typography>
                         <TextField
                           id="resource-thumbnail"
+                          name="resource_thumbnail"
                           type="url"
                           fullWidth
                           size="small"
@@ -2280,6 +2302,7 @@ export function PatientAppResourcesSection({
                       <Box>
                         <input
                           id="thumb-file-input"
+                          name="thumb_file"
                           type="file"
                           hidden
                           accept="image/jpeg,image/png,image/webp"
@@ -2426,6 +2449,7 @@ export function PatientAppResourcesSection({
                     </Typography>
                     <TextField
                       id="resource-duration"
+                      name="resource_duration"
                       fullWidth
                       size="small"
                       placeholder="3:45"
@@ -2462,6 +2486,7 @@ export function PatientAppResourcesSection({
                   </Typography>
                   <TextField
                     id="resource-sort-order"
+                    name="resource_sort_order"
                     type="number"
                     size="small"
                     value={form.sort_order}

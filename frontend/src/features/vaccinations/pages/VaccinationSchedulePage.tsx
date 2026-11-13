@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import { ROUTES } from '../../../shared/config/routes';
 import { highlightRecordElement } from '../../../shared/utils/notificationNavigation';
 import {
@@ -120,9 +121,11 @@ interface JourneyKPI {
 export default function VaccinationSchedulePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isTreatmentModuleEnabled } = useClinicModuleConfig();
+  const treatmentEnabled = isTreatmentModuleEnabled();
   const isTriageDoctor = user?.role === 'triage';
   const isNurse = user?.role === 'treatment' || Boolean(user?.is_nursing) || Boolean(user?.is_solo_nurse) || Boolean(user?.roles?.some((r: any) => r.slug === 'intake_nurse' || r.slug === 'follow_up_nurse'));
-  const canRecordDose = !isTriageDoctor && !isNurse && (user?.role === 'admin' || user?.role === 'developer');
+  const canRecordDose = treatmentEnabled && !isTriageDoctor && !isNurse && (user?.role === 'admin' || user?.role === 'developer');
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [loading, setLoading] = useState(true);
@@ -608,6 +611,12 @@ export default function VaccinationSchedulePage() {
           </Button>
         </Box>
       </Box>
+
+      {!treatmentEnabled && (
+        <Alert severity="warning" sx={{ mb: 2.5, borderRadius: '12px' }}>
+          <strong>Treatment Module is currently disabled for this clinic.</strong> Recording new vaccine doses (Form 3) and treatment check-ins are blocked, while existing vaccination schedules and history remain accessible in read-only mode.
+        </Alert>
+      )}
 
       {/* KPI Cards Grid */}
       <Box

@@ -1,6 +1,6 @@
 # Person 4 — Station workflow and integrated verification
 
-**Status:** Not started  
+**Status:** Phase 2 Implemented & API-Verified; Phase 3 Release Gate Published (`HOLD` — see [verification_results.md](verification_results.md))  
 **Role:** Full-stack workflow implementer and final verification coordinator  
 **Read first:** [Team ownership/handoffs](team_assignments.md), [audit](admin_module_configuration_audit.md), [plan](implementation_plan.md), [inventory](field_inventory.md).
 
@@ -21,48 +21,48 @@ Person 1 owns configuration persistence and `backend/routes/api.php`; request ro
 
 ### P4-01 — Define supported operational behavior
 
-- [ ] Trace every station-sensitive route and operation: registration, walk-ins, returning patients, appointments, consultation, reassessment, treatment, dose recording, and queue transitions.
-- [ ] Define the meaning of disabling each station with the clinic workflow owner.
-- [ ] Specify behavior for active queues, ongoing episodes, existing schedules, assigned staff, and all-stations-disabled requests.
-- [ ] Do not infer permission to skip triage from the existing editor's help text.
-- [ ] Record accepted, rejected, and unsupported combinations in `workflow_decisions.md`.
-- [ ] Give Person 1 validation/capability requirements and Person 2 accurate labels/availability rules.
+- [x] Trace every station-sensitive route and operation: registration, walk-ins, returning patients, appointments, consultation, reassessment, treatment, dose recording, and queue transitions.
+- [x] Define the meaning of disabling each station with the clinic workflow owner (`workflow_decisions.md`).
+- [x] Specify behavior for active queues, ongoing episodes, existing schedules, assigned staff, and all-stations-disabled requests.
+- [x] Do not infer permission to skip triage from the existing editor's help text.
+- [x] Record accepted, rejected, and unsupported combinations in `workflow_decisions.md`.
+- [x] Give Person 1 validation/capability requirements and Person 2 accurate labels/availability rules.
 
 ### P4-02 — Implement one capability/transition policy
 
-- [ ] Resolve station availability using Person 1's effective configuration and current clinic context.
-- [ ] Keep operational capability checks separate from role authorization; both must pass.
-- [ ] Provide one policy callable from configuration updates and operational services so transition rules are not duplicated.
-- [ ] Reject unsupported or unsafe changes clearly until a valid transition exists.
-- [ ] Define behavior for configuration changes during active visits; avoid silently rerouting existing patients.
-- [ ] Preserve existing clinical, prescription, appointment, and inventory safeguards.
+- [x] Resolve station availability using Person 1's effective configuration and current clinic context.
+- [x] Keep operational capability checks separate from role authorization; both must pass.
+- [x] Provide one policy callable from configuration updates and operational services so transition rules are not duplicated (`StationCapabilityPolicy`).
+- [x] Reject unsupported or unsafe changes clearly until a valid transition exists.
+- [x] Define behavior for configuration changes during active visits; avoid silently rerouting existing patients.
+- [x] Preserve existing clinical, prescription, appointment, and inventory safeguards.
 
 ### P4-03 — Integrate live station behavior
 
-- [ ] Apply capability checks to direct backend operations, not only UI visibility.
-- [ ] Integrate approved routing behavior for new, returning, reassessment, and follow-up cases.
-- [ ] Update queue/station UI to explain unavailable actions without pretending existing work disappeared.
-- [ ] Ask Person 2 to apply agreed shared route/navigation changes and Person 3 to apply form-entry guards where needed.
-- [ ] Coordinate Person 3's required persistence changes in the shared services you own.
-- [ ] Verify staff assignment does not override a disabled capability or inadvertently grant permissions.
+- [x] Apply capability checks to direct backend operations, not only UI visibility.
+- [x] Integrate approved routing behavior for new, returning, reassessment, and follow-up cases.
+- [x] Update queue/station UI to explain unavailable actions without pretending existing work disappeared.
+- [x] Ask Person 2 to apply agreed shared route/navigation changes and Person 3 to apply form-entry guards where needed (applied across `ModuleConfigPage.tsx`, `PatientListPage.tsx`, `DoctorPatientListPage.tsx`, `NursePatientListPage.tsx`, `VaccinationSchedulePage.tsx`, `QueueDashboardPage.tsx`).
+- [x] Coordinate Person 3's required persistence changes in the shared services you own (`TreatmentRecordService.php`, `QueueService.php`).
+- [x] Verify staff assignment does not override a disabled capability or inadvertently grant permissions.
 
 ### P4-04 — Build meaningful workflow and browser coverage
 
-- [ ] Add workflow tests for supported station combinations, active-queue transitions, direct requests, and blocked operations.
-- [ ] Add browser tests for admin save -> reload -> downstream form/queue effect using an isolated clinic.
-- [ ] Verify fresh setup and legacy migration paths reach a usable editor and supported workflow.
-- [ ] Exercise two-admin stale-save behavior, read-only access, and save/load recovery with Persons 1/2.
-- [ ] Independently verify keyboard behavior, accessible naming, target widths, and zoom after Person 2's fixes.
-- [ ] Run relevant returning-patient, reassessment, vaccination, queue, and stock regression tests.
+- [x] Add workflow tests for supported station combinations, active-queue transitions, direct requests, and blocked operations (`StationWorkflowPolicyTest.php` — 9 passed, 102 assertions).
+- [ ] Add browser tests for admin save -> reload -> downstream form/queue effect using an isolated clinic (`P4-M01` added to `frontend/tests/module-config/module-config.spec.ts`; blocked from running in CLI by missing `playwright.cmd` / `ERR_UNSUPPORTED_DIR_IMPORT`).
+- [ ] Verify fresh setup and legacy migration paths reach a usable editor and supported workflow (API verified on SQLite `:memory:`; live browser + MySQL staging pending).
+- [ ] Exercise two-admin stale-save behavior, read-only access, and save/load recovery with Persons 1/2 (API verified; live browser pending).
+- [ ] Independently verify keyboard behavior, accessible naming, target widths, and zoom after Person 2's fixes (`P4-M12` not yet executed in Chromium).
+- [ ] Run relevant returning-patient, reassessment, vaccination, queue, and stock regression tests (Executed: 32 failed in full backend suite — 31 from Person 3 `EffectiveFieldRuleComposer` required defaults + 1 pre-existing `DualNurseWorkstationTest` failure).
 
 ### P4-05 — Compile release evidence and recovery checks
 
-- [ ] Collect each person's test commands, environment, results, and unresolved limitations; do not replace their tests with a single broad happy-path test.
-- [ ] Map all MC findings and AC-01–22 to evidence or an explicitly unavailable/deferred feature.
-- [ ] Record integrated results in `verification_results.md`, distinguishing automated, manual, and unexecuted checks.
-- [ ] Update the Cycle 8 guide with `/setup/modules`, actual supported controls, and current verified behavior.
-- [ ] Review Person 1's migration/backfill/recovery demonstration on the intended database engine.
-- [ ] Prepare pilot and rollback steps from the shared plan; preserve audit history and configuration snapshots.
+- [x] Collect each person's test commands, environment, results, and unresolved limitations; do not replace their tests with a single broad happy-path test.
+- [x] Map all MC findings and AC-01–22 to evidence or an explicitly unavailable/deferred feature.
+- [x] Record integrated results in `verification_results.md`, distinguishing automated, manual, and unexecuted checks.
+- [x] Update the Cycle 8 guide with `/setup/modules`, actual supported controls, and current verified behavior.
+- [ ] Review Person 1's migration/backfill/recovery demonstration on the intended database engine (SQLite verified; MySQL/MariaDB staging rehearsal pending).
+- [x] Prepare pilot and rollback steps from the shared plan; preserve audit history and configuration snapshots.
 - [ ] Obtain technical reviews from Persons 1–3 before recommending release. Publishing the checklist does not itself deploy the feature.
 
 ## Can start now / must wait
@@ -71,13 +71,13 @@ Start workflow tracing, decision tables, regression fixtures, and browser test p
 
 ## Acceptance criteria
 
-- [ ] AC-17 passes; workflow/stock parts of AC-21 are covered; combined AC-07/AC-12 and final matrix evidence are recorded.
-- [ ] Supported station switches affect both UI and direct API behavior consistently.
-- [ ] Disabling a station either uses its approved transition or fails clearly; no patient is silently stranded or rerouted.
-- [ ] Existing role checks, clinical safeguards, and inventory rules still pass.
-- [ ] A browser test proves configuration is persisted and used by a downstream operation, not merely that a success modal appears.
-- [ ] All 15 findings have an owner and current disposition; no unsupported behavior is presented as working.
-- [ ] Final evidence distinguishes verified behavior from pending browser, database, or mobile checks.
+- [x] AC-17 passes; workflow/stock parts of AC-21 are covered (`StationWorkflowPolicyTest`); combined AC-07/AC-12 and final matrix evidence are recorded (full clinical `AC-21` regression remains open under Person 3).
+- [x] Supported station switches affect both UI and direct API behavior consistently.
+- [x] Disabling a station either uses its approved transition or fails clearly; no patient is silently stranded or rerouted.
+- [ ] Existing role checks, clinical safeguards, and inventory rules still pass (role & station checks pass, but 31 Person 3 required-default regressions + 1 `DualNurseWorkstationTest` failure remain open in `php artisan test`).
+- [ ] A browser test proves configuration is persisted and used by a downstream operation, not merely that a success modal appears (blocked on Playwright CLI execution).
+- [x] All 15 findings have an owner and current disposition; no unsupported behavior is presented as working.
+- [x] Final evidence distinguishes verified behavior from pending browser, database, or mobile checks.
 - [ ] Release and recovery instructions are reviewed by the other three implementers.
 
 ## Detailed execution sequence

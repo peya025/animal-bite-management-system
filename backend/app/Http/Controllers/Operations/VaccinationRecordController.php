@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Operations;
 
+use App\Http\Controllers\Concerns\EnforcesStationCapabilities;
 use App\Http\Controllers\Controller;
-
 use App\Http\Requests\Vaccination\StoreVaccinationRecordRequest;
 use App\Http\Requests\Vaccination\VoidRecordRequest;
 use App\Models\BiteIncident;
@@ -11,6 +11,7 @@ use App\Models\Patient;
 use App\Models\Queue;
 use App\Models\TagoloanTreatmentCard;
 use App\Models\TreatmentRecord;
+use App\Services\Clinic\StationCapabilityPolicy;
 use App\Services\VaccinationRecordService;
 use App\Services\VaccineInventoryUsageService;
 use Carbon\Carbon;
@@ -22,6 +23,8 @@ use Illuminate\Validation\ValidationException;
 
 class VaccinationRecordController extends Controller
 {
+    use EnforcesStationCapabilities;
+
     public function __construct(
         private readonly VaccinationRecordService     $vaccinationRecordService,
         private readonly VaccineInventoryUsageService $inventoryUsageService,
@@ -256,6 +259,10 @@ class VaccinationRecordController extends Controller
                 return response()->json([
                     'message' => 'Unauthorized. Triage doctors are not permitted to record vaccine doses (Form 3). Dose administration is strictly reserved for the Treatment Nurse.',
                 ], 403);
+            }
+
+            if ($denied = $this->guardStation($actingUser->clinic_id, StationCapabilityPolicy::STATION_TREATMENT, 'record vaccination administration')) {
+                return $denied;
             }
 
             // Resolve bite_id from queue when not directly supplied

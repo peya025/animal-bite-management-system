@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Operations;
 
+use App\Http\Controllers\Concerns\EnforcesStationCapabilities;
 use App\Http\Controllers\Controller;
-
 use App\Http\Requests\Queue\CancelQueueRequest;
 use App\Http\Requests\Queue\CompleteQueueRequest;
 use App\Http\Requests\Queue\StoreQueueRequest;
@@ -13,6 +13,7 @@ use App\Models\Queue;
 use App\Models\QueueHistory;
 use App\Models\Station;
 use App\Models\TreatmentPlan;
+use App\Services\Clinic\StationCapabilityPolicy;
 use App\Services\QueueService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -22,6 +23,8 @@ use Illuminate\Support\Facades\DB;
 
 class QueueController extends Controller
 {
+    use EnforcesStationCapabilities;
+
     // ── Status groups ────────────────────────────────────────────────────────
     const MAIN_STATUSES   = ['waiting', 'called', 'in_consultation', 'serving'];
     const SECOND_STATUSES = ['second_chance', 'final_recall'];
@@ -160,10 +163,30 @@ class QueueController extends Controller
         $date     = Carbon::today()->toDateString();
         $station  = $this->resolveStation($request);
 
+        if ($station && ($denied = $this->guardStation($clinicId, $station, "call the next patient for {$station}"))) {
+            return $denied;
+        }
+
         return DB::transaction(function () use ($clinicId, $date, $request, $station) {
             $this->queueService->expireStaleTickets($clinicId, $date);
 
             $next = $this->queueService->getNextEligible($clinicId, $date, $station);
+            if ($next && !$station) {
+                $targetStation = $this->stationPolicy()->resolveQueueStation($next);
+                if (!$this->stationPolicy()->isStationEnabled($clinicId, $targetStation)) {
+                    $fallbackStation = $targetStation === StationCapabilityPolicy::STATION_TRIAGE
+                        ? StationCapabilityPolicy::STATION_TREATMENT
+                        : StationCapabilityPolicy::STATION_TRIAGE;
+                    if ($this->stationPolicy()->isStationEnabled($clinicId, $fallbackStation)) {
+                        $next = $this->queueService->getNextEligible($clinicId, $date, $fallbackStation);
+                    } else {
+                        return $this->guardStation($clinicId, $targetStation, 'call the next patient');
+                    }
+                    if (!$next) {
+                        return $this->guardStation($clinicId, $targetStation, 'call the next patient');
+                    }
+                }
+            }
             if (!$next) {
                 $label = $station ? ucfirst($station) . ' queue' : 'queue';
                 return response()->json(['message' => "No patients waiting in the {$label}"], 404);
@@ -212,6 +235,12 @@ class QueueController extends Controller
         try {
             $queue = Queue::where('clinic_id', $clinicId)->whereNull('deleted_at')->lockForUpdate()->findOrFail($id);
 
+            $targetStation = $this->stationPolicy()->resolveQueueStation($queue);
+            if ($denied = $this->guardStation($clinicId, $targetStation, 'call this queue ticket')) {
+                DB::rollBack();
+                return $denied;
+            }
+
             if (($queue->call_count ?? 0) >= 3 || $queue->status === 'requires_checkin') {
                 DB::rollBack();
                 return response()->json(['message' => 'Patient did not respond 3 times. Please return to Registration for check-in.'], 422);
@@ -255,6 +284,12 @@ class QueueController extends Controller
         DB::beginTransaction();
         try {
             $queue = Queue::where('clinic_id', $clinicId)->whereNull('deleted_at')->lockForUpdate()->findOrFail($id);
+
+            $targetStation = $this->stationPolicy()->resolveQueueStation($queue);
+            if ($denied = $this->guardStation($clinicId, $targetStation, 'serve this queue ticket')) {
+                DB::rollBack();
+                return $denied;
+            }
 
             if (!in_array($queue->status, ['waiting','called','serving','second_chance','final_recall','in_consultation'])) {
                 DB::rollBack();
@@ -351,6 +386,11 @@ class QueueController extends Controller
         return DB::transaction(function () use ($request, $id) {
             $queue = Queue::where('clinic_id', $request->user()->clinic_id)
                 ->whereNull('deleted_at')->lockForUpdate()->findOrFail($id);
+
+            $targetStation = $this->stationPolicy()->resolveQueueStation($queue);
+            if ($denied = $this->guardStation($queue->clinic_id, $targetStation, 'recall this queue ticket')) {
+                return $denied;
+            }
 
             if (($queue->call_count ?? 0) >= 3 || $queue->status === 'requires_checkin') {
                 return response()->json(['message' => 'Patient did not respond 3 times. Please return to Registration for check-in.'], 422);
@@ -465,7 +505,7 @@ class QueueController extends Controller
             $isTriageTransfer = in_array($request->user()->role, ['triage', 'doctor', 'admin'])
                 && in_array($queue->visit_type, ['new_case', 'follow_up', 'observation', 'consultation', 'booster']);
 
-            if ($isTriageTransfer) {
+            if ($isTriageTransfer && $this->stationPolicy()->isStationEnabled($queue->clinic_id, StationCapabilityPolicy::STATION_TREATMENT)) {
                 $transferNotes  = collect(['Doctor completed Form 2 — referred to Treatment.', $request->consultation_notes])->filter()->implode(' | ');
                 $intakeStationId = Station::where('clinic_id', $queue->clinic_id)
                     ->where('is_active', true)
@@ -493,17 +533,21 @@ class QueueController extends Controller
                 ]);
             }
 
-            $this->queueService->logHistory($queue, 'completed', 'completed', $request->user()->id, $request->consultation_notes ?? null);
+            $completionNote = $isTriageTransfer
+                ? collect(['Doctor completed triage — Treatment station disabled; visit completed cleanly.', $request->consultation_notes])->filter()->implode(' | ')
+                : ($request->consultation_notes ?? null);
+
+            $this->queueService->logHistory($queue, 'completed', 'completed', $request->user()->id, $completionNote);
             $queue->update([
                 'status'             => 'completed',
                 'completed_at'       => now(),
-                'consultation_notes' => $request->consultation_notes,
+                'consultation_notes' => $completionNote,
                 'recall_stage'       => null,
             ]);
             $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
 
             return response()->json([
-                'message'         => 'Consultation completed',
+                'message'         => $isTriageTransfer ? 'Consultation completed cleanly (Treatment station disabled)' : 'Consultation completed',
                 'queue'           => $queue->fresh(),
                 'waiting_seconds' => $waitingSeconds,
                 'service_seconds' => $serviceSeconds,
@@ -591,8 +635,19 @@ class QueueController extends Controller
     // ────────────────────────────────────────────────────────────────────────
     public function store(StoreQueueRequest $request): JsonResponse
     {
-        $clinicId  = $request->user()->clinic_id;
-        $todayDate = Carbon::today()->toDateString();
+        $user          = $request->user();
+        $clinicId      = $user->clinic_id;
+        $todayDate     = Carbon::today()->toDateString();
+        $targetStation = $this->stationPolicy()->resolveStationForVisitType((string) $request->visit_type);
+
+        $requiredStations = [$targetStation];
+        if ($user->role === 'registration' && $targetStation !== StationCapabilityPolicy::STATION_REGISTRATION) {
+            array_unshift($requiredStations, StationCapabilityPolicy::STATION_REGISTRATION);
+        }
+
+        if ($denied = $this->guardStations($clinicId, $requiredStations, 'add patient to the queue')) {
+            return $denied;
+        }
 
         return DB::transaction(function () use ($request, $clinicId, $todayDate) {
             $result = $this->queueService->addToQueue(
@@ -746,6 +801,22 @@ class QueueController extends Controller
             $station = $this->resolveStation($request);
             $date    = Carbon::today()->toDateString();
             $next    = $this->queueService->getNextEligibleExcluding($clinicId, $date, $station, $queue->queue_id);
+
+            if ($next) {
+                $nextTargetStation = $this->stationPolicy()->resolveQueueStation($next);
+                if (!$this->stationPolicy()->isStationEnabled($clinicId, $nextTargetStation)) {
+                    if (!$station) {
+                        $fallbackStation = $nextTargetStation === StationCapabilityPolicy::STATION_TRIAGE
+                            ? StationCapabilityPolicy::STATION_TREATMENT
+                            : StationCapabilityPolicy::STATION_TRIAGE;
+                        $next = $this->stationPolicy()->isStationEnabled($clinicId, $fallbackStation)
+                            ? $this->queueService->getNextEligibleExcluding($clinicId, $date, $fallbackStation, $queue->queue_id)
+                            : null;
+                    } else {
+                        $next = null;
+                    }
+                }
+            }
 
             if (!$next) {
                 $emptyMsg = $isThirdMiss

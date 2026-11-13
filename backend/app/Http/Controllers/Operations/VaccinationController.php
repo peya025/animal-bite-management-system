@@ -2,18 +2,21 @@
 
 namespace App\Http\Controllers\Operations;
 
+use App\Http\Controllers\Concerns\EnforcesStationCapabilities;
 use App\Http\Controllers\Controller;
-
 use App\Http\Requests\Vaccination\AdministerVaccinationRequest;
 use App\Http\Requests\Vaccination\RescheduleVaccinationRequest;
 use App\Http\Requests\Vaccination\UpdateVaccinationScheduleRequest;
 use App\Models\VaccinationSchedule;
+use App\Services\Clinic\StationCapabilityPolicy;
 use App\Services\VaccinationScheduleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class VaccinationController extends Controller
 {
+    use EnforcesStationCapabilities;
+
     public function __construct(
         private readonly VaccinationScheduleService $vaccinationService,
     ) {}
@@ -93,6 +96,10 @@ class VaccinationController extends Controller
             ], 403);
         }
 
+        if ($denied = $this->guardStation($user->clinic_id, StationCapabilityPolicy::STATION_TREATMENT, 'administer a vaccine')) {
+            return $denied;
+        }
+
         $schedule = VaccinationSchedule::where('clinic_id', $user->clinic_id)->findOrFail($id);
 
         if ($schedule->status === 'completed') {
@@ -115,6 +122,10 @@ class VaccinationController extends Controller
      */
     public function update(UpdateVaccinationScheduleRequest $request, int $id): JsonResponse
     {
+        if ($denied = $this->guardStation($request->user()->clinic_id, StationCapabilityPolicy::STATION_TRIAGE, 'update a vaccination schedule')) {
+            return $denied;
+        }
+
         $schedule = VaccinationSchedule::where('clinic_id', $request->user()->clinic_id)->findOrFail($id);
 
         $schedule = $this->vaccinationService->update(
@@ -135,6 +146,10 @@ class VaccinationController extends Controller
      */
     public function markAsMissed(Request $request, int $id): JsonResponse
     {
+        if ($denied = $this->guardStation($request->user()->clinic_id, StationCapabilityPolicy::STATION_TREATMENT, 'mark a vaccination dose as missed')) {
+            return $denied;
+        }
+
         $schedule = VaccinationSchedule::where('clinic_id', $request->user()->clinic_id)->findOrFail($id);
 
         $schedule = $this->vaccinationService->markAsMissed(
@@ -155,6 +170,10 @@ class VaccinationController extends Controller
      */
     public function reschedule(RescheduleVaccinationRequest $request, int $id): JsonResponse
     {
+        if ($denied = $this->guardStation($request->user()->clinic_id, StationCapabilityPolicy::STATION_TRIAGE, 'reschedule a vaccination')) {
+            return $denied;
+        }
+
         $schedule = VaccinationSchedule::where('clinic_id', $request->user()->clinic_id)->findOrFail($id);
 
         $schedule = $this->vaccinationService->reschedule(

@@ -2,19 +2,22 @@
 
 namespace App\Http\Controllers\Clinical;
 
+use App\Http\Controllers\Concerns\EnforcesStationCapabilities;
 use App\Http\Controllers\Controller;
-
 use App\Http\Requests\Clinical\RegisterExposureRequest;
 use App\Http\Requests\Clinical\ReviewExternalProofRequest;
 use App\Http\Requests\Clinical\StoreBiteCaseRequest;
 use App\Http\Requests\Clinical\TransferOutBiteCaseRequest;
 use App\Http\Requests\Clinical\UpdateBiteCaseRequest;
+use App\Services\Clinic\StationCapabilityPolicy;
 use App\Services\Clinical\BiteCaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class BiteCaseController extends Controller
 {
+    use EnforcesStationCapabilities;
+
     public function __construct(
         protected BiteCaseService $biteCaseService
     ) {}
@@ -26,6 +29,14 @@ class BiteCaseController extends Controller
      */
     public function registerNewExposure(RegisterExposureRequest $request): JsonResponse
     {
+        $user = $request->user();
+        $requiredStations = (!$user->isAdmin() && !$user->isTriage())
+            ? [StationCapabilityPolicy::STATION_REGISTRATION, StationCapabilityPolicy::STATION_TRIAGE]
+            : [StationCapabilityPolicy::STATION_TRIAGE];
+        if ($denied = $this->guardStations($user->clinic_id, $requiredStations, 'register a new bite exposure')) {
+            return $denied;
+        }
+
         $result = $this->biteCaseService->registerNewExposure(
             $request->user()->clinic_id,
             $request->validated(),
@@ -57,6 +68,10 @@ class BiteCaseController extends Controller
      */
     public function store(StoreBiteCaseRequest $request): JsonResponse
     {
+        if ($denied = $this->guardStation($request->user()->clinic_id, StationCapabilityPolicy::STATION_TRIAGE, 'create a bite case')) {
+            return $denied;
+        }
+
         $incident = $this->biteCaseService->storeBiteCase(
             $request->user()->clinic_id,
             $request->validated(),
@@ -114,6 +129,10 @@ class BiteCaseController extends Controller
 
     public function update(UpdateBiteCaseRequest $request, int|string $id): JsonResponse
     {
+        if ($denied = $this->guardStation($request->user()->clinic_id, StationCapabilityPolicy::STATION_TRIAGE, 'update a bite case')) {
+            return $denied;
+        }
+
         $incident = $this->biteCaseService->updateBiteCase(
             $request->user()->clinic_id,
             (int) $id,
@@ -208,6 +227,10 @@ class BiteCaseController extends Controller
      */
     public function transferOut(TransferOutBiteCaseRequest $request, int|string $id): JsonResponse
     {
+        if ($denied = $this->guardStation($request->user()->clinic_id, StationCapabilityPolicy::STATION_TRIAGE, 'transfer out a bite case')) {
+            return $denied;
+        }
+
         $incident = $this->biteCaseService->transferOut(
             $request->user()->clinic_id,
             (int) $id,

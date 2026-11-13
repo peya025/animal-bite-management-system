@@ -2,6 +2,7 @@ import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import { Typography } from '@mui/material';
 import { ROUTES } from '../../../shared/config/routes';
 import AddPatientModal from '../components/AddPatientModal';
@@ -111,13 +112,18 @@ export default function PatientList() {
   const address = clinic?.address || '';
 
   // Only authorized staff responsible for patient registration can add new patients (exclude Treatment Nurse & Triage Doctor)
+  const { isRegistrationModuleEnabled, isTriageModuleEnabled, isTreatmentModuleEnabled } = useClinicModuleConfig();
+  const registrationStationEnabled = isRegistrationModuleEnabled();
+  const triageStationEnabled = isTriageModuleEnabled();
+  const treatmentStationEnabled = isTreatmentModuleEnabled();
+
   const isTreatmentOrTriage = ['treatment', 'triage'].includes(userRole);
   const isAuthorizedRegistrationRole = ['registration', 'admin', 'developer'].includes(userRole);
-  const canAddPatient = isAuthorizedRegistrationRole && !isTreatmentOrTriage;
+  const canAddPatient = isAuthorizedRegistrationRole && !isTreatmentOrTriage && registrationStationEnabled;
   const isAdmin = ['admin', 'administrator'].includes(userRole?.toLowerCase());
   const isDoctor = ['triage', 'doctor'].includes(userRole?.toLowerCase());
   const isTreatmentNurse = ['treatment', 'nurse'].includes(userRole?.toLowerCase());
-  const canRegisterExposure = ['registration', 'admin', 'developer'].includes(userRole?.toLowerCase());
+  const canRegisterExposure = ['registration', 'admin', 'developer'].includes(userRole?.toLowerCase()) && registrationStationEnabled && triageStationEnabled;
   const canSendPortalInvite = ['registration', 'admin', 'developer'].includes(userRole?.toLowerCase());
 
   const [tab,                  setTab]                  = useState<'today_queue' | 'all' | 'online' | 'pre_registered' | 'overdue'>('today_queue');
@@ -1077,6 +1083,28 @@ export default function PatientList() {
             )}
           </div>
 
+          {(!registrationStationEnabled || !triageStationEnabled || !treatmentStationEnabled) && (
+            <div
+              role="alert"
+              style={{
+                background: '#fffbeb',
+                border: '1px solid #fcd34d',
+                borderRadius: '10px',
+                padding: '10px 14px',
+                marginBottom: '16px',
+                fontSize: '13px',
+                color: '#92400e',
+              }}
+            >
+              <strong>Station Capability Notice:</strong>{' '}
+              {!registrationStationEnabled
+                ? 'Registration Module is disabled for this clinic — adding patients and new registration check-ins are disabled (read-only access remains available).'
+                : !triageStationEnabled
+                ? 'Triage Module is disabled — triage check-ins and re-exposure registration are disabled.'
+                : 'Treatment Module is disabled — direct nurse treatment check-ins are disabled.'}
+            </div>
+          )}
+
           {/* ── Summary Cards ── */}
           <div className="pm-stats-row" data-walkthrough="patients-stats" data-tour="patients-summary">
             <div className="pm-stat-card">
@@ -1365,6 +1393,8 @@ export default function PatientList() {
                     const isReturningAwaitingTriage = isReturningPatientAwaitingTriage(p);
                     const canCheckInForReassessment = Boolean(
                       isAuthorizedRegistrationRole &&
+                      registrationStationEnabled &&
+                      triageStationEnabled &&
                       !isPreRegistered &&
                       !activeQueue &&
                       !isCat1NoTreatment &&
@@ -1372,6 +1402,8 @@ export default function PatientList() {
                     );
                     const canCheckInReturning = Boolean(
                       isAuthorizedRegistrationRole &&
+                      registrationStationEnabled &&
+                      triageStationEnabled &&
                       !isPreRegistered &&
                       !activeQueue &&
                       !isCat1NoTreatment &&
@@ -1380,6 +1412,8 @@ export default function PatientList() {
                     );
                     const canCheckInToNurse = Boolean(
                       isAuthorizedRegistrationRole &&
+                      registrationStationEnabled &&
+                      treatmentStationEnabled &&
                       !canCheckInForReassessment &&
                       !canCheckInReturning &&
                       !activeQueue &&

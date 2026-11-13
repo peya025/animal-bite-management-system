@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Clinic;
 
 use App\Services\Clinic\ClinicModuleConfigService;
+use App\Services\Clinic\StationCapabilityPolicy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Validator;
@@ -166,6 +167,33 @@ class UpdateClinicModuleConfigRequest extends FormRequest
                         'field_rules.exposure_category',
                         "The 'exposure_category' field is an essential clinical safeguard and must be 'required'."
                     );
+                }
+            }
+
+            // 5. Enforce station capability & transition policy (Person 4)
+            $stationFields = ['triage_module_enabled', 'registration_module_enabled', 'treatment_module_enabled'];
+            if (! $validator->errors()->hasAny($stationFields) && $this->user()?->clinic_id) {
+                $clinicId = (int) $this->user()->clinic_id;
+                $currentConfig = $service->getOrCreateConfigForClinic($clinicId);
+
+                $proposedStations = [
+                    'triage_module_enabled' => $this->has('triage_module_enabled')
+                        ? filter_var($this->input('triage_module_enabled'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false
+                        : (bool) ($currentConfig->triage_module_enabled ?? true),
+                    'registration_module_enabled' => $this->has('registration_module_enabled')
+                        ? filter_var($this->input('registration_module_enabled'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false
+                        : (bool) ($currentConfig->registration_module_enabled ?? true),
+                    'treatment_module_enabled' => $this->has('treatment_module_enabled')
+                        ? filter_var($this->input('treatment_module_enabled'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false
+                        : (bool) ($currentConfig->treatment_module_enabled ?? true),
+                ];
+
+                /** @var StationCapabilityPolicy $policy */
+                $policy = app(StationCapabilityPolicy::class);
+                $transitionErrors = $policy->validateConfigTransition($clinicId, $proposedStations);
+
+                foreach ($transitionErrors as $fieldKey => $message) {
+                    $validator->errors()->add($fieldKey, $message);
                 }
             }
         });

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { highlightRecordElement } from '../../../shared/utils/notificationNavigation';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import {
   Alert, Box, CircularProgress, IconButton,
   Paper, Snackbar, Stack, Tooltip, Typography,
@@ -224,6 +225,10 @@ export default function QueueDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { isRegistrationModuleEnabled, isTriageModuleEnabled, isTreatmentModuleEnabled } = useClinicModuleConfig();
+  const registrationEnabled = isRegistrationModuleEnabled();
+  const triageEnabled = isTriageModuleEnabled();
+  const treatmentEnabled = isTreatmentModuleEnabled();
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'warning' }>({
     open: false, message: '', severity: 'success',
@@ -957,17 +962,20 @@ export default function QueueDashboard() {
             )}
 
             {/* Recall — second chance or final recall (if filtered) */}
-            {isSecondChance && (
-              <Tooltip title={e.call_count >= 3 ? "Patient did not respond 3 times. Please return to Registration for check-in." : "Recall Patient"}>
-                <span>
-                  <IconButton data-walkthrough="queue-action-recall" size="small" onClick={() => setRecallTarget(e)}
-                    disabled={e.call_count >= 3}
-                    sx={actionBtn('#ea580c', '#fff7ed', '#fed7aa', '#ffedd5', '#fdba74', '#c2410c')}>
-                    <HugeiconsIcon icon={Call02Icon} size={16} strokeWidth={2} />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            )}
+            {isSecondChance && (() => {
+              const recallStationEnabled = TRIAGE_VISIT_TYPES.includes(e.visit_type) ? triageEnabled : treatmentEnabled;
+              return (
+                <Tooltip title={!recallStationEnabled ? 'Station module is disabled for this clinic.' : (e.call_count >= 3 ? 'Patient did not respond 3 times. Please return to Registration for check-in.' : 'Recall Patient')}>
+                  <span>
+                    <IconButton data-walkthrough="queue-action-recall" size="small" onClick={() => setRecallTarget(e)}
+                      disabled={e.call_count >= 3 || !recallStationEnabled}
+                      sx={actionBtn('#ea580c', '#fff7ed', '#fed7aa', '#ffedd5', '#fdba74', '#c2410c')}>
+                      <HugeiconsIcon icon={Call02Icon} size={16} strokeWidth={2} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              );
+            })()}
 
             {/* Cancel — any active */}
             {canCancelOrTrash && isActive && (
@@ -1104,6 +1112,18 @@ export default function QueueDashboard() {
         </Stack>
       </Box>
 
+      {(!registrationEnabled || !triageEnabled || !treatmentEnabled) && (
+        <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
+          <strong>Station Capability Notice:</strong>{' '}
+          {[
+            !registrationEnabled && 'Registration disabled',
+            !triageEnabled && 'Triage disabled',
+            !treatmentEnabled && 'Treatment disabled',
+          ].filter(Boolean).join(' • ')}
+          . New queue call/serve actions for disabled stations are blocked while existing tickets and queue history remain visible.
+        </Alert>
+      )}
+
       {/* ── 2. KPI Strip (Waiting, Called, Serving, Completed, Total Today) ── */}
       <Box data-walkthrough="queue-kpi-strip"><QueueKPIStrip stats={stationStats} onWaitingClick={handleWaitingClick} /></Box>
 
@@ -1121,22 +1141,28 @@ export default function QueueDashboard() {
       {/* Render whenever there is a next waiting patient OR a currently called patient.
           The Skip button lives here and must remain visible even when the queue has no
           further waiting patients so staff can still skip the currently-called patient. */}
-      {!isRegistrationStaff && user?.role !== 'admin' && (roleScopedNextEntry || calledEntry) && (
-        <Box sx={{ mb: 2 }}>
-          <NextPatientBanner
-            entry={roleScopedNextEntry ?? calledEntry!}
-            calledEntry={calledEntry}
-            onSkip={
-              // All clinical staff (including triage doctors and treatment nurses) get Skip.
-              // Only registration staff and admins are excluded.
-              !isRegistrationStaff
-                ? () => { if (calledEntry) handleSkip(calledEntry); }
-                : undefined
-            }
-            showActions={isTriageDoctor || !isRegistrationStaff}
-          />
-        </Box>
-      )}
+      {!isRegistrationStaff && user?.role !== 'admin' && (roleScopedNextEntry || calledEntry) && (() => {
+        const bannerEntry = roleScopedNextEntry ?? calledEntry!;
+        const entryStationEnabled = TRIAGE_VISIT_TYPES.includes(bannerEntry.visit_type)
+          ? triageEnabled
+          : treatmentEnabled;
+        return (
+          <Box sx={{ mb: 2 }}>
+            <NextPatientBanner
+              entry={bannerEntry}
+              calledEntry={calledEntry}
+              onSkip={
+                // All clinical staff (including triage doctors and treatment nurses) get Skip.
+                // Only registration staff and admins are excluded.
+                !isRegistrationStaff
+                  ? () => { if (calledEntry) handleSkip(calledEntry); }
+                  : undefined
+              }
+              showActions={(isTriageDoctor || !isRegistrationStaff) && entryStationEnabled}
+            />
+          </Box>
+        );
+      })()}
 
       {/* ── 6. Main Queue Table (Actionable section directly accessible!) ── */}
       <Paper

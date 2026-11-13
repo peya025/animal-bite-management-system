@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Clinical;
 
+use App\Http\Controllers\Concerns\EnforcesStationCapabilities;
 use App\Http\Controllers\Controller;
+use App\Services\Clinic\StationCapabilityPolicy;
 
 use App\Exceptions\DuplicatePatientException;
 use App\Http\Requests\Clinical\CheckDuplicatePatientRequest;
@@ -14,6 +16,8 @@ use Illuminate\Http\Request;
 
 class PatientController extends Controller
 {
+    use EnforcesStationCapabilities;
+
     public function __construct(
         protected PatientService $patientService
     ) {}
@@ -52,6 +56,10 @@ class PatientController extends Controller
      */
     public function store(StorePatientRequest $request): JsonResponse
     {
+        if ($denied = $this->guardStation($request->user()->clinic_id, StationCapabilityPolicy::STATION_REGISTRATION, 'register a new patient')) {
+            return $denied;
+        }
+
         try {
             $patient = $this->patientService->storePatient(
                 $request->user()->clinic_id,
@@ -148,6 +156,10 @@ class PatientController extends Controller
      */
     public function checkIn(Request $request, int|string $id): JsonResponse
     {
+        if ($denied = $this->guardStations($request->user()->clinic_id, [StationCapabilityPolicy::STATION_REGISTRATION, StationCapabilityPolicy::STATION_TRIAGE], 'check in returning patient for triage')) {
+            return $denied;
+        }
+
         $result = $this->patientService->checkInReturningPatient(
             $request->user()->clinic_id,
             (int) $id,
@@ -166,6 +178,15 @@ class PatientController extends Controller
      */
     public function checkInNurse(Request $request, int|string $id): JsonResponse
     {
+        $user = $request->user();
+        $requiredStations = [StationCapabilityPolicy::STATION_TREATMENT];
+        if (! $user->isAdmin() && ! $user->isNursing()) {
+            $requiredStations[] = StationCapabilityPolicy::STATION_REGISTRATION;
+        }
+        if ($denied = $this->guardStations($user->clinic_id, $requiredStations, 'check in patient to the Treatment queue')) {
+            return $denied;
+        }
+
         $result = $this->patientService->checkInPatientToNurse(
             $request->user()->clinic_id,
             (int) $id,

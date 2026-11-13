@@ -179,10 +179,13 @@ class QueueService
 
         // Advisory lock: serialises concurrent check-ins for the same clinic+date
         // so MAX(queue_number)+1 is always safe even when the table is empty.
-        $lockName    = "queue_checkin_{$clinicId}_{$todayDate}";
-        $lockTimeout = 5;
+        $lockName             = "queue_checkin_{$clinicId}_{$todayDate}";
+        $lockTimeout          = 5;
+        $supportsAdvisoryLock = in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true);
 
-        DB::statement('SELECT GET_LOCK(?, ?)', [$lockName, $lockTimeout]);
+        if ($supportsAdvisoryLock) {
+            DB::statement('SELECT GET_LOCK(?, ?)', [$lockName, $lockTimeout]);
+        }
 
         try {
             $maxNumber = DB::table('queues')
@@ -233,7 +236,9 @@ class QueueService
                 'visit_type'     => $visitType,
             ];
         } finally {
-            DB::statement('SELECT RELEASE_LOCK(?)', [$lockName]);
+            if ($supportsAdvisoryLock) {
+                DB::statement('SELECT RELEASE_LOCK(?)', [$lockName]);
+            }
         }
     }
 

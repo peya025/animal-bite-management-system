@@ -2,473 +2,173 @@
 
 namespace App\Services;
 
+use App\Jobs\DeliverOutboundMessage;
 use App\Models\Appointment;
 use App\Models\AppointmentReminder;
-use App\Models\Clinic;
-use App\Models\Notification;
-use App\Models\Patient;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
+use App\Models\OutboundMessage;
+use App\Services\Messaging\DeliveryPolicy;
+use App\Services\Messaging\OutboundDelivery;
+use App\Services\Messaging\Sms\SmsLength;
+use App\Services\Messaging\Sms\SmsManager;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AppointmentReminderService
 {
-    /**
-     * Helper to resolve detailed clinical context for an appointment.
-     * Distinguishes whether the patient missed Doctor Triage (Day 0 / Form 2) or Nurse Treatment (Day 3/7/28).
-     */
-    protected function resolveClinicalContext(Appointment $appointment, Patient $patient): array
+    public function sendRecallAlert(Appointment $appointment, string $channel = 'all', ?int $senderUserId = null, ?string $customMessage = null): array
     {
-        $hasBiteIncident = (bool) $appointment->bite_id || $patient->biteIncidents()->exists();
-        $doseNum = $appointment->dose_number;
-
-        $isInitialTriage = false;
-        $station = 'Treatment / Nurse Desk';
-        $doseLabel = 'Vaccine Dose';
-        $notifType = 'missed_appointment_recall';
-        $title = 'Urgent: Missed Vaccination Recall';
-
-        if ($appointment->appointment_type === 'consultation') {
-            $station = 'Doctor Consultation Desk';
-            $doseLabel = 'General Consultation';
-            $notifType = 'missed_consultation_recall';
-            $title = 'Missed Medical Consultation';
-        } elseif (!$hasBiteIncident || $doseNum === 0 || is_null($doseNum)) {
-            $isInitialTriage = true;
-            $station = 'Doctor Triage & Assessment (Form 2)';
-            $doseLabel = 'Initial Assessment & Day 0 Dose';
-            $notifType = 'missed_triage_recall';
-            $title = 'Urgent: Missed Doctor Triage & Day 0 Dose';
-        } else {
-            $station = 'Treatment / Nurse Desk (Form 3)';
-            $doseLabel = "Rabies Dose (Day {$doseNum})";
-            $notifType = 'missed_treatment_recall';
-            $title = "Urgent: Missed Rabies Dose (Day {$doseNum})";
-        }
-
-        return [
-            'is_initial_triage' => $isInitialTriage,
-            'station' => $station,
-            'dose_label' => $doseLabel,
-            'dose_number' => $doseNum ?? ($isInitialTriage ? 0 : 3),
-            'notif_type' => $notifType,
-            'title' => $title,
-        ];
+        return $this->prepare($appointment, 'recall', $channel, $senderUserId, $customMessage);
     }
 
-    /**
-     * Dispatch a multi-channel recall alert for a missed/overdue appointment.
-     */
-    public function sendRecallAlert(
-        Appointment $appointment,
-        string $channel = 'all',
-        ?int $senderUserId = null,
-        ?string $customMessage = null
-    ): array {
+    public function sendAdvanceReminder(Appointment $appointment, string $channel = 'all', ?int $senderUserId = null): array
+    {
+        return $this->prepare($appointment, 'advance', $channel, $senderUserId);
+    }
+
+    private function prepare(Appointment $appointment, string $purpose, string $channel, ?int $senderUserId, ?string $customMessage = null): array
+    {
+        if (! in_array($channel, ['all', 'sms', 'email', 'in_app'])) {
+            throw ValidationException::withMessages(['channel' => 'Invalid channel.']);
+        }
+        if ($customMessage !== null && mb_strlen($customMessage) > 1000) {
+            throw ValidationException::withMessages(['message' => 'Maximum 1000 characters.']);
+        }
         $appointment->loadMissing(['patient.accounts', 'clinic']);
         $patient = $appointment->patient;
-        $clinic = $appointment->clinic ?? Clinic::find(1);
+        $clinic = $appointment->clinic;
+        $date = $appointment->scheduled_date ?? $appointment->appointment_date;
+        $result = ['success' => false, 'appointment_id' => $appointment->appointment_id, 'patient_name' => $patient ? trim($patient->first_name.' '.$patient->last_name) : '', 'channels_dispatched' => [], 'channel_results' => [], 'errors' => []];
+        if (! $patient || ! $clinic || $patient->clinic_id != $appointment->clinic_id || ! $date || $appointment->status !== 'scheduled'
+            || ($purpose === 'recall' && ! $date->isBefore(today()))
+            || ($purpose === 'advance' && ! $date->isTomorrow())) {
+            $result['errors']['appointment'] = 'Appointment is not eligible for this reminder.';
 
-        if (!$patient) {
-            return [
-                'success' => false,
-                'message' => 'Patient record not found for appointment #' . $appointment->appointment_id,
-                'channels_dispatched' => [],
-            ];
+            return $result;
         }
-
-        $clinicName = $clinic?->name ?? 'Tagoloan Animal Bite Treatment Center';
-        $clinicPhone = $clinic?->phone ?? '09123456789';
-        $patientName = "{$patient->first_name} {$patient->last_name}";
-        $scheduledDate = Carbon::parse($appointment->scheduled_date ?? $appointment->appointment_date)->format('M j, Y');
-
-        $ctx = $this->resolveClinicalContext($appointment, $patient);
-        $station = $ctx['station'];
-        $doseLabel = $ctx['dose_label'];
-        $title = $ctx['title'];
-        $notifType = $ctx['notif_type'];
-
-        $dispatched = [];
-        $errors = [];
-
-        // 1. IN-APP PUSH NOTIFICATION
-        if (in_array($channel, ['all', 'in_app'])) {
-            if ($customMessage) {
-                $inAppMsg = $customMessage;
-            } elseif ($ctx['is_initial_triage']) {
-                $inAppMsg = "URGENT CLINICAL ADVISORY: {$patientName}, you missed your Doctor Triage & Initial Assessment (Day 0) scheduled on {$scheduledDate}. Prompt bite evaluation and immediate first dose are critical for rabies prevention. Please proceed to Doctor Triage at {$clinicName}.";
-            } else {
-                $inAppMsg = "URGENT REMINDER: {$patientName}, you missed your scheduled Rabies Vaccination ({$doseLabel}) at the {$station} on {$scheduledDate}. Rabies is 100% fatal without complete PEP. Please visit {$clinicName} immediately for your catch-up injection.";
-            }
-
-            $accountId = $appointment->booked_by_account_id;
-            if (!$accountId && $patient->accounts && $patient->accounts->isNotEmpty()) {
-                $accountId = $patient->accounts->first()->id;
-            }
-
-            try {
-                Notification::create([
-                    'patient_id' => $patient->patient_id,
-                    'patient_account_id' => $accountId,
-                    'appointment_id' => $appointment->appointment_id,
-                    'type' => $notifType,
-                    'message' => $inAppMsg,
-                    'status' => 'sent',
-                    'send_time' => now(),
-                ]);
-
-                if ($accountId) {
-                    Cache::forget("mobile:notifications:account:{$accountId}:page:1");
-                }
-
-                AppointmentReminder::create([
-                    'clinic_id' => $appointment->clinic_id ?? 1,
-                    'appointment_id' => $appointment->appointment_id,
-                    'patient_id' => $patient->patient_id,
-                    'channel' => 'in_app',
-                    'recipient' => $accountId ? "Account #{$accountId}" : "Patient #{$patient->patient_number}",
-                    'subject' => $title,
-                    'message' => $inAppMsg,
-                    'status' => 'sent',
-                    'sent_by_user_id' => $senderUserId,
-                ]);
-
-                $dispatched[] = 'in_app';
-            } catch (\Exception $e) {
-                Log::error('In-App Recall dispatch failed: ' . $e->getMessage());
-                $errors['in_app'] = $e->getMessage();
-            }
+        $subject = $purpose === 'advance' ? 'Upcoming clinic appointment' : 'Missed clinic appointment';
+        $body = $customMessage ?: ($purpose === 'advance'
+            ? "Reminder: your appointment at {$clinic->name} is tomorrow, {$date->format('M j, Y')}."
+            : "You missed your appointment at {$clinic->name} on {$date->format('M j, Y')}. Please contact the clinic to arrange your follow-up.");
+        $phone = $clinic->contact_number ?: $clinic->phone;
+        if (! $customMessage && $phone) {
+            $body .= " Contact: {$phone}.";
         }
-
-        // 2. SMS NOTIFICATION
-        if (in_array($channel, ['all', 'sms'])) {
-            $phone = $patient->contact_number ?? $patient->phone;
-
-            if ($customMessage) {
-                $smsMsg = $customMessage;
-            } elseif ($ctx['is_initial_triage']) {
-                $smsMsg = "ABTC ALERT: {$patientName}, you missed your Doctor Triage & Day 0 Dose on {$scheduledDate}. Please proceed to Doctor Triage at {$clinicName} immediately for wound evaluation & first dose. Hotline: {$clinicPhone}";
-            } else {
-                $smsMsg = "ABTC ALERT: {$patientName}, you missed your {$doseLabel} on {$scheduledDate}. Please proceed to {$clinicName} Treatment Desk immediately for catch-up dose. Hotline: {$clinicPhone}";
-            }
-
-            if (!empty($phone)) {
+        // No automatic guardian email fallback. Direct contacts require recorded consent.
+        $account = $patient->accounts->first(fn ($a) => $a->is_active && $a->pivot->status === 'verified'
+            && ($appointment->booked_by_account_id ? $a->id == $appointment->booked_by_account_id : ($a->pivot->is_primary && $a->pivot->relationship === 'self')));
+        $preferences = DB::table('communication_preferences')->where('patient_id', $patient->patient_id)->first();
+        foreach ($channel === 'all' ? ['in_app', 'sms', 'email'] : [$channel] as $selected) {
+            $recipient = match ($selected) {
+                'sms' => (string) $patient->contact_number,
+                'email' => trim((string) $patient->email),
+                default => (string) $account?->id,
+            };
+            $provider = match ($selected) {
+                'sms' => config('messaging.sms_provider'), 'email' => config('mail.default'), default => 'database'
+            };
+            $error = null;
+            if ($selected === 'sms') {
                 try {
-                    AppointmentReminder::create([
-                        'clinic_id' => $appointment->clinic_id ?? 1,
-                        'appointment_id' => $appointment->appointment_id,
-                        'patient_id' => $patient->patient_id,
-                        'channel' => 'sms',
-                        'recipient' => $phone,
-                        'subject' => null,
-                        'message' => $smsMsg,
-                        'status' => 'sent',
-                        'sent_by_user_id' => $senderUserId,
-                    ]);
-
-                    $dispatched[] = 'sms';
-                } catch (\Exception $e) {
-                    Log::error('SMS Recall dispatch failed: ' . $e->getMessage());
-                    $errors['sms'] = $e->getMessage();
+                    $recipient = SmsManager::normalize($recipient);
+                } catch (\InvalidArgumentException) {
+                    $error = 'invalid_mobile_number';
                 }
-            } else {
-                $errors['sms'] = 'No contact number on file for patient.';
             }
-        }
-
-        // 3. EMAIL NOTIFICATION
-        if (in_array($channel, ['all', 'email'])) {
-            $email = $patient->email;
-            if (!$email && $patient->accounts && $patient->accounts->isNotEmpty()) {
-                $email = $patient->accounts->first()->email;
+            if (! $recipient) {
+                $error = 'recipient_missing';
             }
-
-            $emailSubject = "CRITICAL MEDICAL ADVISORY: Missed {$doseLabel} at {$station}";
-            if ($customMessage) {
-                $emailBody = $customMessage;
-            } elseif ($ctx['is_initial_triage']) {
-                $emailBody = "Dear {$patientName},\n\nOur records at {$clinicName} indicate that you missed your scheduled Doctor Triage & Initial Assessment (Day 0) on {$scheduledDate}.\n\nAnimal bite wounds carry severe rabies risk and require urgent clinical categorization, wound disinfection, and prompt initiation of Post-Exposure Prophylaxis (PEP).\n\nPlease proceed directly to Doctor Triage at {$clinicName} for your physical evaluation.\n\nClinic Hotline: {$clinicPhone}\n\nTagoloan Animal Bite Treatment Center";
-            } else {
-                $emailBody = "Dear {$patientName},\n\nOur records at {$clinicName} indicate that you missed your scheduled follow-up {$doseLabel} on {$scheduledDate}.\n\nRabies is an incurable, fatal infection once symptoms manifest, but it is 100% preventable by completing your full prescribed vaccine series without interruption.\n\nPlease proceed directly to the Treatment / Nurse Desk at {$clinicName} for your catch-up dose.\n\nClinic Hotline: {$clinicPhone}\n\nTagoloan Animal Bite Treatment Center";
+            if ($selected !== 'in_app' && ! ($preferences?->{$selected} ?? false)) {
+                $error = 'communication_consent_required';
             }
+            $error ??= app(DeliveryPolicy::class)->error($selected, $recipient, $provider);
+            if ($error) {
+                $result['channel_results'][$selected] = ['status' => 'skipped', 'error' => $error];
+                $result['errors'][$selected] = $error;
 
-            if (!empty($email)) {
-                try {
-                    AppointmentReminder::create([
-                        'clinic_id' => $appointment->clinic_id ?? 1,
-                        'appointment_id' => $appointment->appointment_id,
-                        'patient_id' => $patient->patient_id,
-                        'channel' => 'email',
-                        'subject' => $emailSubject,
-                        'message' => $emailBody,
-                        'status' => 'sent',
-                        'sent_by_user_id' => $senderUserId,
+                continue;
+            }
+            $key = hash('sha256', implode('|', [$appointment->clinic_id, $appointment->appointment_id, $date->toDateString(), $purpose, $selected, today()->toDateString()]));
+            $message = DB::transaction(function () use ($key, $appointment, $patient, $selected, $recipient, $subject, $body, $provider, $purpose, $date, $senderUserId) {
+                $message = OutboundMessage::firstOrCreate(['idempotency_key' => $key], [
+                    'clinic_id' => $appointment->clinic_id, 'appointment_id' => $appointment->appointment_id,
+                    'patient_id' => $patient->patient_id, 'channel' => $selected, 'purpose' => $purpose,
+                    'provider' => $provider, 'recipient' => $recipient, 'subject' => $subject, 'body' => $body,
+                    'status' => 'queued', 'context' => ['scheduled_date' => $date->toDateString(), 'occurrence_date' => today()->toDateString(), 'template_version' => 1, 'sms_estimate' => $selected === 'sms' ? SmsLength::estimate($body) : null],
+                ]);
+                if ($message->wasRecentlyCreated) {
+                    $reminder = AppointmentReminder::create([
+                        'clinic_id' => $appointment->clinic_id, 'appointment_id' => $appointment->appointment_id,
+                        'patient_id' => $patient->patient_id, 'channel' => $selected, 'recipient' => $recipient,
+                        'subject' => $subject, 'message' => $body, 'status' => 'pending', 'sent_by_user_id' => $senderUserId,
                     ]);
-
-                    $dispatched[] = 'email';
-                } catch (\Exception $e) {
-                    Log::error('Email Recall dispatch failed: ' . $e->getMessage());
-                    $errors['email'] = $e->getMessage();
+                    $message->update(['reminder_id' => $reminder->id]);
                 }
+
+                return $message;
+            });
+            if ($message->wasRecentlyCreated || $message->status === 'queued') {
+                if ($selected === 'in_app') {
+                    app(OutboundDelivery::class)->deliver($message->id);
+                } else {
+                    DeliverOutboundMessage::dispatch($message->id);
+                }
+            }
+            $message->refresh();
+            $result['channel_results'][$selected] = ['status' => $message->status, 'message_id' => $message->id, 'error' => $message->error_code];
+            if (in_array($message->status, ['queued', 'processing', 'accepted', 'delivered', 'simulated'])) {
+                $result['channels_dispatched'][] = $selected;
             } else {
-                $errors['email'] = 'No email address on file for patient.';
+                $result['errors'][$selected] = $message->error_code ?? $message->status;
             }
         }
+        $result['success'] = count($result['channels_dispatched']) > 0;
+        $appointment->refresh();
+        $result['reminder_sent_count'] = $appointment->reminder_sent_count;
+        $result['last_reminded_at'] = $appointment->last_reminded_at?->toIso8601String();
 
-        // Update appointment reminder tracking stats
-        if (!empty($dispatched)) {
-            $appointment->reminder_sent_count = ($appointment->reminder_sent_count ?? 0) + 1;
-            $appointment->last_reminded_at = now();
-            if (!$appointment->missed_at) {
-                $appointment->missed_at = now();
-            }
-            $appointment->save();
-        }
-
-        return [
-            'success' => !empty($dispatched),
-            'appointment_id' => $appointment->appointment_id,
-            'patient_name' => $patientName,
-            'station' => $station,
-            'dose_label' => $doseLabel,
-            'channels_dispatched' => $dispatched,
-            'errors' => $errors,
-            'reminder_sent_count' => $appointment->reminder_sent_count,
-            'last_reminded_at' => $appointment->last_reminded_at?->toIso8601String(),
-        ];
+        return $result;
     }
 
-    /**
-     * Dispatch recall alerts in bulk to multiple appointments.
-     */
-    public function sendBulkRecall(array $appointmentIds, string $channel = 'all', ?int $senderUserId = null): array
+    public function sendBulkRecall(array $appointmentIds, string $channel = 'all', ?int $senderUserId = null, ?int $clinicId = null): array
     {
-        $appointments = Appointment::with(['patient.accounts', 'clinic'])
-            ->whereIn('appointment_id', $appointmentIds)
-            ->get();
-
         $results = [];
-        $totalSent = 0;
-        $totalFailed = 0;
-
-        foreach ($appointments as $appt) {
-            $res = $this->sendRecallAlert($appt, $channel, $senderUserId);
-            $results[] = $res;
-            if ($res['success']) {
-                $totalSent++;
-            } else {
-                $totalFailed++;
-            }
+        $appointments = Appointment::with(['patient.accounts', 'clinic'])->whereIn('appointment_id', array_unique($appointmentIds))
+            ->when($clinicId !== null, fn ($q) => $q->where('clinic_id', $clinicId))->get();
+        foreach ($appointments as $appointment) {
+            $results[] = $this->sendRecallAlert($appointment, $channel, $senderUserId);
         }
+        $processed = count(array_filter($results, fn ($r) => $r['success']));
 
-        return [
-            'total_requested' => count($appointmentIds),
-            'total_sent' => $totalSent,
-            'total_failed' => $totalFailed,
-            'details' => $results,
-        ];
+        return ['total_requested' => count(array_unique($appointmentIds)), 'total_processed' => $processed,
+            'total_failed' => count(array_unique($appointmentIds)) - $processed, 'details' => $results];
     }
 
-    /**
-     * Dispatch an advance 1-day reminder for an upcoming appointment.
-     */
-    public function sendAdvanceReminder(
-        Appointment $appointment,
-        string $channel = 'all',
-        ?int $senderUserId = null
-    ): array {
-        $appointment->loadMissing(['patient.accounts', 'clinic']);
-        $patient = $appointment->patient;
-        $clinic = $appointment->clinic ?? Clinic::find(1);
-
-        if (!$patient) {
-            return ['success' => false, 'message' => 'Patient record not found', 'channels_dispatched' => []];
-        }
-
-        $clinicName = $clinic?->name ?? 'Tagoloan Animal Bite Treatment Center';
-        $clinicPhone = $clinic?->phone ?? '09123456789';
-        $patientName = "{$patient->first_name} {$patient->last_name}";
-        $scheduledDate = Carbon::parse($appointment->scheduled_date ?? $appointment->appointment_date)->format('M j, Y');
-
-        $ctx = $this->resolveClinicalContext($appointment, $patient);
-        $station = $ctx['station'];
-        $doseLabel = $ctx['dose_label'];
-
-        $dispatched = [];
-        $errors = [];
-
-        // 1. In-App
-        if (in_array($channel, ['all', 'in_app'])) {
-            $msg = $ctx['is_initial_triage']
-                ? "UPCOMING SCHEDULE: {$patientName}, your Doctor Triage & Initial Bite Assessment (Day 0) is scheduled for TOMORROW, {$scheduledDate} at {$clinicName}. Please proceed to Doctor Triage on arrival."
-                : "UPCOMING SCHEDULE: {$patientName}, your {$doseLabel} is scheduled for TOMORROW, {$scheduledDate} at {$clinicName}. Please proceed directly to the Treatment Desk.";
-
-            $accountId = $appointment->booked_by_account_id;
-            if (!$accountId && $patient->accounts && $patient->accounts->isNotEmpty()) {
-                $accountId = $patient->accounts->first()->id;
-            }
-
-            try {
-                Notification::create([
-                    'patient_id' => $patient->patient_id,
-                    'patient_account_id' => $accountId,
-                    'appointment_id' => $appointment->appointment_id,
-                    'type' => 'upcoming_appointment_reminder',
-                    'message' => $msg,
-                    'status' => 'sent',
-                    'send_time' => now(),
-                ]);
-
-                if ($accountId) {
-                    Cache::forget("mobile:notifications:account:{$accountId}:page:1");
-                }
-
-                AppointmentReminder::create([
-                    'clinic_id' => $appointment->clinic_id ?? 1,
-                    'appointment_id' => $appointment->appointment_id,
-                    'patient_id' => $patient->patient_id,
-                    'channel' => 'in_app',
-                    'recipient' => $accountId ? "Account #{$accountId}" : "Patient #{$patient->patient_number}",
-                    'subject' => "Upcoming {$doseLabel} Tomorrow ({$station})",
-                    'message' => $msg,
-                    'status' => 'sent',
-                    'sent_by_user_id' => $senderUserId,
-                ]);
-
-                $dispatched[] = 'in_app';
-            } catch (\Exception $e) {
-                $errors['in_app'] = $e->getMessage();
-            }
-        }
-
-        // 2. SMS
-        if (in_array($channel, ['all', 'sms'])) {
-            $phone = $patient->contact_number ?? $patient->phone;
-            $msg = $ctx['is_initial_triage']
-                ? "ABTC REMINDER: {$patientName}, your Doctor Triage & Day 0 Dose is scheduled for TOMORROW, {$scheduledDate} at {$clinicName}. Hotline: {$clinicPhone}"
-                : "ABTC REMINDER: {$patientName}, your {$doseLabel} is scheduled for TOMORROW, {$scheduledDate} at {$clinicName} Treatment Desk. Hotline: {$clinicPhone}";
-
-            if (!empty($phone)) {
-                try {
-                    AppointmentReminder::create([
-                        'clinic_id' => $appointment->clinic_id ?? 1,
-                        'appointment_id' => $appointment->appointment_id,
-                        'patient_id' => $patient->patient_id,
-                        'channel' => 'sms',
-                        'recipient' => $phone,
-                        'subject' => null,
-                        'message' => $msg,
-                        'status' => 'sent',
-                        'sent_by_user_id' => $senderUserId,
-                    ]);
-                    $dispatched[] = 'sms';
-                } catch (\Exception $e) {
-                    $errors['sms'] = $e->getMessage();
-                }
-            }
-        }
-
-        // 3. Email
-        if (in_array($channel, ['all', 'email'])) {
-            $email = $patient->email;
-            if (!$email && $patient->accounts && $patient->accounts->isNotEmpty()) {
-                $email = $patient->accounts->first()->email;
-            }
-
-            if (!empty($email)) {
-                try {
-                    $subject = "Reminder: Your {$doseLabel} is Scheduled for Tomorrow ({$station})";
-                    $body = "Dear {$patientName},\n\nThis is a friendly reminder from {$clinicName} that your appointment for {$doseLabel} is scheduled for TOMORROW, {$scheduledDate}.\n\nStation: {$station}\n\nMaintaining your vaccination schedule on time is essential for complete rabies protection.\n\nClinic Hotline: {$clinicPhone}\n\nTagoloan Animal Bite Treatment Center";
-
-                    AppointmentReminder::create([
-                        'clinic_id' => $appointment->clinic_id ?? 1,
-                        'appointment_id' => $appointment->appointment_id,
-                        'patient_id' => $patient->patient_id,
-                        'channel' => 'email',
-                        'subject' => $subject,
-                        'message' => $body,
-                        'status' => 'sent',
-                        'sent_by_user_id' => $senderUserId,
-                    ]);
-                    $dispatched[] = 'email';
-                } catch (\Exception $e) {
-                    $errors['email'] = $e->getMessage();
-                }
-            }
-        }
-
-        if (!empty($dispatched)) {
-            $appointment->reminder_sent_count = ($appointment->reminder_sent_count ?? 0) + 1;
-            $appointment->last_reminded_at = now();
-            $appointment->save();
-        }
-
-        return [
-            'success' => !empty($dispatched),
-            'appointment_id' => $appointment->appointment_id,
-            'patient_name' => $patientName,
-            'station' => $station,
-            'dose_label' => $doseLabel,
-            'channels_dispatched' => $dispatched,
-            'errors' => $errors,
-        ];
-    }
-
-    /**
-     * Run the fully automated sweep for both Tomorrow's Reminders and Past Missed Recalls.
-     */
-    public function runAutomatedSweep(string $channel = 'all'): array
+    public function runAutomatedSweep(string $channel = 'all', ?int $clinicId = null): array
     {
-        $today = Carbon::today();
-        $tomorrow = $today->copy()->addDay()->toDateString();
-        $fourteenDaysAgo = $today->copy()->subDays(14)->toDateString();
-
-        // 1. Advance Reminders for Tomorrow
-        $upcomingAppts = Appointment::with(['patient.accounts', 'clinic'])
-            ->where('status', 'scheduled')
-            ->where(function ($q) use ($tomorrow) {
-                $q->whereDate('scheduled_date', $tomorrow)
-                  ->orWhereDate('appointment_date', $tomorrow);
-            })
-            ->where(function ($q) use ($today) {
-                $q->whereNull('last_reminded_at')
-                  ->orWhereDate('last_reminded_at', '<', $today);
-            })
-            ->get();
-
-        $advanceSent = 0;
-        foreach ($upcomingAppts as $appt) {
-            $res = $this->sendAdvanceReminder($appt, $channel);
-            if ($res['success']) $advanceSent++;
+        if (! in_array($channel, ['all', 'sms', 'email', 'in_app'])) {
+            throw ValidationException::withMessages(['channel' => 'Invalid channel.']);
         }
+        $counts = ['advance_reminders_eligible' => 0, 'advance_reminders_sent' => 0, 'missed_recalls_eligible' => 0, 'missed_recalls_sent' => 0];
+        Appointment::with(['patient.accounts', 'clinic'])->where('status', 'scheduled')
+            ->when($clinicId !== null, fn ($q) => $q->where('clinic_id', $clinicId))
+            ->whereRaw('DATE(COALESCE(scheduled_date, appointment_date)) BETWEEN ? AND ?', [today()->subDays(14)->toDateString(), today()->addDay()->toDateString()])
+            ->chunkById(100, function ($appointments) use ($channel, &$counts) {
+                foreach ($appointments as $appointment) {
+                    $date = $appointment->scheduled_date ?? $appointment->appointment_date;
+                    if ($date->isTomorrow()) {
+                        $counts['advance_reminders_eligible']++;
+                        if ($this->sendAdvanceReminder($appointment, $channel)['success']) {
+                            $counts['advance_reminders_sent']++;
+                        }
+                    } elseif ($date->isBefore(today())) {
+                        $counts['missed_recalls_eligible']++;
+                        if ($this->sendRecallAlert($appointment, $channel)['success']) {
+                            $counts['missed_recalls_sent']++;
+                        }
+                    }
+                }
+            }, 'appointment_id');
 
-        // 2. Urgent Recalls for Missed / Overdue Appointments (Past 1 to 14 days)
-        $missedAppts = Appointment::with(['patient.accounts', 'clinic'])
-            ->where('status', 'scheduled')
-            ->where(function ($q) use ($today, $fourteenDaysAgo) {
-                $q->whereDate('scheduled_date', '<', $today->toDateString())
-                  ->whereDate('scheduled_date', '>=', $fourteenDaysAgo);
-            })
-            ->where(function ($q) use ($today) {
-                // Don't send more than once every 20 hours
-                $q->whereNull('last_reminded_at')
-                  ->orWhere('last_reminded_at', '<', Carbon::now()->subHours(20));
-            })
-            ->get();
-
-        $missedRecalled = 0;
-        foreach ($missedAppts as $appt) {
-            $res = $this->sendRecallAlert($appt, $channel);
-            if ($res['success']) $missedRecalled++;
-        }
-
-        return [
-            'timestamp' => now()->toIso8601String(),
-            'advance_reminders_eligible' => $upcomingAppts->count(),
-            'advance_reminders_sent' => $advanceSent,
-            'missed_recalls_eligible' => $missedAppts->count(),
-            'missed_recalls_sent' => $missedRecalled,
-            'total_dispatched' => $advanceSent + $missedRecalled,
-        ];
+        return $counts + ['timestamp' => now()->toIso8601String(), 'total_dispatched' => $counts['advance_reminders_sent'] + $counts['missed_recalls_sent']];
     }
 }

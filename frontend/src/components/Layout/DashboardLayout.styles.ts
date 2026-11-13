@@ -315,6 +315,8 @@ export const DashboardLayoutRoot = styled('div')`
     min-width: 0;
   }
   .top-header {
+    position: relative;
+    z-index: 1100;
     height: 68px;
     min-height: 68px;
     max-height: 68px;
@@ -378,7 +380,7 @@ export const DashboardLayoutRoot = styled('div')`
 
   @media (max-width: 768px) {
     .sidebar {
-      position: fixed; left: 0; top: 0; height: 100vh; z-index: 100;
+      position: fixed; left: 0; top: 0; height: 100vh; z-index: 1200;
       transform: translateX(-100%); box-shadow: 4px 0 16px rgba(0,0,0,0.1);
       transition: transform 0.25s ease, width 0.25s ease;
     }

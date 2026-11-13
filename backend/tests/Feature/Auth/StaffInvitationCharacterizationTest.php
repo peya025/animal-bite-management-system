@@ -16,12 +16,15 @@ class StaffInvitationCharacterizationTest extends TestCase
     use RefreshDatabase;
 
     private Clinic $clinic;
+
     private User $admin;
+
     private User $nurse;
 
     protected function setUp(): void
     {
         parent::setUp();
+        config(['messaging.email_enabled' => true, 'messaging.test_mode' => false]);
         Mail::fake();
 
         $this->clinic = Clinic::create(['name' => 'Tagoloan ABTC']);
@@ -176,7 +179,7 @@ class StaffInvitationCharacterizationTest extends TestCase
             'workstation_role' => 'intake_nurse',
         ]);
 
-        $response = $this->getJson('/api/staff-invitations/validate/' . $invitation->token);
+        $response = $this->getJson('/api/staff-invitations/validate/'.$invitation->token);
 
         $response->assertStatus(200)
             ->assertExactJson([
@@ -212,7 +215,7 @@ class StaffInvitationCharacterizationTest extends TestCase
         ]);
         $invitation->update(['expires_at' => now()->subDay()]);
 
-        $response = $this->getJson('/api/staff-invitations/validate/' . $invitation->token);
+        $response = $this->getJson('/api/staff-invitations/validate/'.$invitation->token);
 
         $response->assertStatus(400)
             ->assertJson([
@@ -231,7 +234,7 @@ class StaffInvitationCharacterizationTest extends TestCase
             'workstation_role' => 'intake_nurse',
         ]);
 
-        $response = $this->postJson('/api/staff-invitations/accept/' . $invitation->token, [
+        $response = $this->postJson('/api/staff-invitations/accept/'.$invitation->token, [
             'name' => 'Nurse Jenny',
             'password' => 'secret123',
             'password_confirmation' => 'secret123',
@@ -281,7 +284,7 @@ class StaffInvitationCharacterizationTest extends TestCase
             'workstation_role' => 'intake_nurse',
         ]);
 
-        $response = $this->postJson('/api/staff-invitations/accept/' . $invitation->token, [
+        $response = $this->postJson('/api/staff-invitations/accept/'.$invitation->token, [
             'name' => 'Nurse Jenny',
             'password' => 'secret123',
             'password_confirmation' => 'secret123',
@@ -307,7 +310,7 @@ class StaffInvitationCharacterizationTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $response = $this->deleteJson('/api/staff-invitations/' . $invitation->id);
+        $response = $this->deleteJson('/api/staff-invitations/'.$invitation->id);
 
         $response->assertStatus(200)
             ->assertExactJson([
@@ -333,7 +336,7 @@ class StaffInvitationCharacterizationTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $response = $this->deleteJson('/api/staff-invitations/' . $invitation->id);
+        $response = $this->deleteJson('/api/staff-invitations/'.$invitation->id);
 
         $response->assertStatus(400)
             ->assertExactJson([

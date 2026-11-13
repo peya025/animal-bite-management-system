@@ -1,14 +1,21 @@
 <?php
 
-use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Admin\AuditLogController;
-use App\Http\Controllers\Operations\AppointmentController;
+use App\Http\Controllers\Admin\ClinicModuleConfigController;
+use App\Http\Controllers\Admin\ClinicResourceController;
+use App\Http\Controllers\Admin\ClinicScheduleController;
+use App\Http\Controllers\Admin\ClinicSetupController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\PatientAccessController;
+use App\Http\Controllers\Auth\StaffInvitationController;
 use App\Http\Controllers\Clinical\BiteCaseController;
 use App\Http\Controllers\Clinical\BiteIncidentIntakeController;
 use App\Http\Controllers\Clinical\BiteIntakeSchemaController;
-use App\Http\Controllers\Admin\ClinicModuleConfigController;
-use App\Http\Controllers\Admin\ClinicResourceController;
-use App\Http\Controllers\Admin\ClinicSetupController;
+use App\Http\Controllers\Clinical\PatientController;
+use App\Http\Controllers\Clinical\TagoloanTreatmentCardController;
+use App\Http\Controllers\Clinical\TreatmentRecordController;
+use App\Http\Controllers\Inventory\VaccineInventoryController;
 use App\Http\Controllers\Mobile\MobileAppointmentController;
 use App\Http\Controllers\Mobile\MobileClinicResourceController;
 use App\Http\Controllers\Mobile\MobileLocationController;
@@ -16,28 +23,20 @@ use App\Http\Controllers\Mobile\MobileNotificationController;
 use App\Http\Controllers\Mobile\MobileVaccinationCardController;
 use App\Http\Controllers\Mobile\PatientAccountAuthController;
 use App\Http\Controllers\Mobile\PatientProfileController;
-use App\Http\Controllers\Settings\NotificationController;
-use App\Http\Controllers\Auth\PatientAccessController;
-use App\Http\Controllers\Clinical\PatientController;
+use App\Http\Controllers\Operations\AppointmentController;
 use App\Http\Controllers\Operations\QueueController;
-use App\Http\Controllers\Auth\StaffInvitationController;
-use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Operations\VaccinationController;
-use App\Http\Controllers\Clinical\TagoloanTreatmentCardController;
-use App\Http\Controllers\Clinical\TreatmentRecordController;
+use App\Http\Controllers\Operations\VaccinationJourneyController;
 use App\Http\Controllers\Operations\VaccinationRecordController;
-use App\Http\Controllers\Inventory\VaccineInventoryController;
 use App\Http\Controllers\Reports\PrintController;
-use App\Http\Controllers\Support\PublicStorageController;
 use App\Http\Controllers\Reports\ReportController;
 use App\Http\Controllers\Settings\LandingPageSettingsController;
-use App\Http\Controllers\Admin\ClinicScheduleController;
-use App\Http\Controllers\Operations\VaccinationJourneyController;
+use App\Http\Controllers\Settings\NotificationController;
+use App\Http\Controllers\Support\PublicStorageController;
 use Illuminate\Support\Facades\Route;
 
 // Public media / storage fallback route (works without symlink)
 Route::get('/storage/{path}', [PublicStorageController::class, 'serve'])->where('path', '.*');
-
 
 // Health check endpoint for deployment monitoring
 Route::get('/health', function () {
@@ -49,20 +48,20 @@ Route::get('/health', function () {
 
 // Diagnostic route is local/testing-only and requires the explicit developer flag.
 if (app()->environment(['local', 'testing']) && config('app.developer_tools_enabled', false)) {
-// Test route - check if API is working
-Route::get('/test', function () {
-    return response()->json([
-        'message' => '✅ API is working!',
-        'timestamp' => now(),
-        'laravel_version' => app()->version(),
-    ]);
-});
+    // Test route - check if API is working
+    Route::get('/test', function () {
+        return response()->json([
+            'message' => '✅ API is working!',
+            'timestamp' => now(),
+            'laravel_version' => app()->version(),
+        ]);
+    });
 }
 
 // Health check endpoint (Task 4f — used by Render health-check URL)
 Route::get('/health', function () {
     return response()->json([
-        'status'    => 'ok',
+        'status' => 'ok',
         'timestamp' => now()->toISOString(),
     ]);
 });
@@ -77,12 +76,12 @@ Route::post('/auth/google', [AuthController::class, 'googleLogin'])
     ->middleware('throttle:20,1');  // 20 attempts per minute
 Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'getSettings']);
 Route::get('/public/vaccine-availability', [VaccineInventoryController::class, 'publicAvailability']);
-Route::get('/public/announcements', [\App\Http\Controllers\Settings\AnnouncementController::class, 'published']);
+Route::get('/public/announcements', [AnnouncementController::class, 'published']);
 
-Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureStaffAccount::class, 'active.user', 'role:admin,developer,registration,triage,treatment,doctor,nurse,staff'])->prefix('announcements')->group(function () {
-    Route::get('/', [\App\Http\Controllers\Settings\AnnouncementController::class, 'index']);
-    Route::post('/', [\App\Http\Controllers\Settings\AnnouncementController::class, 'store']);
-    Route::post('/{announcement}', [\App\Http\Controllers\Settings\AnnouncementController::class, 'update']);
+Route::middleware(['auth:sanctum', EnsureStaffAccount::class, 'active.user', 'role:admin,developer,registration,triage,treatment,doctor,nurse,staff'])->prefix('announcements')->group(function () {
+    Route::get('/', [AnnouncementController::class, 'index']);
+    Route::post('/', [AnnouncementController::class, 'store']);
+    Route::post('/{announcement}', [AnnouncementController::class, 'update']);
 });
 
 // Form 1 Printout Route
@@ -93,29 +92,29 @@ Route::post('/setup/initialize', [ClinicSetupController::class, 'initialize'])
     ->middleware(['throttle:5,60', 'public.setup']); // 5 attempts per 60 minutes
 Route::get('/setup/check-needed', function () {
     return response()->json([
-        'needs_setup' => \App\Models\Clinic::count() === 0,
+        'needs_setup' => Clinic::count() === 0,
     ]);
 })->middleware('public.setup');
 
-use App\Http\Controllers\Support\DeveloperDatabaseExplorerController;
 use App\Http\Controllers\Developer\AppointmentDiagnosticController;
+use App\Http\Controllers\Support\DeveloperDatabaseExplorerController;
 
 if (
     app()->environment(['local', 'testing']) &&
     config('app.developer_tools_enabled', false)
 ) {
     Route::middleware(['auth:sanctum', 'active.user', 'role:developer'])->group(function () {
-    Route::post('/developer/landing-page-settings', [LandingPageSettingsController::class, 'updateSettings']);
-    Route::put('/developer/landing-page-settings', [LandingPageSettingsController::class, 'updateSettings']);
+        Route::post('/developer/landing-page-settings', [LandingPageSettingsController::class, 'updateSettings']);
+        Route::put('/developer/landing-page-settings', [LandingPageSettingsController::class, 'updateSettings']);
 
-    // Developer Database Explorer Routes (XAMPP / phpMyAdmin Style)
-    Route::get('/developer/database/tables', [DeveloperDatabaseExplorerController::class, 'getTables']);
-    Route::get('/developer/database/tables/{tableName}', [DeveloperDatabaseExplorerController::class, 'getTableDetails']);
+        // Developer Database Explorer Routes (XAMPP / phpMyAdmin Style)
+        Route::get('/developer/database/tables', [DeveloperDatabaseExplorerController::class, 'getTables']);
+        Route::get('/developer/database/tables/{tableName}', [DeveloperDatabaseExplorerController::class, 'getTableDetails']);
 
-    // Developer Appointment & Scheduling Bug Catcher / Diagnostics
-    Route::get('/developer/diagnostics/appointments', [AppointmentDiagnosticController::class, 'scan']);
-    Route::post('/developer/diagnostics/appointments/repair-all', [AppointmentDiagnosticController::class, 'repairAll']);
-    Route::post('/developer/diagnostics/appointments/repair-single', [AppointmentDiagnosticController::class, 'repairSingle']);
+        // Developer Appointment & Scheduling Bug Catcher / Diagnostics
+        Route::get('/developer/diagnostics/appointments', [AppointmentDiagnosticController::class, 'scan']);
+        Route::post('/developer/diagnostics/appointments/repair-all', [AppointmentDiagnosticController::class, 'repairAll']);
+        Route::post('/developer/diagnostics/appointments/repair-single', [AppointmentDiagnosticController::class, 'repairSingle']);
     });
 }
 
@@ -153,7 +152,7 @@ Route::prefix('mobile')->group(function () {
         Route::patch('/appointments/{appointment}/cancel', [MobileAppointmentController::class, 'cancel']);
         Route::put('/appointments/{appointment}/intake', [MobileAppointmentController::class, 'updateIntake']);
 
-        Route::get('/history', [\App\Http\Controllers\Mobile\MobileHistoryController::class, 'index']);
+        Route::get('/history', [MobileHistoryController::class, 'index']);
 
         Route::get('/notifications', [MobileNotificationController::class, 'index']);
         Route::patch('/notifications/read-all', [MobileNotificationController::class, 'markAllAsRead']);
@@ -162,6 +161,13 @@ Route::prefix('mobile')->group(function () {
 });
 
 use App\Http\Controllers\Auth\PatientInvitationController;
+use App\Http\Controllers\Auth\StaffSignatureController;
+use App\Http\Controllers\Mobile\MobileHistoryController;
+use App\Http\Controllers\Reports\RegistrationReportController;
+use App\Http\Controllers\Settings\AnnouncementController;
+use App\Http\Middleware\EnsureStaffAccount;
+use App\Models\Clinic;
+use App\Services\Messaging\DeliveryPolicy;
 
 // Mobile Patient Invitation Activation (public, token-based)
 Route::post('/patient-invitations/activate', [PatientInvitationController::class, 'activate'])->middleware('throttle:invite-activation');
@@ -174,12 +180,12 @@ Route::prefix('staff-invitations')->group(function () {
 
 // Protected routes
 Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
-    Route::get('/staff-signature', [\App\Http\Controllers\Auth\StaffSignatureController::class, 'current'])
+    Route::get('/staff-signature', [StaffSignatureController::class, 'current'])
         ->middleware('role:admin,treatment,nurse,triage,doctor');
-    Route::get('/users/{id}/signature', [\App\Http\Controllers\Auth\StaffSignatureController::class, 'profile'])
+    Route::get('/users/{id}/signature', [StaffSignatureController::class, 'profile'])
         ->middleware('role:admin,treatment,nurse,triage,doctor');
     Route::get('/bite-intake-schema', BiteIntakeSchemaController::class);
-    Route::get('/reports/registration', [\App\Http\Controllers\Reports\RegistrationReportController::class, 'index'])
+    Route::get('/reports/registration', [RegistrationReportController::class, 'index'])
         ->middleware('role:registration,admin,developer');
 
     // DOH Official Reports
@@ -199,7 +205,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
         Route::post('/staff-invitations', [StaffInvitationController::class, 'invite']);
         Route::get('/staff-invitations', [StaffInvitationController::class, 'index']);
         Route::delete('/staff-invitations/{id}', [StaffInvitationController::class, 'cancel']);
-        
+
         // Audit Logs (staff activity monitoring)
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
         Route::get('/audit-logs/summary', [AuditLogController::class, 'summary']);
@@ -223,7 +229,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::get('/setup/module-config', [ClinicModuleConfigController::class, 'show']);
     Route::put('/setup/module-config', [ClinicModuleConfigController::class, 'update']);
     Route::get('/setup/module-config/history', [ClinicModuleConfigController::class, 'history']);
-    
+
     // Staff Module Assignment (admin only)
     Route::put('/users/{id}/assigned-module', [UserController::class, 'updateAssignedModule']);
 
@@ -398,6 +404,10 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
         Route::post('/appointments/bulk-recall', [VaccinationJourneyController::class, 'recallBulk']);
         Route::post('/appointments/trigger-auto-recall', [VaccinationJourneyController::class, 'triggerAutoSweep']);
         Route::get('/appointments/{id}/reminders', [VaccinationJourneyController::class, 'reminderHistory']);
+        Route::post('/appointments/{id}/reminders/{messageId}/retry', [VaccinationJourneyController::class, 'retryMessage'])->middleware('throttle:10,1');
+        Route::get('/appointments/{id}/messaging', [VaccinationJourneyController::class, 'messagingSettings']);
+        Route::put('/appointments/{id}/messaging', [VaccinationJourneyController::class, 'updateMessagingSettings']);
+        Route::get('/messaging/channels', fn () => response()->json(app(DeliveryPolicy::class)->availability()));
     });
 
     // Treatment Records (Form 2 - Individual Treatment)
@@ -455,39 +465,39 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::prefix('queue')->group(function () {
         // View queue (all staff: admin, registration, triage, treatment, developer)
         Route::middleware('role:admin,registration,triage,treatment,developer')->group(function () {
-            Route::get('/',           [QueueController::class, 'index']);
-            Route::get('/waiting',    [QueueController::class, 'waiting']);
-            Route::get('/next',       [QueueController::class, 'next']);
+            Route::get('/', [QueueController::class, 'index']);
+            Route::get('/waiting', [QueueController::class, 'waiting']);
+            Route::get('/next', [QueueController::class, 'next']);
             Route::get('/statistics', [QueueController::class, 'statistics']);
-            Route::get('/trashed',    [QueueController::class, 'trashed']);
-            Route::get('/{id}',       [QueueController::class, 'show']);
+            Route::get('/trashed', [QueueController::class, 'trashed']);
+            Route::get('/{id}', [QueueController::class, 'show']);
             Route::get('/{id}/history', [QueueController::class, 'history']);
         });
 
         // Add / cancel / priority (admin, registration, treatment, nurse, triage, doctor, staff)
         Route::middleware('role:admin,registration,treatment,nurse,triage,doctor,staff')->group(function () {
-            Route::post('/',              [QueueController::class, 'store']);
-            Route::post('/{id}/cancel',   [QueueController::class, 'cancel']);
-            Route::put('/{id}/priority',  [QueueController::class, 'updatePriority']);
+            Route::post('/', [QueueController::class, 'store']);
+            Route::post('/{id}/cancel', [QueueController::class, 'cancel']);
+            Route::put('/{id}/priority', [QueueController::class, 'updatePriority']);
         });
 
         // Call / Serve / Complete / No-Response / Recall / Absent / Skip (admin, triage, treatment)
         Route::middleware('role:admin,triage,treatment')->group(function () {
-            Route::post('/call-next',        [QueueController::class, 'callNext']);
-            Route::post('/{id}/call',        [QueueController::class, 'call']);
-            Route::post('/{id}/serve',       [QueueController::class, 'serve']);
-            Route::post('/{id}/complete',    [QueueController::class, 'complete']);
+            Route::post('/call-next', [QueueController::class, 'callNext']);
+            Route::post('/{id}/call', [QueueController::class, 'call']);
+            Route::post('/{id}/serve', [QueueController::class, 'serve']);
+            Route::post('/{id}/complete', [QueueController::class, 'complete']);
             Route::post('/{id}/no-response', [QueueController::class, 'noResponse']);
-            Route::post('/{id}/recall',          [QueueController::class, 'recall']);
+            Route::post('/{id}/recall', [QueueController::class, 'recall']);
             Route::post('/{id}/return-to-queue', [QueueController::class, 'returnToQueue']);
-            Route::post('/{id}/absent',          [QueueController::class, 'markAbsent']);
-            Route::post('/{id}/skip',            [QueueController::class, 'skip']);
+            Route::post('/{id}/absent', [QueueController::class, 'markAbsent']);
+            Route::post('/{id}/skip', [QueueController::class, 'skip']);
         });
 
         // Trash bin (all staff)
         Route::middleware('role:admin,registration,triage,treatment')->group(function () {
-            Route::delete('/{id}',         [QueueController::class, 'softDelete']);
-            Route::post('/{id}/restore',   [QueueController::class, 'restore']);
+            Route::delete('/{id}', [QueueController::class, 'softDelete']);
+            Route::post('/{id}/restore', [QueueController::class, 'restore']);
         });
     });
 
@@ -495,7 +505,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::prefix('vaccination-records')->group(function () {
         // View vaccination records (admin, registration, triage, treatment, nurse, doctor, staff)
         Route::middleware('role:admin,registration,triage,treatment,nurse,doctor,staff')->group(function () {
-            Route::get('/{id}/signature', [\App\Http\Controllers\Auth\StaffSignatureController::class, 'record']);
+            Route::get('/{id}/signature', [StaffSignatureController::class, 'record']);
             Route::get('/administrations', [VaccinationRecordController::class, 'getAdministrationList']);
             Route::get('/patient/{patientId}', [VaccinationRecordController::class, 'getByPatient']);
             Route::get('/queue/{queueId}', [VaccinationRecordController::class, 'getByQueue']);

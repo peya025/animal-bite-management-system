@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Vaccination;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class BulkRecallRequest extends FormRequest
 {
@@ -14,9 +15,9 @@ class BulkRecallRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'appointment_ids'   => 'required|array|min:1',
-            'appointment_ids.*' => 'integer|exists:appointments,appointment_id',
-            'channel'           => 'nullable|in:all,sms,email,in_app',
+            'appointment_ids' => 'required|array|min:1|max:200',
+            'appointment_ids.*' => ['integer', 'distinct', Rule::exists('appointments', 'appointment_id')->where('clinic_id', $this->user()->clinic_id)],
+            'channel' => 'nullable|in:all,sms,email,in_app',
         ];
     }
 }

@@ -9,7 +9,9 @@ use App\Models\PatientAccountPatient;
 use App\Models\PatientInvitation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -18,12 +20,15 @@ class PatientInvitationCharacterizationTest extends TestCase
     use RefreshDatabase;
 
     private Clinic $clinic;
+
     private User $admin;
+
     private Patient $patient;
 
     protected function setUp(): void
     {
         parent::setUp();
+        config(['messaging.email_enabled' => true, 'messaging.test_mode' => false]);
         config(['mail.default' => 'smtp']);
         Mail::shouldReceive('raw')->andReturnNull();
 
@@ -158,7 +163,7 @@ class PatientInvitationCharacterizationTest extends TestCase
 
     public function test_activate_creates_patient_account_links_patient_and_issues_token(): void
     {
-        $token = \Illuminate\Support\Str::random(64);
+        $token = Str::random(64);
         $invitation = PatientInvitation::create([
             'clinic_id' => $this->clinic->id,
             'patient_id' => $this->patient->patient_id,
@@ -209,7 +214,7 @@ class PatientInvitationCharacterizationTest extends TestCase
     public function test_activate_rejects_invalid_token(): void
     {
         $response = $this->postJson('/api/patient-invitations/activate', [
-            'token' => \Illuminate\Support\Str::random(64), // valid 64-char length, but nonexistent
+            'token' => Str::random(64), // valid 64-char length, but nonexistent
             'email' => 'pedro@patient.test',
             'password' => 'secret123',
             'password_confirmation' => 'secret123',
@@ -223,7 +228,7 @@ class PatientInvitationCharacterizationTest extends TestCase
 
     public function test_activate_rejects_expired_token(): void
     {
-        $token = \Illuminate\Support\Str::random(64);
+        $token = Str::random(64);
         $invitation = PatientInvitation::create([
             'clinic_id' => $this->clinic->id,
             'patient_id' => $this->patient->patient_id,
@@ -261,7 +266,7 @@ class PatientInvitationCharacterizationTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $response = $this->postJson('/api/patient-invitations/' . $invitation->id . '/resend');
+        $response = $this->postJson('/api/patient-invitations/'.$invitation->id.'/resend');
 
         $response->assertStatus(200)
             ->assertJson([
@@ -285,7 +290,7 @@ class PatientInvitationCharacterizationTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $response = $this->postJson('/api/patient-invitations/' . $invitation->id . '/resend');
+        $response = $this->postJson('/api/patient-invitations/'.$invitation->id.'/resend');
 
         $response->assertStatus(422)
             ->assertJson([
@@ -304,7 +309,7 @@ class PatientInvitationCharacterizationTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $response = $this->postJson('/api/patients/' . $this->patient->patient_id . '/link-account', [
+        $response = $this->postJson('/api/patients/'.$this->patient->patient_id.'/link-account', [
             'patient_account_id' => $account->id,
         ]);
 
@@ -339,7 +344,7 @@ class PatientInvitationCharacterizationTest extends TestCase
 
         Sanctum::actingAs($this->admin);
 
-        $response = $this->postJson('/api/patients/' . $this->patient->patient_id . '/link-account', [
+        $response = $this->postJson('/api/patients/'.$this->patient->patient_id.'/link-account', [
             'patient_account_id' => $account->id,
         ]);
 
@@ -365,11 +370,11 @@ class PatientInvitationCharacterizationTest extends TestCase
             'is_primary' => false,
             'status' => 'pending',
         ]);
-        $linkageId = \Illuminate\Support\Facades\DB::table('patient_account_patient')->where('patient_account_id', $account->id)->value('id');
+        $linkageId = DB::table('patient_account_patient')->where('patient_account_id', $account->id)->value('id');
 
         Sanctum::actingAs($this->admin);
 
-        $response = $this->patchJson('/api/patient-account-patient/' . $linkageId . '/verify');
+        $response = $this->patchJson('/api/patient-account-patient/'.$linkageId.'/verify');
 
         $response->assertStatus(200)
             ->assertJson([

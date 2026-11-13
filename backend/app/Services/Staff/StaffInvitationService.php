@@ -6,6 +6,7 @@ use App\Mail\StaffInvitationMail;
 use App\Models\Role;
 use App\Models\StaffInvitation;
 use App\Models\User;
+use App\Services\Messaging\InvitationDelivery;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -17,9 +18,8 @@ class StaffInvitationService
     /**
      * Send staff invitation, map workstation roles, and dispatch email.
      *
-     * @param User $admin
-     * @param array $validated
      * @return array{message: string, invitation: StaffInvitation, email_sent: bool, invitation_link: string}
+     *
      * @throws ValidationException
      */
     public function invite(User $admin, array $validated): array
@@ -39,7 +39,7 @@ class StaffInvitationService
             ->where('clinic_id', $admin->clinic_id)
             ->first();
 
-        if ($existingInvitation && !$existingInvitation->isExpired()) {
+        if ($existingInvitation && ! $existingInvitation->isExpired()) {
             throw ValidationException::withMessages([
                 'email' => ['An invitation has already been sent to this email.'],
             ]);
@@ -67,37 +67,36 @@ class StaffInvitationService
 
         // Create invitation
         $invitation = StaffInvitation::createInvitation([
-            'clinic_id'        => $admin->clinic_id,
-            'invited_by'       => $admin->id,
-            'email'            => $email,
-            'role'             => $legacyRole,
+            'clinic_id' => $admin->clinic_id,
+            'invited_by' => $admin->id,
+            'email' => $email,
+            'role' => $legacyRole,
             'workstation_role' => $workstationRole,
         ]);
 
         // Send invitation email
         try {
-            Mail::to($invitation->email)->send(new StaffInvitationMail($invitation));
-            $emailSent = true;
+            $emailSent = app(InvitationDelivery::class)->send(
+                (int) $invitation->clinic_id, $invitation->email, 'staff_invitation',
+                fn () => Mail::to($invitation->email)->send(new StaffInvitationMail($invitation))
+            );
         } catch (\Exception $e) {
-            Log::error('Failed to send invitation email: ' . $e->getMessage());
+            Log::error('Staff invitation delivery failed.', ['exception' => get_class($e)]);
             $emailSent = false;
         }
 
         return [
-            'message' => $emailSent 
-                ? 'Invitation sent successfully' 
+            'message' => $emailSent
+                ? 'Invitation sent successfully'
                 : 'Invitation created but email failed to send',
             'invitation' => $invitation,
             'email_sent' => $emailSent,
-            'invitation_link' => config('app.frontend_url') . '/accept-invitation/' . $invitation->token,
+            'invitation_link' => config('app.frontend_url').'/accept-invitation/'.$invitation->token,
         ];
     }
 
     /**
      * Get all invitations for current clinic.
-     *
-     * @param User $admin
-     * @return Collection
      */
     public function index(User $admin): Collection
     {
@@ -110,14 +109,13 @@ class StaffInvitationService
     /**
      * Validate an invitation token.
      *
-     * @param string $token
      * @return array{status: int, data: array<string, mixed>}
      */
     public function validateToken(string $token): array
     {
         $invitation = StaffInvitation::where('token', $token)->first();
 
-        if (!$invitation) {
+        if (! $invitation) {
             return [
                 'status' => 404,
                 'data' => [
@@ -127,7 +125,7 @@ class StaffInvitationService
             ];
         }
 
-        if (!$invitation->isValid()) {
+        if (! $invitation->isValid()) {
             return [
                 'status' => 400,
                 'data' => [
@@ -154,15 +152,13 @@ class StaffInvitationService
     /**
      * Accept invitation, create user, attach roles, and generate auth token.
      *
-     * @param string $token
-     * @param array $validated
      * @return array{status: int, data: array<string, mixed>}
      */
     public function accept(string $token, array $validated): array
     {
         $invitation = StaffInvitation::where('token', $token)->first();
 
-        if (!$invitation || !$invitation->isValid()) {
+        if (! $invitation || ! $invitation->isValid()) {
             return [
                 'status' => 400,
                 'data' => ['message' => 'Invalid or expired invitation'],
@@ -171,15 +167,15 @@ class StaffInvitationService
 
         // Create user
         $user = User::create([
-            'clinic_id'               => $invitation->clinic_id,
-            'name'                    => $validated['name'],
-            'email'                   => $invitation->email,
-            'password'                => Hash::make($validated['password']),
-            'role'                    => $invitation->role,
-            'phone'                   => $validated['phone'] ?? null,
-            'signature_path'          => null,
+            'clinic_id' => $invitation->clinic_id,
+            'name' => $validated['name'],
+            'email' => $invitation->email,
+            'password' => Hash::make($validated['password']),
+            'role' => $invitation->role,
+            'phone' => $validated['phone'] ?? null,
+            'signature_path' => null,
             'professional_license_no' => $validated['professional_license_no'] ?? null,
-            'is_active'               => true,
+            'is_active' => true,
         ]);
 
         // Attach workstation roles to user_roles
@@ -199,7 +195,7 @@ class StaffInvitationService
             $targetSlugs = ['clinic_admin'];
         }
 
-        if (!empty($targetSlugs)) {
+        if (! empty($targetSlugs)) {
             $roleModels = Role::whereIn('slug', $targetSlugs)->get();
             $syncData = [];
             foreach ($roleModels as $rm) {
@@ -240,8 +236,6 @@ class StaffInvitationService
     /**
      * Cancel pending invitation.
      *
-     * @param User $admin
-     * @param int $id
      * @return array{status: int, data: array<string, mixed>}
      */
     public function cancel(User $admin, int $id): array
@@ -249,7 +243,7 @@ class StaffInvitationService
         $invitation = StaffInvitation::where('clinic_id', $admin->clinic_id)
             ->findOrFail($id);
 
-        if (!$invitation->isPending()) {
+        if (! $invitation->isPending()) {
             return [
                 'status' => 400,
                 'data' => ['message' => 'Only pending invitations can be cancelled'],

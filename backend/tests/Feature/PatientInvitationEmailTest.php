@@ -17,9 +17,16 @@ class PatientInvitationEmailTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['messaging.email_enabled' => true, 'messaging.test_mode' => false]);
+    }
+
     private function patient(?string $email = 'patient@example.com'): Patient
     {
         $this->actingAs(User::factory()->create(['role' => 'admin']));
+
         return Patient::create([
             'clinic_id' => Clinic::create(['name' => 'Test Clinic'])->id,
             'first_name' => 'Test',

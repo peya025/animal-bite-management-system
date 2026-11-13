@@ -378,10 +378,42 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
                            'Pending Assessment'}
                         </span>
                       </p>
-                      <Button size="small" variant="contained" startIcon={<Visibility />} onClick={() => setSelectedCase(caseData)}
-                        sx={{ mt: 1, bgcolor: '#059669', textTransform: 'none', '&:hover': { bgcolor: '#047857' } }}>
-                        View Details
-                      </Button>
+                      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          startIcon={<Visibility sx={{ fontSize: '15px !important' }} />}
+                          onClick={() => setSelectedCase(caseData)}
+                          sx={{
+                            bgcolor: '#059669',
+                            color: '#ffffff',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            lineHeight: 1.3,
+                            padding: '4px 12px',
+                            minHeight: 'unset',
+                            borderRadius: '6px',
+                            textTransform: 'none',
+                            boxShadow: 'none',
+                            cursor: 'pointer',
+                            '& .MuiButton-startIcon': {
+                              marginRight: '6px',
+                              marginLeft: 0,
+                            },
+                            '&:hover': {
+                              bgcolor: '#047857',
+                              boxShadow: '0 2px 4px rgba(5, 150, 105, 0.25)',
+                            },
+                            '&:focus-visible': {
+                              outline: '2px solid #047857',
+                              outlineOffset: '2px',
+                              boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.35)',
+                            },
+                          }}
+                        >
+                          View Details
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </Popup>

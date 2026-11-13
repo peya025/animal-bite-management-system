@@ -46,17 +46,16 @@ class MobileHistoryService
             ];
         }
 
-        // 2. Fetch Appointments: History only includes past appointments or completed/missed/cancelled ones
-        $appointments = Appointment::where(function ($q) use ($patientIds, $user) {
-            $q->whereIn('patient_id', $patientIds)
-              ->orWhere('booked_by_account_id', $user->id);
+        // 2. Fetch Appointments: Include past, completed, and newly booked / scheduled appointments
+        $appointments = Appointment::where(function ($q) use ($patientIds, $user, $patientId) {
+            if (!empty($patientId)) {
+                $q->whereIn('patient_id', $patientIds);
+            } else {
+                $q->whereIn('patient_id', $patientIds)
+                  ->orWhere('booked_by_account_id', $user->id);
+            }
         })
-        ->where(function ($q) {
-            $q->whereIn('status', ['completed', 'missed', 'cancelled'])
-              ->orWhereDate('scheduled_date', '<', Carbon::today())
-              ->orWhereDate('appointment_date', '<', Carbon::today());
-        })
-        ->with('patient')
+        ->with(['patient', 'biteIntake'])
         ->orderByRaw('COALESCE(scheduled_date, appointment_date) desc')
         ->get();
 
@@ -154,18 +153,56 @@ class MobileHistoryService
             $pName = $pInfo ? $pInfo['name'] : ($app->patient ? "{$app->patient->first_name} {$app->patient->last_name}" : 'Patient');
             $pRel = $pInfo ? $pInfo['relationship'] : 'self';
 
+            $intake = $app->biteIntake;
+            $intakeData = null;
+            if ($intake) {
+                $intakeData = [
+                    'intake_id'                 => $intake->intake_id,
+                    'status'                    => $intake->status,
+                    'date_of_exposure'          => $intake->date_of_exposure ?? ($intake->bite_date ? Carbon::parse($intake->bite_date)->format('Y-m-d') : null),
+                    'time_of_exposure'          => $intake->time_of_exposure ?? $intake->incident_time,
+                    'place_of_exposure'         => $intake->place_of_exposure ?? $intake->bite_place,
+                    'reported_mode_of_exposure' => $intake->reported_mode_of_exposure ?? $intake->exposure_type,
+                    'animal_species'            => $intake->animal_species ?? $intake->animal_type,
+                    'animal_species_other'      => $intake->animal_type_others,
+                    'animal_ownership'          => $intake->animal_ownership ?? $intake->animal_status,
+                    'animal_available'          => $intake->animal_available,
+                    'animal_condition_reported' => $intake->animal_condition_reported,
+                    'body_part_group'           => $intake->body_part_group ?? $intake->wound_location,
+                    'body_part_detail'          => $intake->body_part_detail ?? $intake->body_part_exposed,
+                    'laterality'                => $intake->laterality,
+                    'site_washed'               => (bool) $intake->site_washed,
+                    'wash_method'               => $intake->wash_method,
+                    'wash_duration_minutes'     => $intake->wash_duration_minutes,
+                    'incident_narrative'        => $intake->incident_narrative ?? $intake->patient_description,
+                    'past_bite_history'         => $intake->past_bite_history,
+                    'past_bite_dates'           => $intake->past_bite_dates,
+                    'prior_pep_status'          => $intake->prior_pep_status,
+                    'prior_pep_date'            => $intake->prior_pep_date ? Carbon::parse($intake->prior_pep_date)->format('Y-m-d') : null,
+                    'prior_pep_facility'        => $intake->prior_pep_facility,
+                    'referral_facility'         => $intake->referral_facility,
+                    'referral_provider_name'    => $intake->referral_provider_name,
+                    'referral_blood_pressure'   => $intake->referral_blood_pressure,
+                    'referral_temperature'      => $intake->referral_temperature,
+                ];
+            }
+
             return [
                 'id' => 'app-' . $app->appointment_id,
+                'appointment_id' => $app->appointment_id,
                 'type' => $isVaccination ? 'vaccinations' : 'appointments',
                 'title' => $title,
                 'date_time' => $eventDateTime->format('F j, Y') . ' · ' . $timeSlotText,
                 'raw_date' => $eventDateTime->format('Y-m-d') . ' ' . $timeSlotText,
+                'scheduled_date' => $dateOnly,
+                'time_slot' => $app->time_slot,
                 'case_number' => null,
                 'status' => $status,
                 'patient_id' => $app->patient_id,
                 'patient_name' => $pName,
                 'relationship' => $pRel,
                 'notes' => $app->notes,
+                'intake' => $intakeData,
                 'sort_timestamp' => $eventDateTime->timestamp,
                 'created_timestamp' => $app->created_at ? Carbon::parse($app->created_at)->timestamp : $eventDateTime->timestamp,
             ];

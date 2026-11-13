@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Mobile;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Mobile\CancelMobileAppointmentRequest;
 use App\Http\Requests\Mobile\StoreMobileAppointmentRequest;
+use App\Http\Requests\Mobile\UpdateMobileAppointmentIntakeRequest;
 use App\Services\Mobile\MobileAppointmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -50,5 +51,19 @@ class MobileAppointmentController extends Controller
         );
 
         return response()->json($cancelled);
+    }
+
+    /**
+     * Update bite intake details for a scheduled appointment
+     */
+    public function updateIntake(UpdateMobileAppointmentIntakeRequest $request, int $appointment): JsonResponse
+    {
+        $updated = $this->appointmentService->updateAppointmentIntake(
+            $request->user(),
+            $appointment,
+            $request->validated('intake') ?? $request->validated()
+        );
+
+        return response()->json($updated);
     }
 }

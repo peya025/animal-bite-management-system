@@ -5,6 +5,7 @@ import '../app/app_routes.dart';
 import '../l10n/app_localizations.dart';
 import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
+import '../models/patient_profile_form_args.dart';
 import '../services/api.dart';
 import '../widgets/common/app_toast.dart';
 import '../widgets/menu/menu_navigation.dart';
@@ -104,12 +105,33 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  Future<void> _addDependent() async {
+  Future<void> _addProfile() async {
     final account = _account;
     if (account == null) return;
     await Navigator.of(
       context,
-    ).pushNamed(AppRoutes.profileSetup, arguments: {'accountId': account.id});
+    ).pushNamed(
+      AppRoutes.profileSetup,
+      arguments: const PatientProfileFormArgs(
+        initialRelationship: 'self',
+      ),
+    );
+    if (mounted) await _loadAccount();
+  }
+
+  Future<void> _addDependent() async {
+    final account = _account;
+    if (account == null) return;
+    final hasSelf =
+        account.patients.any((p) => p.relationship.toLowerCase() == 'self');
+    await Navigator.of(
+      context,
+    ).pushNamed(
+      AppRoutes.profileSetup,
+      arguments: PatientProfileFormArgs(
+        initialRelationship: hasSelf ? 'child' : 'self',
+      ),
+    );
     if (mounted) await _loadAccount();
   }
 
@@ -323,6 +345,7 @@ class _SettingsViewState extends State<SettingsView> {
                                   patientCount: _account!.patients.length,
                                   patients: _account!.patients,
                                   onEdit: _editAccount,
+                                  onAddProfile: _addProfile,
                                   onAddDependent: _addDependent,
                                   onOpenVaccinationCard: () =>
                                       showDigitalVaccinationCard(context),

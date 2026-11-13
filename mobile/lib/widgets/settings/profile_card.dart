@@ -13,6 +13,7 @@ class ProfileCard extends StatelessWidget {
     this.phone,
     this.patientCount = 0,
     this.patients = const [],
+    this.onAddProfile,
     this.onAddDependent,
     this.onOpenVaccinationCard,
   });
@@ -24,6 +25,7 @@ class ProfileCard extends StatelessWidget {
   final int patientCount;
   final List<PatientProfile> patients;
   final VoidCallback onEdit;
+  final VoidCallback? onAddProfile;
   final VoidCallback? onAddDependent;
   final VoidCallback? onOpenVaccinationCard;
 
@@ -46,6 +48,17 @@ class ProfileCard extends StatelessWidget {
         ? patients.where((p) => p.isActive).length
         : patientCount;
     final verifiedCount = patients.where((p) => p.isVerified).length;
+    final hasProfiles = patients.isNotEmpty || patientCount > 0;
+    final hasAction = onAddProfile != null || onAddDependent != null;
+    final actionCallback = hasAction
+        ? (hasProfiles
+            ? (onAddDependent ?? onAddProfile)
+            : (onAddProfile ?? onAddDependent))
+        : onEdit;
+    final actionLabel = hasAction
+        ? (hasProfiles ? 'ADD DEPENDENT' : 'ADD PROFILE')
+        : 'EDIT ACCOUNT';
+    final actionIcon = hasAction ? LucideIcons.userPlus : LucideIcons.userPen;
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -299,18 +312,14 @@ class ProfileCard extends StatelessWidget {
                       child: SizedBox(
                         height: 46,
                         child: OutlinedButton.icon(
-                          onPressed: onAddDependent ?? onEdit,
+                          onPressed: actionCallback,
                           icon: Icon(
-                            onAddDependent != null
-                                ? LucideIcons.userPlus
-                                : LucideIcons.userPen,
+                            actionIcon,
                             size: 17,
                             color: const Color(0xFF1F2937),
                           ),
                           label: Text(
-                            onAddDependent != null
-                                ? 'ADD DEPENDENT'
-                                : 'EDIT ACCOUNT',
+                            actionLabel,
                             style: const TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,

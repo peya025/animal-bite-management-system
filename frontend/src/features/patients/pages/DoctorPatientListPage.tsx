@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import {
   Alert, Box, CircularProgress, Paper, Snackbar,
   Typography, Chip, IconButton, Tooltip, Select, MenuItem, FormControl, GlobalStyles,
@@ -33,6 +34,8 @@ interface Patient {
 
 export default function DoctorPatientListPage() {
   const navigate = useNavigate();
+  const { isTriageModuleEnabled } = useClinicModuleConfig();
+  const triageEnabled = isTriageModuleEnabled();
   const [tab, setTab] = useState<'today' | 'this_week' | 'all'>('today');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
@@ -382,6 +385,12 @@ export default function DoctorPatientListPage() {
           </Tooltip>
         </Box>
       </Box>
+
+      {!triageEnabled && (
+        <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 2 }}>
+          <strong>Triage Module is currently disabled for this clinic.</strong> New triage check-ins, Form 2 assessments, and bite case creation are disabled. Patient history and records remain available in read-only mode.
+        </Alert>
+      )}
 
       {/* Patient List */}
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>

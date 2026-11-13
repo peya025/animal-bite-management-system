@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Clinical;
 
+use App\Http\Controllers\Concerns\EnforcesStationCapabilities;
 use App\Http\Controllers\Controller;
+use App\Services\Clinic\StationCapabilityPolicy;
 
 use App\Models\BiteIncidentIntake;
 use App\Services\Clinical\BiteIncidentIntakeService;
@@ -11,6 +13,8 @@ use Illuminate\Http\Request;
 
 class BiteIncidentIntakeController extends Controller
 {
+    use EnforcesStationCapabilities;
+
     public function __construct(
         protected BiteIncidentIntakeService $intakeService
     ) {}
@@ -48,6 +52,10 @@ class BiteIncidentIntakeController extends Controller
     public function checkIn(Request $request, BiteIncidentIntake $intake): JsonResponse
     {
         abort_unless($intake->clinic_id === $request->user()->clinic_id, 404);
+
+        if ($denied = $this->guardStations($request->user()->clinic_id, [StationCapabilityPolicy::STATION_REGISTRATION, StationCapabilityPolicy::STATION_TRIAGE], 'check in mobile bite intake')) {
+            return $denied;
+        }
 
         $result = $this->intakeService->checkIn($intake, $request->user());
 

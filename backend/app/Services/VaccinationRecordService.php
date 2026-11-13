@@ -177,6 +177,13 @@ class VaccinationRecordService
                 ], true))->unique()->values();
             $verifiedBodyPart = $selectedBodyParts->count() > 1 ? 'multiple_sites' : $selectedBodyParts->first();
 
+            $animalType = isset($validated['animal_type']) ? strtolower(trim((string) $validated['animal_type'])) : null;
+            $animalTypeOther = isset($validated['animal_type_other']) ? trim((string) $validated['animal_type_other']) : null;
+            if ($animalType !== null && $animalType !== '' && !in_array($animalType, ['dog', 'cat', 'other'], true)) {
+                $animalTypeOther = $animalTypeOther ?: $animalType;
+                $animalType = 'other';
+            }
+
             $assessmentUpdates = array_filter([
                 'bite_date'                 => $validated['date_of_exposure'] ?? null,
                 'bite_place'                => $validated['place_of_exposure'] ?? null,
@@ -184,6 +191,8 @@ class VaccinationRecordService
                 'exposure_type'             => $verifiedMode ? $exposureTypeMap[$verifiedMode] : null,
                 'body_part_exposed'         => $verifiedBodyPart,
                 'site_number'               => $validated['body_part_detail'] ?? null,
+                'animal_type'               => $animalType ?: null,
+                'animal_type_others'        => $animalType === 'other' ? ($animalTypeOther ?: null) : null,
             ], fn($v) => $v !== null && $v !== '');
 
             if ($assessmentUpdates) {

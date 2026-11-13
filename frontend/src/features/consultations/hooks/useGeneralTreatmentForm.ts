@@ -1157,7 +1157,7 @@ export function useGeneralTreatmentForm({
       newFieldErrors.chief_complaints = 'Please enter Chief Complaints';
     }
 
-    if ((isFieldRequired('protocol_type') || requiresReExposureDecision) && !treatmentPlan) {
+    if (requiresReExposureDecision && !treatmentPlan) {
       newFieldErrors.treatment_plan = 'Please select a Doctor treatment decision.';
     }
 

@@ -282,8 +282,8 @@ class ClinicModuleConfigPerson1Test extends TestCase
         Sanctum::actingAs($this->adminA1);
         $config = $this->configService->getOrCreateConfigForClinic($this->clinicA->id);
 
-        // Toggle all station flags to false
-        // Toggle all section flags to false
+        // Toggle supported station combinations to false without hitting unsupported 000/101/100 gates:
+        // Step 1: 001 (registration=false, triage=false, treatment=true) + all 7 sections false
         // Set RF1 (blood_type) to required, RF2 (treatment_given) to required, RF3 (route) to required
         $rules = $config->field_rules;
         $rules['blood_type'] = 'required';
@@ -295,7 +295,7 @@ class ClinicModuleConfigPerson1Test extends TestCase
             'revision'                      => $config->revision,
             'triage_module_enabled'         => false,
             'registration_module_enabled'   => false,
-            'treatment_module_enabled'      => false,
+            'treatment_module_enabled'      => true,
             'patient_registration_enabled'  => false,
             'address_section_enabled'       => false,
             'socioeconomic_section_enabled' => false,
@@ -309,13 +309,13 @@ class ClinicModuleConfigPerson1Test extends TestCase
         $putResponse = $this->putJson('/api/clinic-module-config', $payload);
         $putResponse->assertStatus(200);
 
-        // GET again and assert all false flags and custom rules survived round-trip
+        // GET again and assert false flags and custom rules survived round-trip
         $getResponse = $this->getJson('/api/clinic-module-config');
         $getResponse->assertStatus(200)
             ->assertJson([
                 'triage_module_enabled'         => false,
                 'registration_module_enabled'   => false,
-                'treatment_module_enabled'      => false,
+                'treatment_module_enabled'      => true,
                 'patient_registration_enabled'  => false,
                 'address_section_enabled'       => false,
                 'socioeconomic_section_enabled' => false,
@@ -329,6 +329,22 @@ class ClinicModuleConfigPerson1Test extends TestCase
                     'route'           => 'required',
                     'spouse_name'     => 'hidden',
                 ],
+            ]);
+
+        // Step 2: 010 (treatment_module_enabled=false, triage_module_enabled=true) round-trip
+        $rev2 = $getResponse->json('revision');
+        $this->putJson('/api/clinic-module-config', array_merge($payload, [
+            'revision'                 => $rev2,
+            'triage_module_enabled'    => true,
+            'treatment_module_enabled' => false,
+        ]))->assertStatus(200);
+
+        $this->getJson('/api/clinic-module-config')
+            ->assertStatus(200)
+            ->assertJson([
+                'registration_module_enabled' => false,
+                'triage_module_enabled'       => true,
+                'treatment_module_enabled'    => false,
             ]);
     }
 

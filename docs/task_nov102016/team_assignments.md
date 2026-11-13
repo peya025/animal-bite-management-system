@@ -112,14 +112,16 @@ IDs refer to the [implementation plan test matrix](implementation_plan.md#4-acce
 
 ## 7. Team release gate
 
-- [ ] Every person completes the acceptance checklist in their separate task brief.
-- [ ] Every released control has storage, correct validation, a supported consumer, and test evidence.
-- [ ] No unresolved P1 finding affects released behavior; unavailable behavior remains visibly unavailable.
-- [ ] A newly initialized clinic and an upgraded legacy clinic both pass edit/save/reload and supported workflow checks.
-- [ ] No cross-clinic fallback, silent unknown-key loss, null-driven 500, or silent stale overwrite remains.
-- [ ] Hidden fields preserve history, and essential clinical/authorization/inventory safeguards still pass.
-- [ ] Migration/backfill and recovery are demonstrated on the intended database engine.
-- [ ] Person 4 publishes `verification_results.md` with commands, environment, results, open limitations, and finding-to-evidence links.
+> **Release Gate Status (2026-11-13):** **HOLD — DO NOT RELEASE.** See [verification_results.md](verification_results.md) for the 3 open release blockers (`AC-21` 32 backend clinical failures, Playwright Chromium runner error, MySQL staging rehearsal pending).
+
+- [ ] Every person completes the acceptance checklist in their separate task brief. *(Person 4 backend/station policy completed; browser & staging items open.)*
+- [ ] Every released control has storage, correct validation, a supported consumer, and test evidence. *(Open: `bite_site` mapped to `treatment_section_enabled` instead of `triage_section_enabled`; live browser evidence pending.)*
+- [ ] No unresolved P1 finding affects released behavior; unavailable behavior remains visibly unavailable. *(`MC-03`/`MC-05` resolved; `MC-04` has open Person 3 default-required clinical regressions.)*
+- [ ] A newly initialized clinic and an upgraded legacy clinic both pass edit/save/reload and supported workflow checks. *(API-verified on SQLite `:memory:`; browser + MySQL staging pending.)*
+- [x] No cross-clinic fallback, silent unknown-key loss, null-driven 500, or silent stale overwrite remains. *(Verified in `ClinicModuleConfigPerson1Test`, `ClinicModuleConfigCharacterizationTest`, and `StationWorkflowPolicyTest`.)*
+- [ ] Hidden fields preserve history, and essential clinical/authorization/inventory safeguards still pass. *(`Form1IntegrationTest` and `StationWorkflowPolicyTest` pass, but full backend suite has 32 failures: 31 from `EffectiveFieldRuleComposer` required defaults + 1 `DualNurseWorkstationTest`.)*
+- [ ] Migration/backfill and recovery are demonstrated on the intended database engine. *(SQLite `:memory:` verified; MySQL/MariaDB staging rehearsal pending; `MySqlConcurrencyTest` skipped on SQLite.)*
+- [x] Person 4 publishes `verification_results.md` with commands, environment, results, open limitations, and finding-to-evidence links.
 - [ ] Person 1 reviews backend/migration evidence, Person 2 reviews UI evidence, and Person 3 reviews field/clinical evidence before release.
 
 Completion is measured by these outcomes, not by four branches being merged. This assignment package authorizes no deployment or changes to live clinic data on its own.

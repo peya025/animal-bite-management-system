@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Clinical;
 
+use App\Http\Controllers\Concerns\EnforcesStationCapabilities;
 use App\Http\Controllers\Controller;
+use App\Services\Clinic\StationCapabilityPolicy;
 
 use App\Http\Requests\Clinical\StoreTagoloanTreatmentCardRequest;
 use App\Services\Clinical\TagoloanTreatmentCardService;
@@ -11,6 +13,8 @@ use Illuminate\Http\Request;
 
 class TagoloanTreatmentCardController extends Controller
 {
+    use EnforcesStationCapabilities;
+
     public function __construct(
         protected TagoloanTreatmentCardService $cardService
     ) {}
@@ -49,6 +53,10 @@ class TagoloanTreatmentCardController extends Controller
      */
     public function store(StoreTagoloanTreatmentCardRequest $request): JsonResponse
     {
+        if ($denied = $this->guardStation($request->user()->clinic_id, StationCapabilityPolicy::STATION_TREATMENT, 'save Form 3 treatment card')) {
+            return $denied;
+        }
+
         $result = $this->cardService->storeCard(
             $request->user()->clinic_id,
             $request->validated(),

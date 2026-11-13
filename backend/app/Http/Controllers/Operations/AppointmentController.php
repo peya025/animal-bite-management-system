@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\Operations;
 
+use App\Http\Controllers\Concerns\EnforcesStationCapabilities;
 use App\Http\Controllers\Controller;
-
 use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\Queue;
 use App\Models\TreatmentRecord;
 use App\Services\AppointmentService;
+use App\Services\Clinic\StationCapabilityPolicy;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\DB;
 
 class AppointmentController extends Controller
 {
+    use EnforcesStationCapabilities;
+
     // Active queue statuses (covers all non-terminal states including the auto-call flow)
     const ACTIVE_QUEUE_STATUSES = ['waiting', 'called', 'serving', 'in_consultation'];
 
@@ -539,6 +542,11 @@ class AppointmentController extends Controller
             return response()->json(['success' => false, 'message' => 'Day 0 treatment requires Registration and Doctor assessment. Only a scheduled follow-up dose can check in directly at Treatment.'], 422);
         }
 
+        $targetStation = $this->resolveAppointmentCheckInStation($appointment);
+        if ($denied = $this->guardStation($clinicId, $targetStation, 'check in this appointment')) {
+            return $denied;
+        }
+
         if ($appointment->status !== 'confirmed') {
             $appointment->update(['status' => 'confirmed']);
         }
@@ -569,6 +577,9 @@ class AppointmentController extends Controller
             if ($this->appointmentService->isMobileBiteConsultation($existingConfirmed)) {
                 return response()->json(['success' => false, 'message' => 'Mobile bite consultations must be checked in from Registration using the submitted bite intake before they enter the Doctor queue.'], 422);
             }
+            if ($denied = $this->guardStation($clinicId, $this->resolveAppointmentCheckInStation($existingConfirmed), 'check in this appointment')) {
+                return $denied;
+            }
             return $this->appointmentService->processCheckIn($clinicId, $request->user(), $patientId, $existingConfirmed, $todayDate, $request->get('priority', 'normal'));
         }
 
@@ -589,11 +600,24 @@ class AppointmentController extends Controller
             if (!$this->appointmentService->isScheduledFollowUp($appointment) && $appointment->appointment_type !== 'consultation') {
                 return response()->json(['success' => false, 'message' => 'Day 0 treatment requires Registration and Doctor assessment. Only a scheduled follow-up dose can check in directly at Treatment.'], 422);
             }
+            if ($denied = $this->guardStation($clinicId, $this->resolveAppointmentCheckInStation($appointment), 'check in this appointment')) {
+                return $denied;
+            }
             $appointment->update(['status' => 'confirmed']);
             return $this->appointmentService->processCheckIn($clinicId, $request->user(), $patientId, $appointment, $todayDate, $request->get('priority', 'normal'));
         }
 
         return response()->json(['success' => false, 'message' => 'No scheduled follow-up dose was found. Register a new exposure for Doctor assessment, or select the patient\'s scheduled follow-up appointment.'], 422);
+    }
+
+    private function resolveAppointmentCheckInStation(Appointment $appointment): string
+    {
+        $isConsultation = $appointment->appointment_type === 'consultation'
+            || str_contains(strtolower($appointment->notes ?? ''), 'consultation');
+
+        return $isConsultation
+            ? StationCapabilityPolicy::STATION_TRIAGE
+            : StationCapabilityPolicy::STATION_TREATMENT;
     }
 
     // ────────────────────────────────────────────────────────────────────────

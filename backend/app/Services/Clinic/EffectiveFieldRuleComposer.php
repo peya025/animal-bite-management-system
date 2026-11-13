@@ -154,10 +154,10 @@ class EffectiveFieldRuleComposer
             'blood_pressure',
             'temperature',
             'weight',
-            'height' => 'triage_section_enabled',
+            'height',
+            'bite_site' => 'triage_section_enabled',
 
             'exposure_category',
-            'bite_site',
             'animal_observation_status',
             'treatment_given',
             'protocol_type',
@@ -234,13 +234,13 @@ class EffectiveFieldRuleComposer
         // 2. Address fields
         $rules['address_municipality'] = $this->buildRule(
             $this->isFieldRequired($clinicId, 'address_municipality', $input),
-            $isUpdate,
+            true,
             'string|max:255'
         );
 
         $rules['address_barangay'] = $this->buildRule(
             $this->isFieldRequired($clinicId, 'address_barangay', $input),
-            $isUpdate,
+            true,
             'string|max:255'
         );
 
@@ -252,7 +252,7 @@ class EffectiveFieldRuleComposer
 
         $rules['province'] = $this->buildRule(
             $this->isFieldRequired($clinicId, 'province', $input),
-            $isUpdate,
+            true,
             'string|max:100'
         );
 
@@ -369,17 +369,13 @@ class EffectiveFieldRuleComposer
             $rules['medication_treatment'] = 'nullable|string|max:500';
         }
 
-        // Treatment plan / Protocol type
-        $rules['treatment_plan'] = $this->buildRule(
-            $this->isFieldRequired($clinicId, 'protocol_type', $input),
-            false,
-            'in:full_pep,single_booster,two_dose_booster,continue_existing_schedule,no_vaccine'
-        );
+        // Treatment plan (only validated format if provided; re-exposure decisions handled in clinical workflow)
+        $rules['treatment_plan'] = 'nullable|in:full_pep,single_booster,two_dose_booster,continue_existing_schedule,no_vaccine';
 
         // Bite site / Place of exposure
         $biteSiteRequired = $this->isFieldRequired($clinicId, 'bite_site', $input);
         if ($biteSiteRequired) {
-            $rules['place_of_exposure'] = 'required|string|max:255';
+            $rules['place_of_exposure'] = 'sometimes|required|string|max:255';
         } else {
             $rules['place_of_exposure'] = 'nullable|string|max:255';
         }
@@ -421,6 +417,13 @@ class EffectiveFieldRuleComposer
         $routeRequired = $this->isFieldRequired($clinicId, 'route', $input);
         $rules['route'] = $routeRequired ? 'sometimes|required|in:ID,IM,id,im' : 'nullable|in:ID,IM,id,im';
         $rules['doses.*.route'] = $routeRequired ? 'required|in:ID,IM,id,im' : 'nullable|in:ID,IM,id,im';
+
+        // Protocol Type (Station 3 / Form 3)
+        if ($this->isFieldRequired($clinicId, 'protocol_type', $input)) {
+            $rules['protocol_type'] = 'sometimes|required|string|max:100';
+        } else {
+            $rules['protocol_type'] = 'nullable|string|max:100';
+        }
 
         // Prophylaxis administrations
         $rules['prophylaxis_administrations.*.route'] = $routeRequired

@@ -5,6 +5,7 @@ import '../app/app_theme.dart';
 import '../models/bite_intake_route_args.dart';
 import '../models/booking_draft.dart';
 import '../models/patient_profile.dart';
+import '../models/patient_profile_form_args.dart';
 import '../services/api.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../widgets/booking/booking_summary.dart';
@@ -188,9 +189,17 @@ class _BookingViewState extends State<BookingView> {
   }
 
   Future<void> _addDependent() async {
+    final hasSelf =
+        _patients.any((p) => p.relationship.toLowerCase() == 'self');
     final created = await Navigator.of(
       context,
-    ).pushNamed(AppRoutes.profileSetup, arguments: 'add-dependent');
+    ).pushNamed(
+      AppRoutes.profileSetup,
+      arguments: PatientProfileFormArgs(
+        initialRelationship: hasSelf ? 'child' : 'self',
+        returnToBooking: true,
+      ),
+    );
     if (created is PatientProfile && mounted) {
       await _loadPatients(selectPatientId: created.id);
     }

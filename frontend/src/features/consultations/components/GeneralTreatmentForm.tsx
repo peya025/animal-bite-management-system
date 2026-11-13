@@ -108,8 +108,8 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     if (formRef.current && focusErrorsRef.current && Object.keys(fieldErrors).length) {
       focusErrorsRef.current = false;
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
+        ? ['nature_of_visit', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
       const firstKey = fieldOrder.find((key) => fieldErrors[key]);
       focusFirstError(formRef.current, firstKey, summaryRef.current);
     }

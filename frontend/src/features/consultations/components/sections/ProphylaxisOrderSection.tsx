@@ -148,17 +148,29 @@ export default function ProphylaxisOrderSection({
       if (nextOrders.tetanus_passive === 'none') {
         nextOrders.tetanus_passive = '';
       }
+      if (!nextOrders.notes || !nextOrders.notes.trim()) {
+        nextOrders.notes = 'ATS 1500 IU IM after negative skin test';
+      }
     } else if (nextCategory === 'tt') {
       nextOrders.tetanus_passive = 'none';
       if (nextOrders.tetanus_vaccine === 'none') {
         nextOrders.tetanus_vaccine = '';
       }
+      if (nextOrders.notes === 'ATS 1500 IU IM after negative skin test') {
+        nextOrders.notes = '';
+      }
     } else if (nextCategory === 'ats_tt') {
       if (nextOrders.tetanus_passive === 'none') nextOrders.tetanus_passive = '';
       if (nextOrders.tetanus_vaccine === 'none') nextOrders.tetanus_vaccine = '';
+      if (!nextOrders.notes || !nextOrders.notes.trim()) {
+        nextOrders.notes = 'ATS 1500 IU IM after negative skin test';
+      }
     } else if (nextCategory === 'not_indicated') {
       nextOrders.tetanus_passive = 'none';
       nextOrders.tetanus_vaccine = 'none';
+      if (nextOrders.notes === 'ATS 1500 IU IM after negative skin test') {
+        nextOrders.notes = '';
+      }
     } else {
       nextOrders.tetanus_passive = '';
       nextOrders.tetanus_vaccine = '';
@@ -168,7 +180,10 @@ export default function ProphylaxisOrderSection({
   };
 
   const handleAtsChange = (nextAts: string) => {
-    onChange({ ...orders, tetanus_category: currentCategory || 'ats', tetanus_passive: nextAts });
+    const nextNotes = (!orders.notes || !orders.notes.trim())
+      ? 'ATS 1500 IU IM after negative skin test'
+      : orders.notes;
+    onChange({ ...orders, tetanus_category: currentCategory || 'ats', tetanus_passive: nextAts, notes: nextNotes });
   };
 
   const handleTtChange = (nextTt: string) => {
@@ -254,6 +269,33 @@ export default function ProphylaxisOrderSection({
                 {totalAtsStock} vial{totalAtsStock === 1 ? '' : 's'} available in clinic stock
               </span>
             )}
+          </FormField>
+        )}
+
+        {/* Conditional ATS Dose & Precaution Instructions */}
+        {showAtsField && (
+          <FormField
+            id="field-tetanus_notes"
+            label="ATS Dose & Precaution Instructions"
+            className="fm-grid--full"
+            required
+            error={!!errors?.tetanus_notes || !!errors?.notes || (Boolean(errors?.prophylaxis) && String(errors?.prophylaxis).includes('ATS'))}
+            errorText={errors?.tetanus_notes || errors?.notes || (Boolean(errors?.prophylaxis) && String(errors?.prophylaxis).includes('ATS') ? errors?.prophylaxis : undefined)}
+          >
+            <input
+              type="text"
+              className="fm-input"
+              name="tetanus_notes"
+              id="tetanus_notes"
+              aria-label="ATS dose and precaution instructions"
+              placeholder="e.g. ATS 1500 IU IM after negative skin test"
+              value={orders.notes || ''}
+              disabled={disabled}
+              onChange={(e) => onChange({ ...orders, notes: e.target.value })}
+            />
+            <span className="registration-field-hint" style={{ marginTop: 4, display: 'block' }}>
+              Required for ATS: Equine ATS requires product-specific dose (e.g. 1500 IU IM) and precautions (e.g. negative skin test / ANST prior to injection).
+            </span>
           </FormField>
         )}
 

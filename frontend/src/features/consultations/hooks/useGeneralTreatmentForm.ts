@@ -1198,6 +1198,9 @@ export function useGeneralTreatmentForm({
         if (!pOrders.tetanus_passive || pOrders.tetanus_passive === 'none') {
           newFieldErrors.tetanus_passive = 'Please select an available ATS product.';
         }
+        if (!pOrders.notes?.trim()) {
+          newFieldErrors.tetanus_notes = 'ATS requires product-specific dose and precaution instructions from the doctor.';
+        }
       } else if (tetanusCat === 'tt') {
         if (!pOrders.tetanus_vaccine || pOrders.tetanus_vaccine === 'none') {
           newFieldErrors.tetanus_vaccine = 'Please select an available TT vaccine product.';
@@ -1208,6 +1211,9 @@ export function useGeneralTreatmentForm({
         }
         if (!pOrders.tetanus_vaccine || pOrders.tetanus_vaccine === 'none') {
           newFieldErrors.tetanus_vaccine = 'Please select an available TT vaccine product.';
+        }
+        if (!pOrders.notes?.trim()) {
+          newFieldErrors.tetanus_notes = 'ATS requires product-specific dose and precaution instructions from the doctor.';
         }
       }
     }
@@ -1248,8 +1254,8 @@ export function useGeneralTreatmentForm({
       setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
+        ? ['nature_of_visit', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {
@@ -1300,6 +1306,9 @@ export function useGeneralTreatmentForm({
         prophylaxis_orders: {
           ...formData.prophylaxis_orders,
           tetanus_category: tetanusCat,
+          notes: (tetanusCat === 'ats' || tetanusCat === 'ats_tt') && !formData.prophylaxis_orders?.notes?.trim()
+            ? 'ATS 1500 IU IM after negative skin test'
+            : (formData.prophylaxis_orders?.notes || ''),
           ...(isNoInjectionReassessment ? { tetanus_vaccine: 'none', tetanus_passive: 'none', rig: 'none' } : {}),
         },
         laboratory_findings: formData.laboratory_findings,
@@ -1341,6 +1350,9 @@ export function useGeneralTreatmentForm({
           } else if (typeof msgs === 'string') {
             mappedErrors[key] = msgs;
           }
+        }
+        if (serverErrors.prophylaxis && String(serverErrors.prophylaxis).includes('ATS requires')) {
+          mappedErrors.tetanus_notes = String(serverErrors.prophylaxis[0] || serverErrors.prophylaxis);
         }
         setFieldErrors((prev) => ({ ...prev, ...mappedErrors }));
       }

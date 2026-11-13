@@ -169,4 +169,28 @@ test.describe('Person 2: Module Configuration Types, API, and Provider State', (
     clearClinicConfigCache();
     expect(true).toBe(true);
   });
+
+  test('P4-M01: Station combination policy rejects 000, 101, 100 and accepts supported combinations', () => {
+    const validateStations = (reg: boolean, tri: boolean, treat: boolean): string | null => {
+      if (!reg && !tri && !treat) {
+        return 'At least one station module must remain enabled.';
+      }
+      if (reg && !tri) {
+        return 'Triage Module cannot be disabled while Registration Module is enabled.';
+      }
+      return null;
+    };
+
+    // Accepted combinations
+    expect(validateStations(true, true, true)).toBeNull();   // 111
+    expect(validateStations(true, true, false)).toBeNull();  // 110
+    expect(validateStations(false, true, true)).toBeNull();  // 011
+    expect(validateStations(false, true, false)).toBeNull(); // 010
+    expect(validateStations(false, false, true)).toBeNull(); // 001
+
+    // Rejected combinations
+    expect(validateStations(true, false, true)).not.toBeNull();  // 101
+    expect(validateStations(true, false, false)).not.toBeNull(); // 100
+    expect(validateStations(false, false, false)).not.toBeNull(); // 000
+  });
 });

@@ -42,6 +42,7 @@ import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog'
 import StatCard from '../../../components/common/StatCard/StatCard';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import { highlightRecordElement } from '../../../shared/utils/notificationNavigation';
 
 import api from '../../../shared/services/api';
@@ -69,6 +70,8 @@ interface Patient {
 
 export default function NursePatientListPage() {
   const navigate = useNavigate();
+  const { isTreatmentModuleEnabled } = useClinicModuleConfig();
+  const treatmentEnabled = isTreatmentModuleEnabled();
 
   // Default to Due Today so nurses immediately see patients requiring dose administration today
   const [tab, setTab] = useState<'due_today' | 'online' | 'upcoming' | 'overdue' | 'all'>('due_today');
@@ -608,7 +611,7 @@ export default function NursePatientListPage() {
           );
         }
         const isCheckedIn = appt?.status === 'confirmed' || Boolean(activeQueue && ['waiting', 'called', 'serving', 'in_consultation'].includes(activeQueue.status));
-        const canCheckIn = !isCheckedIn && (appt?.status === 'scheduled' || appt?.status === 'missed');
+        const canCheckIn = treatmentEnabled && !isCheckedIn && (appt?.status === 'scheduled' || appt?.status === 'missed');
 
         const record = patient.latest_treatment_record;
         const isPrimaryComplete = record && record.dose_number >= 7 && record.dose_number < 90;
@@ -668,30 +671,32 @@ export default function NursePatientListPage() {
               </Button>
             ) : (
               <>
-                <Button
-                  data-walkthrough="nurse-action-record-dose"
-                  size="small"
-                  variant="outlined"
-                  onClick={() => {
-                    setSelectedPatient(patient);
-                    setShowForm3(true);
-                  }}
-                  startIcon={<HugeiconsIcon icon={Medicine01Icon} size={15} />}
-                  sx={{
-                    fontSize: 12,
-                    py: 0.4,
-                    px: 1.5,
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    borderRadius: '6px',
-                    borderColor: '#bbf7d0',
-                    color: '#166534',
-                    bgcolor: '#f0fdf4',
-                    '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
-                  }}
-                >
-                  Record Dose (Form 3)
-                </Button>
+                {treatmentEnabled && (
+                  <Button
+                    data-walkthrough="nurse-action-record-dose"
+                    size="small"
+                    variant="outlined"
+                    onClick={() => {
+                      setSelectedPatient(patient);
+                      setShowForm3(true);
+                    }}
+                    startIcon={<HugeiconsIcon icon={Medicine01Icon} size={15} />}
+                    sx={{
+                      fontSize: 12,
+                      py: 0.4,
+                      px: 1.5,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      borderColor: '#bbf7d0',
+                      color: '#166534',
+                      bgcolor: '#f0fdf4',
+                      '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
+                    }}
+                  >
+                    Record Dose (Form 3)
+                  </Button>
+                )}
 
                 <Tooltip title="Cancel check-in (mistakenly clicked check-in)">
                   <Button
@@ -840,6 +845,12 @@ export default function NursePatientListPage() {
           </Tooltip>
         </Box>
       </Box>
+
+      {!treatmentEnabled && (
+        <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 2 }}>
+          <strong>Treatment Module is currently disabled for this clinic.</strong> Direct nurse check-ins and new Form 3 dose recording are disabled while patient schedules and history remain accessible in read-only mode.
+        </Alert>
+      )}
 
       {statusChangeAlert && (
         <Alert

@@ -11,6 +11,7 @@ use App\Models\TagoloanTreatmentCard;
 use App\Models\TreatmentPlan;
 use App\Models\TreatmentRecord;
 use App\Models\User;
+use App\Services\Clinic\StationCapabilityPolicy;
 use App\Services\ProphylaxisService;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -789,73 +790,107 @@ class TreatmentRecordService
                 Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
             }
         } else {
-            $transferNotes = ($isCategory1 && $hasTetanusOrder)
-                ? 'Doctor completed Form 2 — Tetanus prophylaxis prescribed.'
-                : 'Doctor completed Form 2 — referred to Treatment.';
+            $treatmentStationEnabled = app(StationCapabilityPolicy::class)
+                ->isStationEnabled($clinicId, StationCapabilityPolicy::STATION_TREATMENT);
 
-            if ($todayQueue) {
-                QueueHistory::create([
-                    'queue_id'     => $todayQueue->queue_id,
-                    'clinic_id'    => $todayQueue->clinic_id,
-                    'patient_id'   => $todayQueue->patient_id,
-                    'action'       => 'transferred_to_treatment',
-                    'from_status'  => $todayQueue->status,
-                    'to_status'    => 'waiting',
-                    'call_count'   => $todayQueue->call_count ?? 0,
-                    'performed_by' => $user->id,
-                    'notes'        => $transferNotes,
-                    'occurred_at'  => now(),
-                ]);
+            if (!$treatmentStationEnabled) {
+                if ($todayQueue) {
+                    $completionNotes = ($isCategory1 && $hasTetanusOrder)
+                        ? 'Doctor completed Form 2 — Treatment desk disabled; visit completed locally.'
+                        : 'Doctor completed Form 2 — Treatment station is disabled; visit completed without transfer.';
 
-                $todayQueue->update([
-                    'bite_id'            => $activeIncident->bite_id,
-                    'visit_type'         => 'vaccination',
-                    'status'             => 'waiting',
-                    'called_at'          => null,
-                    'serving_at'         => null,
-                    'completed_at'       => null,
-                    'consultation_notes' => $transferNotes,
-                    'recall_stage'       => null,
-                ]);
+                    QueueHistory::create([
+                        'queue_id'     => $todayQueue->queue_id,
+                        'clinic_id'    => $todayQueue->clinic_id,
+                        'patient_id'   => $todayQueue->patient_id,
+                        'action'       => 'completed',
+                        'from_status'  => $todayQueue->status,
+                        'to_status'    => 'completed',
+                        'call_count'   => $todayQueue->call_count ?? 0,
+                        'performed_by' => $user->id,
+                        'notes'        => $completionNotes,
+                        'occurred_at'  => now(),
+                    ]);
 
-                Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
+                    $todayQueue->update([
+                        'bite_id'            => $activeIncident->bite_id,
+                        'status'             => 'completed',
+                        'completed_at'       => now(),
+                        'consultation_notes' => $completionNotes,
+                        'recall_stage'       => null,
+                    ]);
+
+                    Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
+                }
             } else {
-                $todayDate = Carbon::today()->toDateString();
-                $lastQueueNumber = Queue::withoutGlobalScopes()
-                    ->where('clinic_id', $clinicId)
-                    ->where('queue_date', $todayDate)
-                    ->max('queue_number') ?? 0;
+                $transferNotes = ($isCategory1 && $hasTetanusOrder)
+                    ? 'Doctor completed Form 2 — Tetanus prophylaxis prescribed.'
+                    : 'Doctor completed Form 2 — referred to Treatment.';
 
-                $todayQueue = Queue::create([
-                    'clinic_id'          => $clinicId,
-                    'patient_id'         => $validated['patient_id'],
-                    'bite_id'            => $activeIncident->bite_id,
-                    'queue_number'       => $lastQueueNumber + 1,
-                    'queue_date'         => $todayDate,
-                    'visit_type'         => 'vaccination',
-                    'priority'           => 'normal',
-                    'queue_category'     => 'regular',
-                    'status'             => 'waiting',
-                    'checked_in_at'      => now(),
-                    'checked_in_by'      => $user->id,
-                    'consultation_notes' => $transferNotes,
-                    'call_count'         => 0,
-                ]);
+                if ($todayQueue) {
+                    QueueHistory::create([
+                        'queue_id'     => $todayQueue->queue_id,
+                        'clinic_id'    => $todayQueue->clinic_id,
+                        'patient_id'   => $todayQueue->patient_id,
+                        'action'       => 'transferred_to_treatment',
+                        'from_status'  => $todayQueue->status,
+                        'to_status'    => 'waiting',
+                        'call_count'   => $todayQueue->call_count ?? 0,
+                        'performed_by' => $user->id,
+                        'notes'        => $transferNotes,
+                        'occurred_at'  => now(),
+                    ]);
 
-                QueueHistory::create([
-                    'queue_id'     => $todayQueue->queue_id,
-                    'clinic_id'    => $todayQueue->clinic_id,
-                    'patient_id'   => $todayQueue->patient_id,
-                    'action'       => 'checked_in',
-                    'from_status'  => 'new',
-                    'to_status'    => 'waiting',
-                    'call_count'   => 0,
-                    'performed_by' => $user->id,
-                    'notes'        => $transferNotes,
-                    'occurred_at'  => now(),
-                ]);
+                    $todayQueue->update([
+                        'bite_id'            => $activeIncident->bite_id,
+                        'visit_type'         => 'vaccination',
+                        'status'             => 'waiting',
+                        'called_at'          => null,
+                        'serving_at'         => null,
+                        'completed_at'       => null,
+                        'consultation_notes' => $transferNotes,
+                        'recall_stage'       => null,
+                    ]);
 
-                Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
+                    Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
+                } else {
+                    $todayDate = Carbon::today()->toDateString();
+                    $lastQueueNumber = Queue::withoutGlobalScopes()
+                        ->where('clinic_id', $clinicId)
+                        ->where('queue_date', $todayDate)
+                        ->max('queue_number') ?? 0;
+
+                    $todayQueue = Queue::create([
+                        'clinic_id'          => $clinicId,
+                        'patient_id'         => $validated['patient_id'],
+                        'bite_id'            => $activeIncident->bite_id,
+                        'queue_number'       => $lastQueueNumber + 1,
+                        'queue_date'         => $todayDate,
+                        'visit_type'         => 'vaccination',
+                        'priority'           => 'normal',
+                        'queue_category'     => 'regular',
+                        'status'             => 'waiting',
+                        'checked_in_at'      => now(),
+                        'checked_in_by'      => $user->id,
+                        'consultation_notes' => $transferNotes,
+                        'call_count'         => 0,
+                    ]);
+
+                    QueueHistory::create([
+                        'queue_id'     => $todayQueue->queue_id,
+                        'clinic_id'    => $todayQueue->clinic_id,
+                        'patient_id'   => $todayQueue->patient_id,
+                        'action'       => 'checked_in',
+                        'from_status'  => 'new',
+                        'to_status'    => 'waiting',
+                        'call_count'   => 0,
+                        'performed_by' => $user->id,
+                        'notes'        => $transferNotes,
+                        'occurred_at'  => now(),
+                    ]);
+
+                    Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
+                }
             }
         }
 

@@ -189,7 +189,7 @@ const STATION_MODULES_CONFIG: Array<{
     icon: '🩺',
     color: '#10b981',
     whenOn: 'Standard workflow: Registration → Triage → Treatment',
-    whenOff: 'Triage skipped. Workflow: Registration → Treatment',
+    whenOff: 'Triage desk is disabled. Registration must also be disabled (only Treatment-only mode 001 is supported).',
   },
   {
     key: 'treatment_module_enabled',
@@ -335,6 +335,17 @@ export default function ModuleConfigPage() {
     return false;
   }, [savedBaseline, draft]);
 
+  const stationPolicyError = useMemo((): string | null => {
+    const { registration_module_enabled, triage_module_enabled, treatment_module_enabled } = draft.stations;
+    if (!registration_module_enabled && !triage_module_enabled && !treatment_module_enabled) {
+      return 'At least one station module (Registration, Triage, or Treatment) must remain enabled.';
+    }
+    if (registration_module_enabled && !triage_module_enabled) {
+      return 'Triage Module cannot be disabled while Registration Module is enabled because walk-in intakes enter the triage queue directly.';
+    }
+    return null;
+  }, [draft.stations]);
+
   // Warn on browser unload if unsaved changes exist
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -382,6 +393,12 @@ export default function ModuleConfigPage() {
   // Save changes
   const handleSave = async (overrideRevision?: number) => {
     if (!savedBaseline || saving) return;
+
+    if (stationPolicyError) {
+      setSaveError(stationPolicyError);
+      setValidationErrors({ triage_module_enabled: [stationPolicyError] });
+      return;
+    }
 
     setSaving(true);
     setSaveError(null);
@@ -987,6 +1004,24 @@ export default function ModuleConfigPage() {
             )}
           </div>
 
+          {stationPolicyError && (
+            <div
+              role="alert"
+              style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '10px',
+                padding: '0.75rem 1rem',
+                marginBottom: '1.25rem',
+                color: '#991b1b',
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+              }}
+            >
+              <strong>Invalid Station Workflow Combination:</strong> {stationPolicyError}
+            </div>
+          )}
+
           {/* ── Form Field Rules Accordion Groups ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {/* Group 1: Registration Form Sections */}
@@ -1170,16 +1205,16 @@ export default function ModuleConfigPage() {
             <button
               type="button"
               onClick={() => handleSave()}
-              disabled={saving || !hasChanges || !canEdit}
+              disabled={saving || !hasChanges || !canEdit || Boolean(stationPolicyError)}
               style={{
-                background: hasChanges && canEdit ? '#10b981' : '#cbd5e1',
+                background: hasChanges && canEdit && !stationPolicyError ? '#10b981' : '#cbd5e1',
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '8px',
                 padding: '0.65rem 1.5rem',
                 fontSize: '0.875rem',
                 fontWeight: 600,
-                cursor: saving || !hasChanges || !canEdit ? 'not-allowed' : 'pointer',
+                cursor: saving || !hasChanges || !canEdit || Boolean(stationPolicyError) ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '0.5rem',

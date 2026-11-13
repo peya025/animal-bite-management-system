@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Clinical;
 
+use App\Http\Controllers\Concerns\EnforcesStationCapabilities;
 use App\Http\Controllers\Controller;
+use App\Services\Clinic\StationCapabilityPolicy;
 
 use App\Http\Requests\Clinical\SaveAddendumRequest;
 use App\Http\Requests\Clinical\StoreTreatmentRecordRequest;
@@ -12,6 +14,8 @@ use Illuminate\Http\Request;
 
 class TreatmentRecordController extends Controller
 {
+    use EnforcesStationCapabilities;
+
     public function __construct(
         protected TreatmentRecordService $treatmentService
     ) {}
@@ -35,6 +39,10 @@ class TreatmentRecordController extends Controller
      */
     public function store(StoreTreatmentRecordRequest $request): JsonResponse
     {
+        if ($denied = $this->guardStation($request->user()->clinic_id, StationCapabilityPolicy::STATION_TRIAGE, 'record Form 2 triage consultation')) {
+            return $denied;
+        }
+
         $result = $this->treatmentService->storeConsultation(
             $request->user()->clinic_id,
             $request->validated(),
@@ -82,6 +90,10 @@ class TreatmentRecordController extends Controller
      */
     public function saveAddendum(SaveAddendumRequest $request, int $patientId): JsonResponse
     {
+        if ($denied = $this->guardStation($request->user()->clinic_id, StationCapabilityPolicy::STATION_TRIAGE, 'save clinical addendum')) {
+            return $denied;
+        }
+
         $result = $this->treatmentService->saveAddendum(
             $request->user()->clinic_id,
             $patientId,

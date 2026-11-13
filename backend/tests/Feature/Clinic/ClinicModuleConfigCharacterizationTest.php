@@ -225,6 +225,7 @@ class ClinicModuleConfigCharacterizationTest extends TestCase
         $sampleRules['spouse_name'] = 'hidden';
 
         $payload = [
+            'registration_module_enabled'   => false,
             'triage_module_enabled'         => false,
             'patient_registration_enabled'  => true,
             'address_section_enabled'       => true,

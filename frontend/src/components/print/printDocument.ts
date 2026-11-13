@@ -1,27 +1,38 @@
-/**
- * Shared print utility — formal DOH letterhead document.
- *
- * Usage:
- *   printDocument({ clinicName, printedBy, title, refPrefix, bodyHtml });
- */
+import { printWhenReady } from './printReady';
+import { getGlobalPrintLogos, resolveStorageUrl } from './printHeaderHelper';
 
 export interface PrintDocumentOptions {
-  clinicName: string;
+  clinicName?: string;
   printedBy: string;
+  leftLogoUrl?: string | null;
+  rightLogoUrl?: string | null;
+  province?: string;
+  municipality?: string;
+  address?: string;
+  contactNumber?: string;
   /** Document title shown in the heading, e.g. "Patient Registry" */
   title: string;
   /** Prefix for the reference number, e.g. "PT", "RPT", "INV" */
   refPrefix?: string;
   /** Pre-built inner HTML string for the body sections */
   bodyHtml: string;
+  /** Page orientation: 'portrait' | 'landscape' (default: 'portrait') */
+  orientation?: 'portrait' | 'landscape';
 }
 
 export function printDocument({
   clinicName,
   printedBy,
+  leftLogoUrl,
+  rightLogoUrl,
+  province,
+  municipality,
+  address,
+  contactNumber,
   title,
   refPrefix = 'DOC',
   bodyHtml,
+  orientation = 'portrait',
 }: PrintDocumentOptions): void {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -29,11 +40,17 @@ export function printDocument({
   const printDateFull = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const printTimeFull = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
+  const globalLogos = getGlobalPrintLogos();
+  const leftSrc = leftLogoUrl !== undefined ? resolveStorageUrl(leftLogoUrl) : globalLogos.leftLogoUrl;
+  const rightSrc = rightLogoUrl !== undefined ? resolveStorageUrl(rightLogoUrl) : globalLogos.rightLogoUrl;
+
+  const isLandscape = orientation === 'landscape';
+
   const CSS = [
     `*{box-sizing:border-box;margin:0;padding:0}`,
-    `body{font-family:'Times New Roman',Times,serif;color:#000;background:#fff;padding:40px 48px;font-size:12pt;line-height:1.5}`,
+    `body{font-family:'Times New Roman',Times,serif;color:#000;background:#fff;padding:${isLandscape ? '24px 32px' : '40px 48px'};font-size:12pt;line-height:1.5}`,
     `.letterhead{display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:6px}`,
-    `.logo{width:64px;height:64px;border:2px solid #000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;flex-shrink:0}`,
+    `.logo-img{width:64px;height:64px;object-fit:contain;flex-shrink:0}`,
     `.org{text-align:center}`,
     `.org .republic{font-size:9pt;letter-spacing:1px;text-transform:uppercase}`,
     `.org .dept{font-size:9pt;font-weight:700;text-transform:uppercase}`,
@@ -46,7 +63,7 @@ export function printDocument({
     `.doc-title p{font-size:10pt;margin-top:4px}`,
     `.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;margin-bottom:20px;font-size:10pt;border:1px solid #ccc;padding:10px 14px}`,
     `h3.sec{font-size:11pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #000;padding-bottom:3px;margin:20px 0 10px}`,
-    `table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:9.5pt}`,
+    `table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:${isLandscape ? '8.5pt' : '9.5pt'}}`,
     `th{background:#000;color:#fff;font-weight:700;padding:5px 8px;text-align:left}`,
     `td{padding:4px 8px;border-bottom:1px solid #ccc}`,
     `tr:nth-child(even) td{background:#f5f5f5}`,
@@ -54,29 +71,26 @@ export function printDocument({
     `table.info-table td.lbl{background:#f0f0f0;font-weight:700;font-size:9.5pt;width:22%}`,
     `table.info-table td.val{font-size:10pt;width:28%}`,
     `p.note{font-size:10pt;color:#333;margin-bottom:8px;font-style:italic}`,
-    `.sig-section{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px}`,
+    `.sig-section{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px;page-break-inside:avoid}`,
     `.sig-block .line{border-top:1px solid #000;margin-top:36px;padding-top:4px}`,
     `.sig-block .name{font-weight:700;font-size:11pt;text-transform:uppercase}`,
     `.sig-block .position{font-size:9.5pt}`,
-    `.footer-bar{margin-top:40px;padding-top:8px;border-top:2px solid #000;display:flex;justify-content:space-between;font-size:8.5pt;color:#555}`,
-    `@media print{body{padding:20px 28px}@page{margin:1.5cm}}`,
+    `.footer-bar{margin-top:40px;padding-top:8px;border-top:2px solid #000;display:flex;justify-content:space-between;font-size:8.5pt;color:#555;page-break-inside:avoid}`,
+    isLandscape ? `@media print{body{padding:16px 24px}@page{size:landscape;margin:1cm}}` : `@media print{body{padding:20px 28px}@page{margin:1.5cm}}`,
   ].join('');
 
-  const win = window.open('', '_blank', 'width=1000,height=700');
-  if (!win) return;
-
-  win.document.write(`<!DOCTYPE html><html><head>
+  const html = `<!DOCTYPE html><html><head>
     <title>${clinicName} — ${title}</title>
     <style>${CSS}</style>
   </head><body>
     <div class="letterhead">
-      <div class="logo">&#10010;</div>
+      ${leftSrc ? `<img onerror="this.style.visibility='hidden'" src="${leftSrc}" alt="Left Seal" class="logo-img" />` : `<div style="width:64px;height:64px;flex-shrink:0;"></div>`}
       <div class="org">
-        <div class="republic">Republic of the Philippines</div>
-        <div class="dept">Department of Health</div>
+        <div class="republic">Republic of the Philippines ${province ? `• ${province}` : ''} ${municipality ? `• ${municipality}` : ''}</div>
         <div class="clinic">${clinicName}</div>
-        <div class="address">Animal Bite Treatment Center</div>
+        <div class="address">Animal Bite Treatment Center ${contactNumber ? `| Tel. ${contactNumber}` : ''} ${address ? `| ${address}` : ''}</div>
       </div>
+      ${rightSrc ? `<img onerror="this.style.visibility='hidden'" src="${rightSrc}" alt="Right Seal" class="logo-img" />` : `<div style="width:64px;height:64px;flex-shrink:0;"></div>`}
     </div>
     <hr class="divider-thick"><hr class="divider-thin">
     <div class="doc-title">
@@ -107,9 +121,25 @@ export function printDocument({
       <span>${clinicName} &mdash; Animal Bite Treatment Center</span>
       <span>Ref: ${refNo} &nbsp;|&nbsp; ${printDateFull}</span>
     </div>
-  </body></html>`);
+  </body></html>`;
 
-  win.document.close();
-  win.focus();
-  setTimeout(() => { win.print(); win.close(); }, 400);
+  const win = window.open('', '_blank', 'width=1000,height=700');
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    void printWhenReady(win, true);
+  } else {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+    document.body.appendChild(iframe);
+    const frameDoc = iframe.contentWindow?.document;
+    if (frameDoc && iframe.contentWindow) {
+      frameDoc.open();
+      frameDoc.write(html);
+      frameDoc.close();
+      void printWhenReady(iframe.contentWindow, false);
+      window.setTimeout(() => iframe.remove(), 2500);
+    }
+  }
 }

@@ -1,17 +1,50 @@
-.registration-reports { --rr-border: var(--border-color, #e5e7eb); --rr-muted: var(--text-secondary, #64748b); padding: 8px 24px 32px; font-family: Inter, system-ui, sans-serif; font-size: 14px; }
+.registration-reports { --rr-border: var(--border-color, #e5e7eb); --rr-muted: var(--text-secondary, #64748b); padding: 8px 24px 32px; font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif; font-size: 14px; }
 .registration-reports .MuiButton-root { text-transform: none; border-radius: 8px; font-weight: 500; }
 .registration-reports .MuiButton-contained { background: #1d9e75; color: #fff; }
 .registration-reports .MuiButton-contained.Mui-disabled { background: #e5e7eb; color: #64748b; }
 .registration-reports .MuiButton-outlined { border-color: var(--rr-border); color: inherit; }
-.registration-reports .MuiTab-root { text-transform: none; font-weight: 500; }
-.registration-reports .MuiTab-root.Mui-selected { color: #1d9e75; }
-.registration-reports .MuiTabs-indicator { background: #1d9e75; }
+.registration-reports .MuiTab-root {
+  text-transform: none;
+  font-weight: 500;
+  color: var(--text-secondary, #64748b);
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
+  border-radius: 8px 8px 0 0;
+}
+.registration-reports .MuiTab-root:hover:not(.Mui-selected) {
+  color: #178563;
+  background-color: rgba(29, 158, 117, 0.08);
+  opacity: 1;
+}
+.registration-reports .MuiTab-root.Mui-selected {
+  color: #1d9e75;
+  font-weight: 600;
+}
+.registration-reports .MuiTabs-indicator {
+  background: #1d9e75;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+}
+[data-theme='dark'] .registration-reports .MuiTab-root {
+  color: var(--text-secondary, #94a3b8);
+}
+[data-theme='dark'] .registration-reports .MuiTab-root:hover:not(.Mui-selected) {
+  color: #34d399;
+  background-color: rgba(16, 185, 129, 0.12);
+  opacity: 1;
+}
+[data-theme='dark'] .registration-reports .MuiTab-root.Mui-selected {
+  color: #10b981;
+}
+[data-theme='dark'] .registration-reports .MuiTabs-indicator {
+  background: #10b981;
+}
 .rr-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 20px; margin-bottom: 16px; }
 .rr-header h1 { font-size: 22px; font-weight: 600; margin: 0; }
 .rr-header p { margin: 6px 0; color: var(--rr-muted); }
 .rr-header small { color: var(--rr-muted); }
-.registration-reports .rr-panel { border: 1px solid var(--rr-border); border-radius: 12px; padding: 20px; box-shadow: none; background-image: none; min-width: 0; }
-.registration-reports > .rr-panel, .registration-reports > .MuiAlert-root, .registration-reports > .rr-grid, .rr-activity, .rr-definitions { margin-top: 20px; }
+.registration-reports .rr-panel { border: 1px solid var(--rr-border); border-radius: 12px; padding: 20px; box-shadow: none; background-image: none; min-width: 0; transition: box-shadow 0.2s ease, border-color 0.2s ease; }
+.registration-reports .rr-panel:hover { border-color: rgba(16, 185, 129, 0.35); box-shadow: 0 4px 16px rgba(16, 185, 129, 0.08); }
+.registration-reports > .rr-panel, .registration-reports > .MuiAlert-root, .registration-reports > .rr-grid, .rr-overview-top-section, .rr-activity, .rr-definitions, .rr-surveillance-layout, .rr-tab-intro, .rr-pep-header, .rr-surveillance-header { margin-top: 20px; }
 .rr-grid { display: grid; gap: 16px; }
 .rr-grid-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .rr-grid-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -24,7 +57,7 @@
 .rr-metric { display: flex; flex-direction: column; align-items: flex-start; }
 .rr-metric h2 { color: var(--rr-muted); font-size: 13px; font-weight: 500; margin-bottom: 12px; }
 .rr-metric strong { font-size: 28px; font-weight: 600; line-height: 1.3; }
-.rr-metric p { font-size: 13px; margin: 8px 0 12px; }
+.rr-metric p { font-size: 13px; margin: 8px 0 0; }
 .rr-metric small { color: var(--rr-muted); border-top: 1px solid var(--rr-border); padding-top: 12px; line-height: 1.5; width: 100%; }
 .rr-metric button { margin-top: 8px; }
 .rr-bars { list-style: none; margin: 0; padding: 0; }
@@ -44,7 +77,12 @@
 .rr-activity b { color: var(--text-h, inherit); font-weight: 600; }
 .rr-record-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
 .rr-record-header h2 { margin-bottom: 6px; }
-.rr-table-scroll { overflow-x: auto; }
+.rr-record-meta { margin: 0 !important; color: var(--rr-muted); font-size: 12px; line-height: 1.6; text-align: right; flex: 1 1 auto; }
+.rr-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.rr-table-panel { position: relative; }
+.rr-table-loading-bar { height: 3px; margin-bottom: 12px; overflow: hidden; border-radius: 2px; }
+.rr-table-scroll.is-loading { opacity: 0.6; pointer-events: none; transition: opacity 0.15s ease; }
+.rr-tab-updating-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--rr-muted); font-weight: 500; }
 .rr-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
 .rr-table th { font-weight: 500; color: var(--rr-muted); white-space: nowrap; }
 .rr-table th, .rr-table td { padding: 12px 10px; border-bottom: 1px solid var(--rr-border); vertical-align: top; }
@@ -53,5 +91,467 @@
 .rr-empty { color: var(--rr-muted); text-align: center; padding: 28px 12px !important; }
 .rr-definitions summary, details.rr-note summary { cursor: pointer; font-weight: 500; }
 .rr-updated { text-align: right; }
-@media (max-width: 1100px) { .rr-grid-three { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .registration-reports { padding: 8px 12px 24px; }.rr-grid-two { grid-template-columns: 1fr; }.rr-header { gap: 12px; }.rr-record-header .MuiTextField-root { width: 100%; }.rr-filter-row .MuiTextField-root { min-width: 130px; } }
+
+/* Dashboard Section Headings */
+.rr-section-heading {
+  margin-top: 28px;
+  margin-bottom: 14px;
+}
+.rr-group-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h, inherit);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.rr-group-title::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  background: #10b981;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.rr-group-desc {
+  font-size: 12px;
+  color: var(--rr-muted);
+  margin-top: 4px;
+  display: block;
+  padding-left: 12px;
+}
+
+/* Overview Top Section: 2x2 Grid of Summary Cards */
+.rr-overview-top-section {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+.rr-overview-top-section .rr-metric {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 20px 22px;
+  box-sizing: border-box;
+}
+
+.rr-overview-top-section .rr-metric h2 {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rr-muted);
+  margin: 0 0 8px 0;
+}
+
+.rr-overview-top-section .rr-metric strong {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.rr-overview-top-section .rr-metric p {
+  font-size: 12.5px;
+  margin: 6px 0 0 0;
+  color: var(--rr-muted);
+  line-height: 1.4;
+}
+
+/* Follow-up Priorities Card */
+.rr-followup-priorities {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 20px 22px;
+}
+.rr-followup-priorities .rr-section-title {
+  margin: 0 0 16px;
+}
+.rr-priorities-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+}
+.rr-priority-stat {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: rgba(100, 116, 139, 0.04);
+  border: 1px solid var(--rr-border);
+  box-sizing: border-box;
+}
+.rr-priority-val {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.rr-priority-warn {
+  background: rgba(217, 155, 40, 0.15);
+  color: #b45309;
+}
+.rr-priority-info {
+  background: rgba(16, 185, 129, 0.15);
+  color: #047857;
+}
+.rr-priority-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+}
+.rr-priority-main {
+  margin: 0;
+  color: var(--text-h, inherit);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+.rr-priority-sub {
+  font-size: 11.5px;
+  color: var(--rr-muted);
+  line-height: 1.35;
+}
+
+/* Tab Intro Banner for Non-Overview Tabs */
+.rr-tab-intro {
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+.rr-tab-intro-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* PEP & Surveillance Section Headers & Centered Navigation Tabs */
+.rr-pep-header,
+.rr-surveillance-header {
+  margin-top: 20px;
+  margin-bottom: 0;
+}
+
+.rr-pep-tabs-bar,
+.rr-surveillance-tabs-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0 10px;
+  width: 100%;
+}
+
+.registration-reports > .rr-pep-tabs-bar + .rr-panel,
+.registration-reports > .rr-surveillance-tabs-bar + .rr-panel {
+  margin-top: 0;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-root,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-root {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-contained,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-contained {
+  background: #1d9e75;
+  color: #fff;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-contained:hover,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-contained:hover {
+  background: #178563;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-outlined,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-outlined {
+  border-color: var(--rr-border);
+  color: inherit;
+  background-color: transparent;
+}
+
+.registration-reports .rr-pep-tabs-bar .MuiButton-outlined:hover,
+.registration-reports .rr-surveillance-tabs-bar .MuiButton-outlined:hover {
+  background-color: #047857;
+  border-color: #047857;
+  color: #ffffff;
+}
+
+[data-theme='dark'] .registration-reports .rr-pep-tabs-bar .MuiButton-outlined:hover,
+[data-theme='dark'] .registration-reports .rr-surveillance-tabs-bar .MuiButton-outlined:hover {
+  background-color: #047857;
+  border-color: #059669;
+  color: #ffffff;
+}
+
+/* Unified Bite Surveillance & Filter Container */
+.registration-reports .rr-unified-surveillance-container {
+  display: flex;
+  flex-direction: column;
+  margin-top: 20px;
+  padding: 22px;
+}
+
+.registration-reports .rr-unified-surveillance-container:hover {
+  border-color: var(--rr-border);
+  box-shadow: none;
+}
+
+.rr-filters-unified {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.rr-unified-surveillance-container .rr-section-heading {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.rr-unified-surveillance-container .rr-activity {
+  margin-top: 10px;
+  padding: 0;
+}
+
+.rr-unified-surveillance-container .rr-filters-unified {
+  margin-top: 18px;
+}
+
+.rr-unified-surveillance-container .rr-surveillance-row-1 {
+  margin-top: 20px;
+}
+
+.rr-unified-surveillance-container .rr-surveillance-row-2 {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+
+/* Unified PEP, Surveillance & Clinic Summary Containers */
+.registration-reports .rr-pep-unified-container,
+.registration-reports .rr-surveillance-unified-container,
+.registration-reports .rr-clinic-summary-unified-container {
+  display: flex;
+  flex-direction: column;
+  margin-top: 20px;
+  padding: 22px;
+}
+
+.registration-reports .rr-pep-unified-container:hover,
+.registration-reports .rr-surveillance-unified-container:hover,
+.registration-reports .rr-clinic-summary-unified-container:hover {
+  border-color: var(--rr-border);
+  box-shadow: none;
+}
+
+.rr-pep-unified-container .rr-pep-header,
+.rr-surveillance-unified-container .rr-surveillance-header,
+.rr-clinic-summary-unified-container .rr-clinic-summary-header {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.rr-pep-unified-container .rr-pep-header .rr-section-title,
+.rr-surveillance-unified-container .rr-surveillance-header .rr-section-title,
+.rr-clinic-summary-unified-container .rr-clinic-summary-header .rr-section-title {
+  margin-bottom: 0;
+}
+
+.rr-pep-unified-container .rr-filters-unified,
+.rr-surveillance-unified-container .rr-filters-unified,
+.rr-clinic-summary-unified-container .rr-filters-unified {
+  margin-top: 16px;
+}
+
+.rr-clinic-summary-unified-container .rr-record-basis {
+  margin-top: 4px;
+}
+
+.rr-clinic-summary-unified-container .rr-table-loading-bar {
+  margin-top: 16px;
+}
+
+.rr-pep-unified-container .rr-pep-tabs-bar,
+.rr-surveillance-unified-container .rr-surveillance-tabs-bar {
+  margin: 18px 0 16px;
+}
+
+.rr-surveillance-unified-container .rr-surveillance-metrics {
+  margin-top: 8px;
+  padding: 0;
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--rr-muted);
+}
+
+.rr-surveillance-unified-container .rr-surveillance-metrics b {
+  color: var(--text-h, inherit);
+  font-weight: 600;
+}
+
+.rr-pep-unified-container .rr-record-header,
+.rr-surveillance-unified-container .rr-record-header {
+  margin-top: 8px;
+}
+
+/* Bite Surveillance Analytics Rows */
+.rr-surveillance-row-1 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+  margin-top: 14px;
+}
+
+.rr-surveillance-row-2 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+  margin-top: 16px;
+  margin-bottom: 20px;
+}
+
+.rr-surveillance-row-1 > .rr-panel,
+.rr-surveillance-row-2 > .rr-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.rr-surveillance-row-1 .rr-section-title {
+  min-height: 22px;
+  line-height: 1.35;
+  margin-bottom: 14px;
+}
+
+.rr-surveillance-row-2 .rr-section-title {
+  min-height: 38px;
+  line-height: 1.35;
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.rr-surveillance-row-1 .rr-bars,
+.rr-surveillance-row-2 .rr-bars {
+  flex: 1 1 auto;
+}
+
+.rr-surveillance-row-1 .rr-bars li + li,
+.rr-surveillance-row-2 .rr-bars li + li {
+  margin-top: 10px;
+}
+
+.rr-surveillance-row-1 .rr-note,
+.rr-surveillance-row-1 details.rr-note,
+.rr-surveillance-row-2 .rr-note,
+.rr-surveillance-row-2 details.rr-note {
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+/* Responsive Grid Breakpoints */
+@media (max-width: 1200px) {
+  .rr-surveillance-row-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .rr-grid-three {
+    grid-template-columns: 1fr;
+  }
+  .rr-surveillance-row-1 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .rr-overview-top-section {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .rr-followup-priorities {
+    height: auto;
+  }
+  .rr-priority-stat {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .registration-reports {
+    padding: 8px 14px 24px;
+  }
+  .registration-reports .rr-unified-surveillance-container,
+  .registration-reports .rr-pep-unified-container,
+  .registration-reports .rr-surveillance-unified-container,
+  .registration-reports .rr-clinic-summary-unified-container {
+    padding: 16px;
+  }
+  .rr-unified-surveillance-container .rr-section-heading {
+    margin-top: 0;
+  }
+  .rr-unified-surveillance-container .rr-filters-unified,
+  .rr-pep-unified-container .rr-filters-unified,
+  .rr-surveillance-unified-container .rr-filters-unified,
+  .rr-clinic-summary-unified-container .rr-filters-unified {
+    margin-top: 14px;
+  }
+  .rr-grid-two {
+    grid-template-columns: 1fr;
+  }
+  .rr-priorities-body {
+    grid-template-columns: 1fr;
+  }
+  .rr-surveillance-row-2 {
+    grid-template-columns: 1fr;
+  }
+  .rr-surveillance-row-2 .rr-section-title {
+    min-height: unset;
+  }
+  .rr-header {
+    gap: 12px;
+  }
+  .rr-record-meta {
+    text-align: left;
+    width: 100%;
+  }
+  .rr-filter-row .MuiTextField-root {
+    min-width: 130px;
+  }
+  .rr-surveillance-unified-container .rr-surveillance-metrics {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .registration-reports {
+    padding: 6px 10px 20px;
+  }
+  .registration-reports .rr-unified-surveillance-container,
+  .registration-reports .rr-pep-unified-container,
+  .registration-reports .rr-surveillance-unified-container,
+  .registration-reports .rr-clinic-summary-unified-container {
+    padding: 12px;
+  }
+  .rr-filter-row .MuiTextField-root {
+    min-width: 100%;
+  }
+  .rr-surveillance-unified-container .rr-surveillance-metrics {
+    gap: 12px;
+  }
+}

@@ -9,6 +9,8 @@ class ClinicModuleConfig extends Model
     protected $fillable = [
         'clinic_id',
         'triage_module_enabled',
+        'registration_module_enabled',
+        'treatment_module_enabled',
         'patient_registration_enabled',
         'address_section_enabled',
         'socioeconomic_section_enabled',
@@ -17,6 +19,7 @@ class ClinicModuleConfig extends Model
         'triage_section_enabled',
         'treatment_section_enabled',
         'field_rules',
+        'revision',
         'google_sso_enabled',
         'google_sso_roles',
         'google_sso_domain',
@@ -24,6 +27,8 @@ class ClinicModuleConfig extends Model
 
     protected $casts = [
         'triage_module_enabled'          => 'boolean',
+        'registration_module_enabled'    => 'boolean',
+        'treatment_module_enabled'       => 'boolean',
         'patient_registration_enabled'   => 'boolean',
         'address_section_enabled'        => 'boolean',
         'socioeconomic_section_enabled'  => 'boolean',
@@ -32,6 +37,7 @@ class ClinicModuleConfig extends Model
         'triage_section_enabled'         => 'boolean',
         'treatment_section_enabled'      => 'boolean',
         'field_rules'                    => 'array',
+        'revision'                       => 'integer',
         'google_sso_enabled'             => 'boolean',
         'google_sso_roles'               => 'array',
     ];

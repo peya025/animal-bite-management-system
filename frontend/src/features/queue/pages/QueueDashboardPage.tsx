@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { highlightRecordElement } from '../../../shared/utils/notificationNavigation';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import {
   Alert, Box, CircularProgress, IconButton,
   Paper, Snackbar, Stack, Tooltip, Typography,
@@ -11,7 +13,6 @@ import {
   Warning as UrgentIcon,
   Error as EmergencyIcon,
   Restore as TrashBinIcon,
-  SkipNext as CallNextIcon,
 } from '@mui/icons-material';
 import {
   CancelCircleIcon,
@@ -25,9 +26,9 @@ import {
   Baby01Icon,
   AlertCircleIcon,
   InjectionIcon,
-  Doctor01Icon,
   ArrowTurnBackwardIcon,
   Clock01Icon,
+  Call02Icon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 
@@ -38,8 +39,8 @@ import type { QueueEntry } from '../types';
 import { VISIT_LABEL, STATUS_CFG, PRIORITY_CFG, CATEGORY_CFG, CATEGORY_LABEL, getPriorityDisplayLabel, waitTime, MAIN_STATUSES } from '../types';
 import { useQueueData } from '../hooks';
 import {
-  callNext, callQueuePatient, serveQueuePatient, markNoResponse,
-  recallQueuePatient, markAbsent, cancelQueueEntry,
+  skipQueuePatient, serveQueuePatient, markNoResponse,
+  recallQueuePatient, returnQueuePatientToQueue, markAbsent, cancelQueueEntry,
   updateQueuePriority, trashQueueEntry,
 } from '../services';
 import {
@@ -51,7 +52,6 @@ import {
   QueueProgressBar,
   TrashBinModal,
   SecondChanceQueuePanel,
-  TreatmentTransferArchivePanel,
   TreatmentCompletedPanel,
   QueuePatientDetailModal,
   PatientHistoryLookupModal,
@@ -80,6 +80,39 @@ const isIntakeStationEntry = (entry: QueueEntry) => {
   return ['vaccination', 'observation'].includes(entry.visit_type)
     && (stationName.includes('intake') || stationName.includes('station 1') || !isFollowUpStationEntry(entry));
 };
+
+function formatQueuePatientName(patient: {
+  name?: string;
+  first_name?: string;
+  middle_name?: string | null;
+  last_name?: string;
+  suffix?: string | null;
+}): string {
+  if (!patient) return '';
+  const last = (patient.last_name || '').trim();
+  const first = (patient.first_name || '').trim();
+  const middle = (patient.middle_name || '').trim();
+  const suffix = (patient.suffix || '').trim();
+
+  if (last && first) {
+    const firstMiddle = [first, middle].filter(Boolean).join(' ');
+    const fullName = `${last}, ${firstMiddle}`;
+    return suffix ? `${fullName} ${suffix}` : fullName;
+  }
+
+  if (patient.name) {
+    const raw = patient.name.trim();
+    if (raw.includes(',')) return raw;
+    const parts = raw.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      const l = parts.pop()!;
+      return `${l}, ${parts.join(' ')}`;
+    }
+    return raw;
+  }
+
+  return '';
+}
 
 function getCategoryHugeicon(cat: string) {
   switch (cat) {
@@ -167,6 +200,10 @@ function getRegistrationStatusDisplay(entry: QueueEntry): { label: string; bg: s
     return { label: 'Absent', bg: '#f1f5f9', color: '#475569' };
   }
 
+  if (entry.status === 'requires_checkin') {
+    return { label: 'Requires Check-in', bg: '#fee2e2', color: '#b91c1c' };
+  }
+
   if (entry.status === 'no_response') {
     return { label: 'No Response', bg: '#fdf4ff', color: '#9333ea' };
   }
@@ -188,6 +225,10 @@ export default function QueueDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { isRegistrationModuleEnabled, isTriageModuleEnabled, isTreatmentModuleEnabled } = useClinicModuleConfig();
+  const registrationEnabled = isRegistrationModuleEnabled();
+  const triageEnabled = isTriageModuleEnabled();
+  const treatmentEnabled = isTreatmentModuleEnabled();
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'warning' }>({
     open: false, message: '', severity: 'success',
@@ -198,10 +239,12 @@ export default function QueueDashboard() {
     setSnackbar({ open: true, message: msg, severity });
 
   const queueToast = (location.state as { queueToast?: { message: string; severity: 'success' | 'error' | 'warning' } } | null)?.queueToast;
-  if (queueToast && !snackbar.open && snackbar.message !== queueToast.message) {
-    setSnackbar({ open: true, message: queueToast.message, severity: queueToast.severity });
-    navigate(location.pathname, { replace: true, state: null });
-  }
+  useEffect(() => {
+    if (queueToast && !snackbar.open && snackbar.message !== queueToast.message) {
+      setSnackbar({ open: true, message: queueToast.message, severity: queueToast.severity });
+      navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
+    }
+  }, [queueToast, snackbar.open, snackbar.message, navigate, location.pathname, location.search]);
 
   const { queue, secondChanceQueue, stats, loading, nextEntry, reload } =
     useQueueData(msg => toast(msg, 'error'));
@@ -265,17 +308,25 @@ export default function QueueDashboard() {
   const [rowsPerPage,  setRowsPerPage]  = useState(15);
 
   // ── Confirmation targets ────────────────────────────────────────────────────
-  const [callTarget,       setCallTarget]       = useState<QueueEntry | null>(null);
   const [serveTarget,      setServeTarget]       = useState<QueueEntry | null>(null);
   const [selectedQueueId,  setSelectedQueueId]  = useState<number | null>(null);
   const [cancelTarget,     setCancelTarget]     = useState<QueueEntry | null>(null);
   const [completeTarget,   setCompleteTarget]   = useState<QueueEntry | null>(null);
   const [noRespTarget,     setNoRespTarget]     = useState<QueueEntry | null>(null);
   const [recallTarget,     setRecallTarget]     = useState<QueueEntry | null>(null);
+  const [returnTarget,     setReturnTarget]     = useState<QueueEntry | null>(null);
   const [absentTarget,     setAbsentTarget]     = useState<QueueEntry | null>(null);
   const [trashTarget,      setTrashTarget]      = useState<QueueEntry | null>(null);
   const [showTrashBin,     setShowTrashBin]     = useState(false);
   const [showHistoryLookup, setShowHistoryLookup] = useState(false);
+
+  const [searchParams] = useSearchParams();
+  const queueIdParam = searchParams.get('queueId');
+  const stationParam = searchParams.get('station');
+
+  const deliberateClickToken = (location.state as any)?.deliberateClickToken ?? null;
+  const lastHandledClickRef = useRef<string | null>(null);
+  const dismissedQueueIdRef = useRef<number | null>(null);
 
 
   const [actionPending, setActionPending] = useState(false);
@@ -286,15 +337,25 @@ export default function QueueDashboard() {
     if (actionPending) return;
     setActionPending(true);
     try {
-      await fn();
-      toast(successMsg);
-      reload();
+      const res = (await fn()) as any;
+      const backendMsg = res?.data?.message;
+      if (res?.data?.requires_checkin) {
+        toast(backendMsg || 'Patient did not respond 3 times. Please return to Registration for check-in.', 'warning');
+        setSuccessModal({
+          open: true,
+          title: 'Registration Check-in Required',
+          message: 'Patient did not respond 3 times. Please return to Registration for check-in.',
+        });
+      } else {
+        toast(backendMsg || successMsg);
+      }
+      await reload();
     } catch (err: any) {
       const status = err?.response?.status;
       const msg = err?.response?.data?.message;
       if (status === 409) {
         toast(msg || 'This patient is currently being called or attended by another workstation.', 'warning');
-        reload();
+        await reload();
       } else {
         toast(msg ?? errMsg, 'error');
       }
@@ -303,11 +364,23 @@ export default function QueueDashboard() {
     }
   };
 
-  const handleCallNext   = () => run(() => callNext(),                                  'Called next patient',                             'No patients waiting or failed to call next');
-  const handleCall       = (e: QueueEntry) => run(() => callQueuePatient(e.queue_id),   `Called #${e.queue_number} · ${e.patient.name}`,   'Failed to call patient');
+  const handleSkip       = (e: QueueEntry) => run(() => skipQueuePatient(e.queue_id),   `#${e.queue_number} skipped — calling next patient`, 'Failed to skip patient');
   const handleServe      = (e: QueueEntry) => run(() => serveQueuePatient(e.queue_id),  `#${e.queue_number} is now being served`,           'Failed to mark as serving');
   const handleNoResponse = (e: QueueEntry) => run(() => markNoResponse(e.queue_id),     `#${e.queue_number} moved to Second Chance Queue`, 'Failed to mark no response');
-  const handleRecall     = (e: QueueEntry) => run(() => recallQueuePatient(e.queue_id), `#${e.queue_number} recalled`,                     'Failed to recall patient');
+  const handleRecall     = (e: QueueEntry) => {
+    if (e.call_count >= 3) {
+      toast('Patient did not respond 3 times. Please return to Registration for check-in.', 'warning');
+      return;
+    }
+    run(() => recallQueuePatient(e.queue_id), `#${e.queue_number} recalled`, 'Failed to recall patient');
+  };
+  const handleReturnToQueue = (e: QueueEntry) => {
+    if (e.call_count >= 3) {
+      toast('Patient did not respond 3 times. Please return to Registration for check-in.', 'warning');
+      return;
+    }
+    run(() => returnQueuePatientToQueue(e.queue_id), 'Patient returned to the queue.', 'Failed to return patient to queue');
+  };
   const handleAbsent     = (e: QueueEntry) => run(() => markAbsent(e.queue_id),         `#${e.queue_number} marked as No-Show`,            'Failed to mark absent');
   const handleCancel     = (e: QueueEntry) => run(() => cancelQueueEntry(e.queue_id),   `Cancelled #${e.queue_number}`,                    'Failed to cancel');
   const handleTrash      = (e: QueueEntry) => run(() => trashQueueEntry(e.queue_id),    `#${e.queue_number} moved to trash`,               'Failed to trash entry');
@@ -324,16 +397,12 @@ export default function QueueDashboard() {
   const isTriageDoctor = user?.role === 'triage'
     || user?.roles?.some((role: any) => ['triage', 'doctor'].includes(role.slug));
   const isTreatmentNurse = user?.role === 'treatment' || user?.is_nursing || hasIntakeNurseRole || hasFollowUpNurseRole;
-  const transferredToTreatmentEntries = isTriageDoctor
-    ? queue.filter(entry =>
-        entry.visit_type === 'vaccination'
-        && (entry.consultation_notes?.includes('completed Form 2') || entry.consultation_notes?.includes('Form 2'))
-      )
-    : [];
   const completedTreatmentEntries = isTreatmentNurse
     ? queue.filter(entry => entry.visit_type === 'vaccination' && entry.status === 'completed')
     : [];
-  const isAdminOrReg = user?.role === 'admin' || isRegistrationStaff;
+  const isAdmin = user?.role === 'admin'
+    || Boolean(user?.roles?.some((role: any) => ['admin', 'administrator'].includes(role.slug)));
+  const isAdminOrReg = isAdmin || isRegistrationStaff;
   const stationScopedQueue = stationMode === 'intake'
     ? queue.filter(entry => isIntakeStationEntry(entry) || (isAdminOrReg && TRIAGE_VISIT_TYPES.includes(entry.visit_type)))
     : stationMode === 'follow_up'
@@ -352,29 +421,36 @@ export default function QueueDashboard() {
       : isTreatmentNurse
         ? secondChanceQueue.filter(entry => TREATMENT_VISIT_TYPES.includes(entry.visit_type))
         : secondChanceQueue;
+  const roleScopedSecondChanceQueue = isTriageDoctor
+    ? secondChanceQueue.filter(entry => TRIAGE_VISIT_TYPES.includes(entry.visit_type))
+    : stationScopedSecondChanceQueue;
   const visibleSecondChanceQueue = (isTreatmentNurse && !isSoloNurse && hasFollowUpNurseRole && !hasIntakeNurseRole)
     ? []
-    : stationScopedSecondChanceQueue;
+    : roleScopedSecondChanceQueue;
   const roleScopedQueue = isTriageDoctor
     ? queue.filter(entry => TRIAGE_VISIT_TYPES.includes(entry.visit_type))
     : stationScopedQueue;
   const stationStats = {
     ...stats,
-    total: stationScopedQueue.length + stationScopedSecondChanceQueue.length,
-    waiting: stationScopedQueue.filter(entry => entry.status === 'waiting').length,
-    called: stationScopedQueue.filter(entry => entry.status === 'called').length,
-    in_consultation: stationScopedQueue.filter(entry => entry.status === 'in_consultation').length,
-    serving: stationScopedQueue.filter(entry => entry.status === 'serving').length,
-    completed: stationScopedQueue.filter(entry => entry.status === 'completed').length,
-    cancelled: stationScopedQueue.filter(entry => entry.status === 'cancelled').length,
-    absent: stationScopedQueue.filter(entry => entry.status === 'absent').length,
-    no_response: stationScopedQueue.filter(entry => entry.status === 'no_response').length,
-    second_chance: stationScopedSecondChanceQueue.filter(entry => entry.status === 'second_chance').length,
-    final_recall: stationScopedSecondChanceQueue.filter(entry => entry.status === 'final_recall').length,
+    total: roleScopedQueue.length + roleScopedSecondChanceQueue.length,
+    waiting: roleScopedQueue.filter(entry => entry.status === 'waiting').length,
+    called: roleScopedQueue.filter(entry => entry.status === 'called').length,
+    in_consultation: roleScopedQueue.filter(entry => entry.status === 'in_consultation').length,
+    serving: roleScopedQueue.filter(entry => entry.status === 'serving').length,
+    completed: roleScopedQueue.filter(entry => entry.status === 'completed').length,
+    cancelled: roleScopedQueue.filter(entry => entry.status === 'cancelled').length,
+    absent: roleScopedQueue.filter(entry => entry.status === 'absent').length,
+    no_response: roleScopedQueue.filter(entry => entry.status === 'no_response').length,
+    second_chance: roleScopedSecondChanceQueue.filter(entry => entry.status === 'second_chance').length,
+    final_recall: roleScopedSecondChanceQueue.filter(entry => entry.status === 'final_recall').length,
   };
   const roleScopedNextEntry = isTriageDoctor || isTreatmentNurse
     ? getScopedNextEntry(roleScopedQueue)
     : nextEntry;
+  // The currently-called patient in this role's scope — needed by the Skip button.
+  // A patient must have status "called" (not serving/in_consultation) to be skippable.
+  const calledEntry: QueueEntry | null =
+    roleScopedQueue.find(e => e.status === 'called') ?? null;
   const pageTitle = isTriageDoctor
     ? 'Triage Dashboard'
     : hasIntakeNurseRole && !hasFollowUpNurseRole
@@ -404,36 +480,47 @@ export default function QueueDashboard() {
 
   // ── Filter + Pagination ───────────────────────────────────────────────────
 
-  const filtered  = roleScopedQueue.filter(q => {
-    const matchSearch = !search ||
-      q.patient.name.toLowerCase().includes(search.toLowerCase()) ||
-      String(q.queue_number).includes(search);
-    const matchStatus   = !statusFilter   || q.status         === statusFilter;
-    const matchCategory = !categoryFilter || q.queue_category === categoryFilter;
+  const filtered = useMemo(() => {
+    return roleScopedQueue.filter(q => {
+      const matchSearch = !search ||
+        q.patient.name.toLowerCase().includes(search.toLowerCase()) ||
+        String(q.queue_number).includes(search);
+      const matchStatus = !statusFilter
+        ? true
+        : statusFilter === 'cancelled_or_absent'
+          ? (q.status === 'cancelled' || q.status === 'absent')
+          : statusFilter === 'serving'
+            ? (q.status === 'serving' || q.status === 'in_consultation')
+            : q.status === statusFilter;
+      const matchCategory = !categoryFilter || q.queue_category === categoryFilter;
 
-    let matchVisitType = true;
-    if (isTriageDoctor) {
-      // Triage scope already enforced by roleScopedQueue (TRIAGE_VISIT_TYPES).
-      // Do NOT apply the nurse-station isIntakeStationEntry filter here — it
-      // excludes new_case visit types, which are exactly what triage sees.
-      matchVisitType = true;
-    } else if (visitTypeFilter === 'intake') {
-      matchVisitType = isIntakeStationEntry(q) || (isAdminOrReg && TRIAGE_VISIT_TYPES.includes(q.visit_type));
-    } else if (visitTypeFilter === 'follow_up_station') {
-      matchVisitType = isFollowUpStationEntry(q);
-    } else if (visitTypeFilter) {
-      matchVisitType = q.visit_type === visitTypeFilter;
-    }
+      let matchVisitType = true;
+      if (isTriageDoctor) {
+        // Triage scope already enforced by roleScopedQueue (TRIAGE_VISIT_TYPES).
+        // Do NOT apply the nurse-station isIntakeStationEntry filter here — it
+        // excludes new_case visit types, which are exactly what triage sees.
+        matchVisitType = true;
+      } else if (visitTypeFilter === 'intake') {
+        matchVisitType = isIntakeStationEntry(q) || (isAdminOrReg && TRIAGE_VISIT_TYPES.includes(q.visit_type));
+      } else if (visitTypeFilter === 'follow_up_station') {
+        matchVisitType = isFollowUpStationEntry(q);
+      } else if (visitTypeFilter) {
+        matchVisitType = q.visit_type === visitTypeFilter;
+      }
 
-    // Main table only shows active/second-chance entries unless a specific status filter is set
-    const isActiveOrFiltered = statusFilter
-      ? true
-      : (MAIN_STATUSES as string[]).includes(q.status);
-    return matchSearch && matchStatus && matchCategory && matchVisitType && isActiveOrFiltered;
-  });
-  const sortedQueue = isTriageDoctor || isTreatmentNurse
-    ? [...filtered].sort(sortQueueForDisplay)
-    : filtered;
+      // Main table only shows active/second-chance entries unless a specific status filter is set
+      const isActiveOrFiltered = statusFilter
+        ? true
+        : (MAIN_STATUSES as string[]).includes(q.status);
+      return matchSearch && matchStatus && matchCategory && matchVisitType && isActiveOrFiltered;
+    });
+  }, [roleScopedQueue, search, statusFilter, categoryFilter, isTriageDoctor, visitTypeFilter, isAdminOrReg]);
+
+  const sortedQueue = useMemo(() => {
+    return isTriageDoctor || isTreatmentNurse
+      ? [...filtered].sort(sortQueueForDisplay)
+      : filtered;
+  }, [isTriageDoctor, isTreatmentNurse, filtered]);
   const paginated = sortedQueue.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   // ── Highlight waiting rows on KPI click ────────────────────────────────────
@@ -450,6 +537,92 @@ export default function QueueDashboard() {
       document.getElementById('queue-table-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
+
+  // Sync station from URL search parameter (e.g. from notification)
+  useEffect(() => {
+    if (stationParam) {
+      if (stationParam === 'station_1' || stationParam === 'intake') {
+        setStationMode('intake');
+        if (!isTriageDoctor) setVisitTypeFilter('intake');
+      } else if (stationParam === 'station_2' || stationParam === 'follow_up') {
+        setStationMode('follow_up');
+        if (!isTriageDoctor) setVisitTypeFilter('follow_up_station');
+      }
+    }
+  }, [stationParam, isTriageDoctor]);
+
+  // Close patient record modal and clear URL parameters that trigger automatic opening
+  // (queueId, patientId, date), while preserving unrelated filters and selected station.
+  const handleClosePatientModal = useCallback(() => {
+    if (selectedQueueId) {
+      dismissedQueueIdRef.current = selectedQueueId;
+    }
+    setSelectedQueueId(null);
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('queueId');
+    nextParams.delete('patientId');
+    nextParams.delete('date');
+
+    const newSearch = nextParams.toString();
+    navigate(
+      {
+        pathname: location.pathname,
+        search: newSearch ? `?${newSearch}` : '',
+      },
+      { replace: true, state: null }
+    );
+  }, [selectedQueueId, searchParams, navigate, location.pathname]);
+
+  // Locate and open referenced patient record modal once per deliberate notification click or URL query parameter
+  useEffect(() => {
+    if (!queueIdParam) return;
+    const targetId = parseInt(queueIdParam, 10);
+    if (!targetId || isNaN(targetId)) return;
+
+    // Check if this is a fresh deliberate notification click
+    const isNewDeliberateClick = Boolean(
+      deliberateClickToken && deliberateClickToken !== lastHandledClickRef.current
+    );
+
+    if (isNewDeliberateClick) {
+      // Clear dismissal lock since this is a new intentional click
+      dismissedQueueIdRef.current = null;
+      lastHandledClickRef.current = deliberateClickToken;
+    }
+
+    // If this record was explicitly dismissed (via X or Close), do not reopen on background updates/polling
+    if (dismissedQueueIdRef.current === targetId) {
+      return;
+    }
+
+    // Highlight row if present in active queue (waiting for queue data to finish loading)
+    if (!loading) {
+      const activeIdx = sortedQueue.findIndex(e => e.queue_id === targetId);
+      if (activeIdx !== -1) {
+        const targetPage = Math.floor(activeIdx / rowsPerPage);
+        if (page !== targetPage) {
+          setPage(targetPage);
+        }
+        setTimeout(() => {
+          highlightRecordElement(`queue-entry-${targetId}`);
+        }, 350);
+      } else {
+        const scIdx = visibleSecondChanceQueue.findIndex(e => e.queue_id === targetId);
+        if (scIdx !== -1) {
+          setTimeout(() => {
+            highlightRecordElement(`queue-second-chance-${targetId}`);
+          }, 350);
+        }
+      }
+    }
+
+    // Open patient detail modal (for active, completed, or historical records)
+    setSelectedQueueId(targetId);
+    if (!lastHandledClickRef.current) {
+      lastHandledClickRef.current = `initial-${targetId}`;
+    }
+  }, [queueIdParam, deliberateClickToken, loading, sortedQueue, visibleSecondChanceQueue, rowsPerPage, page]);
 
   // ── Table Columns (Sentence Case Headers) ─────────────────────────────────
 
@@ -488,7 +661,7 @@ export default function QueueDashboard() {
         }
 
         return (
-          <Box sx={{
+          <Box data-walkthrough="queue-col-number" sx={{
             width: 38, height: 38, borderRadius: 2,
             bgcolor: boxBg,
             border: boxBorder,
@@ -507,7 +680,7 @@ export default function QueueDashboard() {
         const label = CATEGORY_LABEL[e.queue_category] ?? e.queue_category;
         const CatIcon = getCategoryHugeicon(e.queue_category);
         return (
-          <Box sx={{
+          <Box data-walkthrough="queue-col-category" sx={{
             display: 'inline-flex', alignItems: 'center', gap: 0.6,
             px: 1.25, py: 0.35,
             bgcolor: cfg.bg, color: cfg.color,
@@ -542,14 +715,11 @@ export default function QueueDashboard() {
           e.consultation_notes?.toLowerCase().includes('gamma')
         );
 
-        // Check attending doctor / staff
-        const attending = e.handled_by_user || (typeof e.handled_by === 'object' && e.handled_by !== null ? (e.handled_by as { id: number; name: string; role: string }) : e.handledBy);
-
         return (
-          <Box>
+          <Box data-walkthrough="queue-col-patient">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
               <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text-h)', lineHeight: 1.3 }}>
-                {e.patient.name}
+                {formatQueuePatientName(e.patient)}
               </Typography>
 
               {/* Active patient indicator */}
@@ -578,26 +748,20 @@ export default function QueueDashboard() {
                 </Box>
               )}
 
-              {/* Attending doctor / staff indicator */}
-              {attending?.name && (
-                <Box sx={{
-                  display: 'inline-flex', alignItems: 'center', gap: 0.4,
-                  px: 0.75, py: 0.15, bgcolor: '#eff6ff', color: '#1d4ed8',
-                  border: '1px solid #bfdbfe', borderRadius: 1, fontSize: 10, fontWeight: 600,
-                }}>
-                  <HugeiconsIcon icon={Doctor01Icon} size={11} strokeWidth={2.2} />
-                  Dr. {attending.name}
-                </Box>
-              )}
-
               {isCarry && isActive && (
                 <Box sx={{ px: 0.8, py: 0.15, bgcolor: '#fef3c7', color: '#92400e', borderRadius: 1, fontSize: 10, fontWeight: 600 }}>
                   Carried Over {qDate ? `(${new Date(qDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}
                 </Box>
               )}
               {e.call_count > 0 && (
-                <Box sx={{ px: 0.8, py: 0.15, bgcolor: '#f3e8ff', color: '#7e22ce', borderRadius: 1, fontSize: 10, fontWeight: 600 }}>
-                  Called {e.call_count}×
+                <Box sx={{
+                  px: 0.8, py: 0.15,
+                  bgcolor: e.call_count >= 3 ? '#fee2e2' : '#f3e8ff',
+                  color: e.call_count >= 3 ? '#b91c1c' : '#7e22ce',
+                  border: e.call_count >= 3 ? '1px solid #fca5a5' : 'none',
+                  borderRadius: 1, fontSize: 10, fontWeight: 600,
+                }}>
+                  No Response {Math.min(e.call_count, 3)}/3
                 </Box>
               )}
             </Box>
@@ -612,7 +776,7 @@ export default function QueueDashboard() {
     {
       key: 'visit_type', header: 'Visit type', align: 'center',
       render: e => (
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+        <Box data-walkthrough="queue-col-visittype" sx={{ display: 'flex', justifyContent: 'center' }}>
           <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.35, bgcolor: 'var(--bg-secondary)', borderRadius: 1.5, fontSize: 11.5, fontWeight: 500, color: 'var(--text)' }}>
             {VISIT_LABEL[e.visit_type] ?? e.visit_type}
           </Box>
@@ -627,7 +791,7 @@ export default function QueueDashboard() {
         const canEditPriority = isActive && !isRegistrationStaff;
         if (!canEditPriority) {
           return (
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Box data-walkthrough="queue-col-priority" sx={{ display: 'flex', justifyContent: 'center' }}>
               <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.35, borderRadius: 1.5, bgcolor: cfg.bg, color: cfg.color, fontSize: 11.5, fontWeight: 500 }}>
                 {e.priority === 'emergency' && <EmergencyIcon sx={{ fontSize: 13 }} />}
                 {e.priority === 'urgent'    && <UrgentIcon    sx={{ fontSize: 13 }} />}
@@ -637,7 +801,7 @@ export default function QueueDashboard() {
           );
         }
         return (
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Box data-walkthrough="queue-col-priority" sx={{ display: 'flex', justifyContent: 'center' }}>
             <FormControl size="small" variant="outlined">
               <Select
                 value={e.priority}
@@ -678,7 +842,7 @@ export default function QueueDashboard() {
           ? getRegistrationStatusDisplay(e)
           : (STATUS_CFG[e.status] ?? STATUS_CFG.cancelled);
         return (
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Box data-walkthrough="queue-col-status" sx={{ display: 'flex', justifyContent: 'center' }}>
             <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.35, bgcolor: cfg.bg, color: cfg.color, borderRadius: 1.5, fontSize: 11.5, fontWeight: 500 }}>
               {cfg.label}
             </Box>
@@ -718,11 +882,11 @@ export default function QueueDashboard() {
       render: e => {
         const active = MAIN_STATUSES.includes(e.status);
         return active
-          ? <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+          ? <Box data-walkthrough="queue-col-waittime" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
               <WaitIcon sx={{ fontSize: 13, color: 'var(--text-secondary)' }} />
               <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>{waitTime(e.checked_in_at)}</Typography>
             </Box>
-          : <Box sx={{ display: 'flex', justifyContent: 'center' }}><Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</Typography></Box>;
+          : <Box data-walkthrough="queue-col-waittime" sx={{ display: 'flex', justifyContent: 'center' }}><Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</Typography></Box>;
       },
     },
     {
@@ -731,7 +895,11 @@ export default function QueueDashboard() {
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <Tooltip title="View Patient Details & Forms">
             <button
-              onClick={() => setSelectedQueueId(e.queue_id)}
+              data-walkthrough="queue-col-record"
+              onClick={() => {
+                dismissedQueueIdRef.current = null;
+                setSelectedQueueId(e.queue_id);
+              }}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 padding: '4px 10px', background: '#ecfdf5', border: '1px solid #a7f3d0',
@@ -753,27 +921,66 @@ export default function QueueDashboard() {
         const isWaiting = e.status === 'waiting';
         const isCalled  = e.status === 'called';
         const isServing = e.status === 'serving' || e.status === 'in_consultation';
+        const isSecondChance = e.status === 'second_chance' || e.status === 'final_recall';
         const isActive  = MAIN_STATUSES.includes(e.status);
         const isDone    = ['completed', 'cancelled', 'absent'].includes(e.status);
-        const canCancelOrTrash = !isTriageDoctor;
+        const canCancelOrTrash = !isAdmin && !isTriageDoctor && !isTreatmentNurse;
+        const hasActions = (isWaiting || isCalled) || isSecondChance || (canCancelOrTrash && isActive) || (canCancelOrTrash && !isServing && !isDone);
+
+        if (!hasActions) {
+          return (
+            <Box data-walkthrough="queue-col-actions" sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', px: 0.5 }}>—</Typography>
+            </Box>
+          );
+        }
 
         return (
-          <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'center', alignItems: 'center' }}>
+          <Box data-walkthrough="queue-col-actions" sx={{ display: 'flex', gap: 0.75, justifyContent: 'center', alignItems: 'center' }}>
 
-            {/* No Response — waiting or called */}
+            {/* No Response / Second Chance — waiting or called */}
             {(isWaiting || isCalled) && (
-              <Tooltip title="No Response — Move to Second Chance">
-                <IconButton size="small" onClick={() => setNoRespTarget(e)}
+              <Tooltip title={e.call_count >= 2 ? "No Response (3/3) — Mark Requires Registration Check-in" : `No Response (${e.call_count + 1}/3) — Move to Second Chance`}>
+                <IconButton data-walkthrough="queue-action-no-response" size="small" onClick={() => setNoRespTarget(e)}
                   sx={actionBtn('#9333ea', '#faf5ff', '#e9d5ff', '#f3e8ff', '#d8b4fe', '#7e22ce')}>
                   <HugeiconsIcon icon={UserBlock01Icon} size={16} strokeWidth={2} />
                 </IconButton>
               </Tooltip>
             )}
 
+            {/* Return to Queue — second chance or final recall (if filtered) */}
+            {isSecondChance && (
+              <Tooltip title={e.call_count >= 3 ? "Patient did not respond 3 times. Please return to Registration for check-in." : "Return to Waiting Queue"}>
+                <span>
+                  <IconButton data-walkthrough="queue-action-return" size="small" onClick={() => setReturnTarget(e)}
+                    disabled={e.call_count >= 3}
+                    sx={actionBtn('#059669', '#ecfdf5', '#a7f3d0', '#d1fae5', '#6ee7b7', '#047857')}>
+                    <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={16} strokeWidth={2} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
+
+            {/* Recall — second chance or final recall (if filtered) */}
+            {isSecondChance && (() => {
+              const recallStationEnabled = TRIAGE_VISIT_TYPES.includes(e.visit_type) ? triageEnabled : treatmentEnabled;
+              return (
+                <Tooltip title={!recallStationEnabled ? 'Station module is disabled for this clinic.' : (e.call_count >= 3 ? 'Patient did not respond 3 times. Please return to Registration for check-in.' : 'Recall Patient')}>
+                  <span>
+                    <IconButton data-walkthrough="queue-action-recall" size="small" onClick={() => setRecallTarget(e)}
+                      disabled={e.call_count >= 3 || !recallStationEnabled}
+                      sx={actionBtn('#ea580c', '#fff7ed', '#fed7aa', '#ffedd5', '#fdba74', '#c2410c')}>
+                      <HugeiconsIcon icon={Call02Icon} size={16} strokeWidth={2} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              );
+            })()}
+
             {/* Cancel — any active */}
             {canCancelOrTrash && isActive && (
               <Tooltip title="Cancel Queue Entry">
-                <IconButton size="small" onClick={() => setCancelTarget(e)}
+                <IconButton data-walkthrough="queue-action-cancel" size="small" onClick={() => setCancelTarget(e)}
                   sx={actionBtn('#dc2626', '#fef2f2', '#fecaca', '#fee2e2', '#fca5a5', '#b91c1c')}>
                   <HugeiconsIcon icon={CancelCircleIcon} size={16} strokeWidth={2} />
                 </IconButton>
@@ -783,15 +990,11 @@ export default function QueueDashboard() {
             {/* Trash — not serving/in-consultation */}
             {canCancelOrTrash && !isServing && !isDone && (
               <Tooltip title="Move to Trash">
-                <IconButton size="small" onClick={() => setTrashTarget(e)}
+                <IconButton data-walkthrough="queue-action-trash" size="small" onClick={() => setTrashTarget(e)}
                   sx={actionBtn('#64748b', '#f8fafc', '#e2e8f0', '#fee2e2', '#fca5a5', '#dc2626')}>
                   <HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={2} />
                 </IconButton>
               </Tooltip>
-            )}
-
-            {isDone && (
-              <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', px: 0.5 }}>—</Typography>
             )}
           </Box>
         );
@@ -799,9 +1002,10 @@ export default function QueueDashboard() {
     },
   ];
 
-  const visibleColumns = isRegistrationStaff
-    ? columns.filter(column => column.key !== 'queue_actions')
-    : columns;
+  const visibleColumns = columns.filter(column =>
+    !['queue_id', 'attended_by'].includes(column.key) &&
+    (!isRegistrationStaff || column.key !== 'queue_actions')
+  );
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -809,22 +1013,42 @@ export default function QueueDashboard() {
     <Box sx={{ px: { xs: 1.5, sm: 3 } }}>
 
       {/* ── 1. Compact Header Row (<= 60px tall) ── */}
-      <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, minHeight: 44 }}>
+      <Box data-walkthrough="queue-header" sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, minHeight: 44 }}>
         <Box>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5, flexWrap: 'wrap' }}>
-            <Typography component="h1" sx={{ fontWeight: 600, fontSize: '20px', lineHeight: 1.2, letterSpacing: '-0.3px', color: 'var(--text-h)', m: 0 }}>
-              {pageTitle}
-            </Typography>
-            <Typography sx={{ fontSize: '12px', color: 'var(--text-secondary)', m: 0 }}>
-              {today} · Auto-refreshes every 30s
-            </Typography>
-          </Box>
-
+          <Typography
+            component="h1"
+            sx={{
+              fontSize: '24px',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
+            }}
+          >
+            {pageTitle}
+          </Typography>
           {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '8px',
+              fontSize: '13px',
+            }}
+          >
             <button
               onClick={() => navigate(ROUTES.DASHBOARD)}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: '#3b82f6',
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
             >
               Dashboard
             </button>
@@ -838,35 +1062,9 @@ export default function QueueDashboard() {
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {loading && <CircularProgress size={16} sx={{ color: '#10b981' }} />}
 
-          {/* Call Next */}
-          {!isRegistrationStaff && user?.role !== 'admin' && !isTriageDoctor && roleScopedNextEntry && (
-            <Tooltip title="Auto-call next eligible patient">
-              <button
-                onClick={() => {
-                  if ((isTriageDoctor || isTreatmentNurse) && roleScopedNextEntry) {
-                    handleCall(roleScopedNextEntry);
-                    return;
-                  }
-                  handleCallNext();
-                }}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '6px 12px', borderRadius: 8,
-                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                  color: '#fff', border: 'none', cursor: 'pointer',
-                  fontSize: 12.5, fontWeight: 500, fontFamily: 'inherit',
-                  boxShadow: '0 2px 6px rgba(37,99,235,0.25)', whiteSpace: 'nowrap',
-                }}
-              >
-                <CallNextIcon style={{ fontSize: 15 }} />
-                Call Next
-              </button>
-            </Tooltip>
-          )}
-
           {/* Queue Display */}
           <Tooltip title="Open Queue Display (Full Screen)">
-            <button
+            <button data-walkthrough="queue-display-btn"
               onClick={() => window.open('/queue/display', '_blank', 'width=1280,height=720')}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -888,6 +1086,7 @@ export default function QueueDashboard() {
           {(isTriageDoctor || user?.role === 'admin') && (
             <Tooltip title="Search Returning Patient Consultation History">
               <button
+                data-walkthrough="queue-patient-history-btn"
                 onClick={() => setShowHistoryLookup(true)}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -904,45 +1103,70 @@ export default function QueueDashboard() {
             </Tooltip>
           )}
 
-          {!isRegistrationStaff && (
-            <Tooltip title="Trash Bin">
-              <IconButton size="small" onClick={() => setShowTrashBin(true)} sx={{ color: '#dc2626', bgcolor: '#fee2e2', borderRadius: 1.5, '&:hover': { bgcolor: '#fecaca' } }}>
-                <TrashBinIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-            </Tooltip>
-          )}
+
           <Tooltip title="Refresh">
-            <IconButton size="small" onClick={reload} disabled={loading}><RefreshIcon sx={{ fontSize: 18 }} /></IconButton>
+            <span>
+              <IconButton data-walkthrough="queue-refresh-btn" size="small" onClick={reload} disabled={loading}><RefreshIcon sx={{ fontSize: 18 }} /></IconButton>
+            </span>
           </Tooltip>
         </Stack>
       </Box>
 
+      {(!registrationEnabled || !triageEnabled || !treatmentEnabled) && (
+        <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
+          <strong>Station Capability Notice:</strong>{' '}
+          {[
+            !registrationEnabled && 'Registration disabled',
+            !triageEnabled && 'Triage disabled',
+            !treatmentEnabled && 'Treatment disabled',
+          ].filter(Boolean).join(' • ')}
+          . New queue call/serve actions for disabled stations are blocked while existing tickets and queue history remain visible.
+        </Alert>
+      )}
+
       {/* ── 2. KPI Strip (Waiting, Called, Serving, Completed, Total Today) ── */}
-      <QueueKPIStrip stats={stationStats} onWaitingClick={handleWaitingClick} />
+      <Box data-walkthrough="queue-kpi-strip"><QueueKPIStrip stats={stationStats} onWaitingClick={handleWaitingClick} /></Box>
 
       {/* ── 3. Condensed Vaccine Stock Strip ── */}
-      {stationMode !== 'follow_up' && <StockLevelIndicator variant="strip" collapsible showLegend={false} />}
+      {stationMode !== 'follow_up' && (
+        <Box data-walkthrough="queue-vaccine-availability">
+          <StockLevelIndicator variant="strip" collapsible showLegend={false} />
+        </Box>
+      )}
 
       {/* ── 4. Slim Inline Secondary Counters Row ── */}
       <SecondaryCountersRow stats={stationStats} />
 
       {/* ── 5. Next Patient Banner (if active) ── */}
-      {!isRegistrationStaff && user?.role !== 'admin' && roleScopedNextEntry && (
-        <Box sx={{ mb: 2 }}>
-          <NextPatientBanner
-            entry={roleScopedNextEntry}
-            onCall={handleCall}
-            onCallNext={(isTriageDoctor || isTreatmentNurse)
-              ? (() => handleCall(roleScopedNextEntry))
-              : handleCallNext}
-            showActions={isTriageDoctor || !isRegistrationStaff}
-          />
-        </Box>
-      )}
+      {/* Render whenever there is a next waiting patient OR a currently called patient.
+          The Skip button lives here and must remain visible even when the queue has no
+          further waiting patients so staff can still skip the currently-called patient. */}
+      {!isRegistrationStaff && user?.role !== 'admin' && (roleScopedNextEntry || calledEntry) && (() => {
+        const bannerEntry = roleScopedNextEntry ?? calledEntry!;
+        const entryStationEnabled = TRIAGE_VISIT_TYPES.includes(bannerEntry.visit_type)
+          ? triageEnabled
+          : treatmentEnabled;
+        return (
+          <Box sx={{ mb: 2 }}>
+            <NextPatientBanner
+              entry={bannerEntry}
+              calledEntry={calledEntry}
+              onSkip={
+                // All clinical staff (including triage doctors and treatment nurses) get Skip.
+                // Only registration staff and admins are excluded.
+                !isRegistrationStaff
+                  ? () => { if (calledEntry) handleSkip(calledEntry); }
+                  : undefined
+              }
+              showActions={(isTriageDoctor || !isRegistrationStaff) && entryStationEnabled}
+            />
+          </Box>
+        );
+      })()}
 
       {/* ── 6. Main Queue Table (Actionable section directly accessible!) ── */}
       <Paper
-        id="queue-table-container"
+        id="queue-table-container" data-walkthrough="queue-table" data-tour="registration-queue-table"
         elevation={0}
         sx={{
           border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-glow, #e2e8f0)',
@@ -955,7 +1179,7 @@ export default function QueueDashboard() {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-            <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: 16, color: isDark ? '#ffffff' : 'var(--text-h)' }}>
+            <Typography data-walkthrough="queue-table-title" sx={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: 16, color: isDark ? '#ffffff' : 'var(--text-h)' }}>
               {queueSectionTitle}
             </Typography>
             <Typography sx={{ fontFamily: "'Poppins', sans-serif", fontSize: 13, color: isDark ? '#94a3b8' : 'var(--text-secondary)', fontWeight: 500 }}>
@@ -963,14 +1187,30 @@ export default function QueueDashboard() {
             </Typography>
           </Box>
           {visibleSecondChanceQueue.length > 0 && (
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.3, bgcolor: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: 1.5, fontSize: 11.5, fontWeight: 500, fontFamily: "'Poppins', sans-serif" }}>
+            <Box
+              onClick={() => document.getElementById('second-chance-panel')?.scrollIntoView({ behavior: 'smooth' })}
+              sx={{
+                display: 'inline-flex', alignItems: 'center', gap: 0.75,
+                px: 1.25, py: 0.3,
+                bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
+                color: isDark ? '#34d399' : '#059669',
+                border: isDark ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid #a7f3d0',
+                borderRadius: 1.5,
+                fontSize: 11.5, fontWeight: 500, fontFamily: "'Poppins', sans-serif",
+                cursor: 'pointer', transition: 'all 0.15s ease',
+                '&:hover': {
+                  bgcolor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#d1fae5',
+                  borderColor: isDark ? '#10b981' : '#6ee7b7',
+                },
+              }}
+            >
               <HugeiconsIcon icon={ArrowTurnBackwardIcon} size={12} strokeWidth={2} />
               {visibleSecondChanceQueue.length} in Second Chance Queue
             </Box>
           )}
         </Box>
 
-        <Box sx={{ mb: 1.5 }}>
+        <Box sx={{ mb: 1.5 }} data-walkthrough="queue-filter-bar" data-tour="queue-filter-bar">
           <QueueFilterBar
             search={search}
             onSearchChange={v => { setSearch(v); setPage(0); }}
@@ -987,6 +1227,7 @@ export default function QueueDashboard() {
                 : stationMode === 'follow_up' ? 'Station 2 · Follow-ups only'
                 : undefined
             }
+            simplifiedStatus={true}
             onClear={() => {
               setSearch('');
               setStatusFilter('');
@@ -1008,13 +1249,22 @@ export default function QueueDashboard() {
           loading={loading}
           skeletonRows={rowsPerPage}
           rowKey={e => e.queue_id}
+          rowId={e => `queue-entry-${e.queue_id}`}
           rowBg={e => {
             if (e.status === 'serving' || e.status === 'in_consultation') return 'rgba(236, 253, 245, 0.75)';
             if (e.status === 'called') return 'rgba(255, 251, 235, 0.85)';
             return undefined;
           }}
           emptyIcon={<WaitIcon sx={{ fontSize: 28, color: 'var(--text-secondary)' }} />}
-          emptyTitle={statusFilter ? `No ${STATUS_CFG[statusFilter as keyof typeof STATUS_CFG]?.label ?? statusFilter} patients` : 'Queue is empty'}
+          emptyTitle={
+            statusFilter
+              ? `No ${
+                  statusFilter === 'cancelled_or_absent'
+                    ? 'Cancelled / Absent'
+                    : STATUS_CFG[statusFilter as keyof typeof STATUS_CFG]?.label ?? statusFilter
+                } patients`
+              : 'Queue is empty'
+          }
           emptySubtitle="Patients added by registration will appear here"
         />
 
@@ -1027,26 +1277,24 @@ export default function QueueDashboard() {
         />
       </Paper>
 
-      {/* ── 7. Today's Progress Bar ── */}
-      <QueueProgressBar stats={stationStats} />
-
-      {/* ── 8. Historical / Reference Archive Panels (Collapsed by default) ── */}
-      {visibleSecondChanceQueue.length > 0 && (
-        <SecondChanceQueuePanel
-          entries={visibleSecondChanceQueue}
-          loading={loading}
-          onRecall={e => setRecallTarget(e)}
-          onAbsent={e => setAbsentTarget(e)}
-          canManage={!isRegistrationStaff && !isTreatmentNurse}
-        />
+      {/* ── 7. Second Chance Queue (Middle) ── */}
+      {!isRegistrationStaff && (
+        <Box data-walkthrough="second-chance-panel">
+          <SecondChanceQueuePanel
+            entries={visibleSecondChanceQueue}
+            loading={loading || actionPending}
+            onRecall={e => setRecallTarget(e)}
+            onReturnToQueue={handleReturnToQueue}
+            onAbsent={e => setAbsentTarget(e)}
+            canManage={!isRegistrationStaff}
+          />
+        </Box>
       )}
 
-      {isTriageDoctor && (
-        <TreatmentTransferArchivePanel
-          entries={transferredToTreatmentEntries}
-          loading={loading}
-        />
-      )}
+      {/* ── 8. Today's Queue Progress (Bottom) ── */}
+      <Box data-walkthrough="queue-progress-bar">
+        <QueueProgressBar stats={stationStats} />
+      </Box>
 
       {isTreatmentNurse && (
         <TreatmentCompletedPanel
@@ -1057,14 +1305,6 @@ export default function QueueDashboard() {
 
       {/* ── Confirmation Dialogs ── */}
 
-      {callTarget && (
-        <ConfirmationDialog variant="confirm" title="Call Patient"
-          message={<>Call <strong>#{callTarget.queue_number} · {callTarget.patient.name}</strong> to the station?</>}
-          confirmLabel="Call Now" cancelLabel="Cancel"
-          onConfirm={() => { handleCall(callTarget); setCallTarget(null); }}
-          onCancel={() => setCallTarget(null)} />
-      )}
-
       {serveTarget && (
         <ConfirmationDialog variant="confirm" title="Patient Responded"
           message={<><strong>#{serveTarget.queue_number} · {serveTarget.patient.name}</strong> has responded. Start serving?</>}
@@ -1074,11 +1314,34 @@ export default function QueueDashboard() {
       )}
 
       {noRespTarget && (
-        <ConfirmationDialog variant="confirm" title="No Response"
-          message={<><strong>#{noRespTarget.queue_number} · {noRespTarget.patient.name}</strong> did not respond. Move to Second Chance Queue and continue with next patient?</>}
-          confirmLabel="Move to Second Chance" cancelLabel="Go Back"
+        <ConfirmationDialog
+          variant={noRespTarget.call_count >= 2 ? "danger" : "confirm"}
+          title={noRespTarget.call_count >= 2 ? "No Response (3/3)" : `No Response (${noRespTarget.call_count + 1}/3)`}
+          message={
+            noRespTarget.call_count >= 2 ? (
+              <>
+                <strong>#{noRespTarget.queue_number} · {noRespTarget.patient.name}</strong> did not respond 3 times.
+                <br /><br />
+                This will mark them as <strong>Requires Registration Check-in</strong> and remove them from active queues. The patient must return to Registration to check in again.
+              </>
+            ) : (
+              <>
+                Move <strong>#{noRespTarget.queue_number} · {noRespTarget.patient.name}</strong> to Second Chance Queue and continue with next patient?
+              </>
+            )
+          }
+          confirmLabel={noRespTarget.call_count >= 2 ? "Mark Requires Check-in" : "Move to Second Chance"}
+          cancelLabel="Go Back"
           onConfirm={() => { handleNoResponse(noRespTarget); setNoRespTarget(null); }}
           onCancel={() => setNoRespTarget(null)} />
+      )}
+
+      {returnTarget && (
+        <ConfirmationDialog variant="confirm" title="Return to Queue"
+          message={<>Return <strong>#{returnTarget.queue_number} · {returnTarget.patient.name}</strong> to the waiting queue?</>}
+          confirmLabel="Return to Queue" cancelLabel="Cancel"
+          onConfirm={() => { handleReturnToQueue(returnTarget); setReturnTarget(null); }}
+          onCancel={() => setReturnTarget(null)} />
       )}
 
       {recallTarget && (
@@ -1159,9 +1422,10 @@ export default function QueueDashboard() {
         <QueuePatientDetailModal
           open={Boolean(selectedQueueId)}
           queueId={selectedQueueId}
-          onClose={() => setSelectedQueueId(null)}
+          onClose={handleClosePatientModal}
           onSaved={() => {
             reload();
+            handleClosePatientModal();
           }}
         />
       )}

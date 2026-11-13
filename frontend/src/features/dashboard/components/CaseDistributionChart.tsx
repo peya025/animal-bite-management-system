@@ -168,7 +168,7 @@ export const CaseDistributionChart: React.FC<CaseDistributionChartProps> = ({
                 }}
               >
                 <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-h, #111827)', lineHeight: 1 }}>
-                  {total.toLocaleString()}
+                  {(total ?? 0).toLocaleString()}
                 </span>
                 <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary, #6b7280)', marginTop: 2 }}>
                   Total Cases

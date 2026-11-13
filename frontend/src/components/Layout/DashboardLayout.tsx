@@ -16,13 +16,14 @@ import {
 import { ROUTES } from '../../shared/config/routes';
 import ThemeToggle from '../../shared/components/ThemeToggle';
 import NotificationButton from '../../shared/components/NotificationButton';
+import { WalkthroughHelpButton } from '../../features/walkthrough';
 
 interface DashboardLayoutProps {
   children: ReactNode;
   pageTitle?: string;
 }
 
-export default function DashboardLayout({ children, pageTitle: _pageTitle }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, pageTitle }: DashboardLayoutProps) {
   const { user, clinic, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -69,16 +70,6 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
     window.dispatchEvent(new CustomEvent('station-changed', { detail: newMode }));
   };
 
-  const handleStationChange = (newMode: 'intake' | 'follow_up' | 'combined') => {
-    applyStationMode(newMode);
-    if (newMode === 'intake' && location.pathname !== ROUTES.QUEUE.DASHBOARD) {
-      navigate(ROUTES.QUEUE.DASHBOARD);
-    } else if (newMode === 'follow_up' && location.pathname !== ROUTES.PATIENTS.NURSE_LIST) {
-      navigate(ROUTES.PATIENTS.NURSE_LIST);
-    } else if (newMode === 'combined' && location.pathname !== ROUTES.QUEUE.DASHBOARD) {
-      navigate(ROUTES.QUEUE.DASHBOARD);
-    }
-  };
 
   // Direct sidebar navigation must always tell the same story as the station control.
   // Combined mode remains available on the queue dashboard for cross-coverage.
@@ -126,14 +117,14 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
   const dynSubtitle = clinic?.subtitle?.trim() || APP_NAME;
 
   return (
-    <DashboardLayoutRoot>
+    <DashboardLayoutRoot data-role={user?.role} className={`role-${user?.role || 'user'}`}>
 
       {/* ── Sidebar ── */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
 
         {/* Brand */}
         <div
-          className="sidebar-header"
+          className="sidebar-header" data-walkthrough="sidebar-clinic-info" data-tour="sidebar-clinic-info"
           style={{
             justifyContent: sidebarOpen ? 'flex-start' : 'center',
             padding: sidebarOpen ? '0 16px' : '0',
@@ -165,39 +156,25 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
               className="sidebar-toggle-collapsed"
               onClick={() => setSidebarOpen(true)}
               title="Expand Sidebar"
+              aria-label="Expand Sidebar"
               type="button"
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
             >
-              <div className="clinic-logo" style={{ width: 34, height: 34 }}>
-                <img
-                  src={clinicLogoSrc}
-                  alt={dynClinicName}
-                  onError={(e) => {
-                    const target = e.currentTarget as HTMLImageElement;
-                    if (target.src !== defaultLogo) {
-                      target.src = defaultLogo;
-                    }
-                  }}
-                />
-              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="12" x2="20" y2="12"></line>
+                <line x1="4" y1="6" x2="20" y2="6"></line>
+                <line x1="4" y1="18" x2="20" y2="18"></line>
+              </svg>
             </button>
           )}
         </div>
 
         {/* Dynamic Sidebar Nav */}
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" data-walkthrough="sidebar-nav" data-tour="sidebar-nav">
           {filteredNav.map((item) => {
             const hasSub = !!item.submenu && item.submenu.length > 0;
             const activeSub = hasSub && isSubmenuActive(item.submenu, location.pathname, filteredNav);
             const activeDirect = !hasSub && item.path && isRouteActive(item.path, location.pathname, filteredNav);
+            const slug = item.label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
             return (
               <div key={item.label}>
@@ -219,6 +196,9 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                   }}
                   className={`nav-item ${activeSub || activeDirect ? 'active' : ''}`}
                   title={!sidebarOpen ? item.label : undefined}
+                  data-nav-item={slug}
+                  data-tour={`nav-item-${slug}`}
+                  data-walkthrough={`nav-item-${slug}`}
                 >
                   <span className="nav-icon">{item.icon}</span>
                   {sidebarOpen && (
@@ -243,23 +223,29 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
 
                 {hasSub && sidebarOpen && expandedMenu === item.label && (
                   <div className="submenu">
-                    {item.submenu!.map((subItem) => (
-                      <button
-                        key={subItem.path}
-                        onClick={() => {
-                          if (subItem.path === ROUTES.QUEUE.DASHBOARD) applyStationMode('intake');
-                          if (subItem.path === ROUTES.PATIENTS.NURSE_LIST) applyStationMode('follow_up');
-                          navigate(subItem.path);
-                          if (subItem.path === ROUTES.INVENTORY.LIST) {
-                            window.dispatchEvent(new CustomEvent('nav-inventory-reset'));
-                          }
-                        }}
-                        className={`submenu-item ${isRouteActive(subItem.path, location.pathname, filteredNav) ? 'active' : ''}`}
-                      >
-                        <span className="submenu-dot"></span>
-                        <span className="submenu-label">{subItem.label}</span>
-                      </button>
-                    ))}
+                    {item.submenu!.map((subItem) => {
+                      const subSlug = subItem.label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                      return (
+                        <button
+                          key={subItem.path}
+                          onClick={() => {
+                            if (subItem.path === ROUTES.QUEUE.DASHBOARD) applyStationMode('intake');
+                            if (subItem.path === ROUTES.PATIENTS.NURSE_LIST) applyStationMode('follow_up');
+                            navigate(subItem.path);
+                            if (subItem.path === ROUTES.INVENTORY.LIST) {
+                              window.dispatchEvent(new CustomEvent('nav-inventory-reset'));
+                            }
+                          }}
+                          className={`submenu-item ${isRouteActive(subItem.path, location.pathname, filteredNav) ? 'active' : ''}`}
+                          data-nav-subitem={subSlug}
+                          data-tour={`nav-subitem-${subSlug}`}
+                          data-walkthrough={`nav-subitem-${subSlug}`}
+                        >
+                          <span className="submenu-dot"></span>
+                          <span className="submenu-label">{subItem.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -268,7 +254,7 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
         </nav>
 
         {sidebarOpen ? (
-          <div className="sidebar-user">
+          <div className="sidebar-user" data-walkthrough="sidebar-user">
             <div className="sidebar-user-avatar">{initials}</div>
             <div className="sidebar-user-info">
               <span className="sidebar-user-name">
@@ -279,7 +265,7 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
               </span>
             </div>
             <button
-              className="sidebar-logout-btn"
+              className="sidebar-logout-btn" data-walkthrough="btn-logout" data-tour="btn-logout"
               onClick={() => setShowLogoutModal(true)}
               title="Logout"
               type="button"
@@ -294,7 +280,7 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
         ) : (
           <div className="sidebar-footer-actions">
             <button
-              className="nav-item nav-item-logout"
+              className="nav-item nav-item-logout" data-walkthrough="btn-logout" data-tour="btn-logout"
               onClick={() => setShowLogoutModal(true)}
               title="Logout"
               type="button"
@@ -319,6 +305,7 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
             {sidebarOpen && (
               <button
                 className="header-toggle"
+                data-walkthrough="header-toggle"
                 onClick={() => setSidebarOpen(false)}
                 title="Collapse Sidebar"
                 type="button"
@@ -330,45 +317,12 @@ export default function DashboardLayout({ children, pageTitle: _pageTitle }: Das
                 </svg>
               </button>
             )}
-
-            {/* Station Switcher for Dual/Multi-Role Nurses */}
-            {isSoloNurse && (
-              <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                background: stationMode === 'follow_up' ? '#eef2ff' : stationMode === 'combined' ? '#f8fafc' : '#ecfdf5',
-                borderRadius: '8px',
-                padding: '3px 8px',
-                border: `1px solid ${stationMode === 'follow_up' ? '#c7d2fe' : stationMode === 'combined' ? 'var(--border-color, #e2e8f0)' : '#a7f3d0'}`,
-                gap: 6,
-              }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Station:
-                </span>
-                <select
-                  value={stationMode}
-                  onChange={(e) => handleStationChange(e.target.value as any)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    outline: 'none',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: stationMode === 'follow_up' ? '#4f46e5' : stationMode === 'combined' ? '#475569' : '#047857',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  <option value="intake">Station 1 · New & Day 0</option>
-                  <option value="follow_up">Station 2 · Follow-up Doses</option>
-                  <option value="combined">Combined · All Active Queues</option>
-                </select>
-              </div>
-            )}
+            {pageTitle && <span className="guide-page-title">{pageTitle}</span>}
           </div>
-          <div className="header-right">
-            <NotificationButton />
-            <ThemeToggle />
+          <div className="header-right" data-walkthrough="header-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span data-walkthrough="header-notifications"><NotificationButton /></span>
+            <span data-walkthrough="header-walkthrough"><WalkthroughHelpButton /></span>
+            <span data-walkthrough="header-theme"><ThemeToggle /></span>
           </div>
         </header>
 

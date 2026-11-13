@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../app/app_theme.dart';
@@ -153,8 +154,8 @@ class _LoginViewState extends State<LoginView> {
   }
 
   // Tier 9 - Google OAuth SSO for mobile patients
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    serverClientId: const String.fromEnvironment(
+  late final GoogleSignIn _googleSignIn = GoogleSignIn(
+    serverClientId: (dotenv.isInitialized ? dotenv.env['GOOGLE_SERVER_CLIENT_ID'] : null) ?? const String.fromEnvironment(
       'GOOGLE_SERVER_CLIENT_ID',
       defaultValue: '',
     ),
@@ -192,7 +193,7 @@ class _LoginViewState extends State<LoginView> {
         final msg = error.toString().replaceFirst('Exception: ', '');
         setState(() => _errorMessage =
           (msg.contains('Unauthorized') || msg.contains('not registered'))
-            ? 'Access Restricted: ' + msg
+            ? 'Access Restricted: $msg'
             : msg,
         );
       }

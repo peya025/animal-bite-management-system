@@ -12,6 +12,8 @@ class BiteIncident extends Model
     protected $table = 'bite_incidents';
     protected $primaryKey = 'bite_id';
 
+    protected $appends = ['exposure_category'];
+
     protected $fillable = [
         'clinic_id',
         'patient_id',
@@ -28,13 +30,19 @@ class BiteIncident extends Model
         'bite_place',
         'site_washed',
         'exposure_type',
+        'exposure_mode',
         'victim_of_exposure',
         'severity',
         'animal_type',
+        'animal_type_others',
         'animal_status',
         'animal_captured',
+        'animal_available',
+        'animal_available_answered',
         'animal_observation_status',
         'site_number',
+        'body_part_exposed',
+        'laterality',
         'wound_description',
         'wound_condition',
         'photo_path',
@@ -44,6 +52,8 @@ class BiteIncident extends Model
         'transferred_at',
         'transfer_reason',
         'remarks',
+        'confirmed_by',
+        'confirmed_at',
         'created_by',
     ];
 
@@ -51,9 +61,12 @@ class BiteIncident extends Model
         'bite_date' => 'date:Y-m-d',
         'site_washed' => 'boolean',
         'animal_captured' => 'boolean',
+        'animal_available' => 'boolean',
+        'animal_available_answered' => 'boolean',
         'is_previously_vaccinated' => 'boolean',
         'external_proof_reviewed_at' => 'datetime',
         'transferred_at' => 'datetime',
+        'confirmed_at' => 'datetime',
     ];
 
     public function isReExposure(): bool
@@ -77,9 +90,106 @@ class BiteIncident extends Model
         return $this->status === 'transferred_out' || !empty($this->transferred_to_facility);
     }
 
+    /**
+     * Dynamically resolve the clinical episode status for Bite Cases Summary and tracking.
+     */
+    public function resolveStatus(): string
+    {
+        // 1. Transferred Out / Referred
+        if ($this->isTransferredOut()) {
+            return 'transferred_out';
+        }
+        if ($this->relationLoaded('treatmentRecords') && $this->treatmentRecords->contains(function ($r) {
+            return $r->outcome === 'Transferred/Referred'
+                || (!empty($r->referred_to) && \App\Models\TreatmentRecord::isExternalReferralDestination($r->referred_to))
+                || (!empty($r->actions_taken) && str_contains(strtolower($r->actions_taken), 'transferred/referred'));
+        })) {
+            return 'transferred_out';
+        }
+
+        // 2. Awaiting Assessment
+        if ($this->isAwaitingAssessment()) {
+            return 'awaiting_assessment';
+        }
+
+        $records = $this->relationLoaded('treatmentRecords') ? $this->treatmentRecords : $this->treatmentRecords()->get();
+
+        $consultationRecord = $records->first(function ($r) {
+            return $r->dose_number === null
+                && $r->status === 'completed'
+                && (!empty($r->nature_of_visit) || !empty($r->diagnosis) || !empty($r->chief_complaints));
+        });
+
+        if (empty($this->confirmed_at) && !$consultationRecord) {
+            return 'awaiting_assessment';
+        }
+
+        // Check if any dose or nurse prophylaxis was administered
+        $hasReceivedDose = $records->contains(function ($r) {
+            return $r->dose_number !== null
+                && ($r->treatment_date || $r->administered_at || in_array($r->status, ['administered', 'completed'], true));
+        });
+        $hasReceivedProphylaxis = $records->contains(function ($r) {
+            return (!empty($r->medication_given) || in_array((int) $r->dose_number, [200, 201, 300, 400, 401], true))
+                && $r->status === 'completed';
+        });
+
+        // 3. Completed – No PEP Required (Category I)
+        if ($this->status === 'completed_no_pep') {
+            return 'completed_no_pep';
+        }
+        $category = $this->exposure_category ?? $this->bite_category;
+        $severity = strtolower(trim((string) ($this->severity ?? '')));
+        $isCategory1 = in_array($category, ['I', 'Category I', '1'], true)
+            || in_array($severity, ['minor', 'category i', 'i'], true);
+
+        $patient = $this->relationLoaded('patient') ? $this->patient : $this->patient()->first();
+        if ($isCategory1) {
+            if ($patient && $patient->is_category1_no_treatment) {
+                return 'completed_no_pep';
+            }
+            $plan = $this->relationLoaded('treatmentPlan') ? $this->treatmentPlan : $this->treatmentPlan()->first();
+            $isPlanNoVaccine = $plan && in_array($plan->plan_type, ['no_vaccine', 'none'], true);
+            if ($consultationRecord && ($isPlanNoVaccine || $this->status === 'completed') && !$hasReceivedDose && !$hasReceivedProphylaxis) {
+                $pOrders = is_array($consultationRecord->prophylaxis_orders) ? $consultationRecord->prophylaxis_orders : [];
+                $tetCat = strtolower(trim((string) ($pOrders['tetanus_category'] ?? '')));
+                $hasTetanus = in_array($tetCat, ['ats', 'tt', 'ats_tt'], true) && (
+                    (!empty($pOrders['tetanus_vaccine']) && $pOrders['tetanus_vaccine'] !== 'none') ||
+                    (!empty($pOrders['tetanus_passive']) && $pOrders['tetanus_passive'] !== 'none')
+                );
+                $hasRig = !empty($pOrders['rig']) && $pOrders['rig'] !== 'none';
+                if (!$hasTetanus && !$hasRig) {
+                    return 'completed_no_pep';
+                }
+            }
+        }
+
+        // 4. Awaiting Treatment
+        if ($consultationRecord && !$hasReceivedDose && !$hasReceivedProphylaxis && $this->status !== 'completed' && $this->status !== 'cancelled') {
+            return 'awaiting_treatment';
+        }
+
+        // 5. Completed
+        if ($this->status === 'completed') {
+            return 'completed';
+        }
+
+        // 6. Active
+        if ($this->status === 'active' || $hasReceivedDose || $hasReceivedProphylaxis) {
+            return 'active';
+        }
+
+        return $this->status ?: 'active';
+    }
+
     public function externalProofReviewer()
     {
         return $this->belongsTo(User::class, 'external_proof_reviewed_by');
+    }
+
+    public function confirmedBy()
+    {
+        return $this->belongsTo(User::class, 'confirmed_by');
     }
 
     /**
@@ -154,7 +264,7 @@ class BiteIncident extends Model
      */
     public function consultationRecords()
     {
-        return $this->treatmentRecords()->whereNull('dose_number');
+        return $this->treatmentRecords()->whereNull('dose_number')->whereNull('medication_given');
     }
 
     /** Vaccine administrations and scheduled doses for this episode. */
@@ -166,6 +276,12 @@ class BiteIncident extends Model
     public function vaccinationSchedules()
     {
         return $this->hasMany(VaccinationSchedule::class, 'bite_id', 'bite_id');
+    }
+
+    /** Scheduled follow-up visits for this bite episode. */
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class, 'bite_id', 'bite_id');
     }
 
     public function queues()
@@ -190,9 +306,6 @@ class BiteIncident extends Model
 
     public function getBiteCategoryAttribute(): string
     {
-        if ($this->relationLoaded('intake') && $this->intake && !empty($this->intake->bite_category)) {
-            return (string) $this->intake->bite_category;
-        }
         $sev = strtolower(trim((string) ($this->severity ?? '')));
         if (in_array($sev, ['severe', 'category iii', 'iii', '3'], true)) {
             return 'III';
@@ -200,7 +313,26 @@ class BiteIncident extends Model
         if (in_array($sev, ['minor', 'category i', 'i', '1'], true)) {
             return 'I';
         }
-        return 'II';
+        if (in_array($sev, ['moderate', 'category ii', 'ii', '2'], true)) {
+            return 'II';
+        }
+        // Legacy clinic-entered intakes may already contain a category. New
+        // mobile submissions cannot set this field.
+        if ($this->relationLoaded('intake') && $this->intake && !empty($this->intake->bite_category)) {
+            return (string) $this->intake->bite_category;
+        }
+        return 'Unassessed';
+    }
+
+    public function getExposureCategoryAttribute(): ?string
+    {
+        $category = $this->bite_category;
+        return in_array($category, ['I', 'II', 'III'], true) ? $category : null;
+    }
+
+    public function getPlaceOfExposureAttribute(): ?string
+    {
+        return $this->bite_place ?? ($this->relationLoaded('intake') ? $this->intake?->bite_place : null);
     }
 
     public function getRigTypeAttribute(): ?string
@@ -236,15 +368,11 @@ class BiteIncident extends Model
      */
     public function getWhoCategory(): string
     {
-        if ($this->exposure_type === 'lick' && !$this->site_washed) {
-            return 'Category I'; // No vaccination needed
-        }
-        
-        if ($this->exposure_type === 'scratch' || 
-            ($this->exposure_type === 'bite' && $this->severity === 'minor')) {
-            return 'Category II'; // Vaccination + wound treatment
-        }
-        
-        return 'Category III'; // Vaccination + immunoglobulin + wound treatment
+        return match ($this->severity) {
+            'minor' => 'Category I',
+            'moderate' => 'Category II',
+            'severe' => 'Category III',
+            default => 'Unassessed',
+        };
     }
 }

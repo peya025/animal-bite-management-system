@@ -1,6 +1,7 @@
 <?php
 
-use App\Http\Controllers\PrintController;
+use App\Http\Controllers\Reports\PrintController;
+use App\Http\Controllers\Support\PublicStorageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -12,3 +13,6 @@ Route::prefix('print/reports')->group(function () {
     Route::get('/monthly', [PrintController::class, 'monthlyReport']);
     Route::get('/cohort', [PrintController::class, 'cohortReport']);
 });
+
+// Fallback storage route in case symlink (storage:link) is missing or unsupported on local OS
+Route::get('storage/{path}', [PublicStorageController::class, 'serve'])->where('path', '.*');

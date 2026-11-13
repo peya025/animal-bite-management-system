@@ -1,4 +1,5 @@
 import api from '../../../services/api';
+import { isProphylaxisInventoryName } from '../../../shared/types/prophylaxis';
 
 // ─── Types ────────────────────────────────────────────────────
 export interface VaccineBatch {
@@ -103,7 +104,8 @@ export async function useVaccine(data: UseVaccineRequest): Promise<UseVaccineRes
  */
 export async function getVaccineNames(): Promise<string[]> {
   const response = await api.get('/inventory/vaccine-names');
-  return response.data.vaccine_names || [];
+  const names: string[] = response.data?.vaccine_names || [];
+  return names.filter((name: string) => !isProphylaxisInventoryName(name));
 }
 
 /**

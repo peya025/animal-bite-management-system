@@ -42,6 +42,13 @@ class TagoloanTreatmentCard extends Model
         return $this->belongsTo(Clinic::class, 'clinic_id', 'id');
     }
 
+    // The stored card value is only a fallback for legacy records without an
+    // assessed incident. Form 2's incident category always takes precedence.
+    public function getExposureCategoryAttribute($value): ?string
+    {
+        return $this->biteIncident?->exposure_category ?? $value;
+    }
+
     public function patient()
     {
         return $this->belongsTo(Patient::class, 'patient_id', 'patient_id');

@@ -176,17 +176,21 @@
     </style>
 </head>
 <body>
-
-    <div class="no-print no-print-bar">
-        <span><strong>ABTC Monthly Report</strong> &mdash; NRPCP DOH Form ({{ $month_label }})</span>
-        <button class="btn-print" onclick="window.print()">Print Report</button>
+    {{-- Non-printable print toolbar --}}
+    <div class="no-print-bar no-print">
+        <button class="btn-print" onclick="window.print()">🖨️ Print Report</button>
     </div>
 
     <div class="page-container">
         <!-- Purple Top Banner matching Image 1 -->
-        <div class="header-banner">
-            <h2>National Rabies Prevention and Control Program</h2>
-            <h3>Department of Health</h3>
+        <div class="header-banner" style="display: flex; align-items: center; justify-content: center; gap: 16px;">
+            @include('prints.partials.logo', ['url' => $left_print_logo_url ?? null, 'side' => 'Left', 'size' => 56])
+            <div style="text-align: center;">
+                <h2>National Rabies Prevention and Control Program</h2>
+                <h3>Department of Health &bull; {{ $province }} &bull; {{ $municipality }}</h3>
+                <h3 style="font-size: 11pt; font-weight: bold; margin-top: 2px;">{{ $abtc }}</h3>
+            </div>
+            @include('prints.partials.logo', ['url' => $right_print_logo_url ?? null, 'side' => 'Right', 'size' => 56])
         </div>
 
         <!-- Meta Line -->
@@ -300,13 +304,5 @@
             Page 1 of 1
         </div>
     </div>
-
-    <script>
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                window.print();
-            }, 350);
-        });
-    </script>
 </body>
 </html>

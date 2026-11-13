@@ -7,6 +7,9 @@ interface PrescribedVaccineSectionProps {
   prescribedVaccineType: string;
   medicationTreatment: string;
   isFormDisabled: boolean;
+  isCategory1?: boolean;
+  isRequired?: boolean;
+  error?: string;
   vaccineNames: string[];
   vaccineStockMap: VaccineStockMap;
   onChange: (vaccineType: string) => void;
@@ -16,11 +19,18 @@ export default function PrescribedVaccineSection({
   prescribedVaccineType,
   medicationTreatment,
   isFormDisabled,
+  isCategory1 = false,
+  isRequired = false,
+  error,
   vaccineNames,
   vaccineStockMap,
   onChange,
 }: PrescribedVaccineSectionProps) {
   const stock = prescribedVaccineType ? vaccineStockMap[prescribedVaccineType] : undefined;
+  const displayOptions = [...vaccineNames];
+  if (prescribedVaccineType && !displayOptions.includes(prescribedVaccineType)) {
+    displayOptions.unshift(prescribedVaccineType);
+  }
 
   return (
     <div className="fm-section">
@@ -30,7 +40,7 @@ export default function PrescribedVaccineSection({
         <div className="fm-field fm-grid--full">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
             <label className="fm-label" style={{ margin: 0 }}>
-              Prescribed PEP Vaccine
+              Prescribed PEP Vaccine {isRequired && <span className="fm-required" style={{ color: '#ef4444' }}>*</span>}
             </label>
             <span
               style={{
@@ -48,7 +58,24 @@ export default function PrescribedVaccineSection({
             >
               <HugeiconsIcon icon={Stethoscope02Icon} size={12} strokeWidth={2.2} /> Rx — Doctor's Order
             </span>
-            {isFormDisabled && prescribedVaccineType && (
+            {isCategory1 ? (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  background: '#fef3c7',
+                  color: '#92400e',
+                  borderRadius: 99,
+                  padding: '2px 8px',
+                  border: '1px solid #fde68a',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <HugeiconsIcon icon={HugeLockIcon} size={12} strokeWidth={2.2} /> Locked · Category I (No PEP vaccine indicated)
+              </span>
+            ) : isFormDisabled && prescribedVaccineType ? (
               <span
                 style={{
                   fontSize: 11,
@@ -65,28 +92,41 @@ export default function PrescribedVaccineSection({
               >
                 <HugeiconsIcon icon={HugeLockIcon} size={12} strokeWidth={2.2} /> Locked
               </span>
-            )}
+            ) : null}
           </div>
-          <span className="registration-field-hint" style={{ marginBottom: 8, display: 'block' }}>
-            Select the vaccine to prescribe for PEP. This will pre-fill and lock the nurse's Form 3 vaccine selection.
+          <span className="registration-field-hint" style={{ marginBottom: 8, display: 'block', color: isCategory1 ? '#b45309' : undefined, fontWeight: isCategory1 ? 600 : undefined }}>
+            {isCategory1
+              ? 'Anti-rabies PEP is not indicated for Category I exposures. If rabies vaccination is clinically warranted upon review, update the Exposure Category above (or document pre-exposure vaccination separately).'
+              : 'Select the vaccine to prescribe for PEP. This will pre-fill and lock the nurse\'s Form 3 vaccine selection.'}
           </span>
 
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-            <select
-              className="fm-select"
-              name="prescribed_vaccine_type"
-              value={prescribedVaccineType}
-              onChange={(e) => onChange(e.target.value)}
-              disabled={isFormDisabled}
-              style={{ flex: 1, minWidth: 260 }}
-            >
-              <option value="">— No PEP vaccine prescribed (Category I only) —</option>
-              {vaccineNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+            <div style={{ flex: 1, minWidth: 260 }}>
+              <select
+                id="field-prescribed_vaccine_type"
+                className={`fm-select ${error ? 'fm-select--error' : ''}`}
+                name="prescribed_vaccine_type"
+                value={isCategory1 ? '' : prescribedVaccineType}
+                onChange={(e) => onChange(e.target.value)}
+                disabled={isFormDisabled || isCategory1}
+                style={{
+                  width: '100%',
+                  border: error ? '1px solid #ef4444' : undefined,
+                }}
+              >
+                <option value="">— No PEP vaccine prescribed —</option>
+                {displayOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              {error && (
+                <span className="fm-error-text" style={{ color: '#ef4444', fontSize: 12, marginTop: 4, display: 'block' }}>
+                  {error}
+                </span>
+              )}
+            </div>
 
             {/* Inline stock chip */}
             {prescribedVaccineType && stock && (() => {

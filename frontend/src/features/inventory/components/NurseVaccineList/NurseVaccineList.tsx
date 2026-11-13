@@ -6,11 +6,9 @@ import {
   FormControl,
   Grid,
   InputAdornment,
-  InputLabel,
   MenuItem,
   Paper,
   Select,
-  Stack,
   Table,
   TableBody,
   TableCell,
@@ -19,7 +17,6 @@ import {
   TablePagination,
   TableRow,
   TextField,
-  Tooltip,
   Typography,
   CircularProgress,
   Alert,
@@ -27,9 +24,7 @@ import {
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  Refresh as RefreshIcon,
   Person as PersonIcon,
-  Vaccines as VaccineIcon,
   CalendarToday as CalendarIcon,
   AccessTime as TimeIcon,
   MedicalServices as MedicalIcon,
@@ -107,7 +102,32 @@ export default function NurseVaccineList() {
   const [doseFilter, setDoseFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [quickDate, setQuickDate] = useState<'all' | 'today' | 'week'>('all');
+  const [quickDate, setQuickDate] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
+  const filterPrimaryText = isDark ? '#f8fafc' : '#111827';
+  const filterSecondaryText = isDark ? '#94a3b8' : '#64748b';
+  const hasFilters = Boolean(
+    search || vaccineFilter !== 'all' || doseFilter !== 'all' || dateFrom || dateTo,
+  );
+  const filterFieldSx = {
+    '& .MuiOutlinedInput-root': {
+      height: 40,
+      bgcolor: isDark ? 'rgba(15, 23, 42, 0.65)' : '#ffffff',
+      borderRadius: 2,
+      '& fieldset': { borderColor: isDark ? '#334155' : '#e2e8f0' },
+      '&:hover fieldset': { borderColor: '#10b981' },
+      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1 },
+    },
+    '& .MuiOutlinedInput-input, & .MuiSelect-select': {
+      fontSize: 12.5,
+      color: filterPrimaryText,
+      fontFamily: "'Poppins', sans-serif",
+    },
+    '& .MuiInputLabel-root': {
+      fontSize: 12.5,
+      color: filterSecondaryText,
+      fontFamily: "'Poppins', sans-serif",
+    },
+  };
 
   // Available vaccines for filter dropdown
   const [availableVaccines, setAvailableVaccines] = useState<string[]>([]);
@@ -163,18 +183,22 @@ export default function NurseVaccineList() {
   }, [fetchRecords]);
 
   // Quick Date presets
-  const handleQuickDate = (type: 'all' | 'today' | 'week') => {
+  const handleQuickDate = (type: 'all' | 'today' | 'week' | 'month') => {
     setQuickDate(type);
     setPage(0);
-    const todayStr = new Date().toISOString().split('T')[0];
+    const toLocalDateValue = (date: Date) => {
+      const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+      return localDate.toISOString().split('T')[0];
+    };
+    const todayStr = toLocalDateValue(new Date());
 
     if (type === 'today') {
       setDateFrom(todayStr);
       setDateTo(todayStr);
-    } else if (type === 'week') {
+    } else if (type === 'week' || type === 'month') {
       const d = new Date();
-      d.setDate(d.getDate() - 7);
-      setDateFrom(d.toISOString().split('T')[0]);
+      d.setDate(d.getDate() - (type === 'week' ? 6 : 29));
+      setDateFrom(toLocalDateValue(d));
       setDateTo(todayStr);
     } else {
       setDateFrom('');
@@ -209,38 +233,7 @@ export default function NurseVaccineList() {
   return (
     <Box sx={{ width: '100%' }}>
       {/* ── Header & Stat Cards ── */}
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-          <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 1 }}>
-              <VaccineIcon sx={{ color: '#0284c7', fontSize: 24 }} />
-              Nurse Vaccine Administration List
-            </Typography>
-            <Typography sx={{ fontSize: 13, color: '#64748b', mt: 0.25 }}>
-              Track patients who received rabies PEP vaccines, dose progression, administering staff, and vial deductions (1/3 vial shared tracking).
-            </Typography>
-          </Box>
-
-          <Button
-            variant="outlined"
-            onClick={fetchRecords}
-            disabled={loading}
-            startIcon={<RefreshIcon sx={{ fontSize: 16, ...(loading && { animation: 'spin 0.8s linear infinite' }) }} />}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: 13,
-              borderRadius: 2,
-              px: 2,
-              borderColor: '#d1d5db',
-              color: '#374151',
-              '&:hover': { borderColor: '#0284c7', color: '#0284c7', bgcolor: '#f0f9ff' },
-            }}
-          >
-            {loading ? 'Refreshing…' : 'Refresh Log'}
-          </Button>
-        </Box>
-
+      <Box sx={{ mb: 3 }} data-walkthrough="vax-tx-summary-cards" data-tour="vax-tx-summary-cards">
         {/* ── Summary Stats ── */}
         <Grid container spacing={2}>
           {[
@@ -260,49 +253,54 @@ export default function NurseVaccineList() {
             },
             {
               id: 'patients',
-              label: 'Unique Patients Served',
+              label: 'Total Patients Served',
               value: stats.unique_patients,
               icon: <PersonIcon sx={{ fontSize: 20 }} />,
               color: '#f59e0b',
             },
-          ].map((c) => (
-            <Grid size={{ xs: 12, sm: 4 }} key={c.id}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: '18px 20px',
-                  borderRadius: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 2,
-                  minHeight: 100,
-                  position: 'relative',
-                  overflow: 'hidden',
-                  cursor: 'default',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  ...(isDark
-                    ? {
-                        background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
-                        border: '1px solid rgba(163, 230, 53, 0.3)',
-                        boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2)',
-                        '&:hover': {
-                          transform: 'translateY(-3px)',
-                          borderColor: 'rgba(163, 230, 53, 0.55)',
-                          boxShadow: '0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35), inset 0 1px 3px 0 rgba(255, 255, 255, 0.3)',
-                        },
-                      }
-                    : {
-                        background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
-                        border: '1px solid rgba(16, 185, 129, 0.32)',
-                        boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
-                        '&:hover': {
-                          transform: 'translateY(-3px)',
-                          borderColor: 'rgba(16, 185, 129, 0.55)',
-                          boxShadow: '0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 1)',
-                        },
-                      }),
-                }}
-              >
+          ].map((c) => {
+            const hoverShadow = isDark
+              ? c.color === '#f59e0b'
+                ? '0 8px 24px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.25)'
+                : '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+              : c.color === '#f59e0b'
+              ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
+              : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
+
+            return (
+              <Grid size={{ xs: 12, sm: 4 }} key={c.id}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: '18px 20px',
+                    borderRadius: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    minHeight: 100,
+                    position: 'relative',
+                    overflow: 'hidden',
+                    cursor: 'default',
+                    transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    ...(isDark
+                      ? {
+                          background: '#111827',
+                          border: '1px solid rgba(16, 185, 129, 0.25)',
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                          '&:hover': {
+                            boxShadow: hoverShadow,
+                          },
+                        }
+                      : {
+                          background: '#ffffff',
+                          border: '1px solid rgba(16, 185, 129, 0.25)',
+                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                          '&:hover': {
+                            boxShadow: hoverShadow,
+                          },
+                        }),
+                  }}
+                >
                 <Box
                   sx={{
                     width: 44,
@@ -330,25 +328,31 @@ export default function NurseVaccineList() {
                 </Box>
               </Paper>
             </Grid>
-          ))}
+            );
+          })}
         </Grid>
       </Box>
 
       {/* ── Filter Bar ── */}
       <Paper
+        data-walkthrough="vax-tx-filter-bar"
+        data-tour="vax-tx-filter-bar"
         elevation={0}
         sx={{
-          p: 2,
-          mb: 3,
-          borderRadius: '20px',
-          border: isDark ? '1px solid rgba(163, 230, 53, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
-          bgcolor: isDark ? 'rgba(14, 24, 18, 0.85)' : '#ffffff',
-          boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.4)' : '0 2px 12px rgba(16,185,129,0.06)',
+          p: 1.25,
+          mb: 1.5,
+          borderRadius: 2.5,
+          border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+          bgcolor: isDark ? '#111827' : '#ffffff',
+          fontFamily: "'Poppins', sans-serif",
+          '& .MuiInputBase-root, & .MuiInputBase-input, & .MuiInputLabel-root, & .MuiSelect-select, & .MuiButton-root': {
+            fontFamily: "'Poppins', sans-serif",
+          },
         }}
       >
-        <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
+        <Grid container spacing={1} sx={{ alignItems: 'center' }}>
           {/* Patient Search */}
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 2.75 }}>
             <TextField
               fullWidth
               size="small"
@@ -362,31 +366,28 @@ export default function NurseVaccineList() {
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
-                      <SearchIcon sx={{ color: isDark ? '#a7f3d0' : '#94a3b8', fontSize: 19 }} />
+                      <SearchIcon sx={{ color: filterSecondaryText, fontSize: 17 }} />
                     </InputAdornment>
                   ),
-                  sx: { fontSize: 13, borderRadius: '8px' },
                 },
               }}
+              sx={filterFieldSx}
             />
           </Grid>
 
           {/* Vaccine Filter */}
-          <Grid size={{ xs: 6, sm: 3, md: 2.5 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: 13 }}>Vaccine</InputLabel>
+          <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+            <FormControl fullWidth size="small" sx={filterFieldSx}>
               <Select
                 value={vaccineFilter}
-                label="Vaccine"
                 onChange={(e) => {
                   setVaccineFilter(e.target.value);
                   setPage(0);
                 }}
-                sx={{ fontSize: 13, borderRadius: '8px' }}
               >
-                <MenuItem value="all" sx={{ fontSize: 13 }}>All Vaccines</MenuItem>
+                <MenuItem value="all" sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>All Vaccines</MenuItem>
                 {availableVaccines.map((v) => (
-                  <MenuItem key={v} value={v} sx={{ fontSize: 13 }}>
+                  <MenuItem key={v} value={v} sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>
                     {v}
                   </MenuItem>
                 ))}
@@ -395,20 +396,17 @@ export default function NurseVaccineList() {
           </Grid>
 
           {/* Dose Filter */}
-          <Grid size={{ xs: 6, sm: 3, md: 2 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: 13 }}>Dose</InputLabel>
+          <Grid size={{ xs: 6, sm: 3, md: 1.5 }}>
+            <FormControl fullWidth size="small" sx={filterFieldSx}>
               <Select
                 value={doseFilter}
-                label="Dose"
                 onChange={(e) => {
                   setDoseFilter(e.target.value);
                   setPage(0);
                 }}
-                sx={{ fontSize: 13, borderRadius: '8px' }}
               >
                 {DOSE_OPTIONS.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: 13 }}>
+                  <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>
                     {opt.label}
                   </MenuItem>
                 ))}
@@ -417,122 +415,103 @@ export default function NurseVaccineList() {
           </Grid>
 
           {/* Date Range: From */}
-          <Grid size={{ xs: 6, sm: 3, md: 1.75 }}>
+          <Grid size={{ xs: 6, sm: 3, md: 1.5 }}>
             <TextField
               fullWidth
               size="small"
               type="date"
-              label="Date from"
               value={dateFrom}
               onChange={(e) => {
                 setDateFrom(e.target.value);
-                setQuickDate('all');
+                setQuickDate('custom');
                 setPage(0);
               }}
-              slotProps={{ inputLabel: { shrink: true }, input: { style: { fontSize: 12.5 } } }}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+              slotProps={{
+                htmlInput: { 'aria-label': 'Date from' },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start" sx={{ mr: 0.5 }}>
+                      <Typography sx={{ fontSize: 11.5, color: filterSecondaryText, fontFamily: "'Poppins', sans-serif" }}>
+                        From
+                      </Typography>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={filterFieldSx}
             />
           </Grid>
 
           {/* Date Range: To */}
-          <Grid size={{ xs: 6, sm: 3, md: 1.75 }}>
+          <Grid size={{ xs: 6, sm: 3, md: 1.5 }}>
             <TextField
               fullWidth
               size="small"
               type="date"
-              label="Date to"
               value={dateTo}
               onChange={(e) => {
                 setDateTo(e.target.value);
-                setQuickDate('all');
+                setQuickDate('custom');
                 setPage(0);
               }}
-              slotProps={{ inputLabel: { shrink: true }, input: { style: { fontSize: 12.5 } } }}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+              slotProps={{
+                htmlInput: { 'aria-label': 'Date to' },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start" sx={{ mr: 0.5 }}>
+                      <Typography sx={{ fontSize: 11.5, color: filterSecondaryText, fontFamily: "'Poppins', sans-serif" }}>
+                        To
+                      </Typography>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={filterFieldSx}
             />
+          </Grid>
+
+          {/* Quick Date Preset */}
+          <Grid size={{ xs: 6, sm: 3, md: 1.75 }}>
+            <FormControl fullWidth size="small" sx={filterFieldSx}>
+              <Select
+                value={quickDate}
+                onChange={(e) => {
+                  const value = e.target.value as 'all' | 'today' | 'week' | 'month';
+                  handleQuickDate(value);
+                }}
+              >
+                {quickDate === 'custom' && (
+                  <MenuItem value="custom" disabled sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>
+                    Custom Range
+                  </MenuItem>
+                )}
+                <MenuItem value="all" sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>All Time</MenuItem>
+                <MenuItem value="today" sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>Today</MenuItem>
+                <MenuItem value="week" sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>Last 7 Days</MenuItem>
+                <MenuItem value="month" sx={{ fontSize: 13, fontFamily: "'Poppins', sans-serif" }}>Last 30 Days</MenuItem>
+              </Select>
+            </FormControl>
           </Grid>
 
           {/* Clear / Reset Filter Button */}
           <Grid size={{ xs: 12, sm: 6, md: 1 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Tooltip title="Reset all filters">
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={handleResetFilters}
-                startIcon={<RefreshIcon sx={{ fontSize: 15 }} />}
-                sx={{
-                  height: 38,
-                  minWidth: 0,
-                  px: 1.5,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  borderRadius: '8px',
-                  borderColor: isDark ? 'rgba(163, 230, 53, 0.3)' : '#e2e8f0',
-                  color: isDark ? '#a7f3d0' : '#64748b',
-                  '&:hover': {
-                    borderColor: '#10b981',
-                    color: '#10b981',
-                    bgcolor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4',
-                  },
-                }}
-              >
-                Reset
-              </Button>
-            </Tooltip>
+            <Button
+              disabled={!hasFilters}
+              onClick={handleResetFilters}
+              sx={{
+                minWidth: 0,
+                px: 1,
+                color: filterSecondaryText,
+                textTransform: 'none',
+                fontSize: 11.5,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Clear filters
+            </Button>
           </Grid>
         </Grid>
 
-        {/* Quick Date Chips */}
-        <Stack direction="row" spacing={1} sx={{ mt: 1.5, alignItems: 'center' }}>
-          <Typography sx={{ fontSize: 11.5, color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600 }}>
-            Quick Date:
-          </Typography>
-          <Chip
-            label="All Time"
-            size="small"
-            clickable
-            onClick={() => handleQuickDate('all')}
-            sx={{
-              height: 24,
-              fontSize: 11,
-              fontWeight: 600,
-              borderRadius: '6px',
-              bgcolor: quickDate === 'all' && !dateFrom && !dateTo ? (isDark ? 'rgba(59, 130, 246, 0.25)' : '#0284c7') : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9'),
-              color: quickDate === 'all' && !dateFrom && !dateTo ? (isDark ? '#93c5fd' : '#ffffff') : (isDark ? '#94a3b8' : '#475569'),
-              border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-            }}
-          />
-          <Chip
-            label="Today"
-            size="small"
-            clickable
-            onClick={() => handleQuickDate('today')}
-            sx={{
-              height: 24,
-              fontSize: 11,
-              fontWeight: 600,
-              borderRadius: '6px',
-              bgcolor: quickDate === 'today' ? (isDark ? 'rgba(59, 130, 246, 0.25)' : '#0284c7') : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9'),
-              color: quickDate === 'today' ? (isDark ? '#93c5fd' : '#ffffff') : (isDark ? '#94a3b8' : '#475569'),
-              border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-            }}
-          />
-          <Chip
-            label="Last 7 Days"
-            size="small"
-            clickable
-            onClick={() => handleQuickDate('week')}
-            sx={{
-              height: 24,
-              fontSize: 11,
-              fontWeight: 600,
-              borderRadius: '6px',
-              bgcolor: quickDate === 'week' ? (isDark ? 'rgba(59, 130, 246, 0.25)' : '#0284c7') : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9'),
-              color: quickDate === 'week' ? (isDark ? '#93c5fd' : '#ffffff') : (isDark ? '#94a3b8' : '#475569'),
-              border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-            }}
-          />
-        </Stack>
       </Paper>
 
       {error && (
@@ -543,6 +522,8 @@ export default function NurseVaccineList() {
 
       {/* ── Data Table ── */}
       <Paper
+        data-walkthrough="vax-tx-table"
+        data-tour="vax-tx-table"
         elevation={0}
         sx={{
           borderRadius: '20px',

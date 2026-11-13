@@ -381,7 +381,7 @@ export default function DohExposureRegistryTab({ filters }: Props) {
                       <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', textAlign: 'left', fontWeight: 500 }}>
                         {row.inclusive_dates}
                       </td>
-                      <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px' }}>{row.human_population.toLocaleString()}</td>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px' }}>{row.human_population != null ? row.human_population.toLocaleString() : '—'}</td>
                       <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px' }}>{row.male}</td>
                       <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px' }}>{row.female}</td>
                       <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', fontWeight: 700 }}>{row.total}</td>
@@ -419,7 +419,7 @@ export default function DohExposureRegistryTab({ filters }: Props) {
                     {reportData.totals.inclusive_dates}
                   </td>
                   <td style={{ border: '1px solid #94a3b8', padding: '6px 4px' }}>
-                    {reportData.totals.human_population.toLocaleString()}
+                    {reportData.totals?.human_population != null ? reportData.totals.human_population.toLocaleString() : '—'}
                   </td>
                   <td style={{ border: '1px solid #94a3b8', padding: '6px 4px' }}>{reportData.totals.male}</td>
                   <td style={{ border: '1px solid #94a3b8', padding: '6px 4px' }}>{reportData.totals.female}</td>

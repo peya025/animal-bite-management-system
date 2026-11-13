@@ -1,15 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { normalizeProphylaxisOrders, getTetanusCategoryFromOrders } from '../../../shared/types/prophylaxis';
+import type { ProphylaxisOrders, ProphylaxisStock } from '../../../shared/types/prophylaxis';
 import type {
   TreatmentFormData,
-  NewBiteData,
   VaccineStockMap,
   GeneralTreatmentFormProps,
   ConsultationTypesMap,
   TreatmentRecordPayload,
+  PatientReportedIntake,
 } from '../types/consultation.types';
 import {
   INITIAL_FORM_DATA,
-  INITIAL_NEW_BITE_DATA,
   ANIMAL_BITE_DIAGNOSES,
   PERTINENT_HISTORY_OPTIONS,
 } from '../constants/consultation.constants';
@@ -21,14 +22,21 @@ import {
   resolveHealthCareProvider,
   syncChecklistWithText,
   scrollToFirstError,
+  isValidFourDigitYearDate,
+  cleanPurok,
 } from '../utils/consultationHelpers';
+import { useAddressLocation } from '../../patients/hooks/useAddressLocation';
 import {
   fetchVaccineNames,
   fetchInventoryStock,
+  fetchProphylaxisStock,
   fetchPatientTreatmentRecord,
   submitTreatmentRecord,
   submitAddendumNote,
 } from '../services/consultationService';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import { getManilaCurrentDateTime } from '../../../shared/utils';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 
 export function useGeneralTreatmentForm({
   open,
@@ -39,16 +47,58 @@ export function useGeneralTreatmentForm({
   inline = false,
   hideConsultationType,
 }: GeneralTreatmentFormProps) {
+  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
   const userRole = getCurrentUserRole();
   const shouldHideConsultationType =
     hideConsultationType ?? (userRole === 'triage' || userRole === 'doctor');
   const selectedIncident = entry?.incident || entry?.bite_incident || entry?.biteIncident;
 
+  const entryRef = useRef(entry);
+  entryRef.current = entry;
+
+  // Build a stable draft key from patient + bite so each clinical episode
+  // has its own isolated draft.
+  const patientId = entry?.patient?.patient_id ?? entry?.patient?.id ?? null;
+  const biteId =
+    entry?.bite_id ??
+    entry?.incident?.bite_id ??
+    entry?.bite_incident?.bite_id ??
+    entry?.biteIncident?.bite_id ??
+    null;
+  const sessionKey = open && patientId ? `${patientId}-${biteId ?? 'active'}` : null;
+  const loadedSessionKeyRef = useRef<string | null>(null);
+
+  const draftKey =
+    open && patientId && !readOnly
+      ? `treatment-${patientId}${biteId ? `-${biteId}` : ''}`
+      : null;
+  const draft = useFormDraft(draftKey);
+
   const [formData, setFormData] = useState<TreatmentFormData>(INITIAL_FORM_DATA);
+
+  // ── Place of Exposure address location (same hook as Add Patient & Form 3) ──
+  const expLoc = useAddressLocation();
+  const [purok, setPurok] = useState('');
+
+  // Reset the location selector whenever a different patient/episode opens.
+  useEffect(() => {
+    expLoc.setMunicipality('');
+    expLoc.setBarangay('');
+    expLoc.setUseManual(false);
+    expLoc.setManualMun('');
+    expLoc.setManualBrgy('');
+    setPurok('');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sessionKey]);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [vaccineNames, setVaccineNames] = useState<string[]>([]);
   const [vaccineStockMap, setVaccineStockMap] = useState<VaccineStockMap>({});
+  const [prophylaxisStock, setProphylaxisStock] = useState<ProphylaxisStock | null | undefined>(undefined);
+  const [tetanusBrands, setTetanusBrands] = useState<string[]>([]);
+  const [atsBrands, setAtsBrands] = useState<string[]>([]);
+  const [rigBrands, setRigBrands] = useState<string[]>([]);
   const [currentUserName] = useState<string>(() => getCurrentUserName());
 
   // Track if a record has already been saved for this patient
@@ -66,7 +116,13 @@ export function useGeneralTreatmentForm({
   const [addendumSuccess, setAddendumSuccess] = useState('');
   const [treatmentPlan, setTreatmentPlan] = useState('');
   const [episodeHistory, setEpisodeHistory] = useState<any[]>([]);
-  const [newBiteData, setNewBiteData] = useState<NewBiteData>(INITIAL_NEW_BITE_DATA);
+  const [patientReportedIntake, setPatientReportedIntake] = useState<PatientReportedIntake | null>(null);
+  const [previousConsultations, setPreviousConsultations] = useState<any[]>([]);
+  const [isPendingTreatmentReassessment, setIsPendingTreatmentReassessment] = useState(false);
+  const [pendingTreatmentSummary, setPendingTreatmentSummary] = useState<any>(null);
+
+  // Referral Modal & Slip state
+  const [transferSlipOpen, setTransferSlipOpen] = useState(false);
 
   const [checkedDiagnoses, setCheckedDiagnoses] = useState<string[]>([]);
   const [checkedHistory, setCheckedHistory] = useState<string[]>([]);
@@ -80,10 +136,29 @@ export function useGeneralTreatmentForm({
   const isFormDisabled = readOnly || hasAdministeredVaccine || (hasExistingRecord && !isEditing);
   const isNatureOfVisitAutomatic = requiresReExposureDecision;
 
+  const isReferralCompleted = Boolean(
+    existingRecord?.outcome === 'Transferred/Referred' ||
+    existingRecord?.status === 'transferred_out' ||
+    selectedIncident?.status === 'transferred_out' ||
+    (entry?.status === 'completed' && Boolean(formData.transferred_to_facility && formData.is_referral))
+  );
+
   // Fetch available vaccine names and live inventory stock
   useEffect(() => {
     fetchVaccineNames().then(setVaccineNames);
     fetchInventoryStock().then(setVaccineStockMap);
+    fetchProphylaxisStock().then(res => {
+      setProphylaxisStock(res.stock);
+      if (res.tetanus_brands && res.tetanus_brands.length > 0) {
+        setTetanusBrands(res.tetanus_brands);
+      }
+      if (res.ats_brands && res.ats_brands.length > 0) {
+        setAtsBrands(res.ats_brands);
+      }
+      if (res.rig_brands && res.rig_brands.length > 0) {
+        setRigBrands(res.rig_brands);
+      }
+    }).catch(() => setProphylaxisStock(null));
   }, []);
 
   const populateFormFromRecord = useCallback((record: any, preserveEmptyMeds: boolean = false) => {
@@ -105,10 +180,12 @@ export function useGeneralTreatmentForm({
     setFormData((prev) => ({
       ...prev,
       mode_of_transaction: record.mode_of_transaction || '',
+      exposure_category: record.exposure_category ?? prev.exposure_category,
       referred_from: record.referred_from || '',
       referred_to: record.referred_to || '',
       referred_by: record.referred_by || '',
       pertinent_history: asText(record.pertinent_history),
+      place_of_exposure: record.place_of_exposure || record.bite_incident?.bite_place || record.bite_place || prev.place_of_exposure || '',
       reason_for_referral: record.reason_for_referral || 'For further evaluation and management.',
       actions_taken: asText(record.actions_taken),
       date_of_consultation: record.consultation_date || prev.date_of_consultation,
@@ -135,12 +212,17 @@ export function useGeneralTreatmentForm({
       },
       chief_complaints: record.chief_complaints || '',
       diagnosis: diagText,
-      medication_treatment: record.prescribed_vaccine_type || medText,
-      prescribed_vaccine_type: record.prescribed_vaccine_type || '',
+      medication_treatment: (record.exposure_category ?? prev.exposure_category) === 'I' ? 'No PEP vaccine prescribed' : (record.prescribed_vaccine_type || medText),
+      prescribed_vaccine_type: (record.exposure_category ?? prev.exposure_category) === 'I' ? '' : (record.prescribed_vaccine_type || ''),
+      prophylaxis_orders: normalizeProphylaxisOrders(record.prophylaxis_orders),
       name_of_provider: resolveHealthCareProvider(record) || prev.name_of_provider,
-      name_of_attending_provider: resolveAttendingProvider(entry, record) || prev.name_of_attending_provider,
+      name_of_attending_provider: resolveAttendingProvider(entryRef.current, record) || prev.name_of_attending_provider,
       laboratory_findings: record.laboratory_findings || '',
       performed_lab_test: record.performed_lab_test || '',
+      is_referral: Boolean(record.is_referral || record.transferred_to_facility || record.referred_to),
+      transferred_to_facility: record.transferred_to_facility || record.referred_to || '',
+      transfer_reason: record.transfer_reason || record.reason_for_referral || '',
+      transfer_date: record.transfer_date || record.transferred_at || (record.consultation_date || prev.transfer_date),
     }));
 
     const matchedDiag = ANIMAL_BITE_DIAGNOSES.filter((d) => diagText.includes(d));
@@ -148,23 +230,36 @@ export function useGeneralTreatmentForm({
 
     const histText = asText(record.pertinent_history);
     setCheckedHistory(PERTINENT_HISTORY_OPTIONS.filter((h) => histText.includes(h)));
-  }, [entry]);
+  }, []);
 
   // Load existing treatment record when opening form
   useEffect(() => {
-    if (!(open && entry?.patient)) return;
+    if (!open || !patientId) {
+      loadedSessionKeyRef.current = null;
+      return;
+    }
 
-    const initialAttending = resolveAttendingProvider(entry);
+    if (loadedSessionKeyRef.current === sessionKey) {
+      return;
+    }
+    loadedSessionKeyRef.current = sessionKey;
+
+    const currentEntry = entryRef.current;
+    const initialAttending = resolveAttendingProvider(currentEntry);
     const initialProvider = resolveHealthCareProvider();
+    const { date: manilaDate, time: manilaTime } = getManilaCurrentDateTime();
 
     setFormData(() => ({
       ...INITIAL_FORM_DATA,
-      last_name: entry.patient.last_name || '',
-      first_name: entry.patient.first_name || '',
-      middle_name: entry.patient.middle_name || '',
-      suffix: entry.patient.suffix || '',
-      age: String(entry.patient.age || ''),
-      address: entry.patient.address || 'Misamis Oriental',
+      date_of_consultation: manilaDate,
+      consultation_time: manilaTime,
+      transfer_date: manilaDate,
+      last_name: currentEntry?.patient?.last_name || '',
+      first_name: currentEntry?.patient?.first_name || '',
+      middle_name: currentEntry?.patient?.middle_name || '',
+      suffix: currentEntry?.patient?.suffix || '',
+      age: String(currentEntry?.patient?.age || ''),
+      address: currentEntry?.patient?.address || 'Misamis Oriental',
       name_of_provider: initialProvider,
       name_of_attending_provider: initialAttending,
       medication_treatment: '',
@@ -179,40 +274,35 @@ export function useGeneralTreatmentForm({
     setTouchedFields({});
     setIsReturningNewBite(false);
     setRequiresReExposureDecision(false);
+    setPatientReportedIntake(null);
+    setPreviousConsultations([]);
+    setIsPendingTreatmentReassessment(false);
+    setPendingTreatmentSummary(null);
 
     const initialIncident = selectedIncident;
     if (initialIncident) {
-      setNewBiteData({
-        new_bite_date: initialIncident.bite_date
-          ? String(initialIncident.bite_date).split('T')[0]
-          : new Date().toISOString().split('T')[0],
-        new_bite_place: initialIncident.bite_place || 'Misamis Oriental',
-        new_exposure_type: (initialIncident.exposure_type as any) || 'bite',
-        new_severity: (initialIncident.severity as any) || 'moderate',
-        new_animal_type: (initialIncident.animal_type as any) || 'dog',
-        new_animal_status: (initialIncident.animal_status as any) || 'unknown',
-        new_site_washed: initialIncident.site_washed !== undefined ? Boolean(initialIncident.site_washed) : true,
-        new_body_part: initialIncident.body_part_exposed || initialIncident.site_number || '',
-        new_wound_description: initialIncident.wound_description || '',
-      });
+      const intake = initialIncident.intake || null;
+      setPatientReportedIntake(intake);
     }
 
-    const patientId = entry.patient.patient_id || entry.patient.id;
-    if (!patientId) {
-      setHasExistingRecord(false);
-      setIsEditing(true);
-      return;
-    }
+    const pid = patientId;
+    const fetchBiteId = biteId;
 
-    const biteId =
-      entry?.bite_id ||
-      entry?.incident?.bite_id ||
-      entry?.bite_incident?.bite_id ||
-      entry?.biteIncident?.bite_id;
-
-    fetchPatientTreatmentRecord(patientId, biteId)
+    fetchPatientTreatmentRecord(pid, fetchBiteId)
       .then((data) => {
-        const record = data?.latest_treatment;
+        const category = data?.exposure_category ?? data?.active_bite_incident?.exposure_category ?? '';
+        const record = data?.latest_treatment ? { ...data.latest_treatment, exposure_category: category } : null;
+        const prevConsults = Array.isArray(data?.previous_consultations) ? data.previous_consultations : [];
+        const isReassessment = Boolean(data?.is_pending_treatment_reassessment);
+        setPreviousConsultations(prevConsults);
+        setIsPendingTreatmentReassessment(isReassessment);
+        setPendingTreatmentSummary(data?.pending_treatment_summary || null);
+
+        setFormData(prev => ({
+          ...prev,
+          exposure_category: category,
+          ...(category === 'I' ? { prescribed_vaccine_type: '', medication_treatment: 'No PEP vaccine prescribed' } : {}),
+        }));
         const isVaccinated = Boolean(data?.has_administered_vaccine);
         const isReturning = Boolean(data?.is_returning_new_bite);
         const needsReExposureDecision = Boolean(data?.requires_re_exposure_decision);
@@ -221,29 +311,51 @@ export function useGeneralTreatmentForm({
         setRequiresReExposureDecision(needsReExposureDecision);
         if (needsReExposureDecision) {
           setFormData((prev) => ({ ...prev, nature_of_visit: 'new_consultation' }));
+        } else if (isReassessment) {
+          setFormData((prev) => ({ ...prev, nature_of_visit: 'follow_up' }));
         }
         setEpisodeHistory(data?.episode_history || []);
 
         const activeInc = data?.active_bite_incident || initialIncident;
         if (activeInc) {
-          setNewBiteData({
-            new_bite_date: activeInc.bite_date
-              ? String(activeInc.bite_date).split('T')[0]
-              : new Date().toISOString().split('T')[0],
-            new_bite_place: activeInc.bite_place || 'Misamis Oriental',
-            new_exposure_type: (activeInc.exposure_type as any) || 'bite',
-            new_severity: (activeInc.severity as any) || 'moderate',
-            new_animal_type: (activeInc.animal_type as any) || 'dog',
-            new_animal_status: (activeInc.animal_status as any) || 'unknown',
-            new_site_washed: activeInc.site_washed !== undefined ? Boolean(activeInc.site_washed) : true,
-            new_body_part: activeInc.body_part_exposed || activeInc.site_number || '',
-            new_wound_description: activeInc.wound_description || '',
-          });
+          const intake = activeInc.intake || null;
+          setPatientReportedIntake(intake);
+          const savedPlace = data?.place_of_exposure
+            || activeInc.bite_place
+            || intake?.place_of_exposure
+            || intake?.bite_place
+            || initialIncident?.bite_place
+            || entryRef.current?.bite_place
+            || '';
+          if (savedPlace) {
+            setFormData((prev) => ({
+              ...prev,
+              place_of_exposure: prev.place_of_exposure || savedPlace,
+            }));
+          }
+          if (activeInc.transferred_to_facility || activeInc.status === 'transferred_out') {
+            setFormData((prev) => ({
+              ...prev,
+              is_referral: true,
+              transferred_to_facility: prev.transferred_to_facility || activeInc.transferred_to_facility || '',
+              transfer_reason: prev.transfer_reason || activeInc.transfer_reason || '',
+              transfer_date: prev.transfer_date || (activeInc.transferred_at ? String(activeInc.transferred_at).split('T')[0] : getManilaCurrentDateTime().date),
+            }));
+          }
         }
 
         const isNewSession =
-          entry?.visit_type === 'new_case' || entry?.visit_type === 'consultation' || isReturning;
-        if (record && (record.treatment_id || record.chief_complaints || record.consultation_date)) {
+          entryRef.current?.visit_type === 'new_case' || entryRef.current?.visit_type === 'consultation' || isReturning;
+
+        // A TreatmentRecord created by Registration Staff has status='scheduled'
+        // and no chief_complaints. It is NOT a completed Doctor Form 2 entry —
+        // the Doctor must still fill in all clinical fields.
+        const isRegistrationStaffPrefill =
+          record &&
+          record.status === 'scheduled' &&
+          !record.chief_complaints;
+
+        if (record && !isRegistrationStaffPrefill && !isReassessment && (record.treatment_id || record.chief_complaints || record.consultation_date)) {
           setHasExistingRecord(true);
           setIsEditing(false);
           setExistingRecord(record);
@@ -254,10 +366,60 @@ export function useGeneralTreatmentForm({
         } else {
           setHasExistingRecord(false);
           setIsEditing(true);
-          setExistingRecord(null);
-          const resolvedAttending = resolveAttendingProvider(entry, null, data?.patient);
+          setExistingRecord(isRegistrationStaffPrefill ? record : null);
+          if ((isRegistrationStaffPrefill || isReassessment) && record) {
+            setFormData((prev) => ({
+              ...prev,
+              mode_of_transaction:  record.mode_of_transaction || prev.mode_of_transaction || 'walk-in',
+              date_of_consultation: record.consultation_date || prev.date_of_consultation,
+              consultation_time:    record.consultation_time || prev.consultation_time,
+              blood_pressure:       record.blood_pressure || prev.blood_pressure,
+              temperature:          record.temperature || prev.temperature,
+              height:               record.height || prev.height,
+              weight:               record.weight || prev.weight,
+              nature_of_visit:      isReassessment ? (record.nature_of_visit || 'follow_up') : prev.nature_of_visit,
+              name_of_attending_provider: record.attending_provider || prev.name_of_attending_provider,
+              referred_by:          record.referred_by || prev.referred_by,
+              is_referral:          Boolean(record.transferred_to_facility || record.is_referral || prev.is_referral),
+              transferred_to_facility: record.transferred_to_facility || prev.transferred_to_facility || '',
+              transfer_reason:      record.transfer_reason || prev.transfer_reason || '',
+              transfer_date:        record.transfer_date || prev.transfer_date || getManilaCurrentDateTime().date,
+            }));
+          }
+          const resolvedAttending = resolveAttendingProvider(entryRef.current, null, data?.patient);
           if (resolvedAttending) {
             setFormData((prev) => ({ ...prev, name_of_attending_provider: resolvedAttending }));
+          }
+
+          // Restore draft for a new (unsaved) record after server population
+          const savedDraft = draft.readDraft<{
+            formData: TreatmentFormData;
+            checkedDiagnoses: string[];
+            checkedHistory: string[];
+          }>();
+          if (savedDraft) {
+            setFormData({
+              ...INITIAL_FORM_DATA,
+              ...savedDraft.formData,
+              exposure_category: savedDraft.formData.exposure_category ?? category,
+              ...((savedDraft.formData.exposure_category ?? category) === 'I' ? {
+                prescribed_vaccine_type: '',
+                medication_treatment: 'No PEP vaccine prescribed',
+              } : {}),
+              ...(isRegistrationStaffPrefill && record ? {
+                mode_of_transaction: record.mode_of_transaction || 'walk-in',
+                referred_by: record.referred_by || '',
+                weight: record.weight || savedDraft.formData.weight || '',
+                height: record.height || savedDraft.formData.height || '',
+                temperature: record.temperature || savedDraft.formData.temperature || '',
+                blood_pressure: record.blood_pressure || savedDraft.formData.blood_pressure || '',
+                date_of_consultation: record.consultation_date || savedDraft.formData.date_of_consultation,
+                consultation_time: record.consultation_time || savedDraft.formData.consultation_time,
+                name_of_attending_provider: record.attending_provider || savedDraft.formData.name_of_attending_provider || '',
+              } : {}),
+            });
+            setCheckedDiagnoses(savedDraft.checkedDiagnoses ?? []);
+            setCheckedHistory(savedDraft.checkedHistory ?? []);
           }
         }
       })
@@ -266,17 +428,161 @@ export function useGeneralTreatmentForm({
         setHasExistingRecord(false);
         setIsEditing(true);
         setExistingRecord(null);
+
+        const savedDraft = draft.readDraft<{
+          formData: TreatmentFormData;
+          checkedDiagnoses: string[];
+          checkedHistory: string[];
+        }>();
+        if (savedDraft) {
+          setFormData({ ...INITIAL_FORM_DATA, ...savedDraft.formData });
+          setCheckedDiagnoses(savedDraft.checkedDiagnoses ?? []);
+          setCheckedHistory(savedDraft.checkedHistory ?? []);
+        }
       });
-  }, [open, entry, populateFormFromRecord, selectedIncident]);
+  }, [open, sessionKey, patientId, biteId, populateFormFromRecord, selectedIncident, draftKey, readOnly]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const saveDraftSnapshot = useCallback(
+    (
+      nextData: TreatmentFormData,
+      nextDiagnoses: string[] = checkedDiagnoses,
+      nextHistory: string[] = checkedHistory
+    ) => {
+      draft.saveDraft({
+        formData: nextData,
+        checkedDiagnoses: nextDiagnoses,
+        checkedHistory: nextHistory,
+      });
+    },
+    [checkedDiagnoses, checkedHistory, draft]
+  );
+
+  // Sync composed address string → place_of_exposure field
+  // Format: [Purok/Zone, ]Barangay, City/Municipality
+  useEffect(() => {
+    const currentMun = expLoc.useManual ? expLoc.manualMun : expLoc.munName;
+    const currentBrgy = expLoc.useManual ? expLoc.manualBrgy : expLoc.brgyName;
+
+    if (currentBrgy && currentMun) {
+      const parts: string[] = [];
+      const cleanP = cleanPurok(purok);
+      if (cleanP) parts.push(cleanP);
+      parts.push(currentBrgy);
+      parts.push(currentMun);
+      const composed = parts.join(', ');
+      setFormData(prev => {
+        if (prev.place_of_exposure === composed) return prev;
+        const next = { ...prev, place_of_exposure: composed };
+        saveDraftSnapshot(next);
+        return next;
+      });
+    }
+  }, [expLoc.munName, expLoc.brgyName, expLoc.manualMun, expLoc.manualBrgy, expLoc.useManual, purok, saveDraftSnapshot]);
+
+  // Synchronize expLoc with the saved incident/intake place
+  useEffect(() => {
+    if (!open) {
+      expLoc.setMunicipality('');
+      expLoc.setBarangay('');
+      expLoc.setUseManual(false);
+      expLoc.setManualMun('');
+      expLoc.setManualBrgy('');
+      setPurok('');
+      return;
+    }
+
+    if (expLoc.loadingMun) return;
+
+    const rawPlace = (formData.place_of_exposure || '').trim();
+
+    if (rawPlace && !expLoc.municipality && !expLoc.manualMun) {
+      let parts = rawPlace.split(',').map(s => s.trim()).filter(Boolean);
+      // If the last part is a province, strip it for matching
+      if (parts.length >= 2) {
+        const last = parts[parts.length - 1];
+        if (/misamis|oriental|province/i.test(last)) {
+          parts = parts.slice(0, -1);
+        }
+      }
+
+      const matchedMun = expLoc.municipalities.find(m => 
+        parts.some(p => p.toLowerCase() === m.name.toLowerCase() || m.name.toLowerCase().includes(p.toLowerCase()))
+      );
+
+      if (matchedMun) {
+        expLoc.setMunicipality(matchedMun.code);
+      } else if (parts.length > 0) {
+        expLoc.setUseManual(true);
+        if (parts.length >= 2) {
+          expLoc.setManualBrgy(parts[parts.length - 2]);
+          expLoc.setManualMun(parts[parts.length - 1]);
+        } else {
+          expLoc.setManualMun(parts[0]);
+        }
+      }
+    }
+  }, [open, expLoc.loadingMun, expLoc.municipalities, formData.place_of_exposure]);
+
+  // When barangays finish loading for selected municipality, match the barangay and purok from place_of_exposure
+  useEffect(() => {
+    if (!open || expLoc.useManual || !expLoc.barangays.length || expLoc.barangay) return;
+    const rawPlace = (formData.place_of_exposure || '').trim();
+    if (!rawPlace) return;
+
+    let parts = rawPlace.split(',').map(s => s.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const last = parts[parts.length - 1];
+      if (/misamis|oriental|province/i.test(last)) {
+        parts = parts.slice(0, -1);
+      }
+    }
+
+    const matchedBrgyIndex = parts.findIndex(p => 
+      expLoc.barangays.some(b => b.name.toLowerCase() === p.toLowerCase() || b.name.toLowerCase().includes(p.toLowerCase()))
+    );
+
+    if (matchedBrgyIndex !== -1) {
+      const matchedBrgyName = parts[matchedBrgyIndex];
+      const matchedBrgy = expLoc.barangays.find(b => 
+        b.name.toLowerCase() === matchedBrgyName.toLowerCase() || b.name.toLowerCase().includes(matchedBrgyName.toLowerCase())
+      );
+      if (matchedBrgy) {
+        expLoc.setBarangay(matchedBrgy.code);
+
+        const priorParts = parts.slice(0, matchedBrgyIndex);
+        if (priorParts.length >= 1) {
+          setPurok(priorParts.join(', '));
+        }
+      }
+    }
+  }, [open, expLoc.barangays, expLoc.useManual, formData.place_of_exposure]);
+
+  const handleClearPlaceOfExposureError = () => {
+    setFieldErrors((prev) => {
+      if (!prev.place_of_exposure) return prev;
+      const next = { ...prev };
+      delete next.place_of_exposure;
+      return next;
+    });
+  };
+
+  const resolveCurrentPlace = (): string => {
+    const currentMun = expLoc.useManual ? expLoc.manualMun.trim() : expLoc.munName;
+    const currentBrgy = expLoc.useManual ? expLoc.manualBrgy.trim() : expLoc.brgyName;
+    if (currentMun && currentBrgy) {
+      const parts: string[] = [];
+      const cleanP = cleanPurok(purok);
+      if (cleanP) parts.push(cleanP);
+      parts.push(currentBrgy);
+      parts.push(currentMun);
+      return parts.join(', ');
+    }
+    return (formData.place_of_exposure || '').trim();
+  };
 
   const handleFieldBlur = (key: string) => () => {
     setTouchedFields((prev) => ({ ...prev, [key]: true }));
-    const newErrors: Record<string, string> = { ...fieldErrors };
-    if (key === 'nature_of_visit' && !formData.nature_of_visit) {
-      newErrors.nature_of_visit = 'Please select Nature of Visit';
-    } else if (key === 'nature_of_visit') {
-      delete newErrors.nature_of_visit;
-    }
+    const newErrors = { ...fieldErrors };
     if (key === 'chief_complaints' && !formData.chief_complaints.trim()) {
       newErrors.chief_complaints = 'Please enter Chief Complaints';
     } else if (key === 'chief_complaints') {
@@ -288,11 +594,31 @@ export function useGeneralTreatmentForm({
   const handleFieldChange = (key: keyof TreatmentFormData) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    setFormData((prev) => ({ ...prev, [key]: ev.target.value }));
-    if (fieldErrors[key]) {
+    const val = ev.target.value;
+    setFormData((prev) => {
+      let next: TreatmentFormData = { ...prev, [key]: val };
+      if (key === 'exposure_category') {
+        if (val === 'I') {
+          next = { ...next, prescribed_vaccine_type: '', medication_treatment: 'No PEP vaccine prescribed' };
+        } else if (prev.exposure_category === 'I') {
+          next = { ...next, prescribed_vaccine_type: '', medication_treatment: '' };
+        }
+      }
+      saveDraftSnapshot(next);
+      return next;
+    });
+    if (fieldErrors[key as string] && (typeof val !== 'string' || val.trim())) {
       setFieldErrors((prev) => {
         const next = { ...prev };
-        delete next[key];
+        delete next[key as string];
+        if (key === 'exposure_category' && val === 'I') {
+          delete next.prescribed_vaccine_type;
+        }
+        if (Object.keys(next).length === 0) {
+          setError('');
+        } else {
+          setError(`Required: ${Object.values(next).join(' • ')}`);
+        }
         return next;
       });
     }
@@ -303,14 +629,22 @@ export function useGeneralTreatmentForm({
   ) => {
     setFormData((prev) => {
       const updatedTypes = { ...prev.consultation_types, [key]: ev.target.checked };
-      if (Object.values(updatedTypes).some((v) => v) && fieldErrors.consultation_types) {
+      const hasAny = Object.values(updatedTypes).some((v) => v);
+      if (hasAny && fieldErrors.consultation_types) {
         setFieldErrors((errs) => {
           const next = { ...errs };
           delete next.consultation_types;
+          if (Object.keys(next).length === 0) {
+            setError('');
+          } else {
+            setError(`Required: ${Object.values(next).join(' • ')}`);
+          }
           return next;
         });
       }
-      return { ...prev, consultation_types: updatedTypes };
+      const next = { ...prev, consultation_types: updatedTypes };
+      saveDraftSnapshot(next);
+      return next;
     });
   };
 
@@ -321,12 +655,20 @@ export function useGeneralTreatmentForm({
       formData.diagnosis
     );
     setCheckedDiagnoses(nextChecked);
-    setFormData((prev) => ({ ...prev, diagnosis: nextText }));
+    setFormData((prev) => {
+      const next = { ...prev, diagnosis: nextText };
+      saveDraftSnapshot(next, nextChecked, checkedHistory);
+      return next;
+    });
   };
 
   const handleClearDiagnoses = () => {
     setCheckedDiagnoses([]);
-    setFormData((p) => ({ ...p, diagnosis: '' }));
+    setFormData((p) => {
+      const next = { ...p, diagnosis: '' };
+      saveDraftSnapshot(next, [], checkedHistory);
+      return next;
+    });
   };
 
   const toggleHistory = (item: string) => {
@@ -336,15 +678,150 @@ export function useGeneralTreatmentForm({
       formData.pertinent_history
     );
     setCheckedHistory(nextChecked);
-    setFormData((prev) => ({ ...prev, pertinent_history: nextText }));
+    setFormData((prev) => {
+      const next = { ...prev, pertinent_history: nextText };
+      saveDraftSnapshot(next, checkedDiagnoses, nextChecked);
+      return next;
+    });
   };
 
   const handlePrescribedVaccineChange = (vaccineType: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      prescribed_vaccine_type: vaccineType,
-      medication_treatment: vaccineType,
-    }));
+    if (formData.exposure_category === 'I') return;
+    setFormData((prev) => {
+      const next = {
+        ...prev,
+        prescribed_vaccine_type: vaccineType,
+        medication_treatment: vaccineType,
+      };
+      saveDraftSnapshot(next);
+      return next;
+    });
+  };
+
+  const handleProphylaxisChange = (orders: ProphylaxisOrders) => {
+    const nextOrders = normalizeProphylaxisOrders(orders);
+    setFormData((prev) => ({ ...prev, prophylaxis_orders: nextOrders }));
+    saveDraftSnapshot({ ...formData, prophylaxis_orders: nextOrders });
+
+    setFieldErrors((errs) => {
+      let changed = false;
+      const next = { ...errs };
+      const tetanusCat = nextOrders.tetanus_category || getTetanusCategoryFromOrders(nextOrders);
+      if (tetanusCat && next.tetanus_category) {
+        delete next.tetanus_category;
+        changed = true;
+      }
+      if (nextOrders.tetanus_passive && nextOrders.tetanus_passive !== 'none' && next.tetanus_passive) {
+        delete next.tetanus_passive;
+        changed = true;
+      }
+      if (nextOrders.tetanus_vaccine && nextOrders.tetanus_vaccine !== 'none' && next.tetanus_vaccine) {
+        delete next.tetanus_vaccine;
+        changed = true;
+      }
+      if (next.rig_weight_kg && (!nextOrders.rig || nextOrders.rig === 'none' || (Number(nextOrders.rig_weight_kg) > 0 && Number(nextOrders.rig_weight_kg) <= 700))) {
+        delete next.rig_weight_kg;
+        changed = true;
+      }
+      if (next.tetanus_last_dose) {
+        if (!nextOrders.tetanus_last_dose || isValidFourDigitYearDate(nextOrders.tetanus_last_dose)) {
+          delete next.tetanus_last_dose;
+          changed = true;
+        }
+      }
+      if (changed) {
+        if (Object.keys(next).length === 0) {
+          setError('');
+        } else {
+          setError(`Required: ${Object.values(next).join(' • ')}`);
+        }
+        return next;
+      }
+      return errs;
+    });
+  };
+
+  const handleTreatmentPlanChange = (plan: string) => {
+    setTreatmentPlan(plan);
+    if (plan && fieldErrors.treatment_plan) {
+      setFieldErrors((errs) => {
+        const next = { ...errs };
+        delete next.treatment_plan;
+        if (Object.keys(next).length === 0) {
+          setError('');
+        } else {
+          setError(`Required: ${Object.values(next).join(' • ')}`);
+        }
+        return next;
+      });
+    }
+  };
+
+  const handleReassessmentDecisionChange = (
+    decision: 'continue' | 'modify' | 'discontinue' | 'no_injection_required' | ''
+  ) => {
+    const lastPrev = previousConsultations.length > 0 ? previousConsultations[previousConsultations.length - 1] : null;
+    setFormData((prev) => {
+      let next: TreatmentFormData = { ...prev, reassessment_decision: decision };
+
+      if ((decision === 'continue' || decision === 'modify') && lastPrev) {
+        const prevCat = (lastPrev.exposure_category || prev.exposure_category) as 'I' | 'II' | 'III' | '';
+        const prevOrders = normalizeProphylaxisOrders(lastPrev.prophylaxis_orders);
+        next = {
+          ...next,
+          exposure_category: prevCat,
+          chief_complaints: prev.chief_complaints || lastPrev.chief_complaints || 'Returned for continuation of pending treatment',
+          diagnosis: prev.diagnosis || lastPrev.diagnosis || '',
+          prescribed_vaccine_type: prevCat === 'I' ? '' : (lastPrev.prescribed_vaccine_type || ''),
+          medication_treatment: prevCat === 'I'
+            ? 'No PEP vaccine prescribed'
+            : (lastPrev.prescribed_vaccine_type || lastPrev.medication_treatment || ''),
+          prophylaxis_orders: prevOrders,
+        };
+      } else if (decision === 'discontinue' || decision === 'no_injection_required') {
+        next = {
+          ...next,
+          chief_complaints: prev.chief_complaints || 'Returned for reassessment — no injection required',
+          prescribed_vaccine_type: '',
+          medication_treatment: decision === 'discontinue'
+            ? 'Previous prescription discontinued upon reassessment'
+            : 'No injection required upon reassessment',
+          prophylaxis_orders: {
+            ...prev.prophylaxis_orders,
+            tetanus_category: 'up_to_date',
+            tetanus_vaccine: 'none',
+            tetanus_passive: 'none',
+            rig: 'none',
+          },
+        };
+      }
+
+      saveDraftSnapshot(next);
+      return next;
+    });
+
+    if (fieldErrors.reassessment_decision && decision) {
+      setFieldErrors((errs) => {
+        const next = { ...errs };
+        delete next.reassessment_decision;
+        if (decision === 'continue') {
+          delete next.reassessment_notes;
+        }
+        if (decision === 'discontinue' || decision === 'no_injection_required') {
+          delete next.tetanus_category;
+          delete next.tetanus_passive;
+          delete next.tetanus_vaccine;
+          delete next.rig_weight_kg;
+          delete next.rig_indication;
+        }
+        if (Object.keys(next).length === 0) {
+          setError('');
+        } else {
+          setError(`Required: ${Object.values(next).join(' • ')}`);
+        }
+        return next;
+      });
+    }
   };
 
   const handleSaveAddendum = async () => {
@@ -375,12 +852,266 @@ export function useGeneralTreatmentForm({
     }
   };
 
-  const handleSubmit = async () => {
-    if (requiresReExposureDecision && !treatmentPlan) {
-      setError('Doctor treatment decision is required for this new exposure.');
+  // ─── Referral Handlers ─────────────────────────────────────────────────────
+  const handleToggleReferral = (enabled: boolean) => {
+    setFormData((prev) => {
+      const next: TreatmentFormData = {
+        ...prev,
+        is_referral: enabled,
+        transfer_date: prev.transfer_date || getManilaCurrentDateTime().date,
+      };
+      saveDraftSnapshot(next);
+      return next;
+    });
+  };
+
+  const handleSelectFacility = (facility: string) => {
+    setFormData((prev) => {
+      const next: TreatmentFormData = {
+        ...prev,
+        transferred_to_facility: facility,
+      };
+      saveDraftSnapshot(next);
+      return next;
+    });
+    if (fieldErrors.transferred_to_facility) {
+      setFieldErrors((errs) => {
+        const next = { ...errs };
+        delete next.transferred_to_facility;
+        return next;
+      });
+    }
+  };
+
+  const handleSelectReason = (reason: string) => {
+    setFormData((prev) => {
+      const current = prev.transfer_reason?.trim() || '';
+      const nextReason = current
+        ? (current.includes(reason) ? current : `${current}\n• ${reason}`)
+        : `• ${reason}`;
+      const next: TreatmentFormData = {
+        ...prev,
+        transfer_reason: nextReason,
+      };
+      saveDraftSnapshot(next);
+      return next;
+    });
+  };
+
+  const handleOpenPrintSlip = () => {
+    setTransferSlipOpen(true);
+  };
+
+  const handleSaveReferral = async (printAfter: boolean = true) => {
+    if (!formData.transferred_to_facility || !formData.transferred_to_facility.trim()) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        transferred_to_facility: 'Please specify the receiving hospital or health facility.',
+      }));
+      setError('Please specify the receiving hospital or health facility before saving referral slip.');
+      scrollToFirstError('field-transferred_to_facility');
       return;
     }
 
+    setSaving(true);
+    setError('');
+
+    try {
+      const patientId = entry.patient.patient_id || entry.patient.id;
+      const effectiveCategory = formData.exposure_category || selectedIncident?.exposure_category || 'II';
+      const facilityName = (formData.transferred_to_facility || '').trim();
+      const transferReason = formData.transfer_reason?.trim() || 'For further evaluation and management.';
+      const effectiveDate = formData.transfer_date || getManilaCurrentDateTime().date;
+      const chiefNotes = formData.chief_complaints?.trim() || formData.diagnosis?.trim() || `Referral details saved for ${facilityName}`;
+      const currentPlace = resolveCurrentPlace();
+
+      const activeConsultationTypes = Object.keys(formData.consultation_types).filter(
+        (key) => formData.consultation_types[key as keyof typeof formData.consultation_types]
+      );
+      if (activeConsultationTypes.length === 0) {
+        activeConsultationTypes.push('injury');
+      }
+
+      const payload: TreatmentRecordPayload = {
+        patient_id: patientId,
+        queue_id: entry.queue_id || null,
+        bite_id: entry.bite_id || entry.incident?.bite_id || entry.bite_incident?.bite_id || entry.biteIncident?.bite_id || null,
+        nature_of_visit: formData.nature_of_visit || 'new_consultation',
+        consultation_types: activeConsultationTypes,
+        chief_complaints: chiefNotes,
+        diagnosis: formData.diagnosis,
+        exposure_category: effectiveCategory,
+        place_of_exposure: currentPlace || null,
+        bite_place: currentPlace || null,
+        new_bite_place: currentPlace || null,
+        treatment_plan: treatmentPlan || 'no_vaccine',
+        prescribed_vaccine_type: formData.prescribed_vaccine_type || null,
+        medication_treatment: formData.medication_treatment || '',
+        transferred_to_facility: facilityName,
+        transfer_reason: transferReason,
+        transfer_date: effectiveDate,
+        is_referral: true,
+        complete_referral: false,
+        consultation_date: formData.date_of_consultation || getManilaCurrentDateTime().date,
+        consultation_time: formData.consultation_time || getManilaCurrentDateTime().time,
+        mode_of_transaction: formData.mode_of_transaction || 'referral',
+        referred_to: facilityName,
+        reason_for_referral: transferReason,
+        laboratory_findings: formData.laboratory_findings || '',
+        performed_lab_test: formData.performed_lab_test || '',
+        provider_name: formData.name_of_provider || currentUserName || null,
+        attending_provider: formData.name_of_attending_provider,
+        referred_by: formData.referred_by,
+        prophylaxis_orders: formData.prophylaxis_orders,
+      };
+
+      const res = await submitTreatmentRecord(payload);
+      if (res?.treatment_record) {
+        setExistingRecord(res.treatment_record);
+      }
+      if (printAfter) {
+        setTransferSlipOpen(true);
+      }
+      return res;
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to save referral details');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCompleteReferral = async () => {
+    const newFieldErrors: Record<string, string> = {};
+
+    if (!formData.transferred_to_facility || !formData.transferred_to_facility.trim()) {
+      newFieldErrors.transferred_to_facility = 'Please specify the receiving hospital or health facility.';
+    }
+
+    const currentPlace = resolveCurrentPlace();
+
+    if (isFieldRequired('bite_site')) {
+      if (expLoc.useManual) {
+        if (!expLoc.manualMun.trim() || !expLoc.manualBrgy.trim()) {
+          newFieldErrors.place_of_exposure = 'Please enter both Municipality and Barangay for Place of Exposure.';
+        }
+      } else {
+        if (!expLoc.municipality || !expLoc.barangay) {
+          if (!formData.place_of_exposure || !formData.place_of_exposure.trim()) {
+            newFieldErrors.place_of_exposure = 'Please select both Municipality and Barangay for Place of Exposure.';
+          }
+        }
+      }
+      if (!newFieldErrors.place_of_exposure && !currentPlace) {
+        newFieldErrors.place_of_exposure = 'Place of exposure is required.';
+      }
+    }
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors((prev) => ({ ...prev, ...newFieldErrors }));
+      setError(`Required: ${Object.values(newFieldErrors).join(' • ')}`);
+      if (newFieldErrors.transferred_to_facility) {
+        scrollToFirstError('field-transferred_to_facility');
+      } else if (newFieldErrors.place_of_exposure) {
+        scrollToFirstError('place_of_exposure');
+      }
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const patientId = entry.patient.patient_id || entry.patient.id;
+      const effectiveCategory = formData.exposure_category || selectedIncident?.exposure_category || 'II';
+      const facilityName = (formData.transferred_to_facility || '').trim();
+      const transferReason = formData.transfer_reason?.trim() || 'For further evaluation and management.';
+      const effectiveDate = formData.transfer_date || getManilaCurrentDateTime().date;
+      const chiefNotes = formData.chief_complaints?.trim() || formData.diagnosis?.trim() || `Referred to ${facilityName}`;
+
+      const activeConsultationTypes = Object.keys(formData.consultation_types).filter(
+        (key) => formData.consultation_types[key as keyof typeof formData.consultation_types]
+      );
+      if (activeConsultationTypes.length === 0) {
+        activeConsultationTypes.push('injury');
+      }
+
+      const payload: TreatmentRecordPayload = {
+        patient_id: patientId,
+        queue_id: entry.queue_id || null,
+        bite_id: entry.bite_id || entry.incident?.bite_id || entry.bite_incident?.bite_id || entry.biteIncident?.bite_id || null,
+        nature_of_visit: formData.nature_of_visit || 'new_consultation',
+        consultation_types: activeConsultationTypes,
+        chief_complaints: chiefNotes,
+        diagnosis: formData.diagnosis || 'Animal bite exposure - referred out',
+        exposure_category: effectiveCategory,
+        place_of_exposure: currentPlace || null,
+        bite_place: currentPlace || null,
+        new_bite_place: currentPlace || null,
+        treatment_plan: 'no_vaccine',
+        prescribed_vaccine_type: null,
+        medication_treatment: `Transferred/Referred to ${facilityName}`,
+        transferred_to_facility: facilityName,
+        transfer_reason: transferReason,
+        transfer_date: effectiveDate,
+        is_referral: true,
+        complete_referral: true,
+        consultation_date: formData.date_of_consultation || getManilaCurrentDateTime().date,
+        consultation_time: formData.consultation_time || getManilaCurrentDateTime().time,
+        mode_of_transaction: 'referral',
+        referred_from: null,
+        referred_to: facilityName,
+        reason_for_referral: transferReason,
+        actions_taken: `Transferred/Referred to ${facilityName} (${transferReason})`,
+        outcome: 'Transferred/Referred',
+        laboratory_findings: formData.laboratory_findings || '',
+        performed_lab_test: formData.performed_lab_test || '',
+        provider_name: formData.name_of_provider || currentUserName || null,
+        attending_provider: formData.name_of_attending_provider,
+        referred_by: formData.referred_by,
+        prophylaxis_orders: {
+          ...formData.prophylaxis_orders,
+          tetanus_category: 'not_indicated',
+          tetanus_vaccine: 'none',
+          tetanus_passive: 'none',
+          rig: 'none',
+        },
+      };
+
+      const res = await submitTreatmentRecord(payload);
+      window.dispatchEvent(new Event('exposure-category-saved'));
+
+      setHasExistingRecord(true);
+      setIsEditing(false);
+      if (res?.treatment_record) {
+        setExistingRecord({ ...res.treatment_record, outcome: 'Transferred/Referred', exposure_category: effectiveCategory });
+      }
+
+      draft.clearDraft();
+      onSave({ ...(res || {}), is_referral_completed: true });
+      if (!inline) {
+        onClose();
+      }
+    } catch (err: any) {
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors && typeof serverErrors === 'object') {
+        const mappedErrors: Record<string, string> = {};
+        for (const [key, msgs] of Object.entries(serverErrors)) {
+          if (Array.isArray(msgs) && msgs.length > 0) {
+            mappedErrors[key] = String(msgs[0]);
+          } else if (typeof msgs === 'string') {
+            mappedErrors[key] = msgs;
+          }
+        }
+        setFieldErrors((prev) => ({ ...prev, ...mappedErrors }));
+      }
+      setError(err.response?.data?.message || 'Failed to complete referral');
+      console.error('Complete referral save failed (422):', err.response?.data || err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSubmit = async () => {
     const newFieldErrors: Record<string, string> = {};
 
     if (!formData.nature_of_visit) {
@@ -396,8 +1127,118 @@ export function useGeneralTreatmentForm({
       }
     }
 
+    if (!formData.exposure_category) {
+      newFieldErrors.exposure_category = 'Please select Exposure Category';
+    } else if (formData.exposure_category === 'I' && formData.prescribed_vaccine_type) {
+      newFieldErrors.prescribed_vaccine_type = 'Category I exposures do not require Rabies PEP vaccination.';
+    }
+
+    // Validate Place of Exposure (Required: Municipality and Barangay)
+    const currentPlace = resolveCurrentPlace();
+
+    if (isFieldRequired('bite_site')) {
+      if (expLoc.useManual) {
+        if (!expLoc.manualMun.trim() || !expLoc.manualBrgy.trim()) {
+          newFieldErrors.place_of_exposure = 'Please enter both Municipality and Barangay for Place of Exposure.';
+        }
+      } else {
+        if (!expLoc.municipality || !expLoc.barangay) {
+          if (!formData.place_of_exposure || !formData.place_of_exposure.trim()) {
+            newFieldErrors.place_of_exposure = 'Please select both Municipality and Barangay for Place of Exposure.';
+          }
+        }
+      }
+      if (!newFieldErrors.place_of_exposure && !currentPlace) {
+        newFieldErrors.place_of_exposure = 'Place of exposure is required.';
+      }
+    }
+
     if (!formData.chief_complaints.trim()) {
       newFieldErrors.chief_complaints = 'Please enter Chief Complaints';
+    }
+
+    if (requiresReExposureDecision && !treatmentPlan) {
+      newFieldErrors.treatment_plan = 'Please select a Doctor treatment decision.';
+    }
+
+    const isNoInjectionReassessment =
+      isPendingTreatmentReassessment &&
+      (formData.reassessment_decision === 'discontinue' || formData.reassessment_decision === 'no_injection_required');
+
+    if (isPendingTreatmentReassessment) {
+      if (!formData.reassessment_decision) {
+        newFieldErrors.reassessment_decision = 'Please select a Doctor Reassessment decision for the returning patient.';
+      } else if (
+        ['modify', 'discontinue', 'no_injection_required'].includes(formData.reassessment_decision) &&
+        !formData.reassessment_notes?.trim()
+      ) {
+        newFieldErrors.reassessment_notes = 'Please provide the clinical reason for modifying, discontinuing, or determining no injection is required.';
+      }
+    }
+
+    // Prescribed Vaccine / Medication Treatment Validation (RF2)
+    if (isSectionEnabled('treatment_section_enabled') && isFieldRequired('treatment_given')) {
+      if (formData.exposure_category !== 'I' && !isNoInjectionReassessment) {
+        if (!formData.prescribed_vaccine_type && !formData.medication_treatment?.trim()) {
+          newFieldErrors.prescribed_vaccine_type = 'Please prescribe a PEP vaccine or medication treatment.';
+        }
+      }
+    }
+
+    // Tetanus Prophylaxis Order Validation
+    const pOrders = formData.prophylaxis_orders;
+    const tetanusCat = isNoInjectionReassessment
+      ? 'up_to_date'
+      : (pOrders?.tetanus_category || getTetanusCategoryFromOrders(pOrders));
+
+    if (!isNoInjectionReassessment) {
+      if (!tetanusCat) {
+        newFieldErrors.tetanus_category = 'Please select the tetanus prophylaxis assessment.';
+      } else if (tetanusCat === 'ats') {
+        if (!pOrders.tetanus_passive || pOrders.tetanus_passive === 'none') {
+          newFieldErrors.tetanus_passive = 'Please select an available ATS product.';
+        }
+      } else if (tetanusCat === 'tt') {
+        if (!pOrders.tetanus_vaccine || pOrders.tetanus_vaccine === 'none') {
+          newFieldErrors.tetanus_vaccine = 'Please select an available TT vaccine product.';
+        }
+      } else if (tetanusCat === 'ats_tt') {
+        if (!pOrders.tetanus_passive || pOrders.tetanus_passive === 'none') {
+          newFieldErrors.tetanus_passive = 'Please select an available ATS product.';
+        }
+        if (!pOrders.tetanus_vaccine || pOrders.tetanus_vaccine === 'none') {
+          newFieldErrors.tetanus_vaccine = 'Please select an available TT vaccine product.';
+        }
+      }
+    }
+
+    if (!isNoInjectionReassessment && pOrders?.rig && pOrders.rig !== 'none') {
+      const weight = Number(pOrders.rig_weight_kg);
+      if (!Number.isFinite(weight) || weight <= 0 || weight > 700) {
+        newFieldErrors.rig_weight_kg = 'Confirm the recorded weight or enter a verified weight for RIG.';
+      }
+
+    }
+
+    // Validate Tetanus Last Dose (if entered, must have exactly 4-digit year and be a valid date)
+    if (pOrders?.tetanus_last_dose && pOrders.tetanus_last_dose.trim()) {
+      const lastDoseVal = pOrders.tetanus_last_dose.trim();
+      const parts = lastDoseVal.split('-');
+      const yearStr = parts[0] || '';
+      const yearNum = parseInt(yearStr, 10);
+      const todayStr = getManilaCurrentDateTime().date;
+
+      if (
+        yearStr.length !== 4 ||
+        isNaN(yearNum) ||
+        yearNum < 1000 ||
+        yearNum > 9999 ||
+        !isValidFourDigitYearDate(lastDoseVal)
+      ) {
+        newFieldErrors.tetanus_last_dose = 'Please enter a valid 4-digit year.';
+      } else if (lastDoseVal > todayStr) {
+        newFieldErrors.tetanus_last_dose = 'Last tetanus dose cannot be a future date.';
+      }
     }
 
     setFieldErrors(newFieldErrors);
@@ -407,8 +1248,8 @@ export function useGeneralTreatmentForm({
       setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints'];
+        ? ['nature_of_visit', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {
@@ -423,34 +1264,27 @@ export function useGeneralTreatmentForm({
     try {
       const patientId = entry.patient.patient_id || entry.patient.id;
       const payload: TreatmentRecordPayload = {
+        exposure_category: formData.exposure_category,
         patient_id: patientId,
         queue_id: entry.queue_id || null,
         bite_id: entry.bite_id || entry.incident?.bite_id || entry.bite_incident?.bite_id || entry.biteIncident?.bite_id || null,
-        treatment_plan: treatmentPlan || null,
-        new_bite_date: newBiteData.new_bite_date || null,
-        new_bite_place: newBiteData.new_bite_place || null,
-        new_exposure_type: newBiteData.new_exposure_type || null,
-        new_severity: newBiteData.new_severity || null,
-        new_animal_type: newBiteData.new_animal_type || null,
-        new_animal_status: newBiteData.new_animal_status || null,
-        new_site_washed: newBiteData.new_site_washed,
-        new_body_part: newBiteData.new_body_part || null,
-        new_wound_description: newBiteData.new_wound_description || null,
+        place_of_exposure: currentPlace || null,
+        bite_place: currentPlace || null,
+        new_bite_place: currentPlace || null,
+        treatment_plan: (formData.exposure_category === 'I' || isNoInjectionReassessment) ? 'no_vaccine' : (treatmentPlan || null),
+        reassessment_decision: formData.reassessment_decision || null,
+        reassessment_notes: formData.reassessment_notes?.trim() || null,
         consultation_date: formData.date_of_consultation,
         consultation_time: formData.consultation_time,
         mode_of_transaction: formData.mode_of_transaction || 'walk-in',
-        referred_from: formData.referred_from || null,
+        referred_from: existingRecord?.referred_from || null,
         referred_to:
           formData.mode_of_transaction === 'referral'
             ? formData.referred_to || 'Tagoloan Rural Health Unit (RHU) / ABTC'
             : null,
-        pertinent_history:
-          formData.mode_of_transaction === 'referral' ? formData.pertinent_history : null,
-        reason_for_referral:
-          formData.mode_of_transaction === 'referral'
-            ? formData.reason_for_referral || 'For further evaluation and management.'
-            : null,
-        actions_taken: formData.mode_of_transaction === 'referral' ? formData.actions_taken : null,
+        pertinent_history: existingRecord?.pertinent_history ?? null,
+        reason_for_referral: existingRecord?.reason_for_referral ?? null,
+        actions_taken: existingRecord?.actions_taken ?? null,
         blood_pressure: formData.blood_pressure || null,
         temperature: formData.temperature || null,
         height: formData.height || null,
@@ -461,29 +1295,58 @@ export function useGeneralTreatmentForm({
         ),
         chief_complaints: formData.chief_complaints,
         diagnosis: formData.diagnosis,
-        medication_treatment: formData.medication_treatment,
-        prescribed_vaccine_type: formData.prescribed_vaccine_type || null,
+        medication_treatment: formData.exposure_category === 'I' ? 'No PEP vaccine prescribed' : formData.medication_treatment,
+        prescribed_vaccine_type: (formData.exposure_category === 'I' || isNoInjectionReassessment) ? null : (formData.prescribed_vaccine_type || null),
+        prophylaxis_orders: {
+          ...formData.prophylaxis_orders,
+          tetanus_category: tetanusCat,
+          ...(isNoInjectionReassessment ? { tetanus_vaccine: 'none', tetanus_passive: 'none', rig: 'none' } : {}),
+        },
         laboratory_findings: formData.laboratory_findings,
         performed_lab_test: formData.performed_lab_test,
         provider_name: formData.name_of_provider || currentUserName || null,
         attending_provider: formData.name_of_attending_provider,
         referred_by: formData.referred_by,
+        transferred_to_facility: formData.is_referral ? formData.transferred_to_facility : null,
+        transfer_reason: formData.is_referral ? formData.transfer_reason : null,
+        transfer_date: formData.is_referral ? formData.transfer_date : null,
+        is_referral: formData.is_referral,
+        complete_referral: false,
+        outcome: (formData.is_referral && formData.transferred_to_facility && !formData.transferred_to_facility.toLowerCase().includes('tagoloan rural health unit'))
+          ? 'Transferred/Referred'
+          : (existingRecord?.outcome || null),
       };
 
       const res = await submitTreatmentRecord(payload);
+      window.dispatchEvent(new Event('exposure-category-saved'));
 
       setHasExistingRecord(true);
       setIsEditing(false);
       if (res?.treatment_record) {
-        setExistingRecord(res.treatment_record);
+        setExistingRecord({ ...res.treatment_record, exposure_category: formData.exposure_category });
       }
 
-      onSave();
+      draft.clearDraft();
+      onSave(res);
       if (!inline) {
         onClose();
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save treatment record');
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors && typeof serverErrors === 'object') {
+        const mappedErrors: Record<string, string> = {};
+        for (const [key, msgs] of Object.entries(serverErrors)) {
+          if (Array.isArray(msgs) && msgs.length > 0) {
+            mappedErrors[key] = String(msgs[0]);
+          } else if (typeof msgs === 'string') {
+            mappedErrors[key] = msgs;
+          }
+        }
+        setFieldErrors((prev) => ({ ...prev, ...mappedErrors }));
+      }
+      const msg = err.response?.data?.message || 'Failed to save treatment record';
+      setError(msg);
+      console.error('Treatment record save failed (422):', err.response?.data || err);
     } finally {
       setSaving(false);
     }
@@ -503,6 +1366,10 @@ export function useGeneralTreatmentForm({
     error,
     vaccineNames,
     vaccineStockMap,
+    prophylaxisStock,
+    tetanusBrands,
+    atsBrands,
+    rigBrands,
     hasExistingRecord,
     isEditing,
     setIsEditing,
@@ -515,17 +1382,23 @@ export function useGeneralTreatmentForm({
     savingAddendum,
     addendumSuccess,
     treatmentPlan,
-    setTreatmentPlan,
+    setTreatmentPlan: handleTreatmentPlanChange,
     episodeHistory,
-    newBiteData,
-    setNewBiteData,
+    patientReportedIntake,
+    previousConsultations,
+    isPendingTreatmentReassessment,
+    pendingTreatmentSummary,
     checkedDiagnoses,
     checkedHistory,
     fieldErrors,
     touchedFields,
+    isCategory1: formData.exposure_category === 'I',
     isFormDisabled,
     isNatureOfVisitAutomatic,
     shouldHideConsultationType,
+    isVitalsReadOnly: !hasExistingRecord &&
+      existingRecord?.status === 'scheduled' &&
+      !existingRecord?.chief_complaints,
     handleFieldChange,
     handleCheckboxChange,
     handleFieldBlur,
@@ -533,8 +1406,31 @@ export function useGeneralTreatmentForm({
     handleClearDiagnoses,
     toggleHistory,
     handlePrescribedVaccineChange,
+    handleProphylaxisChange,
+    handleReassessmentDecisionChange,
     handleSaveAddendum,
     handleSubmit,
     handleCancelEdit,
+    draftStatus: draft.status,
+    draftSavedAt: draft.savedAt,
+    // Referral fields & actions
+    transferSlipOpen,
+    setTransferSlipOpen,
+    isReferralCompleted,
+    handleToggleReferral,
+    handleSelectFacility,
+    handleSelectReason,
+    handleOpenPrintSlip,
+    handleSaveReferral,
+    handleCompleteReferral,
+    // Place of Exposure location state & handlers
+    expLoc,
+    purok,
+    setPurok,
+    handleClearPlaceOfExposureError,
+    // Dynamic clinic module config
+    isFieldVisible,
+    isFieldRequired,
+    isSectionEnabled,
   };
 }

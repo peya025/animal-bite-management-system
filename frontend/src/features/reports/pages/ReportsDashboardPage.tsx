@@ -1,11 +1,16 @@
+import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
+import { printWhenReady } from '../../../components/print/printReady';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../shared/config/routes';
 import { useTheme } from '@mui/material/styles';
+import { Typography } from '@mui/material';
 import api from '../../../services/api';
-import tagoloanLogo from '../../../assets/Flag_of_Tagoloan,_Misamis_Oriental.png';
-import rhuLogo from '../../../assets/rhu-logo.png';
 import { useAuth } from '../../../contexts/AuthContext';
 import RegistrationReportsPage from './RegistrationReportsPage';
 import DohReportsSection from '../components/DohReportsSection';
+import AdminReportsPage from './AdminReportsPage';
+import TreatmentNurseReportsPage from './TreatmentNurseReportsPage';
 
 // ─── Types ────────────────────────────────────────────────────
 interface ReportStats {
@@ -273,6 +278,7 @@ function StatBox({
 }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const [hovered, setHovered] = useState(false);
 
   // Icon map by label keyword
   const iconPath: Record<string, string> = {
@@ -303,12 +309,12 @@ function StatBox({
     return (
       <div
         onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         title={onClick ? `Click to inspect & print records for ${label}` : undefined}
         style={{
-          background: active
-            ? 'radial-gradient(ellipse at 50% 0%, #1e3a29 0%, #13281c 55%, #0d1a13 100%)'
-            : 'radial-gradient(ellipse at 50% 0%, #1a2e20 0%, #111c15 55%, #090f0b 100%)',
-          border: active ? '2px solid #10b981' : '1.5px solid rgba(16,185,129,0.35)',
+          background: '#111827',
+          border: active ? '2px solid #10b981' : '1px solid rgba(16, 185, 129, 0.25)',
           borderRadius: 20,
           padding: '18px 16px 16px',
           display: 'flex',
@@ -318,12 +324,14 @@ function StatBox({
           gap: 12,
           minHeight: 130,
           cursor: onClick ? 'pointer' : 'default',
-          transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
+          transition: 'box-shadow 0.25s ease',
           userSelect: 'none',
           position: 'relative',
           boxShadow: active
-            ? '0 0 0 3px rgba(16,185,129,0.25), 0 10px 30px -5px rgba(0,0,0,0.7), 0 0 30px -4px rgba(16,185,129,0.4)'
-            : '0 10px 30px -5px rgba(0,0,0,0.6), 0 0 25px -4px rgba(16,185,129,0.18), inset 0 1px 0 rgba(255,255,255,0.06)',
+            ? '0 0 0 3px rgba(16,185,129,0.25), 0 2px 8px rgba(0,0,0,0.3)'
+            : hovered
+            ? '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+            : '0 2px 8px rgba(0, 0, 0, 0.3)',
         }}
       >
         {active && (
@@ -375,12 +383,12 @@ function StatBox({
   return (
     <div
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       title={onClick ? `Click to inspect & print records for ${label}` : undefined}
       style={{
-        background: active
-          ? 'radial-gradient(ellipse at 30% 0%, #dcfce7 0%, #f0fdf4 60%, #ffffff 100%)'
-          : 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f7fdfb 55%, #ffffff 100%)',
-        border: active ? '2px solid #10b981' : '1px solid rgba(16,185,129,0.28)',
+        background: '#ffffff',
+        border: active ? '2px solid #10b981' : '1px solid rgba(16, 185, 129, 0.25)',
         borderRadius: 20,
         padding: '16px 18px 14px',
         display: 'flex',
@@ -388,12 +396,14 @@ function StatBox({
         justifyContent: 'space-between',
         minHeight: 120,
         cursor: onClick ? 'pointer' : 'default',
-        transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
+        transition: 'box-shadow 0.25s ease',
         userSelect: 'none',
         position: 'relative',
         boxShadow: active
-          ? '0 0 0 3px rgba(16,185,129,0.15), 0 8px 24px -4px rgba(16,185,129,0.2)'
-          : '0 4px 16px -4px rgba(16,185,129,0.12), inset 0 1px 0 rgba(255,255,255,1)',
+          ? '0 0 0 3px rgba(16, 185, 129, 0.15), 0 1px 3px rgba(0, 0, 0, 0.04)'
+          : hovered
+          ? '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)'
+          : '0 1px 3px rgba(0, 0, 0, 0.04)',
       }}
     >
       {/* Row 1: label + icon */}
@@ -451,11 +461,24 @@ function CatBox({
 }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const [hovered, setHovered] = useState(false);
 
   const numVal = count ?? 0;
   // color per category
   const catColor = cat.includes('III') ? '#ef4444' : cat.includes('II') ? '#f59e0b' : '#10b981';
   const catGlow  = cat.includes('III') ? 'rgba(239,68,68,0.35)'  : cat.includes('II') ? 'rgba(245,158,11,0.35)' : 'rgba(16,185,129,0.35)';
+
+  const hoverShadow = isDark
+    ? cat.includes('III')
+      ? '0 8px 24px rgba(239, 68, 68, 0.35), 0 0 16px rgba(239, 68, 68, 0.25)'
+      : cat.includes('II')
+      ? '0 8px 24px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.25)'
+      : '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+    : cat.includes('III')
+    ? '0 8px 22px rgba(239, 68, 68, 0.28), 0 2px 8px rgba(239, 68, 68, 0.16)'
+    : cat.includes('II')
+    ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
+    : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
 
   if (isDark) {
     const ringSize = 68;
@@ -464,25 +487,29 @@ function CatBox({
     const dash = circ * (numVal > 0 ? 0.72 : 0.08);
 
     return (
-      <div style={{
-        background: active
-          ? 'radial-gradient(ellipse at 50% 0%, #1e3a29 0%, #13281c 55%, #0d1a13 100%)'
-          : 'radial-gradient(ellipse at 50% 0%, #1a2e20 0%, #111c15 55%, #090f0b 100%)',
-        border: active ? `2px solid ${catColor}` : `1.5px solid ${catGlow.replace('0.35','0.3')}`,
-        borderRadius: 20,
-        padding: '18px 16px 16px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 10,
-        minHeight: 130,
-        transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
-        position: 'relative',
-        boxShadow: active
-          ? `0 0 0 3px ${catGlow.replace('0.35','0.2')}, 0 10px 30px -5px rgba(0,0,0,0.7), 0 0 30px -4px ${catGlow}`
-          : `0 10px 30px -5px rgba(0,0,0,0.6), 0 0 22px -4px ${catGlow.replace('0.35','0.18')}, inset 0 1px 0 rgba(255,255,255,0.06)`,
-      }}>
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          background: '#111827',
+          border: active ? `2px solid ${catColor}` : '1px solid rgba(16, 185, 129, 0.25)',
+          borderRadius: 20,
+          padding: '18px 16px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 10,
+          minHeight: 130,
+          transition: 'box-shadow 0.25s ease',
+          position: 'relative',
+          boxShadow: active
+            ? `0 0 0 3px ${catGlow.replace('0.35','0.2')}, 0 2px 8px rgba(0, 0, 0, 0.3)`
+            : hovered
+            ? hoverShadow
+            : '0 2px 8px rgba(0, 0, 0, 0.3)',
+        }}
+      >
         {active && (
           <div style={{ position: 'absolute', top: 7, right: 9, fontSize: 9, fontWeight: 800, color: catColor, background: `${catGlow.replace('0.35','0.18')}`, border: `1px solid ${catGlow}`, padding: '1px 6px', borderRadius: 999 }}>
             ✓ SELECTED
@@ -523,23 +550,27 @@ function CatBox({
   const barPct = Math.min(100, Math.max(6, numVal > 0 ? Math.min(100, numVal * 12) : 6));
 
   return (
-    <div style={{
-      background: active
-        ? 'radial-gradient(ellipse at 30% 0%, #dcfce7 0%, #f0fdf4 60%, #ffffff 100%)'
-        : 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f7fdfb 55%, #ffffff 100%)',
-      border: active ? `2px solid ${catColor}` : '1px solid rgba(16,185,129,0.28)',
-      borderRadius: 20,
-      padding: '16px 18px 14px',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      minHeight: 120,
-      transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
-      position: 'relative',
-      boxShadow: active
-        ? `0 0 0 3px ${catGlow.replace('0.35','0.12')}, 0 8px 24px -4px ${catGlow.replace('0.35','0.2')}`
-        : '0 4px 16px -4px rgba(16,185,129,0.12), inset 0 1px 0 rgba(255,255,255,1)',
-    }}>
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: '#ffffff',
+        border: active ? `2px solid ${catColor}` : '1px solid rgba(16, 185, 129, 0.25)',
+        borderRadius: 20,
+        padding: '16px 18px 14px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        minHeight: 120,
+        transition: 'box-shadow 0.25s ease',
+        position: 'relative',
+        boxShadow: active
+          ? `0 0 0 3px ${catGlow.replace('0.35','0.12')}, 0 1px 3px rgba(0, 0, 0, 0.04)`
+          : hovered
+          ? hoverShadow
+          : '0 1px 3px rgba(0, 0, 0, 0.04)',
+      }}
+    >
       {active && (
         <div style={{ position: 'absolute', top: 7, right: 9, fontSize: 9, fontWeight: 800, color: '#059669', background: '#d1fae5', border: '1px solid #a7f3d0', padding: '1px 6px', borderRadius: 999 }}>
           ✓ SELECTED
@@ -805,7 +836,17 @@ function PrintPreviewModal({
   html, clinicName, printedBy, printDate, dateFrom, dateTo, activeTab,
   activeFiltersText, onConfirm, onCancel
 }: PrintPreviewModalProps) {
-  const tabLabel = activeTab === 'summary' ? 'Summary Report' : activeTab === 'cases' ? 'Bite Cases Report' : activeTab === 'inventory' ? 'Vaccine Inventory & Wastage Report' : 'Patient Registry Report';
+  const { clinic: authClinic } = useAuth();
+  const storedClinic = localStorage.getItem('clinicData') ? JSON.parse(localStorage.getItem('clinicData')!) : null;
+  const clinic = authClinic || storedClinic;
+
+  const { leftLogoUrl: leftLogo, rightLogoUrl: rightLogo } = getGlobalPrintLogos(clinic);
+  const province = (clinic?.province || 'MISAMIS ORIENTAL').toUpperCase();
+  const municipality = clinic?.municipality || 'Tagoloan';
+  const officeName = (clinic?.name || 'MUNICIPAL HEALTH OFFICE').toUpperCase();
+  const phone = clinic?.contact_number || (clinic as any)?.phone || '(088)890-4770';
+
+  const tabLabel = activeTab === 'summary' ? 'Summary Report' : activeTab === 'cases' ? 'Bite Cases Report' : activeTab === 'inventory' ? 'Vaccine Inventory & Wastage Report' : 'Patient List Report';
 
   return (
     <div style={overlayStyle} onClick={onCancel} role="dialog" aria-modal="true" aria-labelledby="print-title">
@@ -836,7 +877,7 @@ function PrintPreviewModal({
           </button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px', background: 'var(--bg-dark, #f3f4f6)' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px', background: '#ffffff' }}>
           <style>{`
             @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
             .print-modal-content h3.sec {
@@ -905,17 +946,25 @@ function PrintPreviewModal({
           `}</style>
 
           <div style={{ background: '#fff', borderRadius: 8, padding: '24px 28px', boxShadow: '0 2px 12px rgba(0,0,0,0.15)', minHeight: 500, fontSize: 13, color: '#000', fontFamily: "'Poppins', sans-serif" }}>
-            {/* Header with Specified Logos: Left Tagoloan Flag, Right RHU Logo */}
+            {/* Header with Dynamic Logos & Clinic Info */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 4 }}>
-              <img src={tagoloanLogo} alt="Tagoloan Flag" style={{ width: 68, height: 68, objectFit: 'contain', flexShrink: 0 }} onError={(e) => { (e.target as HTMLElement).style.visibility = 'hidden'; }} />
+              {leftLogo ? (
+                <img key={leftLogo} src={leftLogo} alt="Left Print Logo" style={{ width: 68, height: 68, objectFit: 'contain', flexShrink: 0 }} onError={(e) => { (e.target as HTMLElement).style.visibility = 'hidden'; }} />
+              ) : (
+                <div style={{ width: 68, height: 68, flexShrink: 0 }} />
+              )}
               <div style={{ textAlign: 'center', lineHeight: 1.3 }}>
                 <div style={{ fontSize: '8pt', fontFamily: "'Poppins', sans-serif", fontStyle: 'italic' }}>Republic of the Philippines</div>
-                <div style={{ fontSize: '9.5pt', fontWeight: 700, fontFamily: "'Poppins', sans-serif" }}>PROVINCE OF MISAMIS ORIENTAL</div>
-                <div style={{ fontSize: '8.5pt', fontFamily: "'Poppins', sans-serif" }}>Municipality of Tagoloan</div>
-                <div style={{ fontSize: '11pt', fontWeight: 800, fontFamily: "'Poppins', sans-serif", marginTop: 1 }}>MUNICIPAL HEALTH OFFICE</div>
-                <div style={{ fontSize: '8pt', fontFamily: "'Poppins', sans-serif", fontStyle: 'italic' }}>Tel. No. (088)890-4770</div>
+                <div style={{ fontSize: '9.5pt', fontWeight: 700, fontFamily: "'Poppins', sans-serif" }}>PROVINCE OF {province}</div>
+                <div style={{ fontSize: '8.5pt', fontFamily: "'Poppins', sans-serif" }}>Municipality of {municipality}</div>
+                <div style={{ fontSize: '11pt', fontWeight: 800, fontFamily: "'Poppins', sans-serif", marginTop: 1 }}>{officeName}</div>
+                <div style={{ fontSize: '8pt', fontFamily: "'Poppins', sans-serif", fontStyle: 'italic' }}>Tel. No. {phone}</div>
               </div>
-              <img src={rhuLogo} alt="RHU Logo" style={{ width: 68, height: 68, objectFit: 'contain', flexShrink: 0 }} onError={(e) => { (e.target as HTMLElement).style.visibility = 'hidden'; }} />
+              {rightLogo ? (
+                <img key={rightLogo} src={rightLogo} alt="Right Print Logo" style={{ width: 68, height: 68, objectFit: 'contain', flexShrink: 0 }} onError={(e) => { (e.target as HTMLElement).style.visibility = 'hidden'; }} />
+              ) : (
+                <div style={{ width: 68, height: 68, flexShrink: 0 }} />
+              )}
             </div>
             <hr style={{ border: 'none', borderTop: '2px solid #000', margin: '4px 0 14px' }}/>
 
@@ -971,12 +1020,20 @@ function PrintPreviewModal({
 }
 
 // ─── Main Component ───────────────────────────────────────────
-export default function ReportsDashboardPage() {
+interface ReportsDashboardPageProps {
+  initialTab?: 'summary' | 'cases' | 'patients' | 'inventory';
+}
+
+export default function ReportsDashboardPage({ initialTab }: ReportsDashboardPageProps = {}) {
   const { user } = useAuth();
-  return user?.role === 'registration' ? <RegistrationReportsPage /> : <LegacyReportsDashboardPage />;
+  if (user?.role === 'admin') return <AdminReportsPage initialTab={initialTab} />;
+  if (user?.role === 'registration') return <RegistrationReportsPage />;
+  return <TreatmentNurseReportsPage initialTab={initialTab} />;
 }
 
 function LegacyReportsDashboardPage() {
+  const navigate = useNavigate();
+  const { clinic: authClinic } = useAuth();
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
   const todayStr = today.toISOString().split('T')[0];
@@ -1022,8 +1079,9 @@ function LegacyReportsDashboardPage() {
   const [patientMonthFilter,  setPatientMonthFilter]  = useState<string>('ALL');
   const [patientYearFilter,   setPatientYearFilter]   = useState<string>('ALL');
 
-  const clinicData = localStorage.getItem('clinicData');
-  const clinic     = clinicData ? JSON.parse(clinicData) : null;
+  const clinicData   = localStorage.getItem('clinicData');
+  const storedClinic = clinicData ? JSON.parse(clinicData) : null;
+  const clinic       = authClinic || storedClinic;
   const userData   = localStorage.getItem('userData');
   const user       = userData   ? JSON.parse(userData)   : null;
   const clinicName = clinic?.name ?? 'Animal Bite Treatment Center';
@@ -1383,7 +1441,7 @@ function LegacyReportsDashboardPage() {
     const refNo = `ABTC-RPT-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
     const printDateFull = now.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
     const printTimeFull = now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
-    const tabLabel = activeTab === 'summary' ? (cardData ? `Card Audit: ${cardData.title}` : 'Summary Report') : activeTab === 'cases' ? 'Bite Cases Report' : activeTab === 'patients' ? 'Patient Registry Report' : 'Vaccine Inventory & Wastage Report';
+    const tabLabel = activeTab === 'summary' ? (cardData ? `Card Audit: ${cardData.title}` : 'Summary Report') : activeTab === 'cases' ? 'Bite Cases Report' : activeTab === 'patients' ? 'Patient List Report' : 'Vaccine Inventory & Wastage Report';
 
     const CSS = `@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Poppins',sans-serif;color:#000;background:#fff;padding:24px 32px;font-size:10pt;line-height:1.4}.letterhead{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:4px}.logo{width:68px;height:68px;object-fit:contain}.org{text-align:center;line-height:1.3}.org .republic{font-size:8pt;font-style:italic}.org .dept{font-size:9.5pt;font-weight:700}.org .mho{font-size:11pt;font-weight:800;margin-top:1px}.org .address{font-size:8pt;font-style:italic}.divider-thick{border:none;border-top:2px solid #000;margin:4px 0 14px}.doc-title{text-align:center;margin:12px 0 16px}.doc-title h2{font-size:14pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:0;text-decoration:underline}.doc-title p{font-size:9pt;margin:2px 0 0}.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;margin-bottom:16px;font-size:9pt;border:1px solid #000;padding:8px 12px}h3.sec{font-size:10pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #000;padding-bottom:3px;margin:18px 0 10px}table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:9pt;border:1px solid #000}th{background:#fff;color:#000;font-weight:700;padding:6px 8px;text-align:left;font-size:9pt;border:1px solid #000}td{padding:5px 8px;border:1px solid #000;color:#000;background:#fff}tr:nth-child(even) td{background:#fff}table.info-table td{border:1px solid #000;padding:5px 10px;vertical-align:top;background:#fff}table.info-table td.lbl{background:#fff;font-weight:700;font-size:9pt;width:22%;color:#000}table.info-table td.val{font-size:9pt;width:28%;color:#000;background:#fff}p.note{font-size:8.5pt;color:#000;margin-bottom:8px;font-style:italic}.sig-section{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px}.sig-block .line{border-top:1px solid #000;margin-top:36px;padding-top:4px}.sig-block .name{font-weight:700;font-size:10pt;text-transform:uppercase}.sig-block .position{font-size:9pt;color:#000}.footer-bar{margin-top:40px;padding-top:8px;border-top:2px solid #000;display:flex;justify-content:space-between;font-size:8.5pt;color:#000}@media print{body{padding:16px 20px}@page{margin:1.0cm}}`;
 
@@ -1399,17 +1457,23 @@ function LegacyReportsDashboardPage() {
     const win = window.open('', '_blank', 'width=950,height=750');
     if (!win) return;
 
+    const { leftLogoUrl: leftLogo, rightLogoUrl: rightLogo } = getGlobalPrintLogos(clinic);
+    const provinceName = (clinic?.province || 'MISAMIS ORIENTAL').toUpperCase();
+    const municipalityName = clinic?.municipality || 'Tagoloan';
+    const officeHeaderName = (clinic?.name || 'MUNICIPAL HEALTH OFFICE').toUpperCase();
+    const contactPhone = clinic?.contact_number || (clinic as any)?.phone || '(088)890-4770';
+
     win.document.write(`<!DOCTYPE html><html><head><title>${clinicName} — ${tabLabel}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet"><style>${CSS}</style></head><body>
       <div class="letterhead">
-        <img src="/assets/Flag_of_Tagoloan,_Misamis_Oriental.png" alt="Tagoloan Flag" class="logo" />
+        ${leftLogo ? `<img onerror="this.style.visibility='hidden'" src="${leftLogo}" alt="Left Print Logo" class="logo" />` : `<div style="width:68px;height:68px;flex-shrink:0;"></div>`}
         <div class="org">
           <div class="republic">Republic of the Philippines</div>
-          <div class="dept">PROVINCE OF MISAMIS ORIENTAL</div>
-          <div class="dept" style="font-weight:400">Municipality of Tagoloan</div>
-          <div class="mho">MUNICIPAL HEALTH OFFICE</div>
-          <div class="address">Tel. No. (088)890-4770</div>
+          <div class="dept">PROVINCE OF ${provinceName}</div>
+          <div class="dept" style="font-weight:400">Municipality of ${municipalityName}</div>
+          <div class="mho">${officeHeaderName}</div>
+          <div class="address">Tel. No. ${contactPhone}</div>
         </div>
-        <img src="/assets/rhu-logo.png" alt="RHU Logo" class="logo" />
+        ${rightLogo ? `<img onerror="this.style.visibility='hidden'" src="${rightLogo}" alt="Right Print Logo" class="logo" />` : `<div style="width:68px;height:68px;flex-shrink:0;"></div>`}
       </div>
       <hr class="divider-thick">
       <div class="doc-title"><h2>${tabLabel}</h2><p>Reference No.: ${refNo}</p></div>
@@ -1424,7 +1488,7 @@ function LegacyReportsDashboardPage() {
 
     win.document.close(); win.focus();
     setShowPrintModal(false);
-    setTimeout(() => { win.print(); win.close(); }, 600);
+    void printWhenReady(win, true);
   };
 
   return (
@@ -1432,16 +1496,44 @@ function LegacyReportsDashboardPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 25, fontWeight: 600, color: 'var(--text-h)', margin: '0 0 7px', letterSpacing: -0.5 }}>Reports &amp; Analytics</h1>
-          <p style={{ fontSize: 13, color: '#77877d', margin: 0 }}>Generate, filter, and print audit-ready clinical and inventory reports</p>
-          {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
-            <button onClick={() => { window.location.href = '/dashboard'; }}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}>
+          <Typography
+            component="h1"
+            sx={{
+              fontSize: '24px',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
+            }}
+          >
+            Reports &amp; Analytics
+          </Typography>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '8px',
+              fontSize: '13px',
+            }}
+          >
+            <button
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: '#3b82f6',
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
+            >
               Dashboard
             </button>
             <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Reports</span>
+            <span style={{ color: '#6b7280' }}>Reports &amp; Analytics</span>
           </div>
         </div>
         <button onClick={handleOpenPrint}
@@ -2006,7 +2098,7 @@ function LegacyReportsDashboardPage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={5} style={{ textAlign:'center', padding:24, color:'#6b7280' }}>Loading patient registry…</td></tr>
+                    <tr><td colSpan={5} style={{ textAlign:'center', padding:24, color:'#6b7280' }}>Loading patient list…</td></tr>
                   ) : filteredPatients.length === 0 ? (
                     <tr><td colSpan={5} style={{ textAlign:'center', padding:24, color:'#6b7280' }}>No patients match the selected search or date filters.</td></tr>
                   ) : filteredPatients.map((p, i) => (

@@ -36,6 +36,20 @@ class CheckRole
             return $next($request);
         }
 
+        // Registration aliases: 'registration' or 'receptionist'
+        if (in_array('registration', $roles) || in_array('receptionist', $roles)) {
+            if ($user->isRegistration() || in_array('receptionist', $allUserRoles) || in_array('registration', $allUserRoles)) {
+                return $next($request);
+            }
+        }
+
+        // Triage / Doctor aliases: 'triage' or 'doctor'
+        if (in_array('triage', $roles) || in_array('doctor', $roles)) {
+            if ($user->isTriage() || in_array('doctor', $allUserRoles) || in_array('triage', $allUserRoles)) {
+                return $next($request);
+            }
+        }
+
         $hasRole = false;
         foreach ($roles as $r) {
             if (in_array($r, $allUserRoles)) {

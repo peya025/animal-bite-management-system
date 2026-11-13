@@ -5,8 +5,9 @@ import '../app/app_theme.dart';
 import '../models/bite_intake_route_args.dart';
 import '../models/booking_draft.dart';
 import '../models/patient_profile.dart';
+import '../models/patient_profile_form_args.dart';
 import '../services/api.dart';
-import '../widgets/booking/booking_header.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../widgets/booking/booking_summary.dart';
 import '../widgets/booking/date_selector.dart';
 import '../widgets/booking/service_selector.dart';
@@ -14,11 +15,17 @@ import '../widgets/common/app_toast.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
 import '../widgets/vaccination/digital_vaccination_card.dart';
+import '../widgets/walkthrough/app_walkthrough_sheet.dart';
 
 class BookingView extends StatefulWidget {
-  const BookingView({super.key, this.initialService});
+  const BookingView({
+    super.key,
+    this.initialService,
+    this.startWalkthrough = false,
+  });
 
   final BookingService? initialService;
+  final bool startWalkthrough;
 
   @override
   State<BookingView> createState() => _BookingViewState();
@@ -27,7 +34,6 @@ class BookingView extends StatefulWidget {
 class _BookingViewState extends State<BookingView> {
   BookingService _service = BookingService.consultation;
   late DateTime _selectedDate;
-  BookingTimeSlot _timeSlot = BookingTimeSlot.morning;
   final _notesController = TextEditingController();
   List<PatientProfile> _patients = const [];
   PatientProfile? _selectedPatient;
@@ -36,9 +42,19 @@ class _BookingViewState extends State<BookingView> {
   String? _profileError;
   List<int> _openDaysOfWeek = const [1, 2, 3, 4, 5];
   Map<String, dynamic> _scheduleExceptions = const {};
-  Map<String, dynamic> _clinicSchedules = const {};
   Map<String, dynamic>? _urgentPolicy;
   bool _initializedArgs = false;
+  bool _walkthroughTriggered = false;
+
+  final GlobalKey _patientSectionKey = GlobalKey();
+  final GlobalKey _serviceSectionKey = GlobalKey();
+  final GlobalKey _dateAndConfirmKey = GlobalKey();
+
+  Map<int, GlobalKey> get _bookingWalkthroughTargets => {
+    0: _patientSectionKey,
+    1: _serviceSectionKey,
+    2: _dateAndConfirmKey,
+  };
 
   @override
   void initState() {
@@ -61,14 +77,41 @@ class _BookingViewState extends State<BookingView> {
       if (args is BookingService) {
         _service = args;
       }
+      if ((widget.startWalkthrough || args == 'walkthrough') &&
+          !_walkthroughTriggered) {
+        _walkthroughTriggered = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _startBookingWalkthrough();
+        });
+      }
     }
   }
 
-  DateTime _findNextOpenDate(DateTime start, List<int> openDays, Map<String, dynamic> exceptions) {
+  Future<void> _startBookingWalkthrough() async {
+    // Wait briefly if patient list is still loading so the Patient Profile card is rendered
+    for (var i = 0; i < 8 && _loadingPatients && mounted; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+    }
+    if (!mounted) return;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    await showAppWalkthrough(
+      context,
+      targetKeys: _bookingWalkthroughTargets,
+      steps: kBookingWalkthroughSteps,
+    );
+  }
+
+  DateTime _findNextOpenDate(
+    DateTime start,
+    List<int> openDays,
+    Map<String, dynamic> exceptions,
+  ) {
     var current = DateUtils.dateOnly(start);
     for (var i = 0; i < 365; i++) {
       final dow = current.weekday == 7 ? 0 : current.weekday;
-      final dateKey = "${current.year.toString().padLeft(4, '0')}-${current.month.toString().padLeft(2, '0')}-${current.day.toString().padLeft(2, '0')}";
+      final dateKey =
+          "${current.year.toString().padLeft(4, '0')}-${current.month.toString().padLeft(2, '0')}-${current.day.toString().padLeft(2, '0')}";
       if (exceptions.containsKey(dateKey)) {
         final exc = exceptions[dateKey];
         if (exc is Map && exc['is_open'] == true) return current;
@@ -81,20 +124,6 @@ class _BookingViewState extends State<BookingView> {
     return start;
   }
 
-  String get _morningSlotLabel {
-    final dow = _selectedDate.weekday == 7 ? 0 : _selectedDate.weekday;
-    final sched = _clinicSchedules[dow.toString()];
-    final openTime = sched is Map ? (sched['open_time_label'] ?? '8:00 AM') : '8:00 AM';
-    return 'Morning ($openTime – 12:00 PM)';
-  }
-
-  String get _afternoonSlotLabel {
-    final dow = _selectedDate.weekday == 7 ? 0 : _selectedDate.weekday;
-    final sched = _clinicSchedules[dow.toString()];
-    final closeTime = sched is Map ? (sched['close_time_label'] ?? '5:00 PM') : '5:00 PM';
-    return 'Afternoon (1:00 PM – $closeTime)';
-  }
-
   Future<void> _loadScheduleSummary() async {
     try {
       final summary = await api.scheduleSummary() as Map<String, dynamic>;
@@ -102,15 +131,6 @@ class _BookingViewState extends State<BookingView> {
       setState(() {
         if (summary['open_days_of_week'] is List) {
           _openDaysOfWeek = (summary['open_days_of_week'] as List).cast<int>();
-        }
-        if (summary['schedules'] is Map) {
-          _clinicSchedules = summary['schedules'] as Map<String, dynamic>;
-        } else if (summary['schedules'] is List) {
-          _clinicSchedules = {
-            for (var s in summary['schedules'])
-              if (s is Map && s.containsKey('day_of_week'))
-                s['day_of_week'].toString(): s,
-          };
         }
         if (summary['exceptions'] is Map) {
           _scheduleExceptions = summary['exceptions'] as Map<String, dynamic>;
@@ -120,7 +140,11 @@ class _BookingViewState extends State<BookingView> {
         }
 
         // Auto-select the first valid open date if current is closed
-        _selectedDate = _findNextOpenDate(_selectedDate, _openDaysOfWeek, _scheduleExceptions);
+        _selectedDate = _findNextOpenDate(
+          _selectedDate,
+          _openDaysOfWeek,
+          _scheduleExceptions,
+        );
       });
     } catch (_) {}
   }
@@ -165,9 +189,17 @@ class _BookingViewState extends State<BookingView> {
   }
 
   Future<void> _addDependent() async {
+    final hasSelf =
+        _patients.any((p) => p.relationship.toLowerCase() == 'self');
     final created = await Navigator.of(
       context,
-    ).pushNamed(AppRoutes.profileSetup, arguments: 'add-dependent');
+    ).pushNamed(
+      AppRoutes.profileSetup,
+      arguments: PatientProfileFormArgs(
+        initialRelationship: hasSelf ? 'child' : 'self',
+        returnToBooking: true,
+      ),
+    );
     if (created is PatientProfile && mounted) {
       await _loadPatients(selectPatientId: created.id);
     }
@@ -185,7 +217,8 @@ class _BookingViewState extends State<BookingView> {
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.isEmpty) return 'P';
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
+        .toUpperCase();
   }
 
   void _openPatientPickerModal() {
@@ -193,7 +226,7 @@ class _BookingViewState extends State<BookingView> {
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (context) {
         return SafeArea(
@@ -238,10 +271,17 @@ class _BookingViewState extends State<BookingView> {
                     ),
                     subtitle: Text(
                       _relationshipLabel(p.relationship),
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF6B7280),
+                      ),
                     ),
                     trailing: p.id == _selectedPatient?.id
-                        ? const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20)
+                        ? const Icon(
+                            Icons.check_circle_rounded,
+                            color: AppColors.primary,
+                            size: 20,
+                          )
                         : null,
                     onTap: () {
                       setState(() => _selectedPatient = p);
@@ -253,11 +293,19 @@ class _BookingViewState extends State<BookingView> {
                   leading: const CircleAvatar(
                     radius: 18,
                     backgroundColor: Color(0xFFF3F4F6),
-                    child: Icon(Icons.person_add_alt_1_outlined, size: 18, color: Color(0xFF374151)),
+                    child: Icon(
+                      Icons.person_add_alt_1_outlined,
+                      size: 18,
+                      color: Color(0xFF374151),
+                    ),
                   ),
                   title: const Text(
                     'Add child or dependent',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.primary),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primary,
+                    ),
                   ),
                   onTap: () {
                     Navigator.of(context).pop();
@@ -297,8 +345,9 @@ class _BookingViewState extends State<BookingView> {
     final booking = BookingDraft(
       service: _service,
       date: safeDate,
-      timeSlot: _timeSlot,
-      notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+      notes: _notesController.text.trim().isEmpty
+          ? null
+          : _notesController.text.trim(),
     );
 
     if (_service == BookingService.consultation) {
@@ -316,10 +365,17 @@ class _BookingViewState extends State<BookingView> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          icon: const Icon(Icons.block_rounded, color: Color(0xFFDC2626), size: 36),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          icon: const Icon(
+            Icons.block_rounded,
+            color: Color(0xFFDC2626),
+            size: 36,
+          ),
           title: const Text('Booster Not Applicable'),
           content: Text(
-            '${patient.name} has not completed the primary 3-dose anti-rabies vaccination series (Day 0, Day 3, Day 7).\n\nPer DOH NRPCP protocol, the 2-dose booster regimen is strictly reserved for patients with verified completed primary PEP.\n\nIf bitten again or continuing care, please select "Bite consultation" for medical evaluation, or select "Vaccination" to resume/complete the primary series.',
+            '${patient.name} has not completed the primary 3-dose anti-rabies vaccination series (Day 0, Day 3, Day 7).\n\nPer DOH NRPCP protocol, the 2-dose booster regimen is strictly reserved for patients with verified completed primary PEP.\n\nIf bitten again or continuing care, please select "Bite consultation" for medical evaluation.',
           ),
           actions: [
             TextButton(
@@ -342,15 +398,16 @@ class _BookingViewState extends State<BookingView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        icon: Icon(
-          isBooster ? Icons.shield_outlined : Icons.vaccines_outlined,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28),
+        ),
+        icon: const Icon(
+          Icons.shield_outlined,
           color: AppColors.primary,
         ),
-        title: Text(isBooster ? 'Confirm rabies booster booking' : 'Confirm vaccination booking'),
+        title: const Text('Confirm rabies booster booking'),
         content: Text(
-          isBooster
-              ? 'Book a 2-dose rabies booster (Day 0 & Day 3) for ${patient.name} starting on ${DateSelector.formatDate(_selectedDate)}?\n\nPer DOH NRPCP guidelines, booster regimen requires only 2 intradermal doses (Day 0 & Day 3). Rabies Immunoglobulin (RIG) is withheld.'
-              : 'Book a vaccination appointment for ${patient.name} on ${DateSelector.formatDate(_selectedDate)}?\n\nNo bite incident intake will be required for this booking.',
+          'Book a 2-dose rabies booster (Day 0 & Day 3) for ${patient.name} starting on ${DateSelector.formatDate(_selectedDate)}?\n\nPer DOH NRPCP guidelines, booster regimen requires only 2 intradermal doses (Day 0 & Day 3). Rabies Immunoglobulin (RIG) is withheld.',
         ),
         actions: [
           TextButton(
@@ -359,7 +416,7 @@ class _BookingViewState extends State<BookingView> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(isBooster ? 'Book booster' : 'Book vaccination'),
+            child: const Text('Book booster'),
           ),
         ],
       ),
@@ -374,6 +431,9 @@ class _BookingViewState extends State<BookingView> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
           icon: const Icon(
             Icons.assignment_turned_in_outlined,
             color: AppColors.primary,
@@ -416,473 +476,582 @@ class _BookingViewState extends State<BookingView> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
-            child: Column(
-              children: [
-                const BookingHeader(),
-                Expanded(
-                  child: CustomScrollView(
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
-                        sliver: SliverList.list(
-                          children: [
+            child: CustomScrollView(
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 90),
+                  sliver: SliverList.list(
+                    children: [
                       // ─── 2. PATIENT PROFILE SECTION ───
-                      const Text(
-                        'PATIENT PROFILE',
-                        style: TextStyle(
-                          color: Color(0xFF6B7280),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      if (_loadingPatients)
-                        Container(
-                          height: 60,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade200, width: 0.5),
-                          ),
-                          child: const SizedBox.square(
-                            dimension: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      else if (_patients.isEmpty)
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade200, width: 0.5),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                _profileError ?? 'Add a patient profile before booking.',
-                                style: const TextStyle(color: Color(0xFF6B7280), fontSize: 12),
-                              ),
-                              const SizedBox(height: 10),
-                              OutlinedButton.icon(
-                                onPressed: _addDependent,
-                                icon: const Icon(Icons.person_add_alt_1_outlined, size: 16),
-                                label: const Text('Add patient profile'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppColors.primary,
-                                  side: BorderSide(color: Colors.grey.shade300, width: 0.5),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      else ...[
-                        // Patient Card
-                        InkWell(
-                          onTap: _openPatientPickerModal,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade200, width: 0.5),
-                            ),
-                            child: Row(
+                      KeyedSubtree(
+                        key: _patientSectionKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                // Left 36px circular avatar
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFE1F5EE),
-                                    shape: BoxShape.circle,
+                                const Text(
+                                  'PATIENT PROFILE',
+                                  style: TextStyle(
+                                    color: Color(0xFF6B7280),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.8,
                                   ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    patient != null ? _patientInitials(patient.name) : 'P',
-                                    style: const TextStyle(
-                                      color: Color(0xFF085041),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
+                                ),
+                                GestureDetector(
+                                  onTap: () => _startBookingWalkthrough(),
+                                  behavior: HitTestBehavior.opaque,
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: 4,
+                                      horizontal: 2,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          LucideIcons.compass,
+                                          size: 13,
+                                          color: AppColors.primary,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'How to book',
+                                          style: TextStyle(
+                                            color: AppColors.primary,
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                // Center info
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        patient?.name ?? 'Select patient',
-                                        style: const TextStyle(
-                                          color: Color(0xFF111827),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        patient != null ? _relationshipLabel(patient.relationship) : 'No profile selected',
-                                        style: const TextStyle(
-                                          color: Color(0xFF6B7280),
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                const Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  color: Color(0xFF6B7280),
-                                  size: 20,
                                 ),
                               ],
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // Below card: Inline row of two text links
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            GestureDetector(
-                              onTap: patient == null
-                                  ? null
-                                  : () async {
-                                      await Navigator.of(context).pushNamed(
-                                        AppRoutes.patientProfile,
-                                        arguments: patient,
-                                      );
-                                      if (mounted) {
-                                        await _loadPatients(selectPatientId: patient.id);
-                                      }
-                                    },
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.badge_outlined, size: 14, color: AppColors.primary),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'View profile',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.w500,
+                            const SizedBox(height: 8),
+                                  if (_loadingPatients)
+                                    Container(
+                                      height: 60,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(
+                                          color: Colors.grey.shade200,
+                                          width: 0.8,
+                                        ),
+                                      ),
+                                      child: const SizedBox.square(
+                                        dimension: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    )
+                                  else if (_patients.isEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(
+                                          color: Colors.grey.shade200,
+                                          width: 0.8,
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Text(
+                                            _profileError ??
+                                                'Add a patient profile before booking.',
+                                            style: const TextStyle(
+                                              color: Color(0xFF6B7280),
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          OutlinedButton.icon(
+                                            onPressed: _addDependent,
+                                            icon: const Icon(
+                                              Icons.person_add_alt_1_outlined,
+                                              size: 16,
+                                            ),
+                                            label: const Text(
+                                              'Add patient profile',
+                                            ),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor:
+                                                  AppColors.primary,
+                                              side: BorderSide(
+                                                color: Colors.grey.shade300,
+                                                width: 0.5,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  else ...[
+                                    // Patient Card
+                                    InkWell(
+                                      onTap: _openPatientPickerModal,
+                                      borderRadius: BorderRadius.circular(18),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: Colors.grey.shade200,
+                                            width: 0.5,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 36,
+                                              height: 36,
+                                              decoration: const BoxDecoration(
+                                                color: Color(0xFFE1F5EE),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              alignment: Alignment.center,
+                                              child: Text(
+                                                patient != null
+                                                    ? _patientInitials(
+                                                        patient.name,
+                                                      )
+                                                    : 'P',
+                                                style: const TextStyle(
+                                                  color: Color(0xFF085041),
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    patient?.name ??
+                                                        'Select patient',
+                                                    style: const TextStyle(
+                                                      color: Color(0xFF111827),
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    patient != null
+                                                        ? _relationshipLabel(
+                                                            patient
+                                                                .relationship,
+                                                          )
+                                                        : 'No profile selected',
+                                                    style: const TextStyle(
+                                                      color: Color(0xFF6B7280),
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Icon(
+                                              Icons.keyboard_arrow_down_rounded,
+                                              color: Color(0xFF6B7280),
+                                              size: 20,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.start,
+                                      children: [
+                                        GestureDetector(
+                                          onTap: patient == null
+                                              ? null
+                                              : () async {
+                                                  await Navigator.of(
+                                                    context,
+                                                  ).pushNamed(
+                                                    AppRoutes.patientProfile,
+                                                    arguments: patient,
+                                                  );
+                                                  if (mounted) {
+                                                    await _loadPatients(
+                                                      selectPatientId:
+                                                          patient.id,
+                                                    );
+                                                  }
+                                                },
+                                          child: const Row(
+                                            children: [
+                                              Icon(
+                                                Icons.badge_outlined,
+                                                size: 14,
+                                                color: AppColors.primary,
+                                              ),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                'View profile',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: AppColors.primary,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                          ),
+                                          child: SizedBox(
+                                            height: 12,
+                                            child: VerticalDivider(
+                                              width: 1,
+                                              thickness: 1,
+                                              color: Color(0xFFD1D5DB),
+                                            ),
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                          onTap: _addDependent,
+                                          child: const Row(
+                                            children: [
+                                              Icon(
+                                                Icons.person_add_alt_1_outlined,
+                                                size: 14,
+                                                color: AppColors.primary,
+                                              ),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                'Add dependent',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: AppColors.primary,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 10),
-                              child: SizedBox(
-                                height: 12,
-                                child: VerticalDivider(
-                                  width: 1,
-                                  thickness: 1,
-                                  color: Color(0xFFD1D5DB),
+
+                            const SizedBox(height: 20),
+
+                            // ─── 3. SERVICE TYPE SECTION ───
+                            KeyedSubtree(
+                              key: _serviceSectionKey,
+                              child: ServiceSelector(
+                                selected: _service,
+                                onSelected: (service) {
+                                  setState(() => _service = service);
+                                },
+                              ),
+                            ),
+
+                            if (_service == BookingService.consultation &&
+                                _urgentPolicy != null) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFFBEB),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: const Color(0xFFFDE68A),
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      '🚨',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'URGENT DAY 0 EXPOSURE ADVISORY',
+                                            style: TextStyle(
+                                              color: Color(0xFF92400E),
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 11,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            _urgentPolicy!['urgent_access_policy'] ==
+                                                    'refer_to_alternate_facility'
+                                                ? 'Animal bite exposure is an emergency. For immediate Day-0 rabies PEP outside operating hours, proceed directly to ${_urgentPolicy!['facility_name'] ?? 'the nearest Emergency Hospital'}${_urgentPolicy!['facility_contact'] != null ? ' (${_urgentPolicy!['facility_contact']})' : ''}.'
+                                                : 'Animal bite exposure is an emergency. Emergency walk-ins are accepted 24/7 at the ER Triage counter outside regular clinic hours.',
+                                            style: const TextStyle(
+                                              color: Color(0xFF78350F),
+                                              fontSize: 11.5,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                            GestureDetector(
-                              onTap: _addDependent,
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.person_add_alt_1_outlined, size: 14, color: AppColors.primary),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Add dependent',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.w500,
+                            ],
+
+                            if (_service == BookingService.booster &&
+                                _selectedPatient != null &&
+                                !_selectedPatient!.hasCompletedPrimary) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF2F2),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: const Color(0xFFFCA5A5),
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.error_outline_rounded,
+                                      color: Color(0xFFDC2626),
+                                      size: 20,
                                     ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'PRIMARY 3-DOSE PEP INCOMPLETE',
+                                            style: TextStyle(
+                                              color: Color(0xFFB91C1C),
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 11,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            '${_selectedPatient!.name} has not completed all 3 primary doses (Day 0, Day 3, Day 7). Per DOH guidelines, booster regimen is strictly for fully vaccinated patients. If bitten again, please select "Bite consultation" or complete missing primary doses.',
+                                            style: const TextStyle(
+                                              color: Color(0xFF991B1B),
+                                              fontSize: 11.5,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          InkWell(
+                                            onTap: () => setState(
+                                              () => _service =
+                                                  BookingService.consultation,
+                                            ),
+                                            child: const Text(
+                                              'Switch to Bite Consultation →',
+                                              style: TextStyle(
+                                                color: Color(0xFFDC2626),
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w700,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ] else if (_service == BookingService.booster) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: const Color(0xFFBFDBFE),
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.shield_outlined,
+                                      size: 18,
+                                      color: Color(0xFF1D4ED8),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'DOH 2-DOSE BOOSTER PROTOCOL',
+                                            style: TextStyle(
+                                              color: Color(0xFF1E40AF),
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 11,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          const Text(
+                                            'For patients with documented prior complete rabies PEP: only 2 intradermal doses (Day 0 and Day 3) are required. Rabies Immunoglobulin (RIG) is withheld. Day 3 will be automatically scheduled.',
+                                            style: TextStyle(
+                                              color: Color(0xFF1E3A8A),
+                                              fontSize: 11.5,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          InkWell(
+                                            onTap: () => Navigator.of(
+                                              context,
+                                            ).pushNamed(
+                                              AppRoutes.boosterGuidance,
+                                            ),
+                                            child: const Text(
+                                              'Learn more about the booster protocol →',
+                                              style: TextStyle(
+                                                color: Color(0xFF2563EB),
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w600,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+
+                            const SizedBox(height: 20),
+
+                            // ─── 4. DATE PICKER & 5. BOTTOM CTA ───
+                            KeyedSubtree(
+                              key: _dateAndConfirmKey,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  DateSelector(
+                                    selectedDate: _selectedDate,
+                                    openDaysOfWeek: _openDaysOfWeek,
+                                    exceptions: _scheduleExceptions,
+                                    onSelected: (date) {
+                                      setState(() => _selectedDate = date);
+                                    },
+                                  ),
+                                  const SizedBox(height: 20),
+                                  const Text(
+                                    'REASON FOR VISIT / NOTES (OPTIONAL)',
+                                    style: TextStyle(
+                                      color: Color(0xFF6B7280),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextField(
+                                    controller: _notesController,
+                                    maxLines: 2,
+                                    style: const TextStyle(fontSize: 13),
+                                    decoration: InputDecoration(
+                                      hintText:
+                                          'e.g. Follow-up dose, rabies exposure concern, etc.',
+                                      hintStyle: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF9CA3AF),
+                                      ),
+                                      fillColor: Colors.white,
+                                      filled: true,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                        borderSide: BorderSide(
+                                          color: Colors.grey.shade200,
+                                          width: 0.5,
+                                        ),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                        borderSide: BorderSide(
+                                          color: Colors.grey.shade200,
+                                          width: 0.5,
+                                        ),
+                                      ),
+                                      contentPadding: const EdgeInsets.all(12),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  BookingSummary(
+                                    onConfirm: _continueBooking,
+                                    isLoading: _booking,
+                                    confirmLabel:
+                                        _service == BookingService.consultation
+                                        ? 'Continue to intake'
+                                        : (_selectedPatient != null &&
+                                                  !_selectedPatient!
+                                                      .hasCompletedPrimary
+                                              ? 'Primary PEP incomplete'
+                                              : 'Confirm booster booking'),
                                   ),
                                 ],
                               ),
                             ),
+                            const SizedBox(height: 16),
                           ],
                         ),
-                      ],
-
-                      const SizedBox(height: 20),
-
-                      // ─── 3. SERVICE TYPE SECTION ───
-                      ServiceSelector(
-                        selected: _service,
-                        onSelected: (service) {
-                          setState(() => _service = service);
-                        },
                       ),
-
-                      if (_service == BookingService.consultation && _urgentPolicy != null) ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFBEB),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFFDE68A), width: 0.8),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('🚨', style: TextStyle(fontSize: 16)),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'URGENT DAY 0 EXPOSURE ADVISORY',
-                                      style: TextStyle(
-                                        color: Color(0xFF92400E),
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 11,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      _urgentPolicy!['urgent_access_policy'] == 'refer_to_alternate_facility'
-                                          ? 'Animal bite exposure is an emergency. For immediate Day-0 rabies PEP outside operating hours, proceed directly to ${_urgentPolicy!['facility_name'] ?? 'the nearest Emergency Hospital'}${_urgentPolicy!['facility_contact'] != null ? ' (${_urgentPolicy!['facility_contact']})' : ''}.'
-                                          : 'Animal bite exposure is an emergency. Emergency walk-ins are accepted 24/7 at the ER Triage counter outside regular clinic hours.',
-                                      style: const TextStyle(
-                                        color: Color(0xFF78350F),
-                                        fontSize: 11.5,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-
-                      if (_service == BookingService.booster && _selectedPatient != null && !_selectedPatient!.hasCompletedPrimary) ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF2F2),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFFCA5A5), width: 0.8),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'PRIMARY 3-DOSE PEP INCOMPLETE',
-                                      style: TextStyle(
-                                        color: Color(0xFFB91C1C),
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 11,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      '${_selectedPatient!.name} has not completed all 3 primary doses (Day 0, Day 3, Day 7). Per DOH guidelines, booster regimen is strictly for fully vaccinated patients. If bitten again, please select "Bite consultation" or complete missing primary doses.',
-                                      style: const TextStyle(
-                                        color: Color(0xFF991B1B),
-                                        fontSize: 11.5,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    InkWell(
-                                      onTap: () => setState(() => _service = BookingService.consultation),
-                                      child: const Text(
-                                        'Switch to Bite Consultation →',
-                                        style: TextStyle(
-                                          color: Color(0xFFDC2626),
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w700,
-                                          decoration: TextDecoration.underline,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ] else if (_service == BookingService.booster) ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFBFDBFE), width: 0.8),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.shield_outlined, size: 18, color: Color(0xFF1D4ED8)),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'DOH 2-DOSE BOOSTER PROTOCOL',
-                                      style: TextStyle(
-                                        color: Color(0xFF1E40AF),
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 11,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    const Text(
-                                      'For patients with documented prior complete rabies PEP: only 2 intradermal doses (Day 0 and Day 3) are required. Rabies Immunoglobulin (RIG) is withheld. Day 3 will be automatically scheduled.',
-                                      style: TextStyle(
-                                        color: Color(0xFF1E3A8A),
-                                        fontSize: 11.5,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    InkWell(
-                                      onTap: () => Navigator.of(context).pushNamed(AppRoutes.boosterGuidance),
-                                      child: const Text(
-                                        'Learn more about the booster protocol →',
-                                        style: TextStyle(
-                                          color: Color(0xFF2563EB),
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w600,
-                                          decoration: TextDecoration.underline,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-
-                      const SizedBox(height: 20),
-
-                      // ─── 4. DATE PICKER SECTION ───
-                      DateSelector(
-                        selectedDate: _selectedDate,
-                        openDaysOfWeek: _openDaysOfWeek,
-                        exceptions: _scheduleExceptions,
-                        onSelected: (date) {
-                          setState(() => _selectedDate = date);
-                        },
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // ─── PREFERRED TIME SLOT & REASON SECTION ───
-                      const Text(
-                        'PREFERRED TIME SLOT',
-                        style: TextStyle(
-                          color: Color(0xFF6B7280),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _TimeSlotChip(
-                              label: _morningSlotLabel,
-                              isSelected: _timeSlot == BookingTimeSlot.morning,
-                              onTap: () => setState(() => _timeSlot = BookingTimeSlot.morning),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _TimeSlotChip(
-                              label: _afternoonSlotLabel,
-                              isSelected: _timeSlot == BookingTimeSlot.afternoon,
-                              onTap: () => setState(() => _timeSlot = BookingTimeSlot.afternoon),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      const Text(
-                        'REASON FOR VISIT / NOTES (OPTIONAL)',
-                        style: TextStyle(
-                          color: Color(0xFF6B7280),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _notesController,
-                        maxLines: 2,
-                        style: const TextStyle(fontSize: 13),
-                        decoration: InputDecoration(
-                          hintText: 'e.g. Follow-up dose, rabies exposure concern, etc.',
-                          hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
-                          fillColor: Colors.white,
-                          filled: true,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade200, width: 0.5),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade200, width: 0.5),
-                          ),
-                          contentPadding: const EdgeInsets.all(12),
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // ─── 5. BOTTOM CTA ───
-                      BookingSummary(
-                        onConfirm: _continueBooking,
-                        isLoading: _booking,
-                        confirmLabel: _service == BookingService.consultation
-                            ? 'Continue to intake'
-                            : _service == BookingService.booster
-                                ? (_selectedPatient != null && !_selectedPatient!.hasCompletedPrimary
-                                    ? 'Primary PEP incomplete'
-                                    : 'Confirm booster booking')
-                                : 'Confirm booking',
-                      ),
-                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
-      ),
-    ),
-  ),
-),
       bottomNavigationBar: MenuNavigation(
         selectedIndex: 1,
         onSelected: _handleNavigation,
@@ -892,49 +1061,6 @@ class _BookingViewState extends State<BookingView> {
         onPressed: () => showDigitalVaccinationCard(context),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-    );
-  }
-}
-
-class _TimeSlotChip extends StatelessWidget {
-  const _TimeSlotChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFE1F5EE) : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.grey.shade200,
-            width: isSelected ? 1.5 : 0.5,
-          ),
-        ),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: isSelected ? const Color(0xFF085041) : const Color(0xFF374151),
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          ),
-        ),
-      ),
     );
   }
 }

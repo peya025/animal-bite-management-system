@@ -16,6 +16,7 @@ export const ROUTES = {
   PATIENTS: {
     LIST:    '/patients',
     REGISTRY: '/patient-registry',
+    PATIENT_LIST: '/patient-registry',
     CREATE:  '/patients/create',
     DETAILS: '/patients/:id',
     EDIT:    '/patients/:id/edit',
@@ -45,6 +46,7 @@ export const ROUTES = {
 
   INVENTORY: {
     LIST: '/inventory',
+    STOCK_CARD: '/inventory?tab=stockcard',
     TYPES: '/inventory/types',
     ADMINISTRATIONS: '/inventory/administrations',
   },
@@ -75,6 +77,7 @@ export const ROUTES = {
     MODULES:           '/setup/modules',
     STAFF_ASSIGNMENTS: '/setup/staff-assignments',
     TEMPLATES:         '/setup/templates',
+    PATIENT_RESOURCES: '/setup/patient-resources',
     VAX_SCHED:         '/setup/vaccination-schedules',
   },
   PROFILE: '/profile',

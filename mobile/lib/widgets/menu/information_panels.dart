@@ -129,7 +129,7 @@ class _InformationPanelsState extends State<InformationPanels> {
       builder: (context) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         child: Column(
@@ -339,7 +339,7 @@ class _InformationPanelsState extends State<InformationPanels> {
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   elevation: 0,
                 ),
                 child: const Text('Got it', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
@@ -367,7 +367,7 @@ class _InformationPanelsState extends State<InformationPanels> {
       builder: (context) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         child: Column(
@@ -443,7 +443,7 @@ class _InformationPanelsState extends State<InformationPanels> {
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   elevation: 0,
                 ),
                 child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
@@ -460,7 +460,7 @@ class _InformationPanelsState extends State<InformationPanels> {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Row(
@@ -545,14 +545,21 @@ class _InformationPanelsState extends State<InformationPanels> {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: _showOperatingScheduleModal,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(20),
                   child: Container(
                     height: 140,
                     padding: const EdgeInsets.all(13),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.grey.shade200, width: 0.5),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade200, width: 0.8),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x06111827),
+                          blurRadius: 10,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -564,7 +571,7 @@ class _InformationPanelsState extends State<InformationPanels> {
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
                                 color: AppColors.primary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Icon(
                                 LucideIcons.clock,
@@ -613,14 +620,21 @@ class _InformationPanelsState extends State<InformationPanels> {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: _showClinicInfoModal,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(20),
                   child: Container(
                     height: 140,
                     padding: const EdgeInsets.all(13),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.grey.shade200, width: 0.5),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade200, width: 0.8),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x06111827),
+                          blurRadius: 10,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

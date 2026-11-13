@@ -2,13 +2,26 @@ import api from '../../../shared/services/api';
 import type { VaccineStockMap, TreatmentRecordPayload } from '../types/consultation.types';
 import { calculateVaccineStockMap } from '../utils/inventoryStock';
 import { DEFAULT_FALLBACK_VACCINES } from '../constants/consultation.constants';
+import type { ProphylaxisStock } from '../../../shared/types/prophylaxis';
+import { isProphylaxisInventoryName } from '../../../shared/types/prophylaxis';
+
+export async function fetchProphylaxisStock(): Promise<{ stock: ProphylaxisStock; tetanus_brands: string[]; ats_brands?: string[]; rig_brands?: string[] }> {
+  const res = await api.get('/inventory/prophylaxis-stock');
+  return {
+    stock: res.data?.stock || {},
+    tetanus_brands: res.data?.tetanus_brands || [],
+    ats_brands: res.data?.ats_brands || [],
+    rig_brands: res.data?.rig_brands || [],
+  };
+}
 
 export async function fetchVaccineNames(): Promise<string[]> {
   try {
     const res = await api.get('/inventory/vaccine-names');
-    return res.data?.vaccine_names || [...DEFAULT_FALLBACK_VACCINES];
+    const names: string[] = res.data?.vaccine_names || [];
+    return names.filter((name: string) => !isProphylaxisInventoryName(name));
   } catch {
-    return [...DEFAULT_FALLBACK_VACCINES];
+    return [];
   }
 }
 

@@ -107,4 +107,18 @@ const Map<String, String> cebTranslations = {
   'privacy_export_data_desc': 'Tan-awa ug i-download ang sumaryo sa imong datos medikal',
   'privacy_delete_account': 'I-deactivate ang Account',
   'privacy_delete_account_desc': 'I-disable ang access sa portal ug kuhaa ang kredensyal',
+
+  // Learn More Section
+  'learn_more_section_title': 'PAGKAT-ON PA',
+  'learn_more_title': 'Pagkat-on pa',
+  'learn_more_see_all': 'Tan-awa tanan',
+  'learn_more_show_less': 'Ipakita ang gamay',
+  'learn_more_orientation_video': 'Orientation video',
+  'learn_more_opens_browser': 'Moabli sa imong browser',
+  'learn_more_unable_open': 'Dili maablihan kini nga link.',
+  'learn_more_no_internet': 'Walay koneksyon sa internet o dili maablihan ang link.',
+  'learn_more_video_semantics': '{title}, {tag}{duration}, moabli sa imong browser',
+  'learn_more_link_semantics': '{title}, {domain}, moabli sa imong browser',
+  'learn_more_minutes': '{count} ka minuto',
+  'learn_more_seconds': '{count} ka segundo',
 };

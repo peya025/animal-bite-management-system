@@ -152,18 +152,21 @@
     </style>
 </head>
 <body>
-
-    <div class="no-print no-print-bar">
-        <span><strong>Rabies Exposure Registry (Weekly)</strong> &mdash; DOH Official Form</span>
-        <button class="btn-print" onclick="window.print()">Print Report</button>
+    {{-- Non-printable print toolbar --}}
+    <div class="no-print-bar no-print">
+        <button class="btn-print" onclick="window.print()">🖨️ Print Report</button>
     </div>
 
     <div class="page-container">
         <!-- Header -->
-        <div class="header-title">
-            <h4>Department of Health</h4>
-            <h3>National Rabies Prevention and Control Program</h3>
-            <h2>Rabies Exposure Registry</h2>
+        <div class="header-title" style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 6px;">
+            @include('prints.partials.logo', ['url' => $left_print_logo_url ?? null, 'side' => 'Left', 'size' => 56])
+            <div style="text-align: center;">
+                <h4 style="font-size: 8.5pt; font-weight: normal; text-transform: uppercase;">Republic of the Philippines &bull; {{ $province }} &bull; {{ $municipality }}</h4>
+                <h3 style="font-size: 9.5pt; font-weight: bold;">{{ $clinic }}</h3>
+                <h2 style="font-size: 11pt; font-weight: bold; letter-spacing: 0.5px;">Rabies Exposure Registry</h2>
+            </div>
+            @include('prints.partials.logo', ['url' => $right_print_logo_url ?? null, 'side' => 'Right', 'size' => 56])
         </div>
 
         <!-- Meta Information -->
@@ -301,13 +304,5 @@
             Page 1 of 1
         </div>
     </div>
-
-    <script>
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                window.print();
-            }, 350);
-        });
-    </script>
 </body>
 </html>

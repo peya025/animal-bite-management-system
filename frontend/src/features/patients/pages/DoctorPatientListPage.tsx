@@ -1,4 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../shared/config/routes';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import {
   Alert, Box, CircularProgress, Paper, Snackbar,
   Typography, Chip, IconButton, Tooltip, Select, MenuItem, FormControl, GlobalStyles,
@@ -30,6 +33,9 @@ interface Patient {
 }
 
 export default function DoctorPatientListPage() {
+  const navigate = useNavigate();
+  const { isTriageModuleEnabled } = useClinicModuleConfig();
+  const triageEnabled = isTriageModuleEnabled();
   const [tab, setTab] = useState<'today' | 'this_week' | 'all'>('today');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,6 +47,23 @@ export default function DoctorPatientListPage() {
   const [showForm2, setShowForm2] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [successModal, setSuccessModal] = useState<{ open: boolean; title: string; message: string } | null>(null);
+
+  const form2Entry = useMemo(() => {
+    if (!selectedPatient) return null;
+    return {
+      patient: {
+        patient_id: selectedPatient.patient_id,
+        name: `${selectedPatient.last_name}, ${selectedPatient.first_name}`,
+        last_name: selectedPatient.last_name,
+        first_name: selectedPatient.first_name,
+        middle_name: selectedPatient.middle_name,
+        age: selectedPatient.age,
+        gender: selectedPatient.gender,
+        address: selectedPatient.address,
+      },
+      queue_id: null,
+    };
+  }, [selectedPatient]);
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
@@ -201,9 +224,19 @@ export default function DoctorPatientListPage() {
           )
         );
 
-        if (hasTodayConsultation) {
+        if (hasTodayConsultation || (patient as any).is_category1_no_treatment) {
+          const isReferred = (patient as any).treatment_status === 'transferred_referred'
+            || (patient as any).case_status === 'transferred_out'
+            || record?.outcome === 'Transferred/Referred'
+            || (record?.referred_to && !String(record.referred_to).toLowerCase().includes('tagoloan rural health unit'));
+          if (isReferred) {
+            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="Transferred/Referred" size="small" sx={{ bgcolor: '#eff6ff', color: '#1d4ed8', fontSize: 11, fontWeight: 600 }} /></Box>;
+          }
           if (activeQueue && activeQueue.visit_type === 'vaccination') {
             return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="Referred to Treatment" size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 600 }} /></Box>;
+          }
+          if ((patient as any).is_category1_no_treatment) {
+            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="Assessment Completed — No Treatment Required" size="small" sx={{ bgcolor: '#ecfdf5', color: '#059669', fontSize: 11, fontWeight: 600 }} /></Box>;
           }
           return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label="Consultation Done" size="small" sx={{ bgcolor: '#d1fae5', color: '#065f46', fontSize: 11, fontWeight: 600 }} /></Box>;
         }
@@ -217,6 +250,9 @@ export default function DoctorPatientListPage() {
           }
           if (activeQueue.status === 'second_chance' || activeQueue.status === 'final_recall') {
             return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label={`Queue #${activeQueue.queue_number || ''} (Recall)`} size="small" sx={{ bgcolor: '#fef3c7', color: '#92400e', fontSize: 11, fontWeight: 600 }} /></Box>;
+          }
+          if (activeQueue.status === 'requires_checkin') {
+            return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label={`Queue #${activeQueue.queue_number || ''} (Requires Check-In)`} size="small" sx={{ bgcolor: '#fee2e2', color: '#b91c1c', fontSize: 11, fontWeight: 600 }} /></Box>;
           }
           if (activeQueue.status === 'no_response') {
             return <Box sx={{ display: 'flex', justifyContent: 'center' }}><Chip label={`Queue #${activeQueue.queue_number || ''} (Called · No Response)`} size="small" sx={{ bgcolor: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 600 }} /></Box>;
@@ -282,7 +318,7 @@ export default function DoctorPatientListPage() {
                 el.style.color = '#059669';
               }}
             >
-              Record
+              View
               <HugeiconsIcon icon={ArrowUpRight01Icon} size={13} strokeWidth={2.2} />
             </button>
           </Tooltip>
@@ -303,29 +339,42 @@ export default function DoctorPatientListPage() {
           <Typography
             component="h1"
             sx={{
-              fontWeight: 600,
-              fontSize: '25px',
+              fontSize: '24px',
+              fontWeight: 700,
               lineHeight: 1.2,
-              letterSpacing: '-0.5px',
-              color: 'var(--text-h)',
-              margin: '0 0 7px 0',
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
             }}
           >
             Doctor's Patient List
           </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: 0 }}>
-            {today} · Track consultations and patient history
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '8px',
+              fontSize: '13px',
+            }}
+          >
             <button
-              onClick={() => { window.location.href = '/dashboard'; }}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: '#3b82f6',
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
             >
               Dashboard
             </button>
-            <span style={{ color: 'var(--text-secondary)' }}>›</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Doctor Patients</span>
-          </Box>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Doctor Patients</span>
+          </div>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
@@ -336,6 +385,12 @@ export default function DoctorPatientListPage() {
           </Tooltip>
         </Box>
       </Box>
+
+      {!triageEnabled && (
+        <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 2 }}>
+          <strong>Triage Module is currently disabled for this clinic.</strong> New triage check-ins, Form 2 assessments, and bite case creation are disabled. Patient history and records remain available in read-only mode.
+        </Alert>
+      )}
 
       {/* Patient List */}
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>
@@ -403,22 +458,10 @@ export default function DoctorPatientListPage() {
       </Paper>
 
       {/* Form 2 Modal */}
-      {showForm2 && selectedPatient && (
+      {showForm2 && selectedPatient && form2Entry && (
         <GeneralTreatmentForm
           open={showForm2}
-          entry={{
-            patient: {
-              patient_id: selectedPatient.patient_id,
-              name: `${selectedPatient.last_name}, ${selectedPatient.first_name}`,
-              last_name: selectedPatient.last_name,
-              first_name: selectedPatient.first_name,
-              middle_name: selectedPatient.middle_name,
-              age: selectedPatient.age,
-              gender: selectedPatient.gender,
-              address: selectedPatient.address,
-            },
-            queue_id: null,
-          }}
+          entry={form2Entry}
           onClose={() => {
             setShowForm2(false);
             setSelectedPatient(null);

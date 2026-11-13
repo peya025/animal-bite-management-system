@@ -46,12 +46,41 @@ class VaccineInventory extends Model
         'open_vial_doses_used' => 'integer',
     ];
 
+    protected $appends = [
+        'vaccine_category',
+    ];
+
     /**
      * Relationship: VaccineInventory belongs to Clinic
      */
     public function clinic()
     {
         return $this->belongsTo(Clinic::class, 'clinic_id', 'id');
+    }
+
+    /**
+     * Relationship: VaccineInventory belongs to VaccineTypePreset
+     */
+    public function vaccinePreset()
+    {
+        return $this->belongsTo(VaccineTypePreset::class, 'vaccine_type', 'vaccine_name');
+    }
+
+    /**
+     * Category resolved from the associated VaccineTypePreset
+     */
+    public function getVaccineCategoryAttribute()
+    {
+        if (array_key_exists('vaccine_category', $this->attributes)) {
+            return $this->attributes['vaccine_category'];
+        }
+
+        if ($this->relationLoaded('vaccinePreset')) {
+            return $this->vaccinePreset?->category;
+        }
+
+        // Safe fallback if relationship not eager loaded: load via preset model directly
+        return $this->vaccinePreset()?->value('category');
     }
 
     /**

@@ -14,6 +14,7 @@ class Clinic extends Model
     protected $fillable = [
         'name',
         'subtitle',
+        'faqs',
         'address',
         'phone',
         'email',
@@ -24,6 +25,8 @@ class Clinic extends Model
         'philhealth_accreditation_no',
         'opening_hours',
         'logo_path',
+        'left_print_logo_path',
+        'right_print_logo_path',
         'municipality',
         'province',
         'latitude',
@@ -47,8 +50,15 @@ class Clinic extends Model
         'population',
     ];
 
+    public function getFaqsAttribute($value): array
+    {
+        return $value === null ? config('clinic_faqs', []) : json_decode($value, true);
+    }
+
     protected $appends = [
         'logo_url',
+        'left_print_logo_url',
+        'right_print_logo_url',
     ];
 
     /**
@@ -62,7 +72,30 @@ class Clinic extends Model
         return null;
     }
 
+    /**
+     * Get the full URL to the left print header logo if uploaded
+     */
+    public function getLeftPrintLogoUrlAttribute(): ?string
+    {
+        if ($this->left_print_logo_path) {
+            return url('api/storage/' . $this->left_print_logo_path);
+        }
+        return null;
+    }
+
+    /**
+     * Get the full URL to the right print header logo if uploaded
+     */
+    public function getRightPrintLogoUrlAttribute(): ?string
+    {
+        if ($this->right_print_logo_path) {
+            return url('api/storage/' . $this->right_print_logo_path);
+        }
+        return null;
+    }
+
     protected $casts = [
+        'faqs' => 'array',
         'is_setup_complete' => 'boolean',
         'setup_completed_at' => 'datetime',
         'latitude' => 'decimal:7',

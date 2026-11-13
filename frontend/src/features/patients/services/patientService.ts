@@ -1,4 +1,4 @@
-import type { EnrolmentFormData } from '../types';
+import type { DuplicateCheckResponse, EnrolmentFormData } from '../types';
 import api from '../../../shared/services/api';
 import { buildLegacyMembershipFields } from '../utils/memberships';
 
@@ -13,10 +13,38 @@ export async function fetchPatientsList(params: { page?: number; perPage?: numbe
   return response.data;
 }
 
+export async function checkDuplicatePatients(
+  params: {
+    first_name: string;
+    last_name: string;
+    middle_name?: string;
+    suffix?: string;
+    date_of_birth?: string;
+    gender?: string;
+    exclude_patient_id?: number;
+  },
+  signal?: AbortSignal
+): Promise<DuplicateCheckResponse> {
+  const cleanParam = (val?: string) => (val && val.trim() !== '' ? val.trim() : undefined);
+  const response = await api.get<DuplicateCheckResponse>('/patients/check-duplicates', {
+    params: {
+      first_name: params.first_name.trim(),
+      last_name: params.last_name.trim(),
+      middle_name: cleanParam(params.middle_name),
+      suffix: cleanParam(params.suffix),
+      date_of_birth: cleanParam(params.date_of_birth),
+      gender: cleanParam(params.gender),
+      exclude_patient_id: params.exclude_patient_id,
+    },
+    signal,
+  });
+  return response.data;
+}
+
 export async function createPatientRecord(
   enrolment: EnrolmentFormData,
   addressDetails: { full: string; munName: string; brgyName: string; purok: string },
-  options: { autoQueue?: boolean } = {}
+  options: { autoQueue?: boolean; forceCreate?: boolean } = {}
 ) {
   // Map and clean payload to prevent 422 errors (empty strings failing enum validation)
   const cleanField = (val: string) => val.trim() === '' ? null : val;
@@ -62,6 +90,27 @@ export async function createPatientRecord(
     other_membership: membershipFields.other_membership,
     other_membership_name: membershipFields.other_membership_name,
     other_membership_no: membershipFields.other_membership_no,
+
+    // II. For CHU / RHU Personnel Only & III. Consultation Details & Vitals
+    // Forwarded to backend so PatientController can create an initial TreatmentRecord for this episode.
+    mode_of_transaction: enrolment.mode_of_transaction || 'walk-in',
+    animal_type: enrolment.animal_type || undefined,
+    animal_type_others: enrolment.animal_type_others || undefined,
+    animal_status: enrolment.animal_status || undefined,
+    animal_available: enrolment.animal_available || undefined,
+    animal_condition: enrolment.animal_condition || undefined,
+    reg_mode_of_transaction: enrolment.mode_of_transaction || 'walk-in',
+    reg_date_of_consultation: cleanField(enrolment.reg_date_of_consultation),
+    reg_consultation_time: cleanField(enrolment.reg_consultation_time),
+    reg_blood_pressure: cleanField(enrolment.reg_blood_pressure),
+    reg_temperature: cleanField(enrolment.reg_temperature),
+    reg_height: cleanField(enrolment.reg_height),
+    reg_weight: cleanField(enrolment.reg_weight),
+    reg_attending_provider: cleanField(enrolment.reg_attending_provider),
+    reg_referred_by: enrolment.mode_of_transaction === 'referral' ? cleanField(enrolment.reg_referred_by) : null,
+
+    // Explicit staff override when registering a verified same-name / homonym patient
+    force_create: options.forceCreate ? true : undefined,
 
     // Strip frontend-only fields not known to the backend
     other_memberships: undefined,

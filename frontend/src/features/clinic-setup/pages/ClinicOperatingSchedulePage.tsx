@@ -23,17 +23,19 @@ import {
   Snackbar,
   Alert,
   Grid,
+  useMediaQuery,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../shared/config/routes';
 import {
   CalendarMonth as CalendarIcon,
   EventBusy as ExceptionIcon,
+  EventAvailable as EventAvailableIcon,
   Policy as PolicyIcon,
   Save as SaveIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
-  AccessTime as TimeIcon,
   Warning as WarningIcon,
   Refresh as SyncIcon,
 } from '@mui/icons-material';
@@ -82,6 +84,7 @@ interface ClinicPolicy {
 
 export const ClinicOperatingSchedulePage: React.FC = () => {
   const navigate = useNavigate();
+  const compactTabs = useMediaQuery('(max-width: 1280px)');
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -356,21 +359,27 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1100, mx: 'auto' }}>
+    <Box sx={{ px: { xs: 1, sm: 3 }, py: { xs: 2, md: 4 }, width: '100%', boxSizing: 'border-box' }}>
       {/* Header */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827', display: 'flex', alignItems: 'center', gap: 1.2 }}>
-            <CalendarIcon sx={{ color: '#277a4b', fontSize: 28 }} />
-            Clinic Operating Schedule & PEP Regimen Engine
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
-            Configure recurring weekly operating days, special holiday overrides, and PEP vaccination date resolution rules.
+          <Typography
+            component="h1"
+            sx={{
+              fontSize: '24px',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
+            }}
+          >
+            Operating Schedule
           </Typography>
           {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px', flexWrap: 'wrap' }}>
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(ROUTES.DASHBOARD)}
               style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
             >
               Dashboard
@@ -389,6 +398,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
           disabled={saving}
           sx={{
             textTransform: 'none',
+            fontSize: 12.5,
             fontWeight: 600,
             color: '#277a4b',
             borderColor: '#277a4b',
@@ -406,6 +416,9 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
           onChange={(_, v) => setActiveTab(v)}
           textColor="primary"
           indicatorColor="primary"
+          variant={compactTabs ? 'scrollable' : 'fullWidth'}
+          scrollButtons={compactTabs ? 'auto' : false}
+          allowScrollButtonsMobile
           sx={{
             px: 2,
             borderBottom: '1px solid #e5e7eb',
@@ -413,7 +426,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
               textTransform: 'none',
               fontWeight: 600,
               fontSize: '14px',
-              py: 2,
+              py: 1.5,
             },
           }}
         >
@@ -428,20 +441,20 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
 
         {/* TAB 0: Weekly Operating Pattern */}
         {activeTab === 0 && (
-          <Box sx={{ p: 3 }}>
+          <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
             {/* Presets Toolbar */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, flexWrap: 'wrap', gap: 1 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: 14, color: '#374151' }}>
                 Weekly Operating Days & Hours
               </Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button size="small" variant="outlined" onClick={() => applyPreset('mon_fri')} sx={{ textTransform: 'none', fontSize: 12 }}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                <Button size="small" variant="outlined" onClick={() => applyPreset('mon_fri')} sx={{ textTransform: 'none', fontSize: 12.5 }}>
                   Mon–Fri (Standard)
                 </Button>
-                <Button size="small" variant="outlined" onClick={() => applyPreset('mon_thu')} sx={{ textTransform: 'none', fontSize: 12 }}>
+                <Button size="small" variant="outlined" onClick={() => applyPreset('mon_thu')} sx={{ textTransform: 'none', fontSize: 12.5 }}>
                   Mon & Thu Only (ABTC Session)
                 </Button>
-                <Button size="small" variant="outlined" onClick={() => applyPreset('daily')} sx={{ textTransform: 'none', fontSize: 12 }}>
+                <Button size="small" variant="outlined" onClick={() => applyPreset('daily')} sx={{ textTransform: 'none', fontSize: 12.5 }}>
                   Daily (7 Days)
                 </Button>
               </Box>
@@ -457,16 +470,18 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
                     key={item.day_of_week}
                     variant="outlined"
                     sx={{
-                      p: 2,
-                      display: 'flex',
+                      p: 1.5,
+                      display: 'grid',
+                      gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) auto' },
                       alignItems: 'center',
-                      justifyContent: 'space-between',
+                      columnGap: 2,
+                      rowGap: 1.5,
                       borderRadius: '10px',
                       borderColor: item.is_open ? '#c8e6c9' : '#e5e7eb',
                       bgcolor: item.is_open ? '#fcfdfd' : '#f9fafb',
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 160 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
                       <Switch
                         checked={item.is_open}
                         onChange={() => handleToggleDay(item.day_of_week)}
@@ -481,7 +496,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
                           label={item.is_open ? 'OPEN' : 'CLOSED'}
                           sx={{
                             height: 20,
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: 700,
                             bgcolor: item.is_open ? '#e8f5e9' : '#f3f4f6',
                             color: item.is_open ? '#2e7d32' : '#6b7280',
@@ -492,28 +507,28 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
                     </Box>
 
                     {item.is_open ? (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <TimeIcon sx={{ fontSize: 16, color: '#6b7280' }} />
+                      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 180px)' }, alignItems: 'center', gap: 1.5, width: { xs: '100%', md: 'auto' }, justifySelf: { xs: 'stretch', lg: 'end' } }}>
                           <TextField
                             type="time"
                             size="small"
+                            label="Opens"
                             value={item.open_time ? item.open_time.substring(0, 5) : '08:00'}
                             onChange={(e) => handleTimeChange(item.day_of_week, 'open_time', e.target.value)}
-                            sx={{ width: 115 }}
+                            slotProps={{ inputLabel: { shrink: true } }}
+                            sx={{ width: '100%', minWidth: 0, '& .MuiInputBase-input': { fontSize: 14 }, '& .MuiInputLabel-root': { fontSize: 13 } }}
                           />
-                          <Typography sx={{ color: '#6b7280', px: 0.5 }}>to</Typography>
                           <TextField
                             type="time"
                             size="small"
+                            label="Closes"
                             value={item.close_time ? item.close_time.substring(0, 5) : '17:00'}
                             onChange={(e) => handleTimeChange(item.day_of_week, 'close_time', e.target.value)}
-                            sx={{ width: 115 }}
+                            slotProps={{ inputLabel: { shrink: true } }}
+                            sx={{ width: '100%', minWidth: 0, '& .MuiInputBase-input': { fontSize: 14 }, '& .MuiInputLabel-root': { fontSize: 13 } }}
                           />
-                        </Box>
                       </Box>
                     ) : (
-                      <Typography variant="body2" sx={{ color: '#9ca3af', fontStyle: 'italic' }}>
+                      <Typography variant="body2" sx={{ color: '#9ca3af', fontStyle: 'italic', justifySelf: { xs: 'start', lg: 'end' } }}>
                         Clinic closed all day
                       </Typography>
                     )}
@@ -544,9 +559,9 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
 
         {/* TAB 1: Calendar Exceptions & Holidays */}
         {activeTab === 1 && (
-          <Box sx={{ p: 3 }}>
+          <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: 14, color: '#374151' }}>
                 Holidays & Special Date Overrides
               </Typography>
               <Button
@@ -594,7 +609,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
                           label={exc.is_open ? 'SPECIAL OPEN' : 'CLOSED / HOLIDAY'}
                           sx={{
                             height: 20,
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: 700,
                             bgcolor: exc.is_open ? '#e8f5e9' : '#ffebee',
                             color: exc.is_open ? '#2e7d32' : '#c62828',
@@ -628,9 +643,9 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
 
         {/* TAB 2: Regimen Drift & Emergency Policies */}
         {activeTab === 2 && (
-          <Box sx={{ p: 3 }}>
+          <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
             {/* Drift Policy Section */}
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#111827', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 14, color: '#111827', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
               <PolicyIcon sx={{ color: '#277a4b', fontSize: 20 }} />
               PEP Regimen Date Drift Policy (When Ideal Date Falls on Closed Day)
             </Typography>
@@ -697,7 +712,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
             </Paper>
 
             {/* Emergency Day-0 Exposure Policy */}
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#111827', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 14, color: '#111827', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
               <WarningIcon sx={{ color: '#d97706', fontSize: 20 }} />
               Urgent Day-0 Exposure Policy (Initial Bite Treatment on Closed Days)
             </Typography>
@@ -818,11 +833,11 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
       </Paper>
 
       {/* Exception Modal */}
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>
+      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 17, pb: 1 }}>
           {editingException ? 'Edit Calendar Override' : 'Add Calendar Override'}
         </DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: '10px !important' }}>
           <TextField
             type="date"
             label="Override Date"
@@ -833,58 +848,191 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
             onChange={(e) => setExceptionForm({ ...exceptionForm, exception_date: e.target.value })}
           />
 
-          <FormControlLabel
-            control={
-              <Switch
-                checked={exceptionForm.is_open}
-                onChange={(e) => setExceptionForm({ ...exceptionForm, is_open: e.target.checked })}
-                color="success"
-              />
-            }
-            label={exceptionForm.is_open ? 'Special Extra Open Day' : 'Closure / Public Holiday'}
-          />
+          {/* Visual Choice Cards for Override Type */}
+          <Box>
+            <Typography
+              variant="caption"
+              sx={{ fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', letterSpacing: 0.6, display: 'block', mb: 1 }}
+            >
+              Select Override Type
+            </Typography>
 
-          {exceptionForm.is_open && (
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                type="time"
-                label="Open"
-                size="small"
-                value={exceptionForm.open_time}
-                onChange={(e) => setExceptionForm({ ...exceptionForm, open_time: e.target.value })}
-                fullWidth
-              />
-              <TextField
-                type="time"
-                label="Close"
-                size="small"
-                value={exceptionForm.close_time}
-                onChange={(e) => setExceptionForm({ ...exceptionForm, close_time: e.target.value })}
-                fullWidth
-              />
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+              {/* Option 1: Holiday / Closure (Closed) */}
+              <Paper
+                variant="outlined"
+                onClick={() => setExceptionForm({ ...exceptionForm, is_open: false })}
+                sx={{
+                  p: 2,
+                  cursor: 'pointer',
+                  borderRadius: '10px',
+                  borderWidth: 2,
+                  borderColor: !exceptionForm.is_open ? '#dc2626' : '#e5e7eb',
+                  bgcolor: !exceptionForm.is_open ? '#fef2f2' : '#ffffff',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: 1,
+                  boxShadow: !exceptionForm.is_open ? '0 1px 4px rgba(220, 38, 38, 0.12)' : 'none',
+                  '&:hover': {
+                    borderColor: !exceptionForm.is_open ? '#dc2626' : '#d1d5db',
+                    bgcolor: !exceptionForm.is_open ? '#fef2f2' : '#f9fafb',
+                  },
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ExceptionIcon sx={{ color: !exceptionForm.is_open ? '#dc2626' : '#9ca3af', fontSize: 22 }} />
+                    <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: !exceptionForm.is_open ? '#991b1b' : '#374151' }}>
+                      Holiday / Closure
+                    </Typography>
+                  </Box>
+                  <Radio
+                    checked={!exceptionForm.is_open}
+                    onChange={() => setExceptionForm({ ...exceptionForm, is_open: false })}
+                    size="small"
+                    sx={{
+                      p: 0,
+                      color: '#dc2626',
+                      '&.Mui-checked': { color: '#dc2626' },
+                    }}
+                  />
+                </Box>
+                <Chip
+                  size="small"
+                  label="CLINIC CLOSED"
+                  sx={{
+                    width: 'fit-content',
+                    height: 20,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: 0.5,
+                    bgcolor: !exceptionForm.is_open ? '#fee2e2' : '#f3f4f6',
+                    color: !exceptionForm.is_open ? '#b91c1c' : '#6b7280',
+                  }}
+                />
+                <Typography sx={{ fontSize: 11.5, color: !exceptionForm.is_open ? '#7f1d1d' : '#6b7280', lineHeight: 1.35 }}>
+                  Clinic is closed all day. Displayed in <b>RED</b> on mobile and prevents bookings.
+                </Typography>
+              </Paper>
+
+              {/* Option 2: Special Open Day */}
+              <Paper
+                variant="outlined"
+                onClick={() => setExceptionForm({ ...exceptionForm, is_open: true })}
+                sx={{
+                  p: 2,
+                  cursor: 'pointer',
+                  borderRadius: '10px',
+                  borderWidth: 2,
+                  borderColor: exceptionForm.is_open ? '#16a34a' : '#e5e7eb',
+                  bgcolor: exceptionForm.is_open ? '#f0fdf4' : '#ffffff',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: 1,
+                  boxShadow: exceptionForm.is_open ? '0 1px 4px rgba(22, 163, 74, 0.12)' : 'none',
+                  '&:hover': {
+                    borderColor: exceptionForm.is_open ? '#16a34a' : '#d1d5db',
+                    bgcolor: exceptionForm.is_open ? '#f0fdf4' : '#f9fafb',
+                  },
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <EventAvailableIcon sx={{ color: exceptionForm.is_open ? '#16a34a' : '#9ca3af', fontSize: 22 }} />
+                    <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: exceptionForm.is_open ? '#166534' : '#374151' }}>
+                      Special Open Day
+                    </Typography>
+                  </Box>
+                  <Radio
+                    checked={exceptionForm.is_open}
+                    onChange={() => setExceptionForm({ ...exceptionForm, is_open: true })}
+                    size="small"
+                    sx={{
+                      p: 0,
+                      color: '#16a34a',
+                      '&.Mui-checked': { color: '#16a34a' },
+                    }}
+                  />
+                </Box>
+                <Chip
+                  size="small"
+                  label="CLINIC OPEN"
+                  sx={{
+                    width: 'fit-content',
+                    height: 20,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: 0.5,
+                    bgcolor: exceptionForm.is_open ? '#dcfce7' : '#f3f4f6',
+                    color: exceptionForm.is_open ? '#15803d' : '#6b7280',
+                  }}
+                />
+                <Typography sx={{ fontSize: 11.5, color: exceptionForm.is_open ? '#14532d' : '#6b7280', lineHeight: 1.35 }}>
+                  Overrides weekend or off-days. Enables booking during special operating hours.
+                </Typography>
+              </Paper>
             </Box>
+          </Box>
+
+          {/* Operating hours only if Special Open Day is selected */}
+          {exceptionForm.is_open ? (
+            <Box sx={{ bgcolor: '#f0fdf4', p: 1.5, borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#166534', display: 'block', mb: 1 }}>
+                Special Operating Hours
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1.5 }}>
+                <TextField
+                  type="time"
+                  label="Open Time"
+                  size="small"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  value={exceptionForm.open_time}
+                  onChange={(e) => setExceptionForm({ ...exceptionForm, open_time: e.target.value })}
+                  fullWidth
+                  sx={{ bgcolor: '#ffffff' }}
+                />
+                <TextField
+                  type="time"
+                  label="Close Time"
+                  size="small"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  value={exceptionForm.close_time}
+                  onChange={(e) => setExceptionForm({ ...exceptionForm, close_time: e.target.value })}
+                  fullWidth
+                  sx={{ bgcolor: '#ffffff' }}
+                />
+              </Box>
+            </Box>
+          ) : (
+            <Alert severity="info" sx={{ py: 0.5, fontSize: 12.5, bgcolor: '#fef2f2', color: '#991b1b', '& .MuiAlert-icon': { color: '#dc2626' } }}>
+              No operating hours required. Patients will not be able to book on this date.
+            </Alert>
           )}
 
           <TextField
             label="Reason / Notes"
-            placeholder="e.g. National Heroes Day, Typhoon Warning"
+            placeholder="e.g. National Heroes Day, Holy Week, Facility Maintenance"
             fullWidth
             size="small"
             value={exceptionForm.reason}
             onChange={(e) => setExceptionForm({ ...exceptionForm, reason: e.target.value })}
           />
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setModalOpen(false)} sx={{ textTransform: 'none' }}>
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
+          <Button onClick={() => setModalOpen(false)} sx={{ textTransform: 'none', color: '#4b5563' }}>
             Cancel
           </Button>
           <Button
             variant="contained"
             onClick={handleSaveException}
             disabled={saving}
-            sx={{ bgcolor: '#277a4b', '&:hover': { bgcolor: '#1e633d' }, textTransform: 'none' }}
+            sx={{ bgcolor: '#277a4b', '&:hover': { bgcolor: '#1e633d' }, textTransform: 'none', px: 3 }}
           >
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Saving...' : 'Save Override'}
           </Button>
         </DialogActions>
       </Dialog>

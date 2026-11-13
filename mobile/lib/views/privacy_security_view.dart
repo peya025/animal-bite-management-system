@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app/app_routes.dart';
@@ -17,10 +16,6 @@ class PrivacySecurityView extends StatefulWidget {
 }
 
 class _PrivacySecurityViewState extends State<PrivacySecurityView> {
-  static const _storage = FlutterSecureStorage();
-
-  bool _biometricsEnabled = false;
-  bool _analyticsEnabled = true;
   bool _loadingSettings = true;
   PatientAccountProfile? _account;
 
@@ -32,14 +27,10 @@ class _PrivacySecurityViewState extends State<PrivacySecurityView> {
 
   Future<void> _loadPreferences() async {
     try {
-      final bio = await _storage.read(key: 'app_lock_enabled');
-      final analytics = await _storage.read(key: 'analytics_enabled');
       final accountData = await api.account() as PatientAccountProfile;
 
       if (mounted) {
         setState(() {
-          _biometricsEnabled = bio == 'true';
-          _analyticsEnabled = analytics != 'false';
           _account = accountData;
           _loadingSettings = false;
         });
@@ -47,26 +38,6 @@ class _PrivacySecurityViewState extends State<PrivacySecurityView> {
     } catch (_) {
       if (mounted) setState(() => _loadingSettings = false);
     }
-  }
-
-  Future<void> _toggleBiometrics(bool value) async {
-    setState(() => _biometricsEnabled = value);
-    await _storage.write(key: 'app_lock_enabled', value: value.toString());
-    if (!mounted) return;
-    AppToast.success(
-      context,
-      value ? 'App lock has been enabled' : 'App lock has been disabled',
-    );
-  }
-
-  Future<void> _toggleAnalytics(bool value) async {
-    setState(() => _analyticsEnabled = value);
-    await _storage.write(key: 'analytics_enabled', value: value.toString());
-    if (!mounted) return;
-    AppToast.info(
-      context,
-      value ? 'Anonymous diagnostics enabled' : 'Anonymous diagnostics disabled',
-    );
   }
 
   Future<void> _openChangePasswordDialog() async {
@@ -718,19 +689,6 @@ class _PrivacySecurityViewState extends State<PrivacySecurityView> {
                   onTap: _openChangePasswordDialog,
                   trailing: const Icon(LucideIcons.chevronRight, color: Color(0xFFD1D5DB), size: 16),
                 ),
-                SettingsTile(
-                  icon: LucideIcons.fingerprint,
-                  iconBgColor: const Color(0xFFEFF6FF),
-                  iconColor: const Color(0xFF2563EB),
-                  title: context.tr('privacy_biometric_lock'),
-                  subtitle: context.tr('privacy_biometric_desc'),
-                  trailing: Switch.adaptive(
-                    value: _biometricsEnabled,
-                    onChanged: _toggleBiometrics,
-                    activeTrackColor: const Color(0xFF10B981),
-                    activeThumbColor: Colors.white,
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -755,19 +713,6 @@ class _PrivacySecurityViewState extends State<PrivacySecurityView> {
                       'Enabled',
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF059669)),
                     ),
-                  ),
-                ),
-                SettingsTile(
-                  icon: LucideIcons.activity,
-                  iconBgColor: const Color(0xFFF3F4F6),
-                  iconColor: const Color(0xFF4B5563),
-                  title: context.tr('privacy_analytics'),
-                  subtitle: context.tr('privacy_analytics_desc'),
-                  trailing: Switch.adaptive(
-                    value: _analyticsEnabled,
-                    onChanged: _toggleAnalytics,
-                    activeTrackColor: const Color(0xFF10B981),
-                    activeThumbColor: Colors.white,
                   ),
                 ),
               ],

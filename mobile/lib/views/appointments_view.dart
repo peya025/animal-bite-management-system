@@ -65,7 +65,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         icon: const Icon(Icons.event_busy_outlined, color: AppColors.error),
         title: const Text(
           'Cancel appointment?',
@@ -80,7 +80,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceMuted,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
                   '${appointment.patientName}\n${appointment.formattedDate}',
@@ -174,7 +174,41 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             () => _scheduledOnly = scheduledOnly,
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: const Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.shield_outlined,
+                                size: 18,
+                                color: Color(0xFF1D4ED8),
+                              ),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Important Note: Follow-up doses from Day 3 to booster cannot be cancelled online. Timely vaccination is required to ensure complete rabies protection. Please contact or visit the clinic if you need assistance.',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    height: 1.45,
+                                    color: Color(0xFF1E3A8A),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
                         if (_loading)
                           Container(
                             height: 160,

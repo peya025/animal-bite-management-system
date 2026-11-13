@@ -179,7 +179,7 @@ class TriageDoctorAndReExposureTest extends TestCase
 
         Sanctum::actingAs($doctor);
 
-        // Doctor fills Form 2
+        // Doctor owns category; other exposure details remain nurse-owned.
         $response = $this->postJson('/api/treatment-records', [
             'patient_id' => $patient->patient_id,
             'queue_id' => $queue->queue_id,
@@ -190,10 +190,7 @@ class TriageDoctorAndReExposureTest extends TestCase
             'consultation_types' => ['consultation'],
             'chief_complaints' => 'Dog bite on left arm',
             'diagnosis' => 'Category III dog bite',
-            'new_bite_date' => Carbon::today()->toDateString(),
-            'new_exposure_type' => 'bite',
-            'new_severity' => 'moderate',
-            'new_animal_type' => 'dog',
+            'exposure_category' => 'III',
         ]);
 
         $response->assertStatus(201);
@@ -218,6 +215,237 @@ class TriageDoctorAndReExposureTest extends TestCase
         $this->assertNotNull($plan);
         $this->assertEquals('full_pep', $plan->plan_type);
         $this->assertEquals('approved', $plan->status);
+
+        $incident = BiteIncident::findOrFail($queue->bite_id);
+        $this->assertNotNull($incident->confirmed_at);
+        $this->assertSame($doctor->id, $incident->confirmed_by);
+        $this->assertNull($incident->exposure_mode);
+        $this->assertSame('severe', $incident->severity);
+
+        $this->getJson("/api/tagoloan-treatment-cards/patient/{$patient->patient_id}?bite_id={$incident->bite_id}")
+            ->assertOk()
+            ->assertJsonPath('form3_ready', true)
+            ->assertJsonPath('bite_incident.mode_of_exposure', null)
+            ->assertJsonPath('bite_incident.exposure_category', 'III');
+
+        // Registration owns animal information; stale nurse payloads must not replace it.
+        $incident->update(['animal_type' => 'dog']);
+        $nurse = $this->createStaff($clinic, 'treatment');
+        Sanctum::actingAs($nurse);
+        $this->postJson('/api/tagoloan-treatment-cards', [
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'card_date' => Carbon::today()->toDateString(),
+            // A stale Form 3 category cannot overwrite the doctor's category.
+            'exposure_category' => 'I',
+            'date_of_exposure' => Carbon::today()->subDay()->toDateString(),
+            'place_of_exposure' => 'Matangad, Gitagum',
+            'mode_of_exposure' => 'scratch_abrasion',
+            'body_part_exposed' => 'right foot',
+            'body_part_detail' => 'Right ankle',
+            'animal_type' => 'cat',
+            'past_bite_history' => false,
+            'past_pep_completed' => false,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('tagoloan_treatment_cards', [
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'exposure_category' => 'III',
+            'mode_of_exposure' => 'scratch_abrasion',
+            'body_part_exposed' => 'right foot',
+            'animal_type' => 'dog',
+        ]);
+        $this->assertDatabaseHas('bite_incidents', [
+            'bite_id' => $incident->bite_id,
+            'severity' => 'severe',
+            'exposure_mode' => 'scratch_abrasion',
+            'exposure_type' => 'scratch',
+            'body_part_exposed' => 'right foot',
+            'site_number' => 'Right ankle',
+            'bite_place' => 'Matangad, Gitagum',
+            'animal_type' => 'dog',
+        ]);
+    }
+
+    public function test_incoming_form_1_referral_moves_from_triage_to_treatment_after_form_2(): void
+    {
+        $clinic = $this->createClinic();
+        $staff = $this->createStaff($clinic);
+        $doctor = $this->createDoctor($clinic);
+
+        Sanctum::actingAs($staff);
+        $registration = $this->postJson('/api/patients', [
+            'first_name' => 'Ana',
+            'last_name' => 'Reyes',
+            'gender' => 'female',
+            'date_of_birth' => '1990-01-01',
+            'address' => 'Tagoloan, Misamis Oriental',
+            'mode_of_transaction' => 'referral',
+            'reg_date_of_consultation' => Carbon::today()->toDateString(),
+            'reg_referred_by' => 'Barangay Health Station',
+        ])->assertCreated();
+
+        $patientId = $registration->json('patient.patient_id');
+        $incident = BiteIncident::where('patient_id', $patientId)->firstOrFail();
+        $queue = Queue::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patientId,
+            'bite_id' => $incident->bite_id,
+            'queue_number' => 1,
+            'queue_date' => Carbon::today()->toDateString(),
+            'visit_type' => 'new_case',
+            'status' => 'waiting',
+            'priority' => 'normal',
+            'queue_category' => 'regular',
+            'checked_in_by' => $staff->id,
+        ]);
+
+        Sanctum::actingAs($doctor);
+        $this->postJson('/api/treatment-records', [
+            'patient_id' => $patientId,
+            'queue_id' => $queue->queue_id,
+            'bite_id' => $incident->bite_id,
+            'consultation_date' => Carbon::today()->toDateString(),
+            'mode_of_transaction' => 'referral',
+            'referred_by' => 'Barangay Health Station',
+            'referred_to' => 'Tagoloan Rural Health Unit (RHU) / ABTC',
+            'nature_of_visit' => 'new_consultation',
+            'consultation_types' => ['consultation'],
+            'chief_complaints' => 'Dog bite on left arm',
+        ])->assertCreated();
+
+        $queue->refresh();
+        $this->assertSame('vaccination', $queue->visit_type);
+        $this->assertSame('waiting', $queue->status);
+        $this->assertDatabaseHas('treatment_plans', [
+            'bite_id' => $incident->bite_id,
+            'plan_type' => 'full_pep',
+        ]);
+
+        $this->getJson('/api/queue/next?station=treatment')
+            ->assertOk()
+            ->assertJsonPath('next_patient.queue_id', $queue->queue_id);
+    }
+
+    public function test_incoming_referral_with_confirmed_rig_weight_and_indication_keeps_treatment_routing(): void
+    {
+        $clinic = $this->createClinic();
+        $staff = $this->createStaff($clinic);
+        $doctor = $this->createDoctor($clinic);
+
+        Sanctum::actingAs($staff);
+        $registration = $this->postJson('/api/patients', [
+            'first_name' => 'Ana',
+            'last_name' => 'Reyes',
+            'gender' => 'female',
+            'date_of_birth' => '1990-01-01',
+            'address' => 'Tagoloan, Misamis Oriental',
+            'mode_of_transaction' => 'referral',
+            'reg_date_of_consultation' => Carbon::today()->toDateString(),
+            'reg_referred_by' => 'Barangay Health Station',
+            'reg_weight' => '60',
+        ])->assertCreated();
+
+        $patientId = $registration->json('patient.patient_id');
+        $incident = BiteIncident::where('patient_id', $patientId)->firstOrFail();
+        $queue = Queue::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patientId,
+            'bite_id' => $incident->bite_id,
+            'queue_number' => 1,
+            'queue_date' => Carbon::today()->toDateString(),
+            'visit_type' => 'new_case',
+            'status' => 'waiting',
+            'priority' => 'normal',
+            'queue_category' => 'regular',
+            'checked_in_by' => $staff->id,
+        ]);
+
+        Sanctum::actingAs($doctor);
+        $this->postJson('/api/treatment-records', [
+            'patient_id' => $patientId,
+            'queue_id' => $queue->queue_id,
+            'bite_id' => $incident->bite_id,
+            'consultation_date' => Carbon::today()->toDateString(),
+            'mode_of_transaction' => 'referral',
+            'referred_by' => 'Barangay Health Station',
+            'referred_to' => 'Tagoloan Rural Health Unit (RHU) / ABTC',
+            'nature_of_visit' => 'new_consultation',
+            'consultation_types' => ['consultation'],
+            'chief_complaints' => 'Dog bite on left arm',
+            'weight' => '60',
+            'exposure_category' => 'III',
+            'treatment_plan' => 'full_pep',
+            'prophylaxis_orders' => [
+                'tetanus_category' => 'not_indicated',
+                'rig' => 'ERIG',
+                'rig_weight_kg' => '60',
+                'rig_indication' => 'category_iii',
+            ],
+        ])->assertCreated()->assertJsonPath('is_referral_completed', false);
+
+        $saved = TreatmentRecord::where('bite_id', $incident->bite_id)->where('status', 'completed')->latest('treatment_id')->firstOrFail();
+        $this->assertEquals(60, $saved->prophylaxis_orders['rig_weight_kg']);
+        $this->assertSame('category_iii', $saved->prophylaxis_orders['rig_indication']);
+
+        $queue->refresh();
+        $this->assertSame('vaccination', $queue->visit_type);
+        $this->assertSame('waiting', $queue->status);
+        $this->assertDatabaseHas('treatment_plans', [
+            'bite_id' => $incident->bite_id,
+            'plan_type' => 'full_pep',
+        ]);
+
+        $this->getJson('/api/queue/next?station=treatment')
+            ->assertOk()
+            ->assertJsonPath('next_patient.queue_id', $queue->queue_id);
+    }
+
+    public function test_explicit_external_referral_completes_the_triage_queue_ticket(): void
+    {
+        $clinic = $this->createClinic();
+        $doctor = $this->createDoctor($clinic);
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'patient_number' => 'PAT-EXT-REF',
+            'first_name' => 'Maria',
+            'last_name' => 'Santos',
+            'birthdate' => '1990-01-01',
+            'gender' => 'Female',
+        ]);
+        $queue = Queue::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'bite_id' => null,
+            'queue_number' => 1,
+            'queue_date' => Carbon::today()->toDateString(),
+            'visit_type' => 'new_case',
+            'status' => 'waiting',
+            'priority' => 'normal',
+            'queue_category' => 'regular',
+            'checked_in_by' => $doctor->id,
+        ]);
+
+        Sanctum::actingAs($doctor);
+        $this->postJson('/api/treatment-records', [
+            'patient_id' => $patient->patient_id,
+            'queue_id' => $queue->queue_id,
+            'consultation_date' => Carbon::today()->toDateString(),
+            'mode_of_transaction' => 'referral',
+            'referred_to' => 'External Medical Center',
+            'nature_of_visit' => 'new_consultation',
+            'consultation_types' => ['consultation'],
+            'chief_complaints' => 'Needs external care',
+        ])->assertCreated();
+
+        $queue->refresh();
+        $this->assertSame('new_case', $queue->visit_type);
+        $this->assertSame('completed', $queue->status);
+        $this->getJson('/api/queue/next?station=treatment')
+            ->assertOk()
+            ->assertJsonPath('next_patient', null);
     }
 
     public function test_doctor_can_save_re_exposure_decision_and_refer_to_treatment()
@@ -294,6 +522,17 @@ class TriageDoctorAndReExposureTest extends TestCase
             'consultation_types' => ['consultation'],
             'chief_complaints' => 'Cat scratch on right hand',
             'diagnosis' => 'Category II re-exposure',
+            'new_bite_date' => Carbon::today()->toDateString(),
+            'new_exposure_type' => 'scratch',
+            'new_exposure_mode' => 'scratch_abrasion',
+            'new_severity' => 'moderate',
+            'new_animal_type' => 'cat',
+            'new_animal_status' => 'owned',
+            'new_site_washed' => true,
+            'new_body_part_group' => 'upper_extremities',
+            'new_body_part_detail' => 'Right hand',
+            'new_laterality' => 'right',
+            'clinical_assessment_confirmed' => true,
         ]);
 
         $response->assertStatus(201);
@@ -387,4 +626,316 @@ class TriageDoctorAndReExposureTest extends TestCase
             'count' => 1,
         ]);
     }
+
+    public function test_re_exposure_registration_records_consultation_vitals_for_doctor()
+    {
+        $clinic = $this->createClinic();
+        $staff = $this->createStaff($clinic, 'registration');
+        $doctor = $this->createDoctor($clinic);
+
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'patient_number' => 'PAT-8888',
+            'first_name' => 'Jose',
+            'last_name' => 'Rizal',
+            'birthdate' => '1985-06-19',
+            'gender' => 'Male',
+        ]);
+
+        // Prior episode completed
+        $priorIncident = BiteIncident::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'episode_number' => 1,
+            'episode_type' => 'primary',
+            'bite_date' => Carbon::now()->subMonths(10)->toDateString(),
+            'status' => 'completed',
+            'created_by' => $staff->id,
+        ]);
+
+        foreach ([0, 3, 7] as $dose) {
+            TreatmentRecord::create([
+                'clinic_id' => $clinic->id,
+                'patient_id' => $patient->patient_id,
+                'bite_id' => $priorIncident->bite_id,
+                'dose_number' => $dose,
+                'status' => 'completed',
+                'treatment_date' => Carbon::now()->subMonths(10)->toDateString(),
+            ]);
+        }
+
+        Sanctum::actingAs($staff);
+
+        // Registration staff registers re-exposure with Section III vitals
+        $response = $this->postJson('/api/cases/new-exposure', [
+            'patient_id' => $patient->patient_id,
+            'bite_date' => Carbon::today()->subDay()->toDateString(),
+            'consultation_date' => Carbon::today()->toDateString(),
+            'consultation_time' => '10:30',
+            'blood_pressure' => '120/80',
+            'temperature' => '36.5',
+            'height' => '170',
+            'weight' => '65',
+            'attending_provider' => 'Dr. Jose',
+            'referred_by' => 'Tagoloan RHU',
+        ]);
+
+        $response->assertStatus(201);
+        $incidentId = $response->json('incident.bite_id');
+        $this->assertNotNull($incidentId);
+
+        // Verify TreatmentRecord with scheduled status and vitals was created
+        $treatmentRecord = TreatmentRecord::where('bite_id', $incidentId)
+            ->whereNull('dose_number')
+            ->first();
+        $this->assertNotNull($treatmentRecord);
+        $this->assertEquals('scheduled', $treatmentRecord->status);
+        $this->assertEquals('120/80', $treatmentRecord->blood_pressure);
+        $this->assertEquals('36.5', $treatmentRecord->temperature);
+        $this->assertEquals('170', $treatmentRecord->height);
+        $this->assertEquals('65', $treatmentRecord->weight);
+        $this->assertEquals('Tagoloan RHU', $treatmentRecord->referred_by);
+
+        // Doctor loads patient treatment record for this episode
+        Sanctum::actingAs($doctor);
+        $doctorResponse = $this->getJson("/api/treatment-records/patient/{$patient->patient_id}?bite_id={$incidentId}");
+        $doctorResponse->assertStatus(200);
+        $this->assertEquals('120/80', $doctorResponse->json('latest_treatment.blood_pressure'));
+        $this->assertEquals('36.5', $doctorResponse->json('latest_treatment.temperature'));
+        $this->assertEquals('170', $doctorResponse->json('latest_treatment.height'));
+        $this->assertEquals('65', $doctorResponse->json('latest_treatment.weight'));
+        $this->assertEquals('Dr. Jose', $doctorResponse->json('latest_treatment.attending_provider'));
+
+        // Doctor submits Form 2 to finalize assessment
+        $form2Response = $this->postJson('/api/treatment-records', [
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incidentId,
+            'consultation_date' => Carbon::today()->toDateString(),
+            'consultation_time' => '10:30',
+            'mode_of_transaction' => 'walk-in',
+            'nature_of_visit' => 'new_consultation',
+            'consultation_types' => ['consultation'],
+            'chief_complaints' => 'Patient had a new bite from an unknown dog.',
+            'diagnosis' => 'Possible Rabies Exposure Category II',
+            'treatment_plan' => 'two_dose_booster',
+            'blood_pressure' => '120/80',
+            'temperature' => '36.5',
+            'height' => '170',
+            'weight' => '65',
+        ]);
+        $form2Response->assertStatus(201);
+
+        // Verify there is only 1 consultation record for this episode and it was updated to completed
+        $this->assertEquals(1, TreatmentRecord::where('bite_id', $incidentId)->whereNull('dose_number')->count());
+        $this->assertEquals('completed', TreatmentRecord::where('bite_id', $incidentId)->whereNull('dose_number')->first()->status);
+    }
+
+    public function test_re_exposure_registration_rejected_if_primary_series_not_completed()
+    {
+        $clinic = $this->createClinic();
+        $staff = $this->createStaff($clinic, 'registration');
+
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'patient_number' => 'PAT-INCOMPLETE-1',
+            'first_name' => 'Incomplete',
+            'last_name' => 'Patient',
+            'birthdate' => '2000-01-01',
+            'gender' => 'Male',
+        ]);
+
+        // Patient only has Day 0, Day 7 is NOT completed
+        $incident = BiteIncident::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'episode_number' => 1,
+            'episode_type' => 'primary',
+            'bite_date' => Carbon::now()->subMonths(1)->toDateString(),
+            'status' => 'active',
+            'created_by' => $staff->id,
+        ]);
+
+        TreatmentRecord::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'dose_number' => 0,
+            'status' => 'completed',
+            'treatment_date' => Carbon::now()->subMonths(1)->toDateString(),
+        ]);
+
+        Sanctum::actingAs($staff);
+
+        $response = $this->postJson('/api/cases/new-exposure', [
+            'patient_id' => $patient->patient_id,
+            'bite_date' => Carbon::today()->toDateString(),
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonFragment([
+            'message' => 'Patient is not eligible for re-exposure registration. The primary anti-rabies series (Days 0, 3, 7) must be completed first.',
+        ]);
+    }
+
+    public function test_re_exposure_registration_rejected_if_treatment_appointment_is_still_scheduled()
+    {
+        $clinic = $this->createClinic();
+        $staff = $this->createStaff($clinic, 'registration');
+
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'patient_number' => 'PAT-SCHEDULED-1',
+            'first_name' => 'Scheduled',
+            'last_name' => 'Patient',
+            'birthdate' => '2000-01-01',
+            'gender' => 'Male',
+        ]);
+
+        $incident = BiteIncident::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'episode_number' => 1,
+            'episode_type' => 'primary',
+            'bite_date' => Carbon::now()->subMonths(1)->toDateString(),
+            'status' => 'completed',
+            'created_by' => $staff->id,
+        ]);
+
+        foreach ([0, 3, 7] as $dose) {
+            TreatmentRecord::create([
+                'clinic_id' => $clinic->id,
+                'patient_id' => $patient->patient_id,
+                'bite_id' => $incident->bite_id,
+                'dose_number' => $dose,
+                'status' => 'completed',
+                'treatment_date' => Carbon::now()->subMonths(1)->toDateString(),
+            ]);
+        }
+
+        // Active booster appointment scheduled (in-progress booster regimen)
+        Appointment::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'appointment_date' => Carbon::tomorrow()->toDateString(),
+            'scheduled_date' => Carbon::tomorrow()->toDateString(),
+            'status' => 'scheduled',
+            'appointment_type' => 'booster',
+            'dose_number' => 3,
+        ]);
+
+        Sanctum::actingAs($staff);
+
+        $response = $this->postJson('/api/cases/new-exposure', [
+            'patient_id' => $patient->patient_id,
+            'bite_date' => Carbon::today()->toDateString(),
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonFragment([
+            'message' => 'Patient cannot register a new exposure while an active treatment appointment is still scheduled.',
+        ]);
+    }
+
+    public function test_form_2_transfer_out_referral_workflow_completes_visit_without_progressing_to_form_3(): void
+    {
+        $clinic = $this->createClinic();
+        $doctor = $this->createDoctor($clinic);
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'patient_number' => 'PAT-REF-2026',
+            'first_name' => 'Hazel',
+            'last_name' => 'Nandong',
+            'birthdate' => '2004-05-10',
+            'gender' => 'Female',
+        ]);
+
+        $incident = BiteIncident::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'case_number' => 'BC-2026-9999',
+            'episode_number' => 1,
+            'episode_type' => 'primary',
+            'bite_date' => Carbon::today()->toDateString(),
+            'exposure_type' => 'bite',
+            'severity' => 'severe',
+            'status' => 'active',
+            'created_by' => $doctor->id,
+        ]);
+
+        $queue = Queue::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'queue_number' => 1,
+            'queue_date' => Carbon::today()->toDateString(),
+            'visit_type' => 'new_case',
+            'status' => 'waiting',
+            'priority' => 'normal',
+            'checked_in_by' => $doctor->id,
+        ]);
+
+        Appointment::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'appointment_date' => Carbon::today()->addDays(3)->toDateString(),
+            'scheduled_date' => Carbon::today()->addDays(3)->toDateString(),
+            'status' => 'scheduled',
+            'appointment_type' => 'vaccination',
+            'dose_number' => 1,
+        ]);
+
+        Sanctum::actingAs($doctor);
+
+        $res = $this->postJson('/api/treatment-records', [
+            'patient_id' => $patient->patient_id,
+            'queue_id' => $queue->queue_id,
+            'bite_id' => $incident->bite_id,
+            'exposure_category' => 'III',
+            'consultation_date' => Carbon::today()->toDateString(),
+            'nature_of_visit' => 'new_consultation',
+            'consultation_types' => ['general'],
+            'chief_complaints' => 'Severe dog bite on neck with active bleeding',
+            'diagnosis' => 'Rabies Exposure (PEP Indicated) - Category III',
+            'transferred_to_facility' => 'Northern Mindanao Medical Center (NMMC)',
+            'transfer_reason' => 'Patient requires RIG and intensive care beyond clinic capacity',
+            'complete_referral' => true,
+        ]);
+
+        $res->assertCreated();
+        $res->assertJsonPath('is_referral_completed', true);
+
+        // Queue ticket is completed, NOT transferred to Station 1 (treatment)
+        $queue->refresh();
+        $this->assertSame('completed', $queue->status);
+        $this->assertStringContainsString('Transferred/Referred', $queue->consultation_notes);
+
+        // Incident is marked transferred_out with facility details
+        $incident->refresh();
+        $this->assertSame('transferred_out', $incident->status);
+        $this->assertSame('Northern Mindanao Medical Center (NMMC)', $incident->transferred_to_facility);
+        $this->assertSame('Patient requires RIG and intensive care beyond clinic capacity', $incident->transfer_reason);
+
+        // Future appointment cancelled
+        $this->assertDatabaseHas('appointments', [
+            'bite_id' => $incident->bite_id,
+            'status' => 'cancelled',
+        ]);
+
+        // Station 1 has no next patient waiting
+        $this->getJson('/api/queue/next?station=treatment')
+            ->assertOk()
+            ->assertJsonPath('next_patient', null);
+
+        // Treatment record outcome is Transferred/Referred and no vaccines given
+        $this->assertDatabaseHas('treatment_records', [
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'outcome' => 'Transferred/Referred',
+            'referred_to' => 'Northern Mindanao Medical Center (NMMC)',
+            'dose_number' => null,
+            'medication_given' => null,
+        ]);
+    }
 }
+

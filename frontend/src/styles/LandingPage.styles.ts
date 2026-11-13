@@ -7,6 +7,85 @@
  */
 export const landingPageStyles = String.raw`/* Landing Page Styles - Modern Green Theme */
 
+/* Tutorial placeholders */
+.landing-page .tutorials-section {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+  scroll-margin-top: 160px;
+}
+.landing-page .tutorials-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+.landing-page .tutorial-card {
+  overflow: hidden;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 18px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.55s ease, border-color 0.45s ease;
+}
+.landing-page .tutorial-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.12);
+  border-color: rgba(16, 185, 129, 0.45);
+}
+.landing-page .tutorial-preview {
+  aspect-ratio: 16 / 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: var(--primary-light);
+  color: var(--gray-900);
+  font-weight: 600;
+  overflow: hidden;
+  transition: background-color 0.5s ease;
+}
+.landing-page .tutorial-preview svg {
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), color 0.45s ease;
+}
+.landing-page .tutorial-card:hover .tutorial-preview svg {
+  transform: scale(1.18) rotate(-3deg);
+  color: #059669;
+}
+.landing-page .tutorial-content { padding: 1.5rem; }
+.landing-page .tutorial-status {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: background-color 0.45s ease, color 0.45s ease, transform 0.45s ease;
+}
+.landing-page .tutorial-card:hover .tutorial-status {
+  background: #d1fae5;
+  color: #065f46;
+  transform: scale(1.04);
+}
+.landing-page .tutorial-content h3 { margin: 1rem 0 0.5rem; color: var(--gray-900); }
+.landing-page .tutorial-content p { color: var(--gray-600); }
+.landing-page .tutorial-watch {
+  width: 100%;
+  margin-top: 1.5rem;
+  padding: 0.8rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: not-allowed;
+}
+@media (max-width: 900px) {
+  .landing-page .tutorials-grid { grid-template-columns: 1fr; }
+}
+
 /* ===== Variables ===== */
 :root {
   --primary: #10b981;
@@ -1090,7 +1169,7 @@ a {
   border-radius: 16px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   border: 1px solid var(--gray-200);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.55s ease, border-color 0.45s ease;
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -1129,7 +1208,7 @@ a {
   background: linear-gradient(135deg, var(--primary-light) 0%, var(--white) 100%);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
-  transition: all 0.3s ease;
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s ease;
 }
 
 .help-card:hover .help-icon {
@@ -1158,7 +1237,7 @@ a {
   text-decoration: none;
   font-size: 13px;
   font-weight: 600;
-  transition: all 0.3s ease;
+  transition: color 0.4s ease, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-block;
 }
 
@@ -1675,12 +1754,12 @@ a {
   animation: fadeInUp 0.6s ease-out forwards;
 }
 
-.feature-card:nth-child(1) { animation-delay: 0.1s; }
-.feature-card:nth-child(2) { animation-delay: 0.2s; }
-.feature-card:nth-child(3) { animation-delay: 0.3s; }
-.feature-card:nth-child(4) { animation-delay: 0.4s; }
-.feature-card:nth-child(5) { animation-delay: 0.5s; }
-.feature-card:nth-child(6) { animation-delay: 0.6s; }
+.feature-card:nth-of-type(1) { animation-delay: 0.1s; }
+.feature-card:nth-of-type(2) { animation-delay: 0.2s; }
+.feature-card:nth-of-type(3) { animation-delay: 0.3s; }
+.feature-card:nth-of-type(4) { animation-delay: 0.4s; }
+.feature-card:nth-of-type(5) { animation-delay: 0.5s; }
+.feature-card:nth-of-type(6) { animation-delay: 0.6s; }
 
 /* ===== Redesigned Live Vaccine Directory & Emergency Protocol Styles ===== */
 .vaccine-tracker-section {

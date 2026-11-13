@@ -1,143 +1,203 @@
-import { Box, Card, CardContent, Typography } from '@mui/material';
+import { Box, Typography, Divider, useTheme } from '@mui/material';
+
+interface LegendItem {
+  key: string;
+  label: string;
+  description: string;
+  color?: string;
+  isCluster?: boolean;
+  tooltip?: string;
+}
+
+const LEGEND_ITEMS: LegendItem[] = [
+  {
+    key: 'cat1',
+    label: 'Category I',
+    description: 'Minor',
+    color: '#10b981',
+  },
+  {
+    key: 'cat2',
+    label: 'Category II',
+    description: 'Moderate',
+    color: '#f59e0b',
+  },
+  {
+    key: 'cat3',
+    label: 'Category III',
+    description: 'Severe',
+    color: '#ef4444',
+  },
+  {
+    key: 'cluster',
+    label: 'Case Clusters',
+    description: 'Multiple bite cases in one location',
+    isCluster: true,
+    tooltip: 'Ring colors show categories present; hover shows details, click to zoom in',
+  },
+];
 
 export default function MapLegend() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
   return (
-    <Card 
-      sx={{ 
-        position: 'absolute', 
-        bottom: 20, 
-        right: 20, 
+    <Box
+      data-walkthrough="bitemap-legend"
+      data-tour="bitemap-legend"
+      role="region"
+      aria-label="Bite Categories Legend"
+      sx={{
+        position: 'absolute',
+        bottom: { xs: 8, sm: 12 },
+        left: '50%',
+        transform: 'translateX(-50%)',
         zIndex: 1000,
-        minWidth: 180,
-        bgcolor: 'var(--card-bg-solid, #ffffff)',
-        border: '1px solid var(--border-glow, rgba(16, 185, 129, 0.2))',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-        borderRadius: 2.5,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexWrap: 'wrap',
+        columnGap: { xs: 1.5, sm: 2, md: 2.5 },
+        rowGap: 1,
+        px: { xs: 1.75, sm: 2.25 },
+        py: { xs: 0.75, sm: 0.85 },
+        bgcolor: isDark ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(8px)',
+        border: '1px solid',
+        borderColor: isDark ? 'rgba(16, 185, 129, 0.28)' : 'rgba(16, 185, 129, 0.2)',
+        boxShadow: isDark
+          ? '0 4px 18px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(16, 185, 129, 0.1)'
+          : '0 4px 16px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)',
+        borderRadius: '16px',
+        maxWidth: 'calc(100% - 24px)',
+        width: 'max-content',
+        pointerEvents: 'auto',
+        userSelect: 'none',
       }}
     >
-      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, fontSize: 13, color: 'var(--text-h, #111827)' }}>
-          Bite Categories
-        </Typography>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box 
-              sx={{ 
-                width: 20, 
-                height: 20, 
-                bgcolor: '#ef4444', 
-                borderRadius: '50% 50% 50% 0',
-                transform: 'rotate(-45deg)',
-                border: '2px solid rgba(255,255,255,0.8)',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                flexShrink: 0,
-              }} 
-            />
-            <Box>
-              <Typography variant="body2" sx={{ fontSize: 12, fontWeight: 600, color: 'var(--text-h, #111827)' }}>
-                Category III
-              </Typography>
-              <Typography variant="caption" sx={{ fontSize: 10, color: 'var(--text-m, #6b7280)' }}>
-                Severe
-              </Typography>
-            </Box>
-          </Box>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box 
-              sx={{ 
-                width: 20, 
-                height: 20, 
-                bgcolor: '#f59e0b', 
-                borderRadius: '50% 50% 50% 0',
-                transform: 'rotate(-45deg)',
-                border: '2px solid rgba(255,255,255,0.8)',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                flexShrink: 0,
-              }} 
-            />
-            <Box>
-              <Typography variant="body2" sx={{ fontSize: 12, fontWeight: 600, color: 'var(--text-h, #111827)' }}>
-                Category II
-              </Typography>
-              <Typography variant="caption" sx={{ fontSize: 10, color: 'var(--text-m, #6b7280)' }}>
-                Moderate
-              </Typography>
-            </Box>
-          </Box>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box 
-              sx={{ 
-                width: 20, 
-                height: 20, 
-                bgcolor: '#10b981', 
-                borderRadius: '50% 50% 50% 0',
-                transform: 'rotate(-45deg)',
-                border: '2px solid rgba(255,255,255,0.8)',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                flexShrink: 0,
-              }} 
-            />
-            <Box>
-              <Typography variant="body2" sx={{ fontSize: 12, fontWeight: 600, color: 'var(--text-h, #111827)' }}>
-                Category I
-              </Typography>
-              <Typography variant="caption" sx={{ fontSize: 10, color: 'var(--text-m, #6b7280)' }}>
-                Minor
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
-
-        <Box sx={{ my: 1.5, height: '1px', bgcolor: 'var(--border-glow, rgba(0,0,0,0.1))' }} />
-
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, fontSize: 13, color: 'var(--text-h, #111827)' }}>
-          Case Clusters
-        </Typography>
-
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box 
-            sx={{ 
-              width: 26, 
-              height: 26, 
-              borderRadius: '50%', 
-              background: 'conic-gradient(#ef4444 0% 50%, #f59e0b 50% 100%)',
+      {LEGEND_ITEMS.map((item, index) => (
+        <Box
+          key={item.key}
+          sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, sm: 2, md: 2.5 } }}
+        >
+          <Box
+            sx={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
-              flexShrink: 0,
-            }} 
+              gap: 1,
+            }}
+            title={item.tooltip}
           >
-            <Box 
-              sx={{ 
-                width: 18, 
-                height: 18, 
-                borderRadius: '50%', 
-                bgcolor: 'var(--card-bg-solid, #ffffff)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 10,
-                fontWeight: 800,
-                color: 'var(--text-h, #0f172a)',
-              }} 
-            >
-              2
+            {item.isCluster ? (
+              <Box
+                sx={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: '50%',
+                  background: 'conic-gradient(#ef4444 0% 33%, #f59e0b 33% 66%, #10b981 66% 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                  flexShrink: 0,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: '50%',
+                    bgcolor: isDark ? '#1e293b' : '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '9.5px',
+                    fontWeight: 800,
+                    color: isDark ? '#ffffff' : '#0f172a',
+                  }}
+                >
+                  2
+                </Box>
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  position: 'relative',
+                  width: 18,
+                  height: 18,
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 18,
+                    height: 18,
+                    bgcolor: item.color,
+                    borderRadius: '50% 50% 50% 0',
+                    transform: 'rotate(-45deg)',
+                    border: '2px solid rgba(255, 255, 255, 0.95)',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                  }}
+                />
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 3,
+                    left: 5.5,
+                    width: 7,
+                    height: 7,
+                    bgcolor: '#ffffff',
+                    borderRadius: '50%',
+                  }}
+                />
+              </Box>
+            )}
+
+            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+              <Typography
+                sx={{
+                  fontFamily: "'Poppins', sans-serif",
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: isDark ? '#ffffff' : '#111827',
+                  lineHeight: 1.25,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {item.label}
+              </Typography>
+              <Typography
+                sx={{
+                  fontFamily: "'Poppins', sans-serif",
+                  fontSize: '10.5px',
+                  fontWeight: 400,
+                  color: isDark ? '#94a3b8' : '#6b7280',
+                  lineHeight: 1.2,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {item.description}
+              </Typography>
             </Box>
           </Box>
-          <Box>
-            <Typography variant="body2" sx={{ fontSize: 12, fontWeight: 600, color: 'var(--text-h, #111827)' }}>
-              Mixed Categories
-            </Typography>
-            <Typography variant="caption" sx={{ fontSize: 10, color: 'var(--text-m, #6b7280)', display: 'block', lineHeight: 1.2 }}>
-              Ring colors show categories present; hover shows details
-            </Typography>
-          </Box>
+
+          {index < LEGEND_ITEMS.length - 1 && (
+            <Divider
+              orientation="vertical"
+              flexItem
+              sx={{
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+                height: 20,
+                alignSelf: 'center',
+                display: { xs: 'none', sm: 'block' },
+              }}
+            />
+          )}
         </Box>
-      </CardContent>
-    </Card>
+      ))}
+    </Box>
   );
 }

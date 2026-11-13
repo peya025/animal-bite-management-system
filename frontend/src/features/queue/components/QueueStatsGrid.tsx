@@ -7,8 +7,6 @@ import {
   UserCheck01Icon,
   Stethoscope02Icon,
   CheckmarkCircle02Icon,
-  Cancel01Icon,
-  UserBlock01Icon,
 } from '@hugeicons/core-free-icons';
 import type { QueueStats } from '../types';
 import { VISIT_LABEL } from '../types';
@@ -101,9 +99,26 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
       }}
     >
       {cards.map((card) => {
+        const hoverShadow = isDark
+          ? card.color === '#f59e0b'
+            ? '0 8px 24px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.25)'
+            : card.color === '#38bdf8'
+            ? '0 8px 24px rgba(56, 189, 248, 0.35), 0 0 16px rgba(56, 189, 248, 0.25)'
+            : card.color === '#ef4444'
+            ? '0 8px 24px rgba(239, 68, 68, 0.35), 0 0 16px rgba(239, 68, 68, 0.25)'
+            : '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+          : card.color === '#f59e0b'
+          ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
+          : card.color === '#38bdf8'
+          ? '0 8px 22px rgba(56, 189, 248, 0.30), 0 2px 8px rgba(56, 189, 248, 0.16)'
+          : card.color === '#ef4444'
+          ? '0 8px 22px rgba(239, 68, 68, 0.28), 0 2px 8px rgba(239, 68, 68, 0.16)'
+          : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
+
         return (
           <Box
             key={card.id}
+            data-walkthrough={`queue-stat-${card.id}`}
             onClick={card.isWaiting ? onWaitingClick : undefined}
             sx={{
               p: '16px 16px 14px',
@@ -111,30 +126,26 @@ export function QueueKPIStrip({ stats, onWaitingClick }: QueueKPIStripProps) {
               position: 'relative',
               overflow: 'hidden',
               cursor: card.isWaiting && onWaitingClick ? 'pointer' : 'default',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
               minHeight: 116,
               ...(isDark
                 ? {
-                    background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
-                    border: '1px solid rgba(163, 230, 53, 0.3)',
-                    boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(163, 230, 53, 0.12)',
+                    background: '#111827',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
                     '&:hover': {
-                      transform: 'translateY(-3px)',
-                      borderColor: 'rgba(163, 230, 53, 0.55)',
-                      boxShadow: `0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35), inset 0 1px 3px 0 rgba(255, 255, 255, 0.3)`,
+                      boxShadow: hoverShadow,
                     },
                   }
                 : {
-                    background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
-                    border: '1px solid rgba(16, 185, 129, 0.32)',
-                    boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(16, 185, 129, 0.12)',
+                    background: '#ffffff',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
                     '&:hover': {
-                      transform: 'translateY(-3px)',
-                      borderColor: 'rgba(16, 185, 129, 0.55)',
-                      boxShadow: `0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 1)`,
+                      boxShadow: hoverShadow,
                     },
                   }),
             }}
@@ -205,12 +216,10 @@ export function SecondaryCountersRow({ stats }: SecondaryCountersRowProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const secondChance = stats?.second_chance ?? 0;
-  const finalRecall = stats?.final_recall ?? 0;
-  const absentCancelled = (stats?.absent ?? 0) + (stats?.cancelled ?? 0);
-  const noResponse = stats?.no_response ?? 0;
 
   return (
     <Box
+      data-walkthrough="queue-secondary-counters"
       sx={{
         display: 'flex',
         alignItems: 'center',
@@ -223,35 +232,20 @@ export function SecondaryCountersRow({ stats }: SecondaryCountersRowProps) {
         fontSize: 12,
         ...(isDark
           ? {
-              background: 'radial-gradient(ellipse at 30% 0%, #16241b 0%, #0d1612 100%)',
-              border: '1px solid rgba(163, 230, 53, 0.2)',
-              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4), inset 0 1px 1px 0 rgba(255, 255, 255, 0.1)',
+              background: '#111827',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
             }
           : {
-              background: 'radial-gradient(ellipse at 30% 0%, #f0fdf4 0%, #ffffff 100%)',
-              border: '1px solid rgba(16, 185, 129, 0.22)',
-              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.08), inset 0 1px 1px 0 rgba(255, 255, 255, 0.9)',
+              background: '#ffffff',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
             }),
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: '10px', bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.06)', border: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)' }}>
         <HugeiconsIcon icon={UserCheck01Icon} size={15} strokeWidth={1.8} style={{ color: '#34d399' }} />
-        <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>Second Chance: <strong style={{ color: secondChance > 0 ? '#fb923c' : (isDark ? '#ffffff' : '#111827') }}>{secondChance}</strong></span>
-      </Box>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: '10px', bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.06)', border: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)' }}>
-        <HugeiconsIcon icon={UserBlock01Icon} size={15} strokeWidth={1.8} style={{ color: '#f87171' }} />
-        <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>Final Recall: <strong style={{ color: finalRecall > 0 ? '#f87171' : (isDark ? '#ffffff' : '#111827') }}>{finalRecall}</strong></span>
-      </Box>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: '10px', bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.06)', border: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)' }}>
-        <HugeiconsIcon icon={Cancel01Icon} size={15} strokeWidth={1.8} style={{ color: '#94a3b8' }} />
-        <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>Cancelled / Absent: <strong style={{ color: isDark ? '#ffffff' : '#111827' }}>{absentCancelled}</strong></span>
-      </Box>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: '10px', bgcolor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.06)', border: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)' }}>
-        <HugeiconsIcon icon={UserBlock01Icon} size={15} strokeWidth={1.8} style={{ color: '#c084fc' }} />
-        <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>No Response: <strong style={{ color: noResponse > 0 ? '#c084fc' : (isDark ? '#ffffff' : '#111827') }}>{noResponse}</strong></span>
+        <span style={{ color: isDark ? '#94a3b8' : '#4b5563' }}>Second Chance: <strong style={{ color: secondChance > 0 ? (isDark ? '#34d399' : '#059669') : (isDark ? '#ffffff' : '#111827') }}>{secondChance}</strong></span>
       </Box>
     </Box>
   );
@@ -273,20 +267,20 @@ export function QueueProgressBar({ stats }: QueueProgressBarProps) {
     <Paper
       elevation={0}
       sx={{
-        borderRadius: '20px',
+        borderRadius: 3,
         p: 2.5,
-        mt: 3,
-        mb: 2,
+        mt: 0,
+        mb: 3,
         ...(isDark
           ? {
-              background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
-              border: '1px solid rgba(163, 230, 53, 0.3)',
-              boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(163, 230, 53, 0.12)',
+              background: '#111827',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
             }
           : {
-              background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
-              border: '1px solid rgba(16, 185, 129, 0.32)',
-              boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(16, 185, 129, 0.12)',
+              background: '#ffffff',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
             }),
       }}
     >
@@ -296,7 +290,7 @@ export function QueueProgressBar({ stats }: QueueProgressBarProps) {
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {secondChanceTotal > 0 && (
-            <Typography sx={{ fontSize: 11.5, color: '#fb923c', fontWeight: 600 }}>
+            <Typography sx={{ fontSize: 11.5, color: isDark ? '#a7f3d0' : '#047857', fontWeight: 600 }}>
               ↩ {secondChanceTotal} in recall queue
             </Typography>
           )}

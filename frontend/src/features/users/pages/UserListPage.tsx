@@ -1,9 +1,11 @@
 // @ts-nocheck
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../shared/config/routes';
 import {
   Alert,
   Box,
+  Button,
   Chip,
   Dialog,
   DialogActions,
@@ -12,19 +14,22 @@ import {
   FormControl,
   InputLabel,
   MenuItem,
+  Paper,
   Select,
   Snackbar,
   Stack,
   TextField,
   Typography,
   InputAdornment,
+  IconButton,
   Switch,
   FormControlLabel,
   Grid,
   useTheme,
 } from '@mui/material';
-import { Add, Edit, People, Person, Email, Phone, Shield, CheckCircle, PersonOutlined, Lock } from '@mui/icons-material';
+import { Add, Edit, People, Person, Email, Phone, Shield, CheckCircle, PersonOutlined, Lock, Visibility, VisibilityOff, Close, Search, Refresh } from '@mui/icons-material';
 import api from '../../../services/api';
+import SignatureUpload from '../components/SignatureUpload';
 import DataTable from '../../../components/ui/DataTable';
 import type { Column } from '../../../components/ui/DataTable';
 import { TablePaginator } from '../../../components/data-display';
@@ -60,6 +65,7 @@ interface User {
   roles?: RoleItem[];
   professional_license_no?: string;
   signature_path?: string;
+  signature_available?: boolean;
 }
 
 interface LinkedPatientProfile {
@@ -245,9 +251,14 @@ export default function UserListPage() {
   // Tab: 'staff' | 'patients'
   const [activeTab, setActiveTab] = useState<'staff' | 'patients'>('staff');
 
+  // Staff search
+  const [staffSearch, setStaffSearch] = useState('');
+
   // Patient accounts
   const [patientAccounts, setPatientAccounts] = useState<PatientAccount[]>([]);
   const [patientAccountsLoading, setPatientAccountsLoading] = useState(false);
+  const [patientSearch, setPatientSearch] = useState('');
+  const [patientStatusFilter, setPatientStatusFilter] = useState<'ALL' | 'active' | 'inactive'>('ALL');
   const [togglePatientTarget, setTogglePatientTarget] = useState<PatientAccount | null>(null);
   const [viewingProfilesAccount, setViewingProfilesAccount] = useState<PatientAccount | null>(null);
   const [selectedViewPatient, setSelectedViewPatient] = useState<any>(null);
@@ -278,6 +289,7 @@ export default function UserListPage() {
     workstation_role?: string;
     password?: string;
     signature_data?: string;
+    remove_signature?: boolean;
   }) | null>(null);
   const [confirmSave, setConfirmSave] = useState(false);
 
@@ -305,6 +317,8 @@ export default function UserListPage() {
     is_active: true,
   });
   const [creating, setCreating] = useState(false);
+  const [showNewUserPassword, setShowNewUserPassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   // Invite state
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
@@ -371,9 +385,9 @@ export default function UserListPage() {
   // Update existing user
   const save = async () => {
     if (!editing) return;
-    const { id, name, email, phone, workstation_role, professional_license_no, signature_path, signature_data, password, is_active } = editing;
-    if (phone && phone.length !== 11) {
-      setNotice('Phone number must be exactly 11 digits.');
+    const { id, name, email, phone, workstation_role, professional_license_no, signature_data, remove_signature, password, is_active } = editing;
+    if (phone && !/^09\d{9}$/.test(phone.trim())) {
+      setNotice('Mobile number must start with 09 and contain 11 digits.');
       return;
     }
     try {
@@ -390,9 +404,8 @@ export default function UserListPage() {
       }
       if (signature_data) {
         payload.signature_data = signature_data;
-      } else if (signature_path) {
-        payload.signature_path = signature_path;
       }
+      if (remove_signature) payload.remove_signature = true;
 
       await api.put(`/users/${id}`, payload);
       const updatedName = name;
@@ -418,13 +431,14 @@ export default function UserListPage() {
       setNotice('Password must be at least 8 characters.');
       return;
     }
-    if (newUser.phone && newUser.phone.length !== 11) {
-      setNotice('Phone number must be exactly 11 digits.');
+    if (newUser.phone && !/^09\d{9}$/.test(newUser.phone.trim())) {
+      setNotice('Mobile number must start with 09 and contain 11 digits.');
       return;
     }
     setCreating(true);
     try {
-      await api.post('/users', newUser);
+      const { signature_path: _unusedPath, ...payload } = newUser;
+      await api.post('/users', payload);
       const createdName = newUser.name;
       setCreateModalOpen(false);
       setNewUser({
@@ -540,7 +554,7 @@ export default function UserListPage() {
     },
     {
       key: 'signature',
-      label: 'Digital Signature (Optional)',
+      label: 'Electronic Signature (Optional)',
       render: (u) => {
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -548,8 +562,8 @@ export default function UserListPage() {
               <Chip
                 size="small"
                 icon={<CheckCircle fontSize="small" style={{ color: '#059669' }} />}
-                label="On File"
-                title={u.signature_path}
+                label={u.signature_available === false ? "Image unavailable" : "On File"}
+                title="Signature image uploaded; staff confirmation is required when signing"
                 sx={{ bgcolor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontSize: '11px', height: '22px', fontWeight: 600 }}
               />
             ) : (
@@ -604,16 +618,51 @@ export default function UserListPage() {
   ];
 
   const shown = users.filter((u) => {
-    if (!filter) return true;
-    const info = getUserWorkstationInfo(u);
-    if (filter === 'solo_nurse') return info.slug === 'solo_nurse';
-    if (filter === 'intake_nurse') return info.slug === 'intake_nurse';
-    if (filter === 'follow_up_nurse') return info.slug === 'follow_up_nurse';
-    if (filter === 'doctor') return info.slug === 'doctor';
-    if (filter === 'receptionist') return info.slug === 'receptionist';
-    if (filter === 'clinic_admin') return info.slug === 'clinic_admin';
-    return u.role === filter;
+    if (filter) {
+      const info = getUserWorkstationInfo(u);
+      if (filter === 'solo_nurse' && info.slug !== 'solo_nurse') return false;
+      if (filter === 'intake_nurse' && info.slug !== 'intake_nurse') return false;
+      if (filter === 'follow_up_nurse' && info.slug !== 'follow_up_nurse') return false;
+      if (filter === 'doctor' && info.slug !== 'doctor') return false;
+      if (filter === 'receptionist' && info.slug !== 'receptionist') return false;
+      if (filter === 'clinic_admin' && info.slug !== 'clinic_admin') return false;
+      if (!['solo_nurse', 'intake_nurse', 'follow_up_nurse', 'doctor', 'receptionist', 'clinic_admin'].includes(filter) && u.role !== filter) return false;
+    }
+    if (staffSearch.trim()) {
+      const q = staffSearch.trim().toLowerCase();
+      const matchesName = u.name?.toLowerCase().includes(q);
+      const matchesEmail = u.email?.toLowerCase().includes(q);
+      const matchesPhone = u.phone?.toLowerCase().includes(q);
+      const matchesLicense = u.professional_license_no?.toLowerCase().includes(q);
+      if (!matchesName && !matchesEmail && !matchesPhone && !matchesLicense) return false;
+    }
+    return true;
   });
+
+  const filteredPatientAccounts = useMemo(() => {
+    return patientAccounts.filter((acc) => {
+      if (patientStatusFilter === 'active' && !acc.is_active) return false;
+      if (patientStatusFilter === 'inactive' && acc.is_active) return false;
+
+      if (patientSearch.trim()) {
+        const q = patientSearch.trim().toLowerCase();
+        const matchesName = acc.name?.toLowerCase().includes(q);
+        const matchesEmail = acc.email?.toLowerCase().includes(q);
+        const matchesPhone = acc.phone?.toLowerCase().includes(q);
+        const matchesLinked = acc.patients?.some(
+          (p) =>
+            p.first_name?.toLowerCase().includes(q) ||
+            p.last_name?.toLowerCase().includes(q) ||
+            p.patient_number?.toLowerCase().includes(q)
+        );
+        if (!matchesName && !matchesEmail && !matchesPhone && !matchesLinked) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [patientAccounts, patientSearch, patientStatusFilter]);
 
   // Toggle patient account active status
   const togglePatientAccount = async (account: PatientAccount) => {
@@ -722,26 +771,51 @@ export default function UserListPage() {
         }}
       >
         <Box>
-          <Typography variant="h5" sx={{ color: 'var(--text-h)', mb: '7px' }}>
-            User management
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#77877d' }}>
-            Manage clinic accounts, access roles, and availability.
+          <Typography
+            component="h1"
+            sx={{
+              fontSize: '24px',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
+            }}
+          >
+            User Management
           </Typography>
           {/* Breadcrumb */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '8px',
+              fontSize: '13px',
+            }}
+          >
             <button
-              onClick={() => { window.location.href = '/dashboard'; }}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: '#3b82f6',
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
             >
               Dashboard
             </button>
             <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>Users</span>
-          </Box>
+            <span style={{ color: '#6b7280' }}>User Management</span>
+          </div>
         </Box>
         <Stack direction="row" spacing={2}>
           <AppButton
+            data-walkthrough="admin-users-invite-btn"
+            data-tour="admin-users-invite-btn"
             variant="secondary"
             startIcon={<Email fontSize="small" />}
             onClick={() => setInviteModalOpen(true)}
@@ -749,6 +823,8 @@ export default function UserListPage() {
             Invite Staff
           </AppButton>
           <AppButton
+            data-walkthrough="admin-users-add-btn"
+            data-tour="admin-users-add-btn"
             startIcon={<Add fontSize="small" />}
             onClick={() => setCreateModalOpen(true)}
           >
@@ -758,13 +834,19 @@ export default function UserListPage() {
       </Box>
 
       {/* Tabs */}
-      <Box sx={{ display: 'flex', gap: 0, mb: 3, borderBottom: isDark ? '2px solid rgba(16, 185, 129, 0.2)' : '2px solid #e5e7eb' }}>
+      <Box
+        data-walkthrough="admin-users-tabs"
+        data-tour="admin-users-tabs"
+        sx={{ display: 'flex', gap: 0, mb: 3, borderBottom: isDark ? '2px solid rgba(16, 185, 129, 0.2)' : '2px solid #e5e7eb' }}
+      >
         {[
           { key: 'staff',    label: 'Staff Users',      count: users.length },
           { key: 'patients', label: 'Patient Accounts', count: patientAccounts.length },
         ].map(tab => (
           <button
             key={tab.key}
+            data-walkthrough={`admin-users-tab-${tab.key}`}
+            data-tour={`admin-users-tab-${tab.key}`}
             onClick={() => setActiveTab(tab.key as 'staff' | 'patients')}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
@@ -791,39 +873,113 @@ export default function UserListPage() {
       {/* Staff Users Tab */}
       {activeTab === 'staff' && (
         <Box>
-          <Box sx={{ mb: 2, maxWidth: 320 }}>
-            <FormControl size="small" fullWidth sx={{
-              fontFamily: "'Poppins', sans-serif",
-              '& .MuiOutlinedInput-root': {
-                bgcolor: isDark ? '#111827' : '#ffffff',
-                borderRadius: 2,
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              mb: 2,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Box
+              data-walkthrough="admin-users-role-filter"
+              data-tour="admin-users-role-filter"
+              sx={{ minWidth: 220, maxWidth: 300 }}
+            >
+              <FormControl size="small" fullWidth sx={{
                 fontFamily: "'Poppins', sans-serif",
-                '& fieldset': { borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#e5e7eb' },
-                '&:hover fieldset': { borderColor: '#10b981' },
-                '&.Mui-focused fieldset': { borderColor: '#10b981' },
-              },
-              '& .MuiInputLabel-root': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#94a3b8' : undefined },
-              '& .MuiSelect-select': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#ffffff' : undefined },
-            }}>
-              <InputLabel>Filter by Role</InputLabel>
-              <Select label="Filter by Role" value={filter} onChange={(e) => { setFilter(e.target.value); setStaffPage(0); }}>
-                <MenuItem value="">All Staff Roles ({users.length})</MenuItem>
-                <MenuItem value="intake_nurse">Intake Nurse (Station 1)</MenuItem>
-                <MenuItem value="follow_up_nurse">Follow-Up Nurse (Station 2)</MenuItem>
-                <MenuItem value="solo_nurse">Dual-Role / Solo Nurse (Stations 1 & 2)</MenuItem>
-                <MenuItem value="doctor">Doctor / Triage Officer</MenuItem>
-                <MenuItem value="receptionist">Receptionist / Registration Staff</MenuItem>
-              </Select>
-            </FormControl>
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: isDark ? '#111827' : '#ffffff',
+                  borderRadius: 2,
+                  fontFamily: "'Poppins', sans-serif",
+                  '& fieldset': { borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#e5e7eb' },
+                  '&:hover fieldset': { borderColor: '#10b981' },
+                  '&.Mui-focused fieldset': { borderColor: '#10b981' },
+                },
+                '& .MuiInputLabel-root': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#94a3b8' : undefined },
+                '& .MuiSelect-select': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#ffffff' : undefined },
+              }}>
+                <InputLabel>Filter by Role</InputLabel>
+                <Select label="Filter by Role" value={filter} onChange={(e) => { setFilter(e.target.value); setStaffPage(0); }}>
+                  <MenuItem value="">All Staff Roles ({users.length})</MenuItem>
+                  <MenuItem value="intake_nurse">Intake Nurse (Station 1)</MenuItem>
+                  <MenuItem value="follow_up_nurse">Follow-Up Nurse (Station 2)</MenuItem>
+                  <MenuItem value="solo_nurse">Dual-Role / Solo Nurse (Stations 1 & 2)</MenuItem>
+                  <MenuItem value="doctor">Doctor / Triage Officer</MenuItem>
+                  <MenuItem value="receptionist">Receptionist / Registration Staff</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            <TextField
+              size="small"
+              placeholder="Search staff name, email, phone..."
+              value={staffSearch}
+              onChange={(e) => {
+                setStaffSearch(e.target.value);
+                setStaffPage(0);
+              }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search sx={{ fontSize: 18, color: isDark ? '#94a3b8' : '#9ca3af' }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={{
+                minWidth: 240,
+                flexGrow: 1,
+                maxWidth: 400,
+                fontFamily: "'Poppins', sans-serif",
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: isDark ? '#111827' : '#ffffff',
+                  borderRadius: 2,
+                  fontFamily: "'Poppins', sans-serif",
+                  '& fieldset': { borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#e5e7eb' },
+                  '&:hover fieldset': { borderColor: '#10b981' },
+                  '&.Mui-focused fieldset': { borderColor: '#10b981' },
+                },
+              }}
+            />
+
+            {(filter || staffSearch) && (
+              <Button
+                onClick={() => {
+                  setFilter('');
+                  setStaffSearch('');
+                  setStaffPage(0);
+                }}
+                sx={{ color: 'error.main', fontFamily: "'Poppins', sans-serif", textTransform: 'none' }}
+              >
+                Reset
+              </Button>
+            )}
+
+            <Button
+              type="button"
+              onClick={load}
+              disabled={loading}
+              sx={{ ml: { sm: 'auto' }, fontFamily: "'Poppins', sans-serif", textTransform: 'none' }}
+              startIcon={<Refresh />}
+            >
+              Refresh
+            </Button>
           </Box>
-          <Box sx={{ border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e5e7eb', borderRadius: 3, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#ffffff' }}>
+          <Box
+            data-walkthrough="admin-users-staff-table"
+            data-tour="admin-users-staff-table"
+            sx={{ border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e5e7eb', borderRadius: 3, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#ffffff' }}
+          >
             <DataTable
               columns={columns}
               rows={shown.slice(staffPage * staffRowsPerPage, staffPage * staffRowsPerPage + staffRowsPerPage)}
               loading={loading}
               getRowKey={(u) => u.id}
               emptyIcon={<People />}
-              emptyTitle="No staff users found"
+              emptyTitle={staffSearch || filter ? 'No matching staff users found' : 'No staff users found'}
             />
             <TablePaginator
               count={shown.length}
@@ -840,18 +996,131 @@ export default function UserListPage() {
       {/* Patient Accounts Tab */}
       {activeTab === 'patients' && (
         <Box>
-          <Box sx={{ border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e5e7eb', borderRadius: 3, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#ffffff' }}>
+          {/* Filter Bar with Search — same style layout as Reports Patients registry */}
+          <Paper
+            data-walkthrough="admin-users-patient-search"
+            data-tour="admin-users-patient-search"
+            component="div"
+            elevation={0}
+            sx={{
+              border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e5e7eb',
+              borderRadius: 2.5,
+              bgcolor: isDark ? '#111827' : '#ffffff',
+              p: 2,
+              mb: 2.5,
+              boxShadow: 'none',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <TextField
+                size="small"
+                placeholder="Search account name, email, phone..."
+                value={patientSearch}
+                onChange={(e) => {
+                  setPatientSearch(e.target.value);
+                  setPatientPage(0);
+                }}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search sx={{ fontSize: 18, color: isDark ? '#94a3b8' : '#9ca3af' }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+                sx={{
+                  minWidth: 260,
+                  flexGrow: 1,
+                  fontFamily: "'Poppins', sans-serif",
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: isDark ? '#0b1120' : '#ffffff',
+                    borderRadius: 2,
+                    fontFamily: "'Poppins', sans-serif",
+                    '& fieldset': { borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#e5e7eb' },
+                    '&:hover fieldset': { borderColor: '#10b981' },
+                    '&.Mui-focused fieldset': { borderColor: '#10b981' },
+                  },
+                }}
+              />
+
+              <TextField
+                select
+                size="small"
+                label="Status"
+                value={patientStatusFilter}
+                onChange={(e) => {
+                  setPatientStatusFilter(e.target.value as any);
+                  setPatientPage(0);
+                }}
+                sx={{
+                  minWidth: 150,
+                  fontFamily: "'Poppins', sans-serif",
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: isDark ? '#0b1120' : '#ffffff',
+                    borderRadius: 2,
+                    fontFamily: "'Poppins', sans-serif",
+                    '& fieldset': { borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#e5e7eb' },
+                    '&:hover fieldset': { borderColor: '#10b981' },
+                    '&.Mui-focused fieldset': { borderColor: '#10b981' },
+                  },
+                  '& .MuiInputLabel-root': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#94a3b8' : undefined },
+                  '& .MuiSelect-select': { fontFamily: "'Poppins', sans-serif", color: isDark ? '#ffffff' : undefined },
+                }}
+              >
+                <MenuItem value="ALL">All Statuses ({patientAccounts.length})</MenuItem>
+                <MenuItem value="active">Active Only</MenuItem>
+                <MenuItem value="inactive">Inactive Only</MenuItem>
+              </TextField>
+
+              {(patientSearch || patientStatusFilter !== 'ALL') && (
+                <Button
+                  onClick={() => {
+                    setPatientSearch('');
+                    setPatientStatusFilter('ALL');
+                    setPatientPage(0);
+                  }}
+                  sx={{ color: 'error.main', fontFamily: "'Poppins', sans-serif", textTransform: 'none' }}
+                >
+                  Reset
+                </Button>
+              )}
+
+              <Button
+                type="button"
+                onClick={loadPatientAccounts}
+                disabled={patientAccountsLoading}
+                sx={{ ml: { sm: 'auto' }, fontFamily: "'Poppins', sans-serif", textTransform: 'none' }}
+                startIcon={<Refresh />}
+              >
+                Refresh
+              </Button>
+            </Box>
+
+            <Typography
+              variant="caption"
+              sx={{ color: isDark ? '#94a3b8' : '#6b7280', display: 'block', mt: 1.5, fontFamily: "'Poppins', sans-serif" }}
+            >
+              Showing {filteredPatientAccounts.length} of {patientAccounts.length} registered patient accounts.
+            </Typography>
+          </Paper>
+
+          <Box
+            data-walkthrough="admin-users-patient-table"
+            data-tour="admin-users-patient-table"
+            sx={{ border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e5e7eb', borderRadius: 3, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#ffffff' }}
+          >
             <DataTable
               columns={patientColumns}
-              rows={patientAccounts.slice(patientPage * patientRowsPerPage, patientPage * patientRowsPerPage + patientRowsPerPage)}
+              rows={filteredPatientAccounts.slice(patientPage * patientRowsPerPage, patientPage * patientRowsPerPage + patientRowsPerPage)}
               loading={patientAccountsLoading}
               getRowKey={(a) => a.id}
               emptyIcon={<PersonOutlined />}
-              emptyTitle="No patient accounts found"
-              emptySubtitle="Patient accounts are created via the mobile app"
+              emptyTitle={patientSearch || patientStatusFilter !== 'ALL' ? 'No matching patient accounts found' : 'No patient accounts found'}
+              emptySubtitle={patientSearch || patientStatusFilter !== 'ALL' ? 'Try adjusting your search or filters' : 'Patient accounts are created via the mobile app'}
             />
             <TablePaginator
-              count={patientAccounts.length}
+              count={filteredPatientAccounts.length}
               page={patientPage}
               rowsPerPage={patientRowsPerPage}
               onPageChange={setPatientPage}
@@ -866,28 +1135,113 @@ export default function UserListPage() {
       <Dialog
         open={!!editing}
         onClose={() => setEditing(null)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3.5,
+              overflow: 'hidden',
+              maxWidth: 680,
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            },
+          },
+        }}
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Edit color="primary" />
-          Edit user
-        </DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={3} sx={{ pt: 1 }}>
+        <Box
+          sx={{
+            background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+            px: 3,
+            py: 2.25,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
+          <Box
+            sx={{
+              width: 42,
+              height: 42,
+              borderRadius: 2,
+              bgcolor: 'rgba(255,255,255,0.18)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Edit sx={{ color: '#fff', fontSize: 22 }} />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: '1.15rem', lineHeight: 1.2 }}>
+              Edit user
+            </Typography>
+            <Typography sx={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, mt: 0.25 }}>
+              Update staff account profile, credentials, and permissions.
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={() => setEditing(null)}
+            size="small"
+            aria-label="Close dialog"
+            sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.18)' } }}
+          >
+            <Close fontSize="small" />
+          </IconButton>
+        </Box>
+
+        <DialogContent sx={{ px: 3, py: 3, bgcolor: 'var(--card-bg, #ffffff)' }}>
+          <Stack spacing={2.5}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Full name"
                   value={editing?.name || ''}
                   onChange={(e) =>
                     setEditing((u) => u && { ...u, name: e.target.value })
                   }
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Person sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Person color="action" />
+                        <Person sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -896,16 +1250,53 @@ export default function UserListPage() {
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Email"
                   type="email"
                   value={editing?.email || ''}
                   onChange={(e) =>
                     setEditing((u) => u && { ...u, email: e.target.value })
                   }
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Email sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Email color="action" />
+                        <Email sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -914,23 +1305,79 @@ export default function UserListPage() {
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Phone"
                   value={editing?.phone || ''}
                   onChange={(e) =>
                     setEditing((u) => u && { ...u, phone: e.target.value.replace(/\D/g, '').slice(0, 11) })
                   }
                   inputProps={{ maxLength: 11, pattern: '[0-9]*' }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Phone sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { maxLength: 11, pattern: '[0-9]*', autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Phone color="action" />
+                        <Phone sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth>
+                <FormControl
+                  fullWidth
+                  size="small"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                >
                   <InputLabel>Workstation Role</InputLabel>
                   <Select
                     label="Workstation Role"
@@ -940,7 +1387,7 @@ export default function UserListPage() {
                     }
                     startAdornment={
                       <InputAdornment position="start">
-                        <Shield color="action" />
+                        <Shield sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     }
                   >
@@ -955,16 +1402,53 @@ export default function UserListPage() {
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="PRC License No."
                   value={editing?.professional_license_no || ''}
                   onChange={(e) =>
                     setEditing((u) => u && { ...u, professional_license_no: e.target.value })
                   }
                   inputProps={{ style: { fontFamily: 'monospace' } }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Shield sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { style: { fontFamily: 'monospace' }, autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Shield color="action" />
+                        <Shield sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -973,66 +1457,149 @@ export default function UserListPage() {
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="New Password"
-                  type="password"
+                  type={showEditPassword ? 'text' : 'password'}
                   value={editing?.password || ''}
                   onChange={(e) =>
                     setEditing((u) => u && { ...u, password: e.target.value })
                   }
                   helperText="Leave blank to keep current password"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="toggle password visibility"
+                            onClick={() => setShowEditPassword(!showEditPassword)}
+                            edge="end"
+                            size="small"
+                            sx={{ color: '#64748b' }}
+                          >
+                            {showEditPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { autoComplete: 'new-password' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Lock color="action" />
+                        <Lock sx={{ color: '#64748b', fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={() => setShowEditPassword(!showEditPassword)}
+                          edge="end"
+                          size="small"
+                          sx={{ color: '#64748b' }}
+                        >
+                          {showEditPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                        </IconButton>
                       </InputAdornment>
                     ),
                   }}
                 />
               </Grid>
-              {editing?.signature_path && (
-                <Grid size={{ xs: 12 }}>
-                  <Box sx={{ p: 1.5, bgcolor: '#f0fdf4', borderRadius: 1, border: '1px solid #86efac', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CheckCircle fontSize="small" color="success" />
-                    <Typography variant="body2" color="success.dark">
-                      Signature on file: <code style={{ fontSize: '11px' }}>{editing.signature_path}</code>
-                    </Typography>
-                  </Box>
-                </Grid>
-              )}
+              <Grid size={{ xs: 12 }}>
+                <SignatureUpload key={editing?.id} staffName={editing?.name || ''}
+                  userId={editing?.id} existingPath={editing?.signature_path}
+                  value={editing?.signature_data} removed={editing?.remove_signature}
+                  onChange={(data, removed) => setEditing(u => u && { ...u, signature_data: data, remove_signature: removed })} />
+              </Grid>
             </Grid>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={editing?.is_active ?? true}
-                  onChange={(e) =>
-                    setEditing((u) => u && { ...u, is_active: e.target.checked })
-                  }
-                  color="primary"
-                />
-              }
-              label={
-                <Stack direction="row" alignItems="center" gap={0.5}>
-                  {editing?.is_active ? (
-                    <CheckCircle fontSize="small" color="success" />
-                  ) : (
-                    <CheckCircle fontSize="small" color="disabled" />
-                  )}
-                  <Typography variant="body2">
-                    {editing?.is_active ? 'Active' : 'Inactive'}
-                  </Typography>
-                </Stack>
-              }
-            />
+            
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: 2,
+                bgcolor: 'var(--bg-subtle, #f8fafc)',
+                border: '1px solid var(--border-color, #e2e8f0)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Box>
+                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary, #1e293b)' }}>
+                  Account Status
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                  {editing?.is_active ? 'Active — User has full workstation access' : 'Inactive — User account is deactivated'}
+                </Typography>
+              </Box>
+              <FormControlLabel
+                sx={{ m: 0 }}
+                control={
+                  <Switch
+                    checked={editing?.is_active ?? true}
+                    onChange={(e) =>
+                      setEditing((u) => u && { ...u, is_active: e.target.checked })
+                    }
+                    color="success"
+                  />
+                }
+                label={
+                  <Stack direction="row" alignItems="center" gap={0.5}>
+                    <CheckCircle fontSize="small" color={editing?.is_active ? 'success' : 'disabled'} />
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {editing?.is_active ? 'Active' : 'Inactive'}
+                    </Typography>
+                  </Stack>
+                }
+              />
+            </Box>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
+        <DialogActions
+          sx={{
+            px: 3,
+            py: 2,
+            borderTop: '1px solid var(--border-color, #e2e8f0)',
+            bgcolor: 'var(--bg-subtle, #f8fafc)',
+            gap: 1,
+          }}
+        >
           <AppButton variant="secondary" onClick={() => setEditing(null)}>
             Cancel
           </AppButton>
           <AppButton onClick={() => setConfirmSave(true)}>Save changes</AppButton>
         </DialogActions>
-      </Dialog>
-
       {/* Confirmation for edit save */}
       {confirmSave && editing && (
         <ConfirmationDialog
@@ -1052,34 +1619,120 @@ export default function UserListPage() {
           onCancel={() => setConfirmSave(false)}
         />
       )}
+      </Dialog>
 
       {/* ========== CREATE USER MODAL ========== */}
       <Dialog
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3.5,
+              overflow: 'hidden',
+              maxWidth: 680,
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            },
+          },
+        }}
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Add color="primary" />
-          Add new user
-        </DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={3} sx={{ pt: 1 }}>
+        <Box
+          sx={{
+            background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+            px: 3,
+            py: 2.25,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
+          <Box
+            sx={{
+              width: 42,
+              height: 42,
+              borderRadius: 2,
+              bgcolor: 'rgba(255,255,255,0.18)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Add sx={{ color: '#fff', fontSize: 24 }} />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: '1.15rem', lineHeight: 1.2 }}>
+              Add new user
+            </Typography>
+            <Typography sx={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, mt: 0.25 }}>
+              Create a new staff account and assign workstation permissions.
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={() => setCreateModalOpen(false)}
+            size="small"
+            aria-label="Close dialog"
+            sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.18)' } }}
+          >
+            <Close fontSize="small" />
+          </IconButton>
+        </Box>
+
+        <DialogContent sx={{ px: 3, py: 3, bgcolor: 'var(--card-bg, #ffffff)' }}>
+          <Stack spacing={2.5}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   required
+                  size="small"
                   label="Full name"
                   value={newUser.name}
                   onChange={(e) =>
                     setNewUser((u) => ({ ...u, name: e.target.value }))
                   }
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Person sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Person color="action" />
+                        <Person sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -1089,16 +1742,53 @@ export default function UserListPage() {
                 <TextField
                   fullWidth
                   required
+                  size="small"
                   label="Email"
                   type="email"
                   value={newUser.email}
                   onChange={(e) =>
                     setNewUser((u) => ({ ...u, email: e.target.value }))
                   }
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Email sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Email color="action" />
+                        <Email sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -1107,23 +1797,79 @@ export default function UserListPage() {
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Phone"
                   value={newUser.phone}
                   onChange={(e) =>
                     setNewUser((u) => ({ ...u, phone: e.target.value.replace(/\D/g, '').slice(0, 11) }))
                   }
                   inputProps={{ maxLength: 11, pattern: '[0-9]*' }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Phone sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { maxLength: 11, pattern: '[0-9]*', autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Phone color="action" />
+                        <Phone sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth>
+                <FormControl
+                  fullWidth
+                  size="small"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                >
                   <InputLabel>Workstation Role</InputLabel>
                   <Select
                     label="Workstation Role"
@@ -1133,7 +1879,7 @@ export default function UserListPage() {
                     }
                     startAdornment={
                       <InputAdornment position="start">
-                        <Shield color="action" />
+                        <Shield sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     }
                   >
@@ -1148,16 +1894,53 @@ export default function UserListPage() {
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="PRC License No."
                   value={newUser.professional_license_no || ''}
                   onChange={(e) =>
                     setNewUser((u) => ({ ...u, professional_license_no: e.target.value }))
                   }
                   inputProps={{ style: { fontFamily: 'monospace' } }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Shield sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { style: { fontFamily: 'monospace' }, autoComplete: 'off' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Shield color="action" />
+                        <Shield sx={{ color: '#64748b', fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -1167,53 +1950,156 @@ export default function UserListPage() {
                 <TextField
                   fullWidth
                   required
+                  size="small"
                   label="Password"
-                  type="password"
+                  type={showNewUserPassword ? 'text' : 'password'}
                   value={newUser.password || ''}
                   onChange={(e) =>
                     setNewUser((u) => ({ ...u, password: e.target.value }))
                   }
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      bgcolor: 'var(--input-bg, #ffffff)',
+                      '& fieldset': { borderColor: 'var(--border-color, #cbd5e1)' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: 1.5 },
+                      '& .MuiInputBase-input': {
+                        border: 'none !important',
+                        background: 'transparent !important',
+                        boxShadow: 'none !important',
+                        outline: 'none !important',
+                      },
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset !important',
+                        WebkitTextFillColor: 'inherit !important',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Poppins', sans-serif",
+                      fontSize: 13.5,
+                      '&.Mui-focused': { color: '#059669', fontWeight: 600 },
+                    },
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock sx={{ color: '#64748b', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="toggle password visibility"
+                            onClick={() => setShowNewUserPassword(!showNewUserPassword)}
+                            edge="end"
+                            size="small"
+                            sx={{ color: '#64748b' }}
+                          >
+                            {showNewUserPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { autoComplete: 'new-password' },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Lock color="action" />
+                        <Lock sx={{ color: '#64748b', fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={() => setShowNewUserPassword(!showNewUserPassword)}
+                          edge="end"
+                          size="small"
+                          sx={{ color: '#64748b' }}
+                        >
+                          {showNewUserPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                        </IconButton>
                       </InputAdornment>
                     ),
                   }}
                 />
               </Grid>
               <Grid size={{ xs: 12 }}>
-                <Alert severity="info" sx={{ fontSize: '13px' }}>
-                  Digital signature is optional. The staff member and timestamp are retained in the administration audit trail; printed records may be signed by hand.
+                <SignatureUpload staffName={newUser.name} value={newUser.signature_data}
+                  onChange={data => setNewUser(u => ({ ...u, signature_data: data }))} />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Alert
+                  severity="info"
+                  sx={{
+                    fontSize: 12.5,
+                    borderRadius: 2,
+                    bgcolor: 'rgba(2, 132, 199, 0.08)',
+                    border: '1px solid rgba(2, 132, 199, 0.2)',
+                    color: '#0369a1',
+                    '& .MuiAlert-icon': { color: '#0284c7', fontSize: 20 },
+                  }}
+                >
+                  Electronic signatures are optional. Staff identity and administration time are recorded even without a signature.
                 </Alert>
               </Grid>
             </Grid>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={newUser.is_active}
-                  onChange={(e) =>
-                    setNewUser((u) => ({ ...u, is_active: e.target.checked }))
-                  }
-                  color="primary"
-                />
-              }
-              label={
-                <Stack direction="row" alignItems="center" gap={0.5}>
-                  {newUser.is_active ? (
-                    <CheckCircle fontSize="small" color="success" />
-                  ) : (
-                    <CheckCircle fontSize="small" color="disabled" />
-                  )}
-                  <Typography variant="body2">
-                    {newUser.is_active ? 'Active' : 'Inactive'}
-                  </Typography>
-                </Stack>
-              }
-            />
+            
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: 2,
+                bgcolor: 'var(--bg-subtle, #f8fafc)',
+                border: '1px solid var(--border-color, #e2e8f0)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Box>
+                <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary, #1e293b)' }}>
+                  Account Status
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                  {newUser.is_active ? 'Active — User can log in and perform duties' : 'Inactive — User login will be disabled'}
+                </Typography>
+              </Box>
+              <FormControlLabel
+                sx={{ m: 0 }}
+                control={
+                  <Switch
+                    checked={newUser.is_active}
+                    onChange={(e) =>
+                      setNewUser((u) => ({ ...u, is_active: e.target.checked }))
+                    }
+                    color="success"
+                  />
+                }
+                label={
+                  <Stack direction="row" alignItems="center" gap={0.5}>
+                    <CheckCircle fontSize="small" color={newUser.is_active ? 'success' : 'disabled'} />
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {newUser.is_active ? 'Active' : 'Inactive'}
+                    </Typography>
+                  </Stack>
+                }
+              />
+            </Box>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
+        <DialogActions
+          sx={{
+            px: 3,
+            py: 2,
+            borderTop: '1px solid var(--border-color, #e2e8f0)',
+            bgcolor: 'var(--bg-subtle, #f8fafc)',
+            gap: 1,
+          }}
+        >
           <AppButton
             variant="secondary"
             onClick={() => setCreateModalOpen(false)}
@@ -1511,7 +2397,7 @@ export default function UserListPage() {
                         onClick={() => handleViewPatientDetails(targetPatientId)}
                         startIcon={<HugeiconsIcon icon={ViewIcon} size={14} />}
                       >
-                        Record
+                        View Profile
                       </AppButton>
                       {!p.has_active_case && (
                         <AppButton

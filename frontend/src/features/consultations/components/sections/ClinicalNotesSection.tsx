@@ -56,7 +56,7 @@ export default function ClinicalNotesSection({
         <div className="fm-field fm-grid--full" style={{ scrollMarginBlock: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
             <label className="fm-label">
-              Diagnosis
+              Doctor's Diagnosis
               {checkedDiagnoses.length > 0 && (
                 <span
                   style={{

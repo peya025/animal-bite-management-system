@@ -1,3 +1,5 @@
+import { resolvePrintLogoUrls } from '../../../components/print/printHeaderHelper';
+import { waitForPrintImages } from '../../../components/print/printReady';
 /**
  * Silent in-page printing utility.
  * Fetches the printable HTML template from backend using user's bearer token,
@@ -34,7 +36,13 @@ export async function silentPrintReport(
     throw new Error(`Failed to load print template (HTTP ${response.status})`);
   }
 
-  const html = await response.text();
+  const rawHtml = await response.text();
+  const cleanHtml = rawHtml
+    .replace(/<div class="[^"]*no-print-bar[^"]*">[\s\S]*?<\/div>/gi, '')
+    .replace(/<button class="btn-print"[^>]*>[\s\S]*?<\/button>/gi, '')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, '');
+
+  const html = resolvePrintLogoUrls(cleanHtml);
 
   // Create temporary hidden iframe
   const iframe = document.createElement('iframe');
@@ -57,8 +65,9 @@ export async function silentPrintReport(
   frameDoc.close();
 
   return new Promise((resolve) => {
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
+        if (iframe.contentDocument) await waitForPrintImages(iframe.contentDocument);
         iframe.contentWindow?.focus();
         iframe.contentWindow?.print();
       } catch (err) {

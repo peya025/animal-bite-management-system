@@ -1,7 +1,11 @@
+import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
 import { useState, useEffect, type ReactNode, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
 import {
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
   Alert,
   Box,
   Button,
@@ -16,6 +20,8 @@ import {
 } from '@mui/material';
 import Loader from '../../../components/Loader';
 import {
+  ExpandMore as ExpandMoreIcon,
+  Add as AddIcon,
   Save as SaveIcon,
   Refresh as RefreshIcon,
   Business as BusinessIcon,
@@ -36,6 +42,9 @@ import { API_BASE_URL } from '../../../shared/services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { DAYS } from '../components/WorkingHoursModal/WorkingHoursModal';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
+import { PatientAppResourcesSection } from './PatientAppResourcesPage';
 
 
 // Clean, minimal field style matching the reference design
@@ -71,7 +80,10 @@ function FieldLabel({ children, required }: { children: ReactNode; required?: bo
   );
 }
 
+interface ClinicFaq { category: string; question: string; answer: string; }
+
 interface ClinicData {
+  faqs: ClinicFaq[];
   name: string;
   subtitle: string;
   address: string;
@@ -83,6 +95,10 @@ interface ClinicData {
   philhealth_accreditation_no: string;
   logo_path?: string | null;
   logo_url?: string | null;
+  left_print_logo_path?: string | null;
+  left_print_logo_url?: string | null;
+  right_print_logo_path?: string | null;
+  right_print_logo_url?: string | null;
   opening_hours: {
     [key: string]: { open: string; close: string; is_open: boolean };
   };
@@ -91,8 +107,11 @@ interface ClinicData {
 export default function ClinicInformation() {
   const navigate = useNavigate();
   const { updateClinic } = useAuth();
+  const draft = useFormDraft('clinic-info');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [expandedFaq, setExpandedFaq] = useState<number | false>(false);
+  const [resourcesRefreshTrigger, setResourcesRefreshTrigger] = useState(0);
   const [clinic, setClinic] = useState<ClinicData>({
     name: '',
     subtitle: '',
@@ -105,11 +124,26 @@ export default function ClinicInformation() {
     philhealth_accreditation_no: '',
     logo_path: null,
     logo_url: null,
+    left_print_logo_path: null,
+    left_print_logo_url: null,
+    right_print_logo_path: null,
+    right_print_logo_url: null,
     opening_hours: {},
+    faqs: [],
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [removeLogo, setRemoveLogo] = useState(false);
+
+  // Left Print Logo State
+  const [leftLogoFile, setLeftLogoFile] = useState<File | null>(null);
+  const [leftLogoPreview, setLeftLogoPreview] = useState<string | null>(null);
+  const [removeLeftLogo, setRemoveLeftLogo] = useState(false);
+
+  // Right Print Logo State
+  const [rightLogoFile, setRightLogoFile] = useState<File | null>(null);
+  const [rightLogoPreview, setRightLogoPreview] = useState<string | null>(null);
+  const [removeRightLogo, setRemoveRightLogo] = useState(false);
 
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
@@ -318,12 +352,31 @@ export default function ClinicInformation() {
         philhealth_accreditation_no: data.philhealth_accreditation_no || '',
         logo_path: data.logo_path || null,
         logo_url: data.logo_url || null,
+        left_print_logo_path: data.left_print_logo_path || null,
+        left_print_logo_url: data.left_print_logo_url || null,
+        right_print_logo_path: data.right_print_logo_path || null,
+        right_print_logo_url: data.right_print_logo_url || null,
         opening_hours: defaultHours,
+        faqs: data.faqs || [],
       });
+
+      // If the user had unsaved changes (a draft), restore them on top of the server data
+      const savedDraft = draft.readDraft<Partial<Omit<ClinicData, 'logo_path' | 'logo_url' | 'left_print_logo_path' | 'left_print_logo_url' | 'right_print_logo_path' | 'right_print_logo_url' | 'opening_hours'>>>();
+      if (savedDraft) {
+        setClinic(prev => ({ ...prev, ...savedDraft }));
+      }
 
       setLogoFile(null);
       setLogoPreview(null);
       setRemoveLogo(false);
+
+      setLeftLogoFile(null);
+      setLeftLogoPreview(null);
+      setRemoveLeftLogo(false);
+
+      setRightLogoFile(null);
+      setRightLogoPreview(null);
+      setRemoveRightLogo(false);
 
       parseClinicAddress(data.address || '', data.municipality, data.province);
     } catch (error: any) {
@@ -346,8 +399,14 @@ export default function ClinicInformation() {
     loadClinicData();
   }, []);
 
-  const handleInputChange = (field: keyof Omit<ClinicData, 'opening_hours'>, value: string) => {
-    setClinic(prev => ({ ...prev, [field]: value }));
+  const handleInputChange = (field: keyof Omit<ClinicData, 'opening_hours' | 'faqs'>, value: string) => {
+    setClinic(prev => {
+      const next = { ...prev, [field]: value };
+      // Persist draft of text fields only (not logo paths or opening_hours objects)
+      const { logo_path, logo_url, left_print_logo_path, left_print_logo_url, right_print_logo_path, right_print_logo_url, opening_hours, ...draftable } = next;
+      draft.saveDraft(draftable);
+      return next;
+    });
   };
 
   const handleLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -374,6 +433,54 @@ export default function ClinicInformation() {
     setRemoveLogo(true);
   };
 
+  const handleLeftLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setSnackbar({
+        open: true,
+        message: 'Left print logo image must not exceed 2MB in size.',
+        severity: 'error',
+      });
+      return;
+    }
+
+    setLeftLogoFile(file);
+    setLeftLogoPreview(URL.createObjectURL(file));
+    setRemoveLeftLogo(false);
+  };
+
+  const handleResetLeftLogo = () => {
+    setLeftLogoFile(null);
+    setLeftLogoPreview(null);
+    setRemoveLeftLogo(true);
+  };
+
+  const handleRightLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setSnackbar({
+        open: true,
+        message: 'Right print logo image must not exceed 2MB in size.',
+        severity: 'error',
+      });
+      return;
+    }
+
+    setRightLogoFile(file);
+    setRightLogoPreview(URL.createObjectURL(file));
+    setRemoveRightLogo(false);
+  };
+
+  const handleResetRightLogo = () => {
+    setRightLogoFile(null);
+    setRightLogoPreview(null);
+    setRemoveRightLogo(true);
+  };
+
   const backendBase = API_BASE_URL.replace(/\/api\/?$/, '');
   const displayLogoSrc = logoPreview
     ? logoPreview
@@ -385,9 +492,34 @@ export default function ClinicInformation() {
           ? `${backendBase}/storage/${clinic.logo_path}`
           : defaultLogo;
 
+  const savedPrintLogos = getGlobalPrintLogos(clinic);
+  const displayLeftLogoSrc = leftLogoPreview || (removeLeftLogo ? null : savedPrintLogos.leftLogoUrl);
+  const displayRightLogoSrc = rightLogoPreview || (removeRightLogo ? null : savedPrintLogos.rightLogoUrl);
+
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  const updateFaqs = (faqs: ClinicFaq[]) => {
+    const next = { ...clinic, faqs };
+    setClinic(next);
+    const { logo_path, logo_url, left_print_logo_path, left_print_logo_url, right_print_logo_path, right_print_logo_url, opening_hours, ...draftable } = next;
+    draft.saveDraft(draftable);
+  };
+
   const handleSubmit = async () => {
+    const invalidFaq = clinic.faqs.findIndex(faq => !faq.question.trim() || !faq.answer.trim());
+    if (invalidFaq !== -1) {
+      setExpandedFaq(invalidFaq);
+      setSnackbar({ open: true, message: 'Enter a question and answer for every FAQ, or remove the empty FAQ.', severity: 'error' });
+      return;
+    }
+    if (clinic.contact_number && !/^09\d{9}$/.test(clinic.contact_number.trim())) {
+      setSnackbar({
+        open: true,
+        message: 'Mobile number must start with 09 and contain 11 digits.',
+        severity: 'error',
+      });
+      return;
+    }
     setSaving(true);
     try {
       const formData = new FormData();
@@ -403,12 +535,27 @@ export default function ClinicInformation() {
       formData.append('municipality', selectedMunicipality);
       formData.append('province', selectedProvince);
       formData.append('opening_hours', JSON.stringify(clinic.opening_hours));
+      formData.append('faqs', JSON.stringify(clinic.faqs.map(faq => ({ category: (faq.category || '').trim(), question: faq.question.trim(), answer: faq.answer.trim() }))));
 
       if (logoFile) {
         formData.append('logo', logoFile);
       }
       if (removeLogo) {
         formData.append('remove_logo', '1');
+      }
+
+      if (leftLogoFile) {
+        formData.append('left_print_logo', leftLogoFile);
+      }
+      if (removeLeftLogo) {
+        formData.append('remove_left_print_logo', '1');
+      }
+
+      if (rightLogoFile) {
+        formData.append('right_print_logo', rightLogoFile);
+      }
+      if (removeRightLogo) {
+        formData.append('remove_right_print_logo', '1');
       }
 
       const res = await api.post('/setup/clinic', formData, {
@@ -432,13 +579,26 @@ export default function ClinicInformation() {
           subtitle: updatedClinic.subtitle || '',
           logo_path: updatedClinic.logo_path || null,
           logo_url: updatedClinic.logo_url || null,
+          left_print_logo_path: updatedClinic.left_print_logo_path || null,
+          left_print_logo_url: updatedClinic.left_print_logo_url || null,
+          right_print_logo_path: updatedClinic.right_print_logo_path || null,
+          right_print_logo_url: updatedClinic.right_print_logo_url || null,
         }));
         setLogoFile(null);
         setLogoPreview(null);
         setRemoveLogo(false);
+
+        setLeftLogoFile(null);
+        setLeftLogoPreview(null);
+        setRemoveLeftLogo(false);
+
+        setRightLogoFile(null);
+        setRightLogoPreview(null);
+        setRemoveRightLogo(false);
       }
 
       setShowSuccessModal(true);
+      draft.clearDraft();
     } catch (error: any) {
       setSnackbar({
         open: true,
@@ -462,29 +622,57 @@ export default function ClinicInformation() {
   return (
     <Box sx={{ width: '100%' }}>
       {/* Header */}
-      <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+      <Box data-walkthrough="clinic-info-header" sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography component="h1" sx={{ fontWeight: 600, fontSize: '25px', lineHeight: 1.2, color: 'var(--text-h)', mb: '7px', letterSpacing: '-0.5px' }}>
+          <Typography
+            component="h1"
+            sx={{
+              fontSize: '24px',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
+            }}
+          >
             Clinic Information
           </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d' }}>
-            Manage your clinic details and operating hours
-          </Typography>
           {/* Breadcrumb */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', mt: 0.75, fontSize: 13, color: '#9ca3af' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '8px',
+              fontSize: '13px',
+            }}
+          >
             <button
               onClick={() => navigate(ROUTES.DASHBOARD)}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
-            >Dashboard</button>
-            <span>›</span>
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: '#3b82f6',
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
+            >
+              Dashboard
+            </button>
+            <span style={{ color: '#9ca3af' }}>›</span>
             <span style={{ color: '#6b7280' }}>Clinic Setup</span>
-            <span>›</span>
+            <span style={{ color: '#9ca3af' }}>›</span>
             <span style={{ color: '#6b7280' }}>Clinic Information</span>
-          </Box>
+          </div>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
           <IconButton
-            onClick={loadClinicData}
+            onClick={() => {
+              void loadClinicData();
+              setResourcesRefreshTrigger((prev) => prev + 1);
+            }}
             disabled={loading}
             title="Reload Clinic Information"
             sx={{ 
@@ -504,6 +692,7 @@ export default function ClinicInformation() {
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {/* Card 1: Branding & Application Identity */}
         <Paper
+          data-walkthrough="clinic-branding-section"
           elevation={0}
           sx={{
             border: '1px solid var(--border-glow, #e0eae3)',
@@ -517,25 +706,26 @@ export default function ClinicInformation() {
           </Typography>
           <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />
 
-          {/* Logo Uploader Block */}
+          <Box data-walkthrough="clinic-logos-container" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(3, minmax(0, 1fr))' }, gap: 2, mb: 3 }}>
+          {/* Application Logo */}
           <Box
+            data-walkthrough="clinic-app-logo"
             sx={{
               display: 'flex',
-              alignItems: { xs: 'flex-start', sm: 'center' },
-              flexDirection: { xs: 'column', sm: 'row' },
-              gap: 3,
-              p: 2.5,
-              bgcolor: 'var(--bg-subtle, #f8fafc)',
+              alignItems: 'center',
+              gap: 2,
+              p: 2,
+              minWidth: 0,
+              bgcolor: '#fff',
               border: '1px solid var(--border-glow, #e2e8f0)',
               borderRadius: 2,
-              mb: 3,
             }}
           >
             {/* Logo Preview Container */}
             <Box
               sx={{
-                width: 76,
-                height: 76,
+                width: 64,
+                height: 64,
                 borderRadius: 2,
                 border: '2px dashed #10b981',
                 bgcolor: '#ffffff',
@@ -563,17 +753,14 @@ export default function ClinicInformation() {
 
             {/* Logo Actions */}
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography sx={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 0.5 }}>
+              <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 1 }}>
                 Clinic & Application Logo
               </Typography>
-              <Typography sx={{ fontSize: '12px', color: '#64748b', mb: 1.5, lineHeight: 1.4 }}>
-                This logo is displayed in the sidebar header across the entire application. If no custom logo is uploaded, the default mobile application logo is used.
-              </Typography>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <input
                   accept="image/png,image/jpeg,image/webp,image/svg+xml"
                   id="clinic-logo-upload"
+                  name="clinic_logo"
                   type="file"
                   style={{ display: 'none' }}
                   onChange={handleLogoChange}
@@ -596,7 +783,7 @@ export default function ClinicInformation() {
                       },
                     }}
                   >
-                    Upload Custom Logo
+                    {logoFile || clinic.logo_path || (clinic.logo_url && clinic.logo_url !== defaultLogo) ? 'Replace Logo' : 'Upload Logo'}
                   </Button>
                 </label>
 
@@ -616,30 +803,268 @@ export default function ClinicInformation() {
                       },
                     }}
                   >
-                    Reset to Default Logo
+                    Reset Logo
                   </Button>
                 )}
 
-                {logoFile && (
-                  <Typography sx={{ fontSize: '12px', color: '#10b981', fontWeight: 500 }}>
-                    • Selected: {logoFile.name} (Click &quot;Save Changes&quot; to apply)
-                  </Typography>
-                )}
-                {removeLogo && (
-                  <Typography sx={{ fontSize: '12px', color: '#f59e0b', fontWeight: 500 }}>
-                    • Logo will reset to default mobile logo on save
-                  </Typography>
-                )}
               </Box>
+              {logoFile && (
+                <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75, overflowWrap: 'anywhere' }}>
+                  Selected: {logoFile.name}
+                </Typography>
+              )}
+              {removeLogo && (
+                <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>
+                  Will reset to default on save
+                </Typography>
+              )}
             </Box>
           </Box>
 
+          {/* Print header logos */}
+              {/* Left Print Logo Block */}
+              <Box
+                data-walkthrough="clinic-left-logo"
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  p: 2,
+                  minWidth: 0,
+                  bgcolor: '#ffffff',
+                  border: '1px solid var(--border-glow, #e2e8f0)',
+                  borderRadius: 2,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 2,
+                    border: displayLeftLogoSrc ? '2px dashed #10b981' : '1.5px dashed #cbd5e1',
+                    bgcolor: displayLeftLogoSrc ? '#ffffff' : '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 0.75,
+                    flexShrink: 0,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {displayLeftLogoSrc ? (
+                    <img
+                      src={displayLeftLogoSrc}
+                      alt="Left Print Logo"
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                    />
+                  ) : (
+                    <Box sx={{ textAlign: 'center', p: 0.5 }}>
+                      <CloudUploadIcon sx={{ fontSize: 20, color: '#94a3b8' }} />
+                      <Typography sx={{ fontSize: '9px', color: '#94a3b8', lineHeight: 1.1, mt: 0.25 }}>No logo</Typography>
+                    </Box>
+                  )}
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 1 }}>
+                    Left Print Logo
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <input
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      id="left-print-logo-upload"
+                      name="left_print_logo"
+                      type="file"
+                      style={{ display: 'none' }}
+                      onChange={handleLeftLogoChange}
+                    />
+                    <label htmlFor="left-print-logo-upload">
+                      <Button
+                        variant="outlined"
+                        component="span"
+                        size="small"
+                        startIcon={<CloudUploadIcon />}
+                        sx={{
+                          textTransform: 'none',
+                          fontSize: '12.5px',
+                          fontWeight: 600,
+                          color: '#059669',
+                          borderColor: '#10b981',
+                          py: 0.5,
+                          px: 1.25,
+                          '&:hover': {
+                            borderColor: '#059669',
+                            bgcolor: '#ecfdf5',
+                          },
+                        }}
+                      >
+                        {displayLeftLogoSrc ? 'Replace Logo' : 'Upload Logo'}
+                      </Button>
+                    </label>
+
+                    {displayLeftLogoSrc && !removeLeftLogo && (
+                      <Button
+                        variant="text"
+                        size="small"
+                        startIcon={<DeleteOutlineIcon />}
+                        onClick={handleResetLeftLogo}
+                        sx={{
+                          textTransform: 'none',
+                          fontSize: '12.5px',
+                          fontWeight: 500,
+                          color: '#ef4444',
+                          py: 0.5,
+                          px: 1,
+                          '&:hover': {
+                            bgcolor: '#fef2f2',
+                          },
+                        }}
+                      >
+                        Remove Logo
+                      </Button>
+                    )}
+                  </Box>
+
+                  {leftLogoFile && (
+                    <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75, overflowWrap: 'anywhere' }}>
+                      Selected: {leftLogoFile.name}
+                    </Typography>
+                  )}
+                  {removeLeftLogo && (
+                    <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>
+                      Will be removed on save
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+
+              {/* Right Print Logo Block */}
+              <Box
+                data-walkthrough="clinic-right-logo"
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  p: 2,
+                  minWidth: 0,
+                  bgcolor: '#ffffff',
+                  border: '1px solid var(--border-glow, #e2e8f0)',
+                  borderRadius: 2,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 2,
+                    border: displayRightLogoSrc ? '2px dashed #10b981' : '1.5px dashed #cbd5e1',
+                    bgcolor: displayRightLogoSrc ? '#ffffff' : '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 0.75,
+                    flexShrink: 0,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {displayRightLogoSrc ? (
+                    <img
+                      src={displayRightLogoSrc}
+                      alt="Right Print Logo"
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                    />
+                  ) : (
+                    <Box sx={{ textAlign: 'center', p: 0.5 }}>
+                      <CloudUploadIcon sx={{ fontSize: 20, color: '#94a3b8' }} />
+                      <Typography sx={{ fontSize: '9px', color: '#94a3b8', lineHeight: 1.1, mt: 0.25 }}>No logo</Typography>
+                    </Box>
+                  )}
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 1 }}>
+                    Right Print Logo
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <input
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      id="right-print-logo-upload"
+                      name="right_print_logo"
+                      type="file"
+                      style={{ display: 'none' }}
+                      onChange={handleRightLogoChange}
+                    />
+                    <label htmlFor="right-print-logo-upload">
+                      <Button
+                        variant="outlined"
+                        component="span"
+                        size="small"
+                        startIcon={<CloudUploadIcon />}
+                        sx={{
+                          textTransform: 'none',
+                          fontSize: '12.5px',
+                          fontWeight: 600,
+                          color: '#059669',
+                          borderColor: '#10b981',
+                          py: 0.5,
+                          px: 1.25,
+                          '&:hover': {
+                            borderColor: '#059669',
+                            bgcolor: '#ecfdf5',
+                          },
+                        }}
+                      >
+                        {displayRightLogoSrc ? 'Replace Logo' : 'Upload Logo'}
+                      </Button>
+                    </label>
+
+                    {displayRightLogoSrc && !removeRightLogo && (
+                      <Button
+                        variant="text"
+                        size="small"
+                        startIcon={<DeleteOutlineIcon />}
+                        onClick={handleResetRightLogo}
+                        sx={{
+                          textTransform: 'none',
+                          fontSize: '12.5px',
+                          fontWeight: 500,
+                          color: '#ef4444',
+                          py: 0.5,
+                          px: 1,
+                          '&:hover': {
+                            bgcolor: '#fef2f2',
+                          },
+                        }}
+                      >
+                        Remove Logo
+                      </Button>
+                    )}
+                  </Box>
+
+                  {rightLogoFile && (
+                    <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75, overflowWrap: 'anywhere' }}>
+                      Selected: {rightLogoFile.name}
+                    </Typography>
+                  )}
+                  {removeRightLogo && (
+                    <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>
+                      Will be removed on save
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+          </Box>
+
           {/* Title and Subtitle Inputs */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
+          <Box data-walkthrough="clinic-name-tagline" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
             {/* Main Title / Clinic Name */}
-            <Box>
+            <Box data-walkthrough="clinic-name-input">
               <FieldLabel required>Main Title (Clinic Name)</FieldLabel>
               <TextField
+                id="clinic-name-input"
+                name="clinic_name"
                 fullWidth
                 size="small"
                 placeholder="e.g. Animal Bite Treatment Center"
@@ -660,9 +1085,11 @@ export default function ClinicInformation() {
             </Box>
 
             {/* Subtitle */}
-            <Box>
+            <Box data-walkthrough="clinic-subtitle-input">
               <FieldLabel>Subtitle (Application Tagline)</FieldLabel>
               <TextField
+                id="clinic-subtitle-input"
+                name="clinic_subtitle"
                 fullWidth
                 size="small"
                 placeholder="e.g. Tagoloan Animal Bite Treatment Application"
@@ -686,6 +1113,7 @@ export default function ClinicInformation() {
 
         {/* Card 2 - Facility & Accreditation Information */}
         <Paper
+          data-walkthrough="clinic-facility-section"
           elevation={0}
           sx={{
             border: '1px solid var(--border-glow, #e0eae3)',
@@ -699,99 +1127,118 @@ export default function ClinicInformation() {
           </Typography>
           <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
+          <Box data-walkthrough="clinic-accreditation-grid" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
 
-            {/* License Number */}
-            <Box>
-              <FieldLabel>License Number</FieldLabel>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Enter license number"
-                value={clinic.license_number}
-                onChange={(e) => handleInputChange('license_number', e.target.value)}
-                sx={cleanFieldSx}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <BadgeIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Box>
+            {/* Accreditation Numbers Block (Image 4 - License, Hospital, DOH, PhilHealth highlighted together) */}
+            <Box
+              data-walkthrough="clinic-accreditation-block"
+              sx={{
+                gridColumn: { xs: '1', md: '1 / -1' },
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                gap: 2.5,
+              }}
+            >
+              {/* License Number */}
+              <Box data-walkthrough="clinic-license-number">
+                <FieldLabel>License Number</FieldLabel>
+                <TextField
+                  id="clinic-license-number-input"
+                  name="license_number"
+                  fullWidth
+                  size="small"
+                  placeholder="Enter license number"
+                  value={clinic.license_number}
+                  onChange={(e) => handleInputChange('license_number', e.target.value)}
+                  sx={cleanFieldSx}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <BadgeIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              </Box>
 
-            {/* Hospital Number */}
-            <Box>
-              <FieldLabel>Hospital Number (Hospital No.)</FieldLabel>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="e.g. HOSP-9923"
-                value={clinic.hospital_no}
-                onChange={(e) => handleInputChange('hospital_no', e.target.value)}
-                sx={cleanFieldSx}
-                helperText="Official hospital identifier displayed on Form 3 treatment cards"
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <BadgeIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Box>
+              {/* Hospital Number */}
+              <Box data-walkthrough="clinic-hospital-number">
+                <FieldLabel>Hospital Number (Hospital No.)</FieldLabel>
+                <TextField
+                  id="clinic-hospital-no-input"
+                  name="hospital_no"
+                  fullWidth
+                  size="small"
+                  placeholder="e.g. HOSP-9923"
+                  value={clinic.hospital_no}
+                  onChange={(e) => handleInputChange('hospital_no', e.target.value)}
+                  sx={cleanFieldSx}
+                  helperText="Official hospital identifier displayed on Form 3 treatment cards"
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <BadgeIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              </Box>
 
-            {/* DOH Accreditation Number */}
-            <Box>
-              <FieldLabel>DOH Accreditation Number</FieldLabel>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="e.g. 2022-10-037"
-                value={clinic.doh_accreditation_no}
-                onChange={(e) => handleInputChange('doh_accreditation_no', e.target.value)}
-                sx={cleanFieldSx}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <BadgeIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Box>
+              {/* DOH Accreditation Number */}
+              <Box data-walkthrough="clinic-doh-number">
+                <FieldLabel>DOH Accreditation Number</FieldLabel>
+                <TextField
+                  id="clinic-doh-number-input"
+                  name="doh_accreditation_no"
+                  fullWidth
+                  size="small"
+                  placeholder="e.g. 2022-10-037"
+                  value={clinic.doh_accreditation_no}
+                  onChange={(e) => handleInputChange('doh_accreditation_no', e.target.value)}
+                  sx={cleanFieldSx}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <BadgeIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              </Box>
 
-            {/* PhilHealth Accreditation Number */}
-            <Box>
-              <FieldLabel>PhilHealth Accreditation Number</FieldLabel>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="e.g. B10034377"
-                value={clinic.philhealth_accreditation_no}
-                onChange={(e) => handleInputChange('philhealth_accreditation_no', e.target.value)}
-                sx={cleanFieldSx}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <BadgeIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
+              {/* PhilHealth Accreditation Number */}
+              <Box data-walkthrough="clinic-philhealth-number">
+                <FieldLabel>PhilHealth Accreditation Number</FieldLabel>
+                <TextField
+                  id="clinic-philhealth-number-input"
+                  name="philhealth_accreditation_no"
+                  fullWidth
+                  size="small"
+                  placeholder="e.g. B10034377"
+                  value={clinic.philhealth_accreditation_no}
+                  onChange={(e) => handleInputChange('philhealth_accreditation_no', e.target.value)}
+                  sx={cleanFieldSx}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <BadgeIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              </Box>
             </Box>
 
             {/* Address — full width */}
-            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+            <Box data-walkthrough="clinic-address-section" sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
                 <FieldLabel>Clinic Address</FieldLabel>
                 <Button
@@ -819,6 +1266,9 @@ export default function ClinicInformation() {
                     <Box>
                       <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Province</Typography>
                       <Select
+                        id="clinic-province-select"
+                        name="province"
+                        inputProps={{ id: 'clinic-province-select-input', name: 'province' }}
                         fullWidth
                         size="small"
                         value={selectedProvince}
@@ -834,6 +1284,9 @@ export default function ClinicInformation() {
                     <Box>
                       <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Municipality / City</Typography>
                       <Select
+                        id="clinic-municipality-select"
+                        name="municipality"
+                        inputProps={{ id: 'clinic-municipality-select-input', name: 'municipality' }}
                         fullWidth
                         size="small"
                         value={selectedMunicipality}
@@ -851,6 +1304,9 @@ export default function ClinicInformation() {
                     <Box>
                       <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Barangay</Typography>
                       <Select
+                        id="clinic-barangay-select"
+                        name="barangay"
+                        inputProps={{ id: 'clinic-barangay-select-input', name: 'barangay' }}
                         fullWidth
                         size="small"
                         value={selectedBarangay}
@@ -866,6 +1322,8 @@ export default function ClinicInformation() {
                     <Box>
                       <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Street / Zone / Landmark</Typography>
                       <TextField
+                        id="clinic-street-input"
+                        name="street"
                         fullWidth
                         size="small"
                         placeholder="e.g. Zone 2, Main Highway"
@@ -882,6 +1340,8 @@ export default function ClinicInformation() {
                 </Box>
               ) : (
                 <TextField
+                  id="clinic-address-input"
+                  name="address"
                   fullWidth
                   size="small"
                   multiline
@@ -903,56 +1363,123 @@ export default function ClinicInformation() {
               )}
             </Box>
 
-            {/* Contact Number */}
-            <Box>
-              <FieldLabel>Contact Number</FieldLabel>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="+63 XXX XXX XXXX"
-                value={clinic.contact_number}
-                onChange={(e) => handleInputChange('contact_number', e.target.value)}
-                sx={cleanFieldSx}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <PhoneIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Box>
+            {/* Contact Channels Block (Image 3 - Contact Number & Email Address highlighted together as one) */}
+            <Box
+              data-walkthrough="clinic-contact-channels-section"
+              sx={{
+                gridColumn: { xs: '1', md: '1 / -1' },
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                gap: 2.5,
+              }}
+            >
+              {/* Contact Number */}
+              <Box data-walkthrough="clinic-contact-number">
+                <FieldLabel>Contact Number</FieldLabel>
+                <TextField
+                  id="clinic-contact-number-input"
+                  name="contact_number"
+                  fullWidth
+                  size="small"
+                  placeholder="+63 XXX XXX XXXX"
+                  value={clinic.contact_number}
+                  onChange={(e) => handleInputChange('contact_number', e.target.value)}
+                  sx={cleanFieldSx}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <PhoneIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              </Box>
 
-            {/* Email Address */}
-            <Box>
-              <FieldLabel>Email Address</FieldLabel>
-              <TextField
-                fullWidth
-                size="small"
-                type="email"
-                placeholder="clinic@example.com"
-                value={clinic.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                sx={cleanFieldSx}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <EmailIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
+              {/* Email Address */}
+              <Box data-walkthrough="clinic-email-address">
+                <FieldLabel>Email Address</FieldLabel>
+                <TextField
+                  id="clinic-email-input"
+                  name="email"
+                  fullWidth
+                  size="small"
+                  type="email"
+                  placeholder="clinic@example.com"
+                  value={clinic.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  sx={cleanFieldSx}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <EmailIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              </Box>
             </Box>
           </Box>
         </Paper>
 
+        <Paper data-walkthrough="clinic-faqs-section" variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, mb: 3, borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
+            <Typography sx={{ fontSize: 15, fontWeight: 600 }}>FAQs ({clinic.faqs.length})</Typography>
+            <Button data-walkthrough="clinic-faqs-add-btn" size="small" variant="outlined" startIcon={<AddIcon />} disabled={saving || clinic.faqs.length >= 50}
+              onClick={() => { setExpandedFaq(clinic.faqs.length); updateFaqs([...clinic.faqs, { category: '', question: '', answer: '' }]); }}>Add FAQ</Button>
+          </Box>
+          <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1.5 }}>
+            Select a question to edit. Save Changes publishes updates to the patient app.
+          </Typography>
+          <Box data-walkthrough="clinic-faqs-list">
+            {clinic.faqs.length === 0 && <Typography variant="body2" color="text.secondary">No FAQs added yet.</Typography>}
+            {clinic.faqs.map((faq, index) => (
+              <Accordion key={index} disableGutters elevation={0} expanded={expandedFaq === index}
+                onChange={(_, expanded) => setExpandedFaq(expanded ? index : false)}
+                sx={{ border: '1px solid #d7e3da', borderRadius: '6px !important', mb: 0.75, '&:before': { display: 'none' } }}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />} id={`faq-${index}-header`} aria-controls={`faq-${index}-content`}
+                  sx={{ minHeight: 44, px: 1.5, '& .MuiAccordionSummary-content': { my: 1, minWidth: 0, alignItems: 'center', gap: 1 } }}>
+                  <Typography variant="caption" color="text.secondary">{index + 1}.</Typography>
+                  <Typography variant="body2" noWrap sx={{ fontWeight: 500, flex: 1 }}>{faq.question.trim() || 'New question'}</Typography>
+                  {faq.category && <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: '25%', display: { xs: 'none', sm: 'block' } }}>{faq.category}</Typography>}
+                </AccordionSummary>
+                <AccordionDetails id={`faq-${index}-content`} sx={{ p: 1.5, pt: 0.5, display: 'grid', gap: 1.5 }}>
+                  {(['category', 'question', 'answer'] as const).map(field => (
+                    <TextField
+                      key={field}
+                      id={`faq-${index}-${field}`}
+                      name={`faq_${index}_${field}`}
+                      size="small"
+                      label={field === 'category' ? 'Category (optional)' : field === 'question' ? 'Question' : 'Answer'}
+                      required={field !== 'category'}
+                      fullWidth
+                      disabled={saving}
+                      value={faq[field] ?? ''}
+                      multiline={field !== 'category'}
+                      minRows={field === 'answer' ? 2 : undefined}
+                      slotProps={{ htmlInput: { maxLength: field === 'category' ? 100 : field === 'question' ? 500 : 5000 } }}
+                      onChange={event => updateFaqs(clinic.faqs.map((item, i) => i === index ? { ...item, [field]: event.target.value } : item))}
+                    />
+                  ))}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Button size="small" color="error" disabled={saving} startIcon={<DeleteOutlineIcon />}
+                      onClick={() => { updateFaqs(clinic.faqs.filter((_, i) => i !== index)); setExpandedFaq(false); }}>Remove FAQ</Button>
+                    <Button size="small" onClick={() => setExpandedFaq(false)}>Collapse</Button>
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+            ))}
+          </Box>
+        </Paper>
+
         {/* Bottom-right Save Changes Button */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', pt: 1, pb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', pt: 1, pb: 1, gap: 1.5 }}>
+          <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
           <Button
+            data-walkthrough="clinic-save-btn"
             variant="contained"
             startIcon={<SaveIcon />}
             onClick={handleSubmit}
@@ -974,6 +1501,9 @@ export default function ClinicInformation() {
             {saving ? 'Saving...' : 'Save Changes'}
           </Button>
         </Box>
+
+        {/* Card 3 - Patient App Resources (Mobile "Learn More") */}
+        <PatientAppResourcesSection embedded refreshTrigger={resourcesRefreshTrigger} />
       </Box>
 
       {/* Success Modal */}

@@ -20,8 +20,9 @@ export const Overlay = styled('div')({
   alignItems: 'center',
   justifyContent: 'center',
   zIndex: 1000,
-  padding: '24px 16px',
+  padding: '16px',
   animation: `${fadeIn} 0.2s ease`,
+  boxSizing: 'border-box',
 });
 
 export const Modal = styled('div', {
@@ -31,13 +32,14 @@ export const Modal = styled('div', {
   border: '1px solid var(--card-border, rgba(0, 0, 0, 0.05))',
   borderRadius: 16,
   width: '100%',
-  maxWidth,
+  maxWidth: `min(${maxWidth}px, calc(100vw - 32px))`,
   display: 'flex',
   flexDirection: 'column',
-  maxHeight: 'calc(100vh - 48px)',
+  maxHeight: 'calc(100dvh - 32px)',
   boxShadow: '0 20px 60px rgba(0, 0, 0, 0.18)',
   animation: `${scaleIn} 0.25s ease`,
   overflow: 'hidden',
+  boxSizing: 'border-box',
 }));
 
 export const Header = styled('div')({
@@ -91,8 +93,11 @@ export const CloseButton = styled('button')({
 
 export const Body = styled('div')({
   overflowY: 'auto',
+  overscrollBehavior: 'contain',
   padding: '24px 28px',
-  flex: 1,
+  flex: '1 1 auto',
+  minHeight: 0,
+  boxSizing: 'border-box',
 
   '.fm-section': { marginBottom: 24 },
   '.fm-section-title': {
@@ -133,13 +138,17 @@ export const Body = styled('div')({
     color: 'var(--input-text, #111827)',
     background: 'var(--input-bg, #fff)',
     outline: 'none',
-    transition: 'border-color 0.15s, box-shadow 0.15s',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     width: '100%',
     boxSizing: 'border-box',
   },
-  '.fm-input:focus, .fm-select:focus, .fm-textarea:focus': {
+  '.fm-input:hover:not(:disabled), .fm-select:hover:not(:disabled), .fm-textarea:hover:not(:disabled)': {
     borderColor: '#10b981',
-    boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.1)',
+  },
+  '.fm-input:focus, .fm-select:focus, .fm-textarea:focus': {
+    outline: 'none',
+    borderColor: '#10b981',
+    boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.1)',
   },
   '.fm-input::placeholder, .fm-textarea::placeholder': {
     color: 'var(--text-secondary, #d1d5db)',
@@ -183,9 +192,12 @@ export const Footer = styled('div')({
   borderTop: '1px solid var(--sidebar-header-border, #f3f4f6)',
   display: 'flex',
   justifyContent: 'flex-end',
+  alignItems: 'center',
+  flexWrap: 'wrap',
   gap: 12,
   flexShrink: 0,
   background: 'var(--card-bg, #fff)',
+  boxSizing: 'border-box',
 
   '.fm-btn': {
     padding: '10px 24px',

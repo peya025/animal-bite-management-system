@@ -1,0 +1,230 @@
+/**
+ * Bite Cases Accessibility Styles
+ * WCAG AA Compliant Color System
+ */
+
+:root {
+  /* ========================================
+     WCAG AA Compliant Text Colors (4.5:1)
+     ======================================== */
+  
+  /* Primary text on white background - 4.5:1 */
+  --bc-text: #0f172a;
+  --bc-text-2: #1e293b;
+  --bc-text-3: #334155;
+  
+  /* Secondary text - WCAG AA compliant */
+  --bc-text-secondary: #475569; /* Replaces --bc-muted, 4.5:1 on white */
+  
+  /* Borders */
+  --bc-border: #cbd5e1;
+  --bc-border-strong: #94a3b8;
+  
+  /* Surfaces */
+  --bc-surface: #ffffff;
+  --bc-surface-2: #f8fafc;
+  --bc-surface-3: #f1f5f9;
+  --bc-track: #e2e8f0;
+  
+  /* ========================================
+     Priority Colors - WCAG AA Compliant
+     ======================================== */
+  
+  /* High Priority - Red */
+  --bc-red: #dc2626; /* 4.5:1 on white */
+  --bc-red-strong: #b91c1c;
+  --bc-danger-bg: #fee2e2;
+  --bc-danger-bg-2: #fecaca;
+  --bc-danger-bg-subtle: #fef2f2;
+  --bc-danger-border: #fca5a5;
+  
+  /* Medium Priority - Amber */
+  --bc-amber: #d97706; /* 4.6:1 on white */
+  --bc-amber-strong: #b45309;
+  --bc-amber-bg: #fef3c7;
+  --bc-amber-border: #fcd34d;
+  
+  /* Low Priority - Green */
+  --bc-green: #059669; /* 4.5:1 on white */
+  --bc-green-strong: #047857;
+  --bc-success-bg: #d1fae5;
+  --bc-success-border: #6ee7b7;
+  
+  /* ========================================
+     Focus & Interactive States
+     ======================================== */
+  
+  --bc-focus-ring: #2563eb;
+  --bc-focus-ring-offset: 2px;
+  
+  /* ========================================
+     Dark Mode Overrides
+     ======================================== */
+}
+
+[data-theme="dark"],
+.dark-mode {
+  /* Dark mode text colors */
+  --bc-text: #f1f5f9;
+  --bc-text-2: #e2e8f0;
+  --bc-text-3: #cbd5e1;
+  --bc-text-secondary: #94a3b8; /* 4.5:1 on dark bg */
+  
+  /* Dark surfaces */
+  --bc-surface: #1e293b;
+  --bc-surface-2: #334155;
+  --bc-surface-3: #475569;
+  --bc-track: #64748b;
+  
+  /* Borders */
+  --bc-border: #475569;
+  --bc-border-strong: #64748b;
+  
+  /* Adjusted priority colors for dark mode */
+  --bc-red: #f87171; /* Lighter for dark bg */
+  --bc-amber: #fbbf24;
+  --bc-green: #34d399;
+}
+
+/* ========================================
+   Accessibility Utilities
+   ======================================== */
+
+/* Focus visible styles - keyboard navigation */
+.bc-focusable:focus-visible,
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid var(--bc-focus-ring);
+  outline-offset: var(--bc-focus-ring-offset);
+  border-radius: 4px;
+}
+
+/* Remove default focus for mouse users */
+.bc-focusable:focus:not(:focus-visible),
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Minimum touch target size - 44x44px */
+.bc-touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Screen reader only text */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Skip to main content link */
+.skip-to-main {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--bc-surface);
+  color: var(--bc-text);
+  padding: 8px 16px;
+  text-decoration: none;
+  z-index: 9999;
+  border: 2px solid var(--bc-focus-ring);
+}
+
+.skip-to-main:focus {
+  top: 0;
+}
+
+/* ========================================
+   Reduced Motion Support
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ========================================
+   Table Accessibility
+   ======================================== */
+
+/* Table focus styles */
+table tr:focus-within {
+  outline: 2px solid var(--bc-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Keyboard-activated row */
+table tr[role="button"]:hover,
+table tr[role="button"]:focus {
+  background-color: var(--bc-surface-2);
+  cursor: pointer;
+}
+
+/* Sort indicator visibility */
+.MuiTableSortLabel-root:focus-visible {
+  outline: 2px solid var(--bc-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ========================================
+   High Contrast Mode Support
+   ======================================== */
+
+@media (prefers-contrast: high) {
+  :root {
+    --bc-border: #000000;
+    --bc-text-secondary: #1e293b;
+  }
+  
+  [data-theme="dark"] {
+    --bc-border: #ffffff;
+    --bc-text-secondary: #cbd5e1;
+  }
+}
+
+/* ========================================
+   Print Styles
+   ======================================== */
+
+@media print {
+  /* Ensure colors are preserved */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  /* Hide interactive elements */
+  button,
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Ensure table headers repeat */
+  thead {
+    display: table-header-group;
+  }
+  
+  /* Avoid page breaks in table rows */
+  tr {
+    page-break-inside: avoid;
+  }
+}

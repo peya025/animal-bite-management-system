@@ -1,6 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ROUTES } from '../../../shared/config/routes';
+import { useAuth } from '../../../shared/contexts/AuthContext';
 import {
+  Alert,
   Box,
   Button,
   ButtonGroup,
@@ -33,15 +36,57 @@ import { Icon } from '../../../shared/components/ui/Icon';
 import '../../developer/styles/DeveloperDatabaseExplorer.css';
 
 export default function BiteMapPage() {
+  const { user } = useAuth();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const locationParam = searchParams.get('location');
+  const periodParam = searchParams.get('period');
+  const categoryParam = searchParams.get('category');
+
   const [data, setData] = useState<BiteMapData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [datePreset, setDatePreset] = useState<string>('all');
-  const [selectedSeverity, setSelectedSeverity] = useState<string>('all');
+  const [datePreset, setDatePreset] = useState<string>(() => periodParam || 'all');
+  const [selectedSeverity, setSelectedSeverity] = useState<string>(() => categoryParam || 'all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'pins' | 'heatmap'>('pins');
+
+  useEffect(() => {
+    if (periodParam && ['all', 'week', 'month', 'last30'].includes(periodParam)) {
+      setDatePreset(periodParam);
+    }
+  }, [periodParam]);
+
+  useEffect(() => {
+    if (categoryParam && ['all', 'severe', 'moderate', 'minor'].includes(categoryParam)) {
+      setSelectedSeverity(categoryParam);
+    }
+  }, [categoryParam]);
+
+  const targetLocationCases = useMemo(() => {
+    if (!data?.cases || !locationParam) return null;
+    const lower = locationParam.toLowerCase();
+    const matched = data.cases.filter(
+      (c) =>
+        (c.barangay && c.barangay.toLowerCase().includes(lower)) ||
+        (c.municipality && c.municipality.toLowerCase().includes(lower)) ||
+        (c.address && c.address.toLowerCase().includes(lower))
+    );
+    return matched.length > 0 ? matched : null;
+  }, [data?.cases, locationParam]);
+
+  const mapCenterOverride = useMemo(() => {
+    if (targetLocationCases && targetLocationCases.length > 0) {
+      const latSum = targetLocationCases.reduce((sum, c) => sum + c.latitude, 0);
+      const lngSum = targetLocationCases.reduce((sum, c) => sum + c.longitude, 0);
+      return {
+        latitude: latSum / targetLocationCases.length,
+        longitude: lngSum / targetLocationCases.length,
+      };
+    }
+    return data?.map_center || null;
+  }, [targetLocationCases, data?.map_center]);
 
   const computeDateRange = (preset: string): { date_from?: string; date_to?: string } => {
     const today = new Date();
@@ -100,23 +145,27 @@ export default function BiteMapPage() {
           <Typography
             component="h1"
             sx={{
-              fontWeight: 600,
-              fontSize: '25px',
+              fontSize: '24px',
+              fontWeight: 700,
               lineHeight: 1.2,
-              letterSpacing: '-0.5px',
-              color: 'var(--text-h)',
-              margin: '0 0 7px 0',
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
             }}
           >
             Bite Location Map
           </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: 0 }}>
-            {todayStr} · Geographical distribution of animal bite incidents by WHO category
-            {data?.clinic?.municipality && ` • ${data.clinic.municipality}, ${data.clinic.province}`}
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '8px',
+              fontSize: '13px',
+            }}
+          >
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(ROUTES.DASHBOARD)}
               style={{
                 background: 'none',
                 border: 'none',
@@ -131,7 +180,7 @@ export default function BiteMapPage() {
             </button>
             <span style={{ color: '#9ca3af' }}>›</span>
             <span style={{ color: '#6b7280' }}>Bite Location Map</span>
-          </Box>
+          </div>
         </Box>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
@@ -144,6 +193,15 @@ export default function BiteMapPage() {
           </Tooltip>
         </Stack>
       </Box>
+
+      {locationParam && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2.5, borderRadius: 2 }}
+        >
+          Surveillance Focus: Showing reported bite incidents for <strong>{locationParam}</strong> (Reporting Period: <strong>{datePreset === 'month' ? 'This Month' : datePreset === 'week' ? 'This Week' : datePreset === 'last30' ? 'Last 30 Days' : 'All Time'}</strong>, Category: <strong>{selectedSeverity === 'severe' ? 'Category III (Severe)' : selectedSeverity === 'moderate' ? 'Category II (Moderate)' : selectedSeverity === 'minor' ? 'Category I (Minor)' : 'All Categories'}</strong>).
+        </Alert>
+      )}
 
       {/* Filter controls are now inside the same map container below */}
 
@@ -196,6 +254,8 @@ export default function BiteMapPage() {
 
         return (
           <Box
+            data-walkthrough="bitemap-kpi-cards"
+            data-tour="bitemap-kpi-cards"
             sx={{
               display: 'grid',
               gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
@@ -203,44 +263,53 @@ export default function BiteMapPage() {
               mb: 2.5,
             }}
           >
-            {kpiItems.map((item) => (
-              <Paper
-                key={item.id}
-                elevation={0}
-                sx={{
-                  p: '16px 18px',
-                  borderRadius: '20px',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  minHeight: 118,
-                  cursor: 'default',
-                  ...(isDark
-                    ? {
-                        background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
-                        border: '1px solid rgba(163, 230, 53, 0.3)',
-                        boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(163, 230, 53, 0.12)',
-                        '&:hover': {
-                          transform: 'translateY(-3px)',
-                          borderColor: 'rgba(163, 230, 53, 0.55)',
-                          boxShadow: `0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35), inset 0 1px 3px 0 rgba(255, 255, 255, 0.3)`,
-                        },
-                      }
-                    : {
-                        background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
-                        border: '1px solid rgba(16, 185, 129, 0.32)',
-                        boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(16, 185, 129, 0.12)',
-                        '&:hover': {
-                          transform: 'translateY(-3px)',
-                          borderColor: 'rgba(16, 185, 129, 0.55)',
-                          boxShadow: `0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 1)`,
-                        },
-                      }),
-                }}
-              >
+            {kpiItems.map((item) => {
+              const hoverShadow = isDark
+                ? item.color === '#ef4444'
+                  ? '0 8px 24px rgba(239, 68, 68, 0.35), 0 0 16px rgba(239, 68, 68, 0.25)'
+                  : item.color === '#f59e0b'
+                  ? '0 8px 24px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.25)'
+                  : '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+                : item.color === '#ef4444'
+                ? '0 8px 22px rgba(239, 68, 68, 0.28), 0 2px 8px rgba(239, 68, 68, 0.16)'
+                : item.color === '#f59e0b'
+                ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
+                : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
+
+              return (
+                <Paper
+                  key={item.id}
+                  elevation={0}
+                  sx={{
+                    p: '16px 18px',
+                    borderRadius: '20px',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    minHeight: 118,
+                    cursor: 'default',
+                    ...(isDark
+                      ? {
+                          background: '#111827',
+                          border: '1px solid rgba(16, 185, 129, 0.25)',
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                          '&:hover': {
+                            boxShadow: hoverShadow,
+                          },
+                        }
+                      : {
+                          background: '#ffffff',
+                          border: '1px solid rgba(16, 185, 129, 0.25)',
+                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                          '&:hover': {
+                            boxShadow: hoverShadow,
+                          },
+                        }),
+                  }}
+                >
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Typography
                     sx={{
@@ -304,13 +373,15 @@ export default function BiteMapPage() {
                   {item.sub}
                 </Typography>
               </Paper>
-            ))}
+              );
+            })}
           </Box>
         );
       })()}
 
       {/* ── Unified Map Container (Filter + Map in same div/paper) ── */}
       <Paper
+        data-walkthrough="bitemap-container"
         elevation={0}
         sx={{
           border: '1px solid',
@@ -334,7 +405,7 @@ export default function BiteMapPage() {
             gap: 2,
           }}
         >
-          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          <Stack data-walkthrough="bitemap-filters" direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600 }}>
               <FilterIcon sx={{ fontSize: 18, color: '#10b981' }} /> Filter Map:
             </Box>
@@ -648,9 +719,9 @@ export default function BiteMapPage() {
             </Select>
           </Stack>
 
-          <ButtonGroup size="small" variant="outlined" sx={{ borderRadius: 2 }}>
+          <ButtonGroup data-walkthrough="bitemap-view-toggle" size="small" variant="outlined" sx={{ borderRadius: 2 }}>
             <Button
-              variant={viewMode === 'pins' ? 'contained' : 'outlined'}
+              data-walkthrough="bitemap-pins-btn" data-tour="bite-map-pins-toggle" variant={viewMode === 'pins' ? 'contained' : 'outlined'}
               onClick={() => setViewMode('pins')}
               startIcon={<PinsIcon sx={{ fontSize: 16 }} />}
               sx={{
@@ -665,7 +736,7 @@ export default function BiteMapPage() {
               Pins & Clusters
             </Button>
             <Button
-              variant={viewMode === 'heatmap' ? 'contained' : 'outlined'}
+              data-walkthrough="bitemap-heatmap-btn" data-tour="bite-map-heatmap-toggle" variant={viewMode === 'heatmap' ? 'contained' : 'outlined'}
               onClick={() => setViewMode('heatmap')}
               startIcon={<HeatmapIcon sx={{ fontSize: 16 }} />}
               sx={{
@@ -684,16 +755,16 @@ export default function BiteMapPage() {
 
         <Box sx={{ p: 2 }}>
           {loading ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 8, gap: 2 }}>
+            <Box data-walkthrough="bitemap-map-view" data-tour="bite-map-container" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '650px', width: '100%', gap: 2 }}>
               <CircularProgress sx={{ color: '#10b981' }} />
               <Typography sx={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading incident map data...</Typography>
             </Box>
           ) : data ? (
-            <Box sx={{ position: 'relative', height: '650px', width: '100%' }}>
+            <Box data-walkthrough="bitemap-map-view" data-tour="bite-map-container" sx={{ position: 'relative', height: '650px', width: '100%' }}>
               <BiteMap
                 cases={data.cases}
-                mapCenter={data.map_center}
-                mapZoom={data.map_zoom}
+                mapCenter={mapCenterOverride}
+                mapZoom={targetLocationCases ? 15 : data.map_zoom}
                 viewMode={viewMode}
               />
               <MapLegend />

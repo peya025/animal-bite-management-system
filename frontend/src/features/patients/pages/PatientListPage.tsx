@@ -1,11 +1,15 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
+import { Typography } from '@mui/material';
 import { ROUTES } from '../../../shared/config/routes';
 import AddPatientModal from '../components/AddPatientModal';
 import InvitePatientModal from '../components/InvitePatientModal';
 import PatientEditModal from '../components/PatientEditModal';
 import PatientDetailsModal from '../components/PatientDetailsModal';
+import ReturningPatientCheckInModal from '../components/ReturningPatientCheckInModal';
 import { PatientListRoot } from '../styles/PatientList.styles';
 import PrintPreviewModal from '../../../components/print/PrintPreviewModal';
 import { printDocument } from '../../../components/print/printDocument';
@@ -30,6 +34,26 @@ const formatDate = (d: string) =>
 
 const fullName = (p: Patient) =>
   [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ');
+
+// Clinic timezone date helpers (Asia/Manila)
+const getManilaDateString = (): string => {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+};
+
+const getMsUntilNextManilaMidnight = (): number => {
+  const now = new Date();
+  const manilaNowStr = now.toLocaleString('en-US', { timeZone: 'Asia/Manila' });
+  const manilaDate = new Date(manilaNowStr);
+  const nextMidnight = new Date(manilaDate);
+  nextMidnight.setHours(24, 0, 0, 0);
+  const diff = nextMidnight.getTime() - manilaDate.getTime();
+  return Math.max(diff, 1000);
+};
 
 // ─── Main Component ───────────────────────────────────────────
 export default function PatientList() {
@@ -56,6 +80,7 @@ export default function PatientList() {
   const [showEditModal,        setShowEditModal]        = useState(false);
   const [selectedViewPatient,   setSelectedViewPatient]   = useState<Patient | null>(null);
   const [showViewModal,        setShowViewModal]        = useState(false);
+  const [openReExposureOnView, setOpenReExposureOnView] = useState(false);
 
   const [checkInModalData,     setCheckInModalData]     = useState<{
     patientName: string;
@@ -64,17 +89,42 @@ export default function PatientList() {
     station: string;
   } | null>(null);
   const [checkInError,         setCheckInError]         = useState('');
+  const [checkingInIntakeId,   setCheckingInIntakeId]   = useState<number | null>(null);
+  const [checkingInPatientId,      setCheckingInPatientId]      = useState<number | null>(null);
+  const [checkingInNursePatientId, setCheckingInNursePatientId] = useState<number | null>(null);
 
+  // Returning Patient Reassessment Check-In state
+  const [reassessmentCheckInPatient, setReassessmentCheckInPatient] = useState<Patient | null>(null);
+
+  const { clinic: authClinic } = useAuth();
   const userData   = localStorage.getItem('userData');
   const clinicData = localStorage.getItem('clinicData');
+  const storedClinic = clinicData ? JSON.parse(clinicData) : null;
+  const clinic       = authClinic || storedClinic;
+
   const userRole   = user?.role || (userData ? (JSON.parse(userData)?.role ?? '') : '');
   const printedBy  = user?.name || (userData ? (JSON.parse(userData)?.name ?? 'Unknown') : 'Unknown');
-  const clinicName = clinicData ? (JSON.parse(clinicData)?.name ?? 'Animal Bite Treatment Center') : 'Animal Bite Treatment Center';
+  const clinicName = clinic?.name ?? 'Animal Bite Treatment Center';
+  const { leftLogoUrl, rightLogoUrl } = getGlobalPrintLogos(clinic);
+  const province = clinic?.province || '';
+  const municipality = clinic?.municipality || '';
+  const contactNumber = clinic?.contact_number || clinic?.phone || '';
+  const address = clinic?.address || '';
 
   // Only authorized staff responsible for patient registration can add new patients (exclude Treatment Nurse & Triage Doctor)
+  const { isRegistrationModuleEnabled, isTriageModuleEnabled, isTreatmentModuleEnabled } = useClinicModuleConfig();
+  const registrationStationEnabled = isRegistrationModuleEnabled();
+  const triageStationEnabled = isTriageModuleEnabled();
+  const treatmentStationEnabled = isTreatmentModuleEnabled();
+
   const isTreatmentOrTriage = ['treatment', 'triage'].includes(userRole);
   const isAuthorizedRegistrationRole = ['registration', 'admin', 'developer'].includes(userRole);
-  const canAddPatient = isAuthorizedRegistrationRole && !isTreatmentOrTriage;
+  const canAddPatient = isAuthorizedRegistrationRole && !isTreatmentOrTriage && registrationStationEnabled;
+  const isAdmin = ['admin', 'administrator'].includes(userRole?.toLowerCase());
+  const isDoctor = ['triage', 'doctor'].includes(userRole?.toLowerCase());
+  const isTreatmentNurse = ['treatment', 'nurse'].includes(userRole?.toLowerCase());
+  const canRegisterExposure = ['registration', 'admin', 'developer'].includes(userRole?.toLowerCase()) && registrationStationEnabled && triageStationEnabled;
+  const canSendPortalInvite = ['registration', 'admin', 'developer'].includes(userRole?.toLowerCase());
 
   const [tab,                  setTab]                  = useState<'today_queue' | 'all' | 'online' | 'pre_registered' | 'overdue'>('today_queue');
   const [tabCounts,            setTabCounts]            = useState({ today_queue: 0, all: 0, online: 0, pre_registered: 0, overdue: 0 });
@@ -113,6 +163,391 @@ export default function PatientList() {
     const isMobileRegistered = p.registration_source === 'mobile' || p.registration_source === 'online' || Boolean((p as any).accounts && (p as any).accounts.length > 0);
 
     return hasIntake || hasConfirmedBooking || isMobileRegistered;
+  };
+
+  // Helper to detect patients who only created an account (pre-registered)
+  // and have neither booked an appointment nor submitted an intake or incident
+  const isPreRegisteredOnly = (p: Patient) => {
+    const isMobileOrAccount =
+      p.registration_source === 'mobile' ||
+      p.registration_source === 'online' ||
+      Boolean((p as any).accounts?.length) ||
+      Boolean((p as any).is_online_registration);
+
+    if (!isMobileOrAccount) return false;
+
+    const appointments: any[] = (p as any).appointments || [];
+    if (appointments.length > 0) return false;
+
+    const biteIntakes: any[] = (p as any).bite_intakes || (p as any).biteIntakes || [];
+    if (biteIntakes.length > 0) return false;
+
+    const biteIncidents: any[] = (p as any).bite_incidents || (p as any).biteIncidents || [];
+    if (biteIncidents.length > 0) return false;
+
+    return true;
+  };
+
+  /**
+   * Helper to check whether the patient's current visit or episode outcome is Transferred/Referred.
+   */
+  const isTransferredReferral = (p: Patient | any): boolean => {
+    const treatmentStatus = String(p?.treatment_status || '').toLowerCase();
+    const caseStatus = String(p?.case_status || '').toLowerCase();
+    if (treatmentStatus === 'transferred_referred' || caseStatus === 'transferred_out') {
+      return true;
+    }
+
+    const consult = p?.latest_consultation_record || p?.latestConsultationRecord;
+    if (consult) {
+      if (consult.outcome === 'Transferred/Referred' || String(consult.outcome || '').toLowerCase() === 'transferred_referred') {
+        return true;
+      }
+      if (consult.referred_to && String(consult.referred_to).trim() !== '' && !String(consult.referred_to).toLowerCase().includes('tagoloan rural health unit')) {
+        return true;
+      }
+      if (consult.actions_taken && String(consult.actions_taken).toLowerCase().includes('transferred/referred')) {
+        return true;
+      }
+    }
+
+    const biteIncidents: any[] = p?.bite_incidents || p?.biteIncidents || [];
+    const latestIncident = biteIncidents[0];
+    if (latestIncident) {
+      if (String(latestIncident.status || '').toLowerCase() === 'transferred_out') {
+        return true;
+      }
+      if (latestIncident.transferred_to_facility && String(latestIncident.transferred_to_facility).trim() !== '') {
+        return true;
+      }
+    }
+
+    const todayQueues: any[] = p?.queues || [];
+    if (todayQueues.some((q: any) => String(q.consultation_notes || '').includes('Transferred/Referred'))) {
+      return true;
+    }
+
+    return false;
+  };
+
+  /**
+   * Helper to check whether the doctor has finalized the Category I assessment
+   * and confirmed that no nurse-administered treatment (PEP vaccine, tetanus prophylaxis, RIG) is required.
+   */
+  const isCategory1NoTreatmentRequired = (p: Patient | any): boolean => {
+    if (isTransferredReferral(p)) return false;
+
+    if (p?.is_category1_no_treatment !== undefined && p?.is_category1_no_treatment !== null) {
+      return Boolean(p.is_category1_no_treatment);
+    }
+
+    const biteIncidents: any[] = p?.bite_incidents || p?.biteIncidents || [];
+    const latestIncident = biteIncidents[0];
+    const consultation = p?.latest_consultation_record || p?.latestConsultationRecord;
+
+    if (!latestIncident || !consultation) return false;
+
+    const category = (latestIncident.exposure_category || latestIncident.bite_category || '').toString().toUpperCase();
+    const severity = (latestIncident.severity || '').toString().toLowerCase();
+    const isCategory1 = category === 'I' || severity === 'minor' || severity === 'category i';
+    if (!isCategory1) return false;
+
+    const isConsultationCompleted = consultation.status === 'completed' || Boolean(consultation.nature_of_visit && consultation.diagnosis);
+    const isIncidentConfirmed = Boolean(latestIncident.confirmed_at || ['completed', 'active'].includes(latestIncident.status));
+    if (!isConsultationCompleted || !isIncidentConfirmed) return false;
+
+    const prescribedVaccine = consultation.prescribed_vaccine_type;
+    if (prescribedVaccine && prescribedVaccine !== 'none') return false;
+
+    const treatmentPlan = latestIncident.treatment_plan || latestIncident.treatmentPlan;
+    if (treatmentPlan?.plan_type && treatmentPlan.plan_type !== 'no_vaccine') return false;
+
+    const pOrders = consultation.prophylaxis_orders || {};
+    const tetCat = (pOrders.tetanus_category || '').toString().toLowerCase();
+    const tetVac = (pOrders.tetanus_vaccine || '').toString().toLowerCase();
+    const tetPas = (pOrders.tetanus_passive || '').toString().toLowerCase();
+
+    const hasTetanusOrder = ['ats', 'tt', 'ats_tt'].includes(tetCat) && (
+      (tetVac !== '' && tetVac !== 'none') ||
+      (tetPas !== '' && tetPas !== 'none')
+    );
+    if (hasTetanusOrder) return false;
+
+    const rig = (pOrders.rig || '').toString().toLowerCase();
+    if (rig !== '' && rig !== 'none') return false;
+
+    const latestRecord = p?.latest_treatment_record || p?.latestTreatmentRecord;
+    if (latestRecord && latestRecord.dose_number !== null && latestRecord.dose_number !== undefined) return false;
+
+    const appts: any[] = p?.appointments || [];
+    const hasScheduledAppt = appts.some((a: any) => ['scheduled', 'confirmed'].includes(a.status));
+    if (hasScheduledAppt) return false;
+
+    const todayQueues: any[] = p?.queues || [];
+    const hasActiveTreatmentQueue = todayQueues.some((q: any) =>
+      q.visit_type === 'vaccination' &&
+      ['waiting', 'called', 'serving', 'in_consultation'].includes(q.status)
+    );
+    if (hasActiveTreatmentQueue) return false;
+
+    return true;
+  };
+
+  const getMobileIntakeReadyForCheckIn = (p: Patient) => {
+    const intakes = (p as any).bite_intakes || (p as any).biteIntakes || [];
+    const appointments = (p as any).appointments || [];
+
+    return intakes.find((intake: any) => {
+      const appointment = appointments.find((item: any) => item.appointment_id === intake.appointment_id);
+      return intake.status === 'pending'
+        && appointment?.booked_by_account_id
+        && appointment?.appointment_type === 'consultation'
+        && ['scheduled', 'missed'].includes(appointment?.status);
+    });
+  };
+
+  const isMobileIntakeDueForCheckIn = (p: Patient, intake: any) => {
+    const appointment = ((p as any).appointments || [])
+      .find((item: any) => item.appointment_id === intake.appointment_id);
+    const scheduledDate = String(appointment?.scheduled_date || appointment?.appointment_date || '').slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+
+    return Boolean(scheduledDate && scheduledDate <= today);
+  };
+
+  const handleMobileIntakeCheckIn = async (patient: Patient, intake: any) => {
+    const intakeId = Number(intake?.intake_id ?? intake?.id);
+    if (!Number.isInteger(intakeId) || intakeId <= 0) {
+      setCheckInError('The mobile bite intake could not be identified. Please refresh the patient list and try again.');
+      return;
+    }
+
+    setCheckingInIntakeId(intakeId);
+    try {
+      const response = await api.post(`/bite-intakes/${intakeId}/check-in`);
+      const queue = response.data?.queue;
+      setCheckInModalData({
+        patientName: fullName(patient),
+        patientNumber: patient.patient_number || '',
+        queueNumber: queue?.queue_number || '',
+        station: 'Doctor Assessment',
+      });
+      fetchPatients();
+    } catch (err: any) {
+      setCheckInError(err.response?.data?.message || 'Unable to check in this mobile bite intake.');
+    } finally {
+      setCheckingInIntakeId(null);
+    }
+  };
+
+  const handleTriageCheckIn = async (patient: Patient) => {
+    if (isPreRegisteredOnly(patient)) {
+      setCheckInError('This patient is only pre-registered from the mobile app and has not booked an appointment or submitted an intake.');
+      return;
+    }
+
+    const patientId = patient.patient_id || (patient as any).id;
+    if (!patientId) {
+      setCheckInError('The patient record could not be identified. Please refresh the page and try again.');
+      return;
+    }
+
+    setCheckingInPatientId(patientId);
+    try {
+      const response = await api.post(`/patients/${patientId}/check-in`);
+      const queue = response.data?.queue;
+      setCheckInModalData({
+        patientName: fullName(patient),
+        patientNumber: patient.patient_number || '',
+        queueNumber: response.data?.queue_number || queue?.queue_number || '',
+        station: 'Doctor Assessment',
+      });
+      fetchPatients();
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        setCheckInError('This patient is no longer available in your clinic. The patient list has been refreshed. Please select an available patient.');
+        await fetchPatients();
+        return;
+      }
+      setCheckInError(err.response?.data?.message || 'Unable to check in this patient for Doctor Triage.');
+    } finally {
+      setCheckingInPatientId(null);
+    }
+  };
+
+  const handleOpenReassessmentCheckIn = (patient: Patient) => {
+    setReassessmentCheckInPatient(patient);
+  };
+
+  const handleNurseCheckIn = async (patient: Patient) => {
+    if (isPreRegisteredOnly(patient)) {
+      setCheckInError('This patient is only pre-registered from the mobile app and has not booked an appointment or submitted an intake.');
+      return;
+    }
+
+    const patientId = patient.patient_id || (patient as any).id;
+    if (!patientId) {
+      setCheckInError('The patient record could not be identified. Please refresh the page and try again.');
+      return;
+    }
+
+    setCheckingInNursePatientId(patientId);
+    try {
+      const response = await api.post(`/patients/${patientId}/check-in-nurse`);
+      const queue = response.data?.queue;
+      setCheckInModalData({
+        patientName: fullName(patient),
+        patientNumber: patient.patient_number || '',
+        queueNumber: response.data?.queue_number || queue?.queue_number || '',
+        station: response.data?.station || 'Treatment Room (Station 2)',
+      });
+      fetchPatients();
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        setCheckInError('This patient is no longer available in your clinic. The patient list has been refreshed. Please select an available patient.');
+        await fetchPatients();
+        return;
+      }
+      setCheckInError(err.response?.data?.message || 'Unable to check in this patient for the Nurse queue.');
+    } finally {
+      setCheckingInNursePatientId(null);
+    }
+  };
+
+  const isEligibleForNurseCheckIn = (p: Patient) => {
+    if (isPreRegisteredOnly(p)) return false;
+    if (isTransferredReferral(p)) return false;
+
+    // Returning patients with unadministered Day 0 from a prior visit must undergo Doctor Reassessment first
+    if ((p as any).pending_treatment_summary?.can_check_in_for_reassessment) return false;
+    if ((p as any).treatment_status === 'completed_without_injection' || (p as any).treatment_status === 'transferred_referred') return false;
+
+    // 1. Must not already be active in today's queue
+    const todayQueues: any[] = (p as any).queues || [];
+    const hasActiveQueueToday = todayQueues.some((q: any) =>
+      ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'].includes(q.status)
+    );
+    if (hasActiveQueueToday) return false;
+
+    // 2. Must not have completed a dose today
+    const latestRecord = (p as any).latest_treatment_record;
+    const today = new Date();
+    const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    if (
+      latestRecord &&
+      latestRecord.dose_number !== null &&
+      latestRecord.dose_number !== undefined &&
+      latestRecord.status === 'completed' &&
+      (String(latestRecord.treatment_date || '').slice(0, 10) === todayDateStr ||
+        String(latestRecord.administered_at || '').slice(0, 10) === todayDateStr)
+    ) {
+      return false;
+    }
+
+    // 3. Must have completed doctor triage or started treatment
+    const biteIncidentsList = (p as any).bite_incidents || (p as any).biteIncidents || [];
+    const hasConfirmedEpisode = biteIncidentsList.some((bi: any) =>
+      bi.confirmed_at || ['active', 'completed', 'in_progress'].includes(bi.status) || ['primary', 're_exposure'].includes(bi.episode_type)
+    );
+    const latestConsultation = (p as any).latest_consultation_record || (p as any).latestConsultationRecord;
+    const hasCompletedConsultation = Boolean(
+      latestConsultation && (
+        latestConsultation.status === 'completed' ||
+        Boolean(latestConsultation.nature_of_visit) ||
+        Boolean(latestConsultation.diagnosis)
+      )
+    );
+    const hasCompletedDoses = Boolean(
+      latestRecord && latestRecord.dose_number !== null && latestRecord.dose_number !== undefined
+    );
+    const hasPassedDoctorTriage = hasConfirmedEpisode || hasCompletedConsultation || hasCompletedDoses;
+    if (!hasPassedDoctorTriage) return false;
+
+    // 4. Must not be completely discharged with no remaining doses
+    const isDischarged = ['discharged', 'completed'].includes(String(p.status || '').toLowerCase()) ||
+      ['discharged', 'completed', 'completed_without_injection', 'transferred_referred', 'transferred_out'].includes(String((p as any).treatment_status || '').toLowerCase());
+    const appointments: any[] = (p as any).appointments || [];
+    const hasPendingAppointments = appointments.some((a: any) => ['scheduled', 'missed'].includes(a.status));
+    if (isDischarged && !hasPendingAppointments) return false;
+
+    // 5. Must have an unserved appointment or prior queue, or pending follow-up appointment due on/before today
+    const hasDueOrOverdueAppt = appointments.some((a: any) => {
+      if (!['scheduled', 'missed'].includes(a.status)) return false;
+      const apptDateStr = String(a.scheduled_date || a.appointment_date || '').slice(0, 10);
+      return Boolean(apptDateStr && apptDateStr <= todayDateStr);
+    });
+
+    const isSameDayPendingAdmin = !hasCompletedDoses && Boolean((p as any).pending_treatment_summary?.has_pending_treatment && !(p as any).pending_treatment_summary?.is_returning_from_prior_visit);
+
+    return hasDueOrOverdueAppt || isSameDayPendingAdmin || (hasPendingAppointments && !hasActiveQueueToday);
+  };
+
+  const isReturningPatientAwaitingTriage = (p: Patient) => {
+    // 0. Pre-registered accounts who only created an account (no appointment booked, no intake submitted)
+    // are not awaiting triage and cannot be checked in
+    if (isPreRegisteredOnly(p)) return false;
+
+    // Doctor finalized Category I assessment with no treatment required or completed referral — must not enter triage or treatment queue
+    if (isCategory1NoTreatmentRequired(p) || isTransferredReferral(p)) return false;
+
+    // 1. Must not already be active or completed in today's queue
+    const todayQueues: any[] = (p as any).queues || [];
+    const sortedTodayQueues = [...todayQueues].sort((a, b) => (Number(b.queue_id ?? b.id ?? 0) - Number(a.queue_id ?? a.id ?? 0)));
+    const latestQueue = sortedTodayQueues[0];
+
+    const hasActiveQueueToday = todayQueues.some((q: any) =>
+      ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'].includes(q.status)
+    );
+    if (hasActiveQueueToday) return false;
+
+    // If today's latest queue ticket was completed, the patient was already attended to today
+    if (latestQueue && latestQueue.status === 'completed') return false;
+
+    // Check if patient specifically requires check-in today after 3 missed calls on their latest ticket
+    const requiresCheckinToday = latestQueue && (
+      latestQueue.status === 'requires_checkin' || (latestQueue.status === 'no_response' && Number(latestQueue.call_count) >= 3)
+    );
+    if (requiresCheckinToday) return true;
+
+    // 2. Must not have completed triage assessment or received doses
+    const latestRecord = (p as any).latest_treatment_record;
+    const hasDosesAdministered = Boolean(
+      latestRecord && latestRecord.dose_number !== null && latestRecord.dose_number !== undefined
+    );
+    if (hasDosesAdministered) return false;
+
+    const biteIncidentsList = (p as any).bite_incidents || (p as any).biteIncidents || [];
+    const hasConfirmedEpisode = biteIncidentsList.some((bi: any) =>
+      bi.confirmed_at || ['active', 'completed'].includes(bi.status) || ['primary', 're_exposure'].includes(bi.episode_type)
+    );
+    if (hasConfirmedEpisode) return false;
+
+    const latestConsultation = (p as any).latest_consultation_record || (p as any).latestConsultationRecord;
+    const hasCompletedConsultation = Boolean(
+      latestConsultation && (
+        latestConsultation.status === 'completed' ||
+        Boolean(latestConsultation.nature_of_visit) ||
+        Boolean(latestConsultation.diagnosis)
+      )
+    );
+    if (hasCompletedConsultation) return false;
+
+    // 3. Must be returning on a later date (registered or scheduled before today)
+    const today = new Date();
+    const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const regDateStr = p.created_at ? p.created_at.slice(0, 10) : '';
+    const isRegisteredBeforeToday = Boolean(regDateStr && regDateStr < todayDateStr);
+
+    const appointments: any[] = (p as any).appointments || [];
+    const hasPastConsultationAppt = appointments.some((a: any) => {
+      if (a.appointment_type && a.appointment_type !== 'consultation') return false;
+      if (a.dose_number !== null && a.dose_number !== undefined && Number(a.dose_number) > 0) return false;
+      if (!['scheduled', 'missed'].includes(a.status)) return false;
+      const apptDateStr = String(a.scheduled_date || a.appointment_date || '').slice(0, 10);
+      return Boolean(apptDateStr && apptDateStr < todayDateStr);
+    });
+
+    return isRegisteredBeforeToday || hasPastConsultationAppt;
   };
 
   // Debounce search input (wait 400ms after user stops typing)
@@ -167,8 +602,69 @@ export default function PatientList() {
     }
   }, [page, searchTerm, perPage, membershipFilter, tab]);
 
+  const handleTabChange = useCallback((newTab: 'today_queue' | 'all' | 'online' | 'pre_registered' | 'overdue') => {
+    if (tab === newTab) return;
+    setTab(newTab);
+    setPage(1);
+  }, [tab]);
+
+  const handleMembershipFilterChange = useCallback((val: string) => {
+    setMembershipFilter(val);
+    setPage(1);
+  }, []);
+
   useEffect(() => { fetchPatients(); }, [fetchPatients]);
-  useEffect(() => { setPage(1); }, [perPage, membershipFilter, tab]);
+
+  // Track clinic date for automatic midnight refresh when the page remains open overnight
+  const clinicDateRef = useRef(getManilaDateString());
+
+  useEffect(() => {
+    let midnightTimeoutId: ReturnType<typeof setTimeout>;
+
+    const scheduleMidnightRefresh = () => {
+      const msUntilMidnight = getMsUntilNextManilaMidnight();
+      // Add a buffer (500ms) to ensure midnight in Asia/Manila has elapsed
+      midnightTimeoutId = setTimeout(() => {
+        const newDate = getManilaDateString();
+        if (newDate !== clinicDateRef.current) {
+          clinicDateRef.current = newDate;
+          fetchPatients();
+        }
+        scheduleMidnightRefresh();
+      }, msUntilMidnight + 500);
+    };
+
+    scheduleMidnightRefresh();
+
+    // Periodic check every 30s for date change (e.g. system wake from sleep, tab restore)
+    const intervalId = setInterval(() => {
+      const newDate = getManilaDateString();
+      if (newDate !== clinicDateRef.current) {
+        clinicDateRef.current = newDate;
+        fetchPatients();
+      }
+    }, 30_000);
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        const newDate = getManilaDateString();
+        if (newDate !== clinicDateRef.current) {
+          clinicDateRef.current = newDate;
+          fetchPatients();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      clearTimeout(midnightTimeoutId);
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
+  }, [fetchPatients]);
 
   // Visible walk-in patients on current page
   const visibleWalkins = useMemo(() => {
@@ -222,13 +718,60 @@ export default function PatientList() {
   };
 
   const getLiveStatus = (p: Patient): { label: string; icon?: any; bg: string; color: string; isPastAppt?: boolean } => {
-    const activeQueue = (p as any).queues?.[0];
+    const todayQueues: any[] = (p as any).queues || [];
+    const sortedTodayQueues = [...todayQueues].sort((a, b) => (Number(b.queue_id ?? b.id ?? 0) - Number(a.queue_id ?? a.id ?? 0)));
+    const latestQueue = sortedTodayQueues[0];
+
+    // 0a. Doctor completed Transfer Out / Referral Slip
+    // In both Today's Queue and All Patients, display "Transferred/Referred" without the queue number prefix.
+    // The patient must no longer be treated as waiting or active in the treatment queue.
+    if (isTransferredReferral(p)) {
+      return {
+        label: 'Transferred/Referred',
+        icon: CheckmarkCircle02Icon,
+        bg: '#eff6ff',
+        color: '#1d4ed8',
+      };
+    }
+
+    const isCat1NoTreatment = isCategory1NoTreatmentRequired(p);
+    const treatmentStatus = String((p as any).treatment_status || '').toLowerCase();
+    const pendingSummary = (p as any).pending_treatment_summary;
+
+    // 0. Finalized Category I or Reassessment with No Treatment Required
+    if (isCat1NoTreatment || treatmentStatus === 'completed_without_injection') {
+      const qNum = latestQueue?.queue_number;
+      return {
+        label: qNum
+          ? `Queue #${qNum} (Completed Without Injection)`
+          : 'Completed Without Injection',
+        icon: CheckmarkCircle02Icon,
+        bg: '#ecfdf5',
+        color: '#059669',
+      };
+    }
+
+    const activeQueue = sortedTodayQueues.find((q: any) =>
+      ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'].includes(q.status)
+    );
+    const requiresCheckinQueue = (latestQueue && (
+      latestQueue.status === 'requires_checkin' || (latestQueue.status === 'no_response' && Number(latestQueue.call_count) >= 3)
+    )) ? latestQueue : null;
+    const inactiveQueue = latestQueue;
     const appts: any[] = (p as any).appointments || [];
     const todayDate = new Date();
     const todayStr = todayDate.toDateString();
 
     // 1. Active Queue Status (Highest priority)
     if (activeQueue) {
+      if (treatmentStatus === 'returned_for_reassessment' && activeQueue.visit_type === 'new_case') {
+        return {
+          label: `Queue #${activeQueue.queue_number || ''} (Returned for Reassessment)`,
+          icon: Stethoscope02Icon,
+          bg: '#fef3c7',
+          color: '#b45309',
+        };
+      }
       if (activeQueue.status === 'waiting') {
         const station = activeQueue.visit_type === 'new_case'
           ? 'Waiting in Triage'
@@ -244,11 +787,66 @@ export default function PatientList() {
       if (activeQueue.status === 'second_chance' || activeQueue.status === 'final_recall') {
         return { label: `Queue #${activeQueue.queue_number || ''} (Recall at Triage)`, icon: AlertCircleIcon, bg: '#fef3c7', color: '#92400e', isPastAppt: true };
       }
-      if (activeQueue.status === 'no_response') {
-        return { label: `Queue #${activeQueue.queue_number || ''} (No Response at Triage)`, icon: AlertCircleIcon, bg: '#fef2f2', color: '#dc2626', isPastAppt: true };
+    }
+
+    // 1b. Pending / Unadministered Treatment from Prior or Current Consultation
+    if (!activeQueue && pendingSummary?.has_pending_treatment) {
+      if (treatmentStatus === 'not_administered') {
+        return {
+          label: 'Not Administered — Pending Reassessment',
+          icon: AlertCircleIcon,
+          bg: '#fef2f2',
+          color: '#b91c1c',
+          isPastAppt: true,
+        };
       }
-      if (activeQueue.status === 'absent') {
-        return { label: `Queue #${activeQueue.queue_number || ''} (Absent at Triage)`, icon: AlertCircleIcon, bg: '#fef2f2', color: '#dc2626', isPastAppt: true };
+      if (pendingSummary.is_returning_from_prior_visit) {
+        return {
+          label: 'Pending Administration (Unfinished Prior Visit)',
+          icon: AlertCircleIcon,
+          bg: '#fef3c7',
+          color: '#92400e',
+          isPastAppt: true,
+        };
+      }
+      return {
+        label: 'Consultation Completed — Pending Administration',
+        icon: Clock01Icon,
+        bg: '#fffbeb',
+        color: '#b45309',
+      };
+    }
+
+    if (requiresCheckinQueue && !activeQueue) {
+      return {
+        label: `Queue #${requiresCheckinQueue.queue_number || ''} (Requires Check-In)`,
+        icon: AlertCircleIcon,
+        bg: '#fee2e2',
+        color: '#b91c1c',
+        isPastAppt: true,
+      };
+    }
+
+    if (inactiveQueue && !activeQueue) {
+      if (inactiveQueue.status === 'completed') {
+        const station = inactiveQueue.visit_type === 'new_case' || inactiveQueue.visit_type === 'consultation'
+          ? 'Triage Completed'
+          : (inactiveQueue.visit_type === 'booster' ? 'Doctor Assessment Done' : 'Treatment Completed');
+        return {
+          label: `Queue #${inactiveQueue.queue_number || ''} (${station})`,
+          icon: CheckmarkCircle02Icon,
+          bg: '#ecfdf5',
+          color: '#059669',
+        };
+      }
+      if (inactiveQueue.status === 'requires_checkin') {
+        return { label: `Queue #${inactiveQueue.queue_number || ''} (Requires Check-In)`, icon: AlertCircleIcon, bg: '#fee2e2', color: '#b91c1c', isPastAppt: true };
+      }
+      if (inactiveQueue.status === 'no_response') {
+        return { label: `Queue #${inactiveQueue.queue_number || ''} (No Response at Triage)`, icon: AlertCircleIcon, bg: '#fef2f2', color: '#dc2626', isPastAppt: true };
+      }
+      if (inactiveQueue.status === 'absent') {
+        return { label: `Queue #${inactiveQueue.queue_number || ''} (Absent at Triage)`, icon: AlertCircleIcon, bg: '#fef2f2', color: '#dc2626', isPastAppt: true };
       }
     }
 
@@ -357,10 +955,20 @@ export default function PatientList() {
       return { label: doseName, icon: CheckmarkCircle02Icon, bg: '#ecfdf5', color: '#059669' };
     }
 
-    // 6. Pre-Triage States (No bite intake or treatment record yet)
-    const hasTriage = Boolean((p as any).bite_incidents?.length || (p as any).biteIncidents?.length || record);
+    // 6. Pre-Triage States (No completed bite assessment or treatment record yet)
+    const biteIncidentsList = (p as any).bite_incidents || (p as any).biteIncidents || [];
+    const hasConfirmedIncident = biteIncidentsList.some((bi: any) =>
+      bi.confirmed_at || ['active', 'completed'].includes(bi.status) || ['primary', 're_exposure'].includes(bi.episode_type)
+    );
+    const hasCompletedConsultation = Boolean(
+      (p as any).latest_consultation_record?.status === 'completed' ||
+      (p as any).latest_consultation_record?.nature_of_visit ||
+      (p as any).latest_consultation_record?.diagnosis ||
+      (record && (record.status === 'completed' || record.nature_of_visit || record.diagnosis))
+    );
+    const hasTriage = Boolean(hasConfirmedIncident || hasCompletedConsultation || (record && record.dose_number !== null && record.dose_number !== undefined));
     if (!hasTriage) {
-      if (p.registration_source === 'mobile' || Boolean((p as any).accounts?.length)) {
+      if (isPreRegisteredOnly(p) || p.registration_source === 'mobile' || Boolean((p as any).accounts?.length) || Boolean((p as any).is_online_registration)) {
         return { label: 'Pre-Registered (Awaiting Intake)', icon: UserMultiple02Icon, bg: '#fef3c7', color: '#92400e' };
       }
       const regDate = new Date(p.created_at);
@@ -382,10 +990,14 @@ export default function PatientList() {
 
   // Build the patient table HTML for the print window
   const buildPrintBody = () => {
+    const isTodayQueue = tab === 'today_queue';
     const rows = patients.map((p, i) => {
       const dob    = new Date(p.date_of_birth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       const reg    = new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      const status = p.status ?? 'active';
+      const statusInfo = getLiveStatus(p);
+      const isCat1NoTreatment = isCategory1NoTreatmentRequired(p);
+      const isReferred = isTransferredReferral(p);
+      const displayStatus = isTodayQueue ? statusInfo.label : (isReferred ? 'Transferred/Referred' : (isCat1NoTreatment ? 'Assessment Completed — No Treatment Required' : (p.status ?? 'active')));
       return `<tr>
         <td style="text-align:center">${i + 1}</td>
         <td style="font-family:monospace">${p.patient_number}</td>
@@ -394,12 +1006,17 @@ export default function PatientList() {
         <td style="text-align:center;text-transform:capitalize">${p.gender}</td>
         <td>${p.address || '—'}</td>
         <td style="text-align:center">${reg}</td>
-        <td style="text-align:center;text-transform:capitalize">${status}</td>
+        <td style="text-align:center">${displayStatus}</td>
       </tr>`;
     }).join('');
+    const sectionTitle = isTodayQueue ? `Today's Queue (${patients.length} shown)` : `I. Registered Patients (${patients.length} shown)`;
+    const countNote = isTodayQueue
+      ? `Total patients in today's queue: ${total}`
+      : `Total registered patients in the system: ${total}`;
+    const emptyMsg = isTodayQueue ? "No patients in today’s queue." : "No patients found.";
     return `
-      <h3 class="sec">I. Registered Patients (${patients.length} shown)</h3>
-      <p class="note">Total registered patients in the system: ${total}</p>
+      <h3 class="sec">${sectionTitle}</h3>
+      <p class="note">${countNote}</p>
       <table>
         <thead><tr>
           <th style="text-align:center;width:3%">#</th>
@@ -408,18 +1025,25 @@ export default function PatientList() {
           <th style="text-align:center">Gender</th>
           <th>Address</th>
           <th style="text-align:center">Registered On</th>
-          <th style="text-align:center">Status</th>
+          <th style="text-align:center">${isTodayQueue ? 'Status / Schedule' : 'Status'}</th>
         </tr></thead>
-        <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:#888">No patients found.</td></tr>'}</tbody>
+        <tbody>${rows || `<tr><td colspan="8" style="text-align:center;color:#888">${emptyMsg}</td></tr>`}</tbody>
       </table>`;
   };
 
   const handleConfirmPrint = () => {
+    const isTodayQueue = tab === 'today_queue';
     printDocument({
       clinicName,
       printedBy,
-      title: 'Patient Registry',
-      refPrefix: 'PT',
+      title: isTodayQueue ? "Today's Queue" : 'Patient List',
+      refPrefix: isTodayQueue ? 'TQ' : 'PT',
+      leftLogoUrl,
+      rightLogoUrl,
+      province,
+      municipality,
+      contactNumber,
+      address,
       bodyHtml: buildPrintBody(),
     });
     setShowPrintModal(false);
@@ -433,21 +1057,18 @@ export default function PatientList() {
   };
   const td: React.CSSProperties = { padding: '7px 10px', borderBottom: '1px solid #f0f0f0', fontSize: 11 };
 
+  const isPatientListRoute = location.pathname.includes('patient-registry') || location.pathname.includes('patient-list');
+
   return (
     <PatientListRoot>
       <div className="pm-layout">
         {/* ── Table panel ── */}
         <div className="pm-main-panel">
-          <div className="pm-panel-header">
+          <div className="pm-panel-header" data-walkthrough="patients-header">
             <div>
               <h1 className="pm-title">
-                {location.pathname.includes('patient-registry') ? 'Patient Registry' : 'Patient Management'}
+                {isPatientListRoute ? 'Patient List' : 'Patient Management'}
               </h1>
-              <p className="pm-subtitle">
-                {location.pathname.includes('patient-registry')
-                  ? 'View and access all registered patient records in the clinic registry'
-                  : 'Manage and track all registered walk-in and online patients'}
-              </p>
               {/* Breadcrumb */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
                 <button
@@ -458,12 +1079,12 @@ export default function PatientList() {
                 </button>
                 <span style={{ color: '#9ca3af' }}>›</span>
                 <span style={{ color: '#6b7280' }}>
-                  {location.pathname.includes('patient-registry') ? 'Patient Registry' : 'Patient Registration'}
+                  {isPatientListRoute ? 'Patient List' : 'Patient Registration'}
                 </span>
               </div>
             </div>
             {canAddPatient && (
-              <button className="pm-add-btn" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowAddModal(true); }}>
+              <button className="pm-add-btn" data-walkthrough="btn-add-patient" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowAddModal(true); }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
@@ -472,39 +1093,109 @@ export default function PatientList() {
             )}
           </div>
 
+          {(!registrationStationEnabled || !triageStationEnabled || !treatmentStationEnabled) && (
+            <div
+              role="alert"
+              style={{
+                background: '#fffbeb',
+                border: '1px solid #fcd34d',
+                borderRadius: '10px',
+                padding: '10px 14px',
+                marginBottom: '16px',
+                fontSize: '13px',
+                color: '#92400e',
+              }}
+            >
+              <strong>Station Capability Notice:</strong>{' '}
+              {!registrationStationEnabled
+                ? 'Registration Module is disabled for this clinic — adding patients and new registration check-ins are disabled (read-only access remains available).'
+                : !triageStationEnabled
+                ? 'Triage Module is disabled — triage check-ins and re-exposure registration are disabled.'
+                : 'Treatment Module is disabled — direct nurse treatment check-ins are disabled.'}
+            </div>
+          )}
+
+          {/* ── Summary Cards ── */}
+          <div className="pm-stats-row" data-walkthrough="patients-stats" data-tour="patients-summary">
+            <div className="pm-stat-card">
+              <div className="pm-stat-icon pm-stat-icon--teal">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <div className="pm-stat-body">
+                <p className="pm-stat-label">Total Patients</p>
+                <p className="pm-stat-value">{total}</p>
+                <p className="pm-stat-sub">All registered</p>
+              </div>
+            </div>
+
+            <div className="pm-stat-card">
+              <div className="pm-stat-icon pm-stat-icon--green">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+              </div>
+              <div className="pm-stat-body">
+                <p className="pm-stat-label">Active Patients</p>
+                <p className="pm-stat-value">{stats.activeCount}</p>
+                <p className="pm-stat-sub">Currently active</p>
+              </div>
+            </div>
+
+            <div className="pm-stat-card">
+              <div className="pm-stat-icon pm-stat-icon--emerald">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <div className="pm-stat-body">
+                <p className="pm-stat-label">Follow-up Patients</p>
+                <p className="pm-stat-value">{stats.pendingCount}</p>
+                <p className="pm-stat-sub">Pending follow-up</p>
+              </div>
+            </div>
+          </div>
+
           {/* Unified Filter Tabs */}
           <div className="pm-tabs">
             <button
+              data-walkthrough="tab-today-queue"
               className={`pm-tab-btn ${tab === 'today_queue' ? 'pm-tab-btn--active' : ''}`}
-              onClick={() => setTab('today_queue')}
+              onClick={() => handleTabChange('today_queue')}
             >
               Today's Queue
               <span className="pm-tab-badge">{tabCounts.today_queue}</span>
             </button>
             <button
+              data-walkthrough="tab-all-patients"
               className={`pm-tab-btn ${tab === 'all' ? 'pm-tab-btn--active' : ''}`}
-              onClick={() => setTab('all')}
+              onClick={() => handleTabChange('all')}
             >
               All Patients
               <span className="pm-tab-badge">{tabCounts.all || total}</span>
             </button>
             <button
+              data-walkthrough="tab-online-appointments"
               className={`pm-tab-btn ${tab === 'online' ? 'pm-tab-btn--active' : ''}`}
-              onClick={() => setTab('online')}
+              onClick={() => handleTabChange('online')}
             >
               Online Appointments
               <span className="pm-tab-badge">{tabCounts.online}</span>
             </button>
             <button
+              data-walkthrough="tab-pre-registered"
               className={`pm-tab-btn ${tab === 'pre_registered' ? 'pm-tab-btn--active' : ''}`}
-              onClick={() => setTab('pre_registered')}
+              onClick={() => handleTabChange('pre_registered')}
             >
               Pre-Registered (Mobile)
               <span className="pm-tab-badge">{tabCounts.pre_registered}</span>
             </button>
             <button
+              data-walkthrough="tab-overdue"
               className={`pm-tab-btn ${tab === 'overdue' ? 'pm-tab-btn--active' : ''}`}
-              onClick={() => setTab('overdue')}
+              onClick={() => handleTabChange('overdue')}
             >
               Overdue
               <span className="pm-tab-badge">{tabCounts.overdue}</span>
@@ -512,60 +1203,61 @@ export default function PatientList() {
           </div>
 
           {/* Controls */}
-          <div className="pm-controls">
-            <div className="pm-controls-right" style={{ width: '100%', justifyContent: 'flex-end' }}>
-              <div className="pm-membership-filter-wrap" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>Program:</span>
-                <select
-                  value={membershipFilter}
-                  onChange={(e) => setMembershipFilter(e.target.value)}
-                  style={{
-                    padding: '7px 12px',
-                    fontSize: '13px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--input-border, #d1d5db)',
-                    backgroundColor: 'var(--input-bg, #ffffff)',
-                    color: 'var(--input-text, #374151)',
-                    fontWeight: 500,
-                    outline: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <option value="all">All Programs</option>
-                  <option value="philhealth">PhilHealth</option>
-                  <option value="fourps">4Ps Beneficiaries</option>
-                  <option value="dswd_nhts">DSWD NHTS</option>
-                  <option value="senior_citizen">Senior Citizens</option>
-                  <option value="pwd">PWD (Disability)</option>
-                  <option value="indigenous_member">Indigenous Tribe</option>
-                </select>
-              </div>
-              <div className="pm-search-wrap">
-                <svg className="pm-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
-                <input className="pm-search" placeholder="Search patients…" value={search} onChange={e => setSearch(e.target.value)} />
-                {search && (
-                  <button className="pm-search-clear" onClick={() => setSearch('')}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                  </button>
-                )}
-              </div>
-              <button className="pm-print-btn" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowPrintModal(true); }} title="Print patient list">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="6 9 6 2 18 2 18 9"/>
-                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                  <rect x="6" y="14" width="12" height="8"/>
-                </svg>
-                Print
-              </button>
+          <div className="pm-controls" data-walkthrough="patients-search-filter">
+            <div className="pm-membership-filter-wrap" data-walkthrough="patients-program-filter">
+              <label htmlFor="patient-program-filter" className="pm-filter-label">Program:</label>
+              <select
+                id="patient-program-filter"
+                name="program_filter"
+                className="pm-filter-select"
+                value={membershipFilter}
+                onChange={(e) => handleMembershipFilterChange(e.target.value)}
+              >
+                <option value="all">All Programs</option>
+                <option value="philhealth">PhilHealth</option>
+                <option value="fourps">4Ps Beneficiaries</option>
+                <option value="dswd_nhts">DSWD NHTS</option>
+                <option value="senior_citizen">Senior Citizens</option>
+                <option value="pwd">PWD (Disability)</option>
+                <option value="indigenous_member">Indigenous Tribe</option>
+              </select>
             </div>
+
+            <div className="pm-search-wrap" data-walkthrough="patients-search-input">
+              <svg className="pm-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input
+                id="patient-search-input"
+                name="patient_search"
+                autoComplete="off"
+                className="pm-search"
+                style={{ paddingLeft: '38px', paddingRight: '34px' }}
+                placeholder="Search patients…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+              {search && (
+                <button className="pm-search-clear" onClick={() => setSearch('')}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            <button data-patient-action="print" className="pm-print-btn" onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowPrintModal(true); }} title="Print patient list">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="6 9 6 2 18 2 18 9"/>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                <rect x="6" y="14" width="12" height="8"/>
+              </svg>
+              Print
+            </button>
           </div>
 
           {/* Bulk Walk-in Portal Invite Action Bar */}
-          {selectedWalkinIds.length > 0 && (
+          {canSendPortalInvite && selectedWalkinIds.length > 0 && (
             <div className="pm-bulk-bar">
               <div className="pm-bulk-bar-info">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -576,6 +1268,7 @@ export default function PatientList() {
               <div className="pm-bulk-bar-actions">
                 <button
                   className="pm-btn-bulk-send"
+                  data-patient-action="bulk-invite"
                   disabled={bulkInviting}
                   onClick={(e) => { (e.currentTarget as HTMLElement)?.blur(); setShowBulkConfirm(true); }}
                 >
@@ -583,6 +1276,7 @@ export default function PatientList() {
                 </button>
                 <button
                   className="pm-btn-bulk-clear"
+                  data-patient-action="clear-selection"
                   onClick={() => setSelectedWalkinIds([])}
                 >
                   Clear Selection
@@ -617,10 +1311,10 @@ export default function PatientList() {
           )}
 
           {/* Table */}
-          <div className="pm-table-wrap">
-            {loading ? (
+          <div className="pm-table-wrap" data-walkthrough="patients-table-actions" data-patient-tab={tab} aria-busy={loading}>
+            {loading && patients.length === 0 ? (
               <div className="pm-state"><div className="pm-spinner" /><p>Loading patients…</p></div>
-            ) : error ? (
+            ) : error && patients.length === 0 ? (
               <div className="pm-state">
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth="1.5">
                   <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -628,23 +1322,38 @@ export default function PatientList() {
                 <p style={{ color: '#ef4444' }}>{error}</p>
                 <button className="pm-retry-btn" onClick={fetchPatients}>Retry</button>
               </div>
-            ) : patients.length === 0 ? (
+            ) : !loading && patients.length === 0 ? (
               <div className="pm-state">
                 <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.5">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                   <circle cx="9" cy="7" r="4"/>
                   <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
-                <p>{search ? 'No patients match your search.' : 'No patients registered in this category.'}</p>
+                <p>
+                  {search
+                    ? 'No patients match your search.'
+                    : tab === 'today_queue'
+                    ? 'No patients in today’s queue.'
+                    : 'No patients registered in this category.'}
+                </p>
               </div>
             ) : (
-              <table className="pm-table">
+              <table
+                className="pm-table"
+                style={{
+                  opacity: loading ? 0.6 : 1,
+                  transition: 'opacity 0.15s ease',
+                  pointerEvents: loading ? 'none' : 'auto',
+                }}
+              >
                 <thead>
                   <tr>
                     <th style={{ width: '40px', textAlign: 'center' }}>
-                      {visibleWalkins.length > 0 && (
+                      {canSendPortalInvite && visibleWalkins.length > 0 && (
                         <input
                           type="checkbox"
+                          id="select-all-walkins-checkbox"
+                          name="select_all_walkins"
                           className="pm-checkbox"
                           checked={isAllWalkinSelected}
                           onChange={handleToggleSelectAllWalkins}
@@ -662,9 +1371,18 @@ export default function PatientList() {
                 </thead>
                 <tbody>
                   {patients.map(p => {
+                    const isCat1NoTreatment = isCategory1NoTreatmentRequired(p);
                     const statusInfo = getLiveStatus(p);
                     const isOnline = isOnlinePatient(p);
-                    const activeQueue = (p as any).queues?.[0];
+                    const todayQueues: any[] = (p as any).queues || [];
+                    const sortedTodayQueues = [...todayQueues].sort((a, b) => (Number(b.queue_id ?? b.id ?? 0) - Number(a.queue_id ?? a.id ?? 0)));
+                    const latestQueue = sortedTodayQueues[0];
+                    const activeQueue = sortedTodayQueues.find((q: any) =>
+                      ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'].includes(q.status)
+                    );
+                    const requiresCheckinQueue = (!isCat1NoTreatment && latestQueue && (
+                      latestQueue.status === 'requires_checkin' || (latestQueue.status === 'no_response' && Number(latestQueue.call_count) >= 3)
+                    )) ? latestQueue : null;
                     const latestRecord = (p as any).latest_treatment_record;
                     const hasDosesAdministered = Boolean(latestRecord && latestRecord.dose_number !== null && latestRecord.dose_number !== undefined);
                     const hasCompletedTriage = Boolean(
@@ -677,20 +1395,70 @@ export default function PatientList() {
                       (p as any).appointments?.some((a: any) => a.status === 'scheduled') ||
                       (p as any).upcomingAppointment
                     );
-                    const hasActiveIncident = latestIncident && (latestIncident.status === 'active' || latestIncident.status === 'in_progress');
-                    const isOngoingTreatment = hasActiveIncident || hasPendingAppointments || (hasDosesAdministered && latestRecord.dose_number < 28);
-                    // Allow re-exposure registration after Day 3 (3rd dose) or later, when no pending appointments
-                    const hasCompletedMinimumDoses = hasDosesAdministered && latestRecord.dose_number >= 3 && !hasPendingAppointments;
-                    const isFollowUp = (hasDosesAdministered || hasCompletedTriage) && isOngoingTreatment;
-                    const canCheckIn = !activeQueue && !hasCompletedTriage;
+                    const hasActiveIncident = Boolean(
+                      latestIncident && ['active', 'in_progress', 'awaiting_assessment'].includes(latestIncident.status)
+                    );
+                    // Re-exposure eligibility:
+                    // 1. Patient finished Day 7 (primary series: Days 0, 3, 7 completed)
+                    // 2. If on a booster regimen, only AFTER the booster is finished (no pending appointments, incident completed)
+                    // 3. Not currently in an active queue today
+                    // 4. No pending / scheduled appointments for the current treatment course
+                    const hasCompletedDay7 = Boolean(
+                      (p as any).has_completed_primary
+                    );
+                    const ongoingCourse = (p as any).ongoing_course;
+                    const canRegisterNewExposure = Boolean(
+                      canRegisterExposure &&
+                      !ongoingCourse &&
+                      !activeQueue &&
+                      hasCompletedDay7 &&
+                      !hasPendingAppointments &&
+                      !hasActiveIncident
+                    );
+                    const isPreRegistered = tab === 'pre_registered' || isPreRegisteredOnly(p);
+                    const mobileIntakeForCheckIn = (!activeQueue && !isPreRegistered) ? getMobileIntakeReadyForCheckIn(p) : undefined;
+                    const mobileIntakeIsDue = Boolean(
+                      mobileIntakeForCheckIn && isMobileIntakeDueForCheckIn(p, mobileIntakeForCheckIn)
+                    );
+                    const isReturningAwaitingTriage = isReturningPatientAwaitingTriage(p);
+                    const canCheckInForReassessment = Boolean(
+                      isAuthorizedRegistrationRole &&
+                      registrationStationEnabled &&
+                      triageStationEnabled &&
+                      !isPreRegistered &&
+                      !activeQueue &&
+                      !isCat1NoTreatment &&
+                      (p as any).pending_treatment_summary?.can_check_in_for_reassessment
+                    );
+                    const canCheckInReturning = Boolean(
+                      isAuthorizedRegistrationRole &&
+                      registrationStationEnabled &&
+                      triageStationEnabled &&
+                      !isPreRegistered &&
+                      !activeQueue &&
+                      !isCat1NoTreatment &&
+                      !canCheckInForReassessment &&
+                      (isReturningAwaitingTriage || Boolean(requiresCheckinQueue))
+                    );
+                    const canCheckInToNurse = Boolean(
+                      isAuthorizedRegistrationRole &&
+                      registrationStationEnabled &&
+                      treatmentStationEnabled &&
+                      !canCheckInForReassessment &&
+                      !canCheckInReturning &&
+                      !activeQueue &&
+                      isEligibleForNurseCheckIn(p)
+                    );
                     const patientId = p.patient_id || p.id;
 
                     return (
                       <tr key={`patient-${patientId}`}>
                         <td style={{ textAlign: 'center' }}>
-                          {!isOnline ? (
+                          {canSendPortalInvite && !isOnline ? (
                             <input
                               type="checkbox"
+                              id={`select-walkin-${patientId}`}
+                              name={`select_walkin_${patientId}`}
                               className="pm-checkbox"
                               checked={selectedWalkinIds.includes(patientId)}
                               onChange={() => handleToggleWalkinPatient(patientId)}
@@ -739,22 +1507,144 @@ export default function PatientList() {
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <div className="pm-actions" style={{ justifyContent: 'center', gap: '6px' }}>
-                            {canCheckIn ? (
+                            {ongoingCourse && !activeQueue && !canCheckInForReassessment ? (
+                              <span style={{ fontSize: 12, color: '#047857', maxWidth: 220 }} title={ongoingCourse.message}>
+                                Treatment ongoing — proceed to Follow-up
+                                <small style={{ display: 'block', color: '#6b7280' }}>
+                                  {ongoingCourse.scheduled_date ? `Day ${ongoingCourse.next_dose}: ${ongoingCourse.scheduled_date}` : 'Follow-up schedule needs review'}
+                                </small>
+                              </span>
+                            ) : mobileIntakeIsDue && mobileIntakeForCheckIn ? (
                               <button
                                 className="pm-btn-checkin"
-                                title="Register the bite or possible rabies exposure before Doctor assessment"
+                                title="Confirm the patient has arrived, then send their submitted bite intake to the Doctor queue"
+                                data-patient-action="checkin-mobile"
+                                disabled={checkingInIntakeId === mobileIntakeForCheckIn.intake_id}
                                 onClick={(event) => {
                                   (event.currentTarget as HTMLElement).blur();
-                                  setSelectedViewPatient(p);
-                                  setShowViewModal(true);
+                                  handleMobileIntakeCheckIn(p, mobileIntakeForCheckIn);
                                 }}
                               >
-                                Register Exposure
+                                {checkingInIntakeId === mobileIntakeForCheckIn.intake_id ? 'Checking In…' : 'Check In to Triage'}
                               </button>
-                            ) : hasCompletedMinimumDoses && !activeQueue ? (
+                            ) : mobileIntakeForCheckIn ? (
+                              <span
+                                data-patient-action="awaiting-checkin"
+                                className="pm-badge-awaiting-checkin"
+                                title="This patient has a submitted mobile bite intake. Check in the patient on the scheduled appointment date."
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  backgroundColor: '#eff6ff',
+                                  color: '#1d4ed8',
+                                  border: '1px solid #bfdbfe',
+                                }}
+                              >
+                                Booked — Awaiting Check-In
+                              </span>
+                            ) : canCheckInForReassessment ? (
                               <button
                                 className="pm-btn-checkin"
-                                title="Register a distinct new exposure before Doctor assessment"
+                                title="Patient returned with pending unadministered treatment from a previous visit. Collect updated vitals and route to Doctor Reassessment Queue."
+                                data-patient-action="checkin-reassessment"
+                                disabled={checkingInPatientId === patientId}
+                                style={{
+                                  fontSize: '12px',
+                                  padding: '4px 12px',
+                                  textTransform: 'none',
+                                  fontWeight: 600,
+                                  borderRadius: '6px',
+                                  backgroundColor: '#d97706',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  cursor: checkingInPatientId === patientId ? 'not-allowed' : 'pointer',
+                                  opacity: checkingInPatientId === patientId ? 0.7 : 1,
+                                  boxShadow: '0 2px 6px rgba(217,119,6,0.3)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                }}
+                                onClick={(event) => {
+                                  (event.currentTarget as HTMLElement).blur();
+                                  handleOpenReassessmentCheckIn(p);
+                                }}
+                              >
+                                {checkingInPatientId === patientId ? 'Checking in...' : 'Check In for Reassessment'}
+                              </button>
+                            ) : canCheckInReturning ? (
+                              <button
+                                data-patient-action="checkin"
+                                className="pm-btn-checkin"
+                                title={
+                                  requiresCheckinQueue
+                                    ? "Patient did not respond 3 times. Check in to restart triage queue with a fresh 0/3 count."
+                                    : "Patient was previously registered or scheduled but did not proceed to Triage. Check in to today's Doctor Triage queue."
+                                }
+                                disabled={checkingInPatientId === patientId}
+                                style={{
+                                  fontSize: '12px',
+                                  padding: '4px 12px',
+                                  textTransform: 'none',
+                                  fontWeight: 600,
+                                  borderRadius: '6px',
+                                  backgroundColor: '#10b981',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  cursor: checkingInPatientId === patientId ? 'not-allowed' : 'pointer',
+                                  opacity: checkingInPatientId === patientId ? 0.7 : 1,
+                                  boxShadow: '0 2px 6px rgba(16,185,129,0.3)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                                onClick={(event) => {
+                                  (event.currentTarget as HTMLElement).blur();
+                                  handleTriageCheckIn(p);
+                                }}
+                              >
+                                {checkingInPatientId === patientId ? 'Checking in...' : 'Check In'}
+                              </button>
+                            ) : canCheckInToNurse ? (
+                              <button
+                                className="pm-btn-checkin"
+                                title="Patient was not attended to within 1 day or needs follow-up vaccination. Re-check in to today's Nurse Treatment queue."
+                                data-patient-action="checkin-nurse"
+                                disabled={checkingInNursePatientId === patientId}
+                                style={{
+                                  fontSize: '12px',
+                                  padding: '4px 12px',
+                                  textTransform: 'none',
+                                  fontWeight: 600,
+                                  borderRadius: '6px',
+                                  backgroundColor: '#0d9488',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  cursor: checkingInNursePatientId === patientId ? 'not-allowed' : 'pointer',
+                                  opacity: checkingInNursePatientId === patientId ? 0.7 : 1,
+                                  boxShadow: '0 2px 6px rgba(13,148,136,0.3)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                }}
+                                onClick={(event) => {
+                                  (event.currentTarget as HTMLElement).blur();
+                                  handleNurseCheckIn(p);
+                                }}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M12 5v14M5 12h14" />
+                                </svg>
+                                {checkingInNursePatientId === patientId ? 'Checking in...' : 'Check In to Nurse'}
+                              </button>
+                            ) : canRegisterNewExposure ? (
+                              <button
+                                className="pm-btn-checkin"
+                                title="Register a distinct new rabies exposure incident (Re-Exposure)"
+                                data-patient-action="new-exposure"
                                 style={{
                                   backgroundColor: '#0284c7',
                                   borderColor: '#0284c7',
@@ -768,32 +1658,17 @@ export default function PatientList() {
                                 onClick={(event) => {
                                   (event.currentTarget as HTMLElement).blur();
                                   setSelectedViewPatient(p);
+                                  setOpenReExposureOnView(true);
                                   setShowViewModal(true);
                                 }}
                               >
                                 + New Exposure
                               </button>
-                            ) : isFollowUp && !activeQueue ? (
-                              <span
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  padding: '4px 8px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  backgroundColor: '#f0fdf4',
-                                  color: '#166534',
-                                  border: '1px solid #bbf7d0',
-                                }}
-                                title="Follow-up doses check in directly at the Nurse Treatment Desk"
-                              >
-                                Direct to Treatment
-                              </span>
                             ) : null}
-                            {!isOnline && (
+                            {!isOnline && canSendPortalInvite && (
                               <button
                                 className="pm-btn-invite"
+                                data-patient-action="portal-invite"
                                 title="Invite Walk-in Patient to Mobile Portal"
                                 onClick={(e) => {
                                   (e.currentTarget as HTMLElement)?.blur();
@@ -822,16 +1697,18 @@ export default function PatientList() {
                             )}
                             <button
                               className="pm-btn-view"
+                              data-patient-action="view"
                               onClick={(e) => {
                                 (e.currentTarget as HTMLElement)?.blur();
                                 setSelectedViewPatient(p);
+                                setOpenReExposureOnView(false);
                                 setShowViewModal(true);
                               }}
                             >
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                               </svg>
-                              Record
+                              View
                             </button>
                           </div>
                         </td>
@@ -841,7 +1718,7 @@ export default function PatientList() {
                 </tbody>
               </table>
             )}
-            {!loading && !error && (
+            {!error && (patients.length > 0 || total > 0) && (
               <TablePaginator
                 count={total}
                 page={page - 1}
@@ -855,47 +1732,6 @@ export default function PatientList() {
             )}
           </div>
         </div>
-
-        {/* ── Stat cards ── */}
-        <div className="pm-side-panel">
-          <div className="pm-stat-card pm-stat-card--teal">
-            <div className="pm-stat-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-              </svg>
-            </div>
-            <div className="pm-stat-body">
-              <p className="pm-stat-label">Total Patients</p>
-              <p className="pm-stat-value">{total}</p>
-              <p className="pm-stat-sub">All registered</p>
-            </div>
-          </div>
-          <div className="pm-stat-card pm-stat-card--green">
-            <div className="pm-stat-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-              </svg>
-            </div>
-            <div className="pm-stat-body">
-              <p className="pm-stat-label">Active Patients</p>
-              <p className="pm-stat-value">{stats.activeCount}</p>
-              <p className="pm-stat-sub">Currently active</p>
-            </div>
-          </div>
-          <div className="pm-stat-card pm-stat-card--emerald">
-            <div className="pm-stat-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-              </svg>
-            </div>
-            <div className="pm-stat-body">
-              <p className="pm-stat-label">Follow-up Patients</p>
-              <p className="pm-stat-value">{stats.pendingCount}</p>
-              <p className="pm-stat-sub">Pending follow-up</p>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* ── Modals ── */}
@@ -903,6 +1739,25 @@ export default function PatientList() {
         <AddPatientModal
           role={userRole}
           onClose={() => setShowAddModal(false)}
+          onSelectExistingPatient={(patientId) => {
+            setShowAddModal(false);
+            const cached = patients.find((p) => (p.patient_id || p.id) === patientId);
+            if (cached) {
+              setSelectedViewPatient(cached);
+              setOpenReExposureOnView(false);
+              setShowViewModal(true);
+            }
+            api
+              .get(`/patients/${patientId}`)
+              .then((res) => {
+                if (res.data) {
+                  setSelectedViewPatient(res.data.patient || res.data);
+                  setOpenReExposureOnView(false);
+                  setShowViewModal(true);
+                }
+              })
+              .catch(() => {});
+          }}
           onSuccess={() => {
             setShowAddModal(false);
             fetchPatients();
@@ -917,43 +1772,62 @@ export default function PatientList() {
 
       {showPrintModal && (
         <PrintPreviewModal
-          title="Patient Registry"
+          title={tab === 'today_queue' ? "Today's Queue" : 'Patient List'}
           clinicName={clinicName}
           printedBy={printedBy}
+          leftLogoUrl={leftLogoUrl}
+          rightLogoUrl={rightLogoUrl}
+          province={province}
+          municipality={municipality}
+          contactNumber={contactNumber}
           onConfirm={handleConfirmPrint}
           onCancel={() => setShowPrintModal(false)}
         >
           {/* Preview table */}
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-h)', borderLeft: '3px solid #10b981', paddingLeft: 10, marginBottom: 10 }}>
-            Registered Patients ({patients.length} shown)
+            {tab === 'today_queue' ? `Today's Queue (${patients.length} shown)` : `Registered Patients (${patients.length} shown)`}
           </div>
           <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr>{['#', 'Patient No.', 'Full Name', 'DOB', 'Gender', 'Registered On', 'Status'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
+                <tr>{['#', 'Patient No.', 'Full Name', 'DOB', 'Gender', 'Registered On', tab === 'today_queue' ? 'Status / Schedule' : 'Status'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {patients.length === 0
-                  ? <tr><td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#6b7280' }}>No patients.</td></tr>
-                  : patients.map((p, i) => (
-                    <tr key={`print-patient-${p.patient_id || p.id}`} style={i % 2 !== 0 ? { background: '#f9fafb' } : {}}>
-                      <td style={td}>{i + 1}</td>
-                      <td style={{ ...td, fontFamily: 'monospace', fontSize: 10 }}>{p.patient_number}</td>
-                      <td style={{ ...td, fontWeight: 600 }}>{fullName(p)}</td>
-                      <td style={td}>{formatDate(p.date_of_birth)}</td>
-                      <td style={{ ...td, textTransform: 'capitalize' }}>{p.gender}</td>
-                      <td style={td}>{formatDate(p.created_at)}</td>
-                      <td style={td}>
-                        <span style={{
-                          padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600,
-                          background: p.status === 'active' ? '#d1fae5' : p.status === 'pending' ? '#fef3c7' : '#f3f4f6',
-                          color:      p.status === 'active' ? '#065f46' : p.status === 'pending' ? '#92400e' : '#374151',
-                        }}>
-                          {(p.status ?? 'active').charAt(0).toUpperCase() + (p.status ?? 'active').slice(1)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
+                  ? <tr><td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#6b7280' }}>{tab === 'today_queue' ? "No patients in today’s queue." : "No patients."}</td></tr>
+                  : patients.map((p, i) => {
+                    const statusInfo = getLiveStatus(p);
+                    const isTodayQueue = tab === 'today_queue';
+                    return (
+                      <tr key={`print-patient-${p.patient_id || p.id}`} style={i % 2 !== 0 ? { background: '#f9fafb' } : {}}>
+                        <td style={td}>{i + 1}</td>
+                        <td style={{ ...td, fontFamily: 'monospace', fontSize: 10 }}>{p.patient_number}</td>
+                        <td style={{ ...td, fontWeight: 600 }}>{fullName(p)}</td>
+                        <td style={td}>{formatDate(p.date_of_birth)}</td>
+                        <td style={{ ...td, textTransform: 'capitalize' }}>{p.gender}</td>
+                        <td style={td}>{formatDate(p.created_at)}</td>
+                        <td style={td}>
+                          {isTodayQueue ? (
+                            <span style={{
+                              padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600,
+                              background: statusInfo.bg,
+                              color: statusInfo.color,
+                            }}>
+                              {statusInfo.label}
+                            </span>
+                          ) : (
+                            <span style={{
+                              padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600,
+                              background: p.status === 'active' ? '#d1fae5' : p.status === 'pending' ? '#fef3c7' : '#f3f4f6',
+                              color:      p.status === 'active' ? '#065f46' : p.status === 'pending' ? '#92400e' : '#374151',
+                            }}>
+                              {(p.status ?? 'active').charAt(0).toUpperCase() + (p.status ?? 'active').slice(1)}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 }
               </tbody>
             </table>
@@ -996,9 +1870,11 @@ export default function PatientList() {
       <PatientDetailsModal
         open={showViewModal}
         patient={selectedViewPatient}
+        initialNewExposureOpen={openReExposureOnView}
         onClose={() => {
           setShowViewModal(false);
           setSelectedViewPatient(null);
+          setOpenReExposureOnView(false);
         }}
         onPatientUpdated={() => {
           fetchPatients();
@@ -1086,6 +1962,20 @@ export default function PatientList() {
           cancelLabel="Cancel"
           onConfirm={handleConfirmBulkInvite}
           onCancel={() => setShowBulkConfirm(false)}
+        />
+      )}
+
+      {/* ── Returning Patient Reassessment Check-In Modal (Updated Vitals Required) ── */}
+      {reassessmentCheckInPatient && (
+        <ReturningPatientCheckInModal
+          open={Boolean(reassessmentCheckInPatient)}
+          patient={reassessmentCheckInPatient}
+          onClose={() => setReassessmentCheckInPatient(null)}
+          onSuccess={(modalData) => {
+            setReassessmentCheckInPatient(null);
+            setCheckInModalData(modalData);
+            fetchPatients();
+          }}
         />
       )}
 

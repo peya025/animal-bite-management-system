@@ -37,6 +37,7 @@ interface BiteIntake {
 }
 
 export default function BiteCaseListPage() {
+  const { user } = useAuth();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [intakes, setIntakes] = useState<BiteIntake[]>([]);
@@ -226,12 +227,60 @@ export default function BiteCaseListPage() {
     <Box sx={{ px: 3 }}>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h5" sx={{ color: 'var(--text-h)', fontWeight: 600, mb: '7px' }}>
-            Bite Incident Intake Assessment List
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#77877d' }}>
-            List of registered patients with reported bite incidents ready for Doctor consultation (Form 2) & Treatment Card (Form 3).
-          </Typography>
+          {user?.role === 'treatment' ? (
+            <>
+              <Typography
+                component="h1"
+                sx={{
+                  fontFamily: 'Poppins',
+                  fontSize: '24px',
+                  fontWeight: 700,
+                  lineHeight: 1.2,
+                  letterSpacing: '-0.02em',
+                  color: 'var(--text-h, #111827)',
+                  mb: 0.5,
+                }}
+              >
+                Bite Incident Intake Assessment List
+              </Typography>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginTop: '8px',
+                  fontFamily: 'Poppins',
+                  fontSize: '13px',
+                }}
+              >
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    color: '#3b82f6',
+                    fontFamily: 'Poppins',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Dashboard
+                </button>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#6b7280' }}>Bite Incident Intakes</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <Typography variant="h5" sx={{ color: 'var(--text-h)', fontWeight: 600, mb: '7px' }}>
+                Bite Incident Intake Assessment List
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#77877d' }}>
+                List of registered patients with reported bite incidents ready for Doctor consultation (Form 2) & Treatment Card (Form 3).
+              </Typography>
+            </>
+          )}
         </Box>
         <AppButton
           onClick={() => setPatientModalOpen(true)}
@@ -242,44 +291,57 @@ export default function BiteCaseListPage() {
 
       {/* ── Summary KPI Cards ── */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
-        {cards.map((c) => (
-          <Paper
-            key={c.id}
-            elevation={0}
-            sx={{
-              p: '16px 18px',
-              borderRadius: '20px',
-              position: 'relative',
-              overflow: 'hidden',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              minHeight: 118,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              cursor: 'default',
-              ...(isDark
-                ? {
-                    background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
-                    border: '1px solid rgba(163, 230, 53, 0.3)',
-                    boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(163, 230, 53, 0.12)',
-                    '&:hover': {
-                      transform: 'translateY(-3px)',
-                      borderColor: 'rgba(163, 230, 53, 0.55)',
-                      boxShadow: `0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35), inset 0 1px 3px 0 rgba(255, 255, 255, 0.3)`,
-                    },
-                  }
-                : {
-                    background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
-                    border: '1px solid rgba(16, 185, 129, 0.32)',
-                    boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(16, 185, 129, 0.12)',
-                    '&:hover': {
-                      transform: 'translateY(-3px)',
-                      borderColor: 'rgba(16, 185, 129, 0.55)',
-                      boxShadow: `0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 1)`,
-                    },
-                  }),
-            }}
-          >
+        {cards.map((c) => {
+          const hoverShadow = isDark
+            ? c.color === '#f59e0b'
+              ? '0 8px 24px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.25)'
+              : c.color === '#38bdf8'
+              ? '0 8px 24px rgba(56, 189, 248, 0.35), 0 0 16px rgba(56, 189, 248, 0.25)'
+              : c.color === '#ef4444'
+              ? '0 8px 24px rgba(239, 68, 68, 0.35), 0 0 16px rgba(239, 68, 68, 0.25)'
+              : '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+            : c.color === '#f59e0b'
+            ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
+            : c.color === '#38bdf8'
+            ? '0 8px 22px rgba(56, 189, 248, 0.30), 0 2px 8px rgba(56, 189, 248, 0.16)'
+            : c.color === '#ef4444'
+            ? '0 8px 22px rgba(239, 68, 68, 0.28), 0 2px 8px rgba(239, 68, 68, 0.16)'
+            : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
+
+          return (
+            <Paper
+              key={c.id}
+              elevation={0}
+              sx={{
+                p: '16px 18px',
+                borderRadius: '20px',
+                position: 'relative',
+                overflow: 'hidden',
+                transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                minHeight: 118,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                cursor: 'default',
+                ...(isDark
+                  ? {
+                      background: '#111827',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                      '&:hover': {
+                        boxShadow: hoverShadow,
+                      },
+                    }
+                  : {
+                      background: '#ffffff',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                      '&:hover': {
+                        boxShadow: hoverShadow,
+                      },
+                    }),
+              }}
+            >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Typography sx={{ fontSize: 11, fontWeight: 700, color: isDark ? '#a7f3d0' : '#047857', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 {c.label}
@@ -312,7 +374,8 @@ export default function BiteCaseListPage() {
               {c.sub}
             </Typography>
           </Paper>
-        ))}
+          );
+        })}
       </Box>
 
       {/* Filter / Search Row */}

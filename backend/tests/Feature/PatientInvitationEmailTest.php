@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\PatientInvitationController;
+use App\Http\Controllers\Auth\PatientInvitationController;
 use App\Http\Requests\SendPatientInvitationRequest;
 use App\Models\Clinic;
 use App\Models\Patient;

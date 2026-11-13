@@ -25,6 +25,8 @@ import {
   PersonOff as NoRespIcon,
   Replay as RecallIcon,
   PersonOff as AbsentIcon,
+  Undo as ReturnQueueIcon,
+  CheckCircleOutlined as CheckCircleIcon,
 } from '@mui/icons-material';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -33,13 +35,15 @@ import {
   Stethoscope02Icon,
   Pulse01Icon,
   Medicine01Icon,
+  PrinterIcon,
 } from '@hugeicons/core-free-icons';
 import api from '../../../shared/services/api';
 import { useQueueEntry } from '../hooks';
 import { STATUS_CFG, PRIORITY_CFG, VISIT_LABEL, getPriorityDisplayLabel, waitTime, type QueueEntry } from '../types';
-import { cancelQueueEntry, markNoResponse, recallQueuePatient, markAbsent } from '../services';
+import { cancelQueueEntry, markNoResponse, recallQueuePatient, markAbsent, returnQueuePatientToQueue } from '../services';
 import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
+import DohTransferSlipModal from '../../vaccinations/components/DohTransferSlipModal';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { CompleteDialog } from './CompleteDialog';
 import { getMembershipByType, getPatientMemberships } from '../../patients/utils/memberships';
@@ -130,6 +134,52 @@ function ReadOnlyBanner() {
   );
 }
 
+function Category1NoTreatmentBanner() {
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 1.5,
+      px: 2.5, py: 2,
+      mb: 3,
+      bgcolor: '#f0fdf4',
+      border: '1px solid #bbf7d0',
+      borderRadius: 2,
+    }}>
+      <CheckCircleIcon sx={{ fontSize: 18, color: '#16a34a', flexShrink: 0 }} />
+      <Box>
+        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#166534', mb: 0.25 }}>
+          Category I Exposure · No Treatment Required
+        </Typography>
+        <Typography sx={{ fontSize: 12, color: '#15803d' }}>
+          Doctor assessment confirmed Category I exposure with no nurse-administered treatment required. Form 3 administration is locked. The completed consultation and episode record are preserved in history.
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+function TransferredOutBanner({ facility }: { facility?: string }) {
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 1.5,
+      px: 2.5, py: 2,
+      mb: 3,
+      bgcolor: '#eff6ff',
+      border: '1px solid #bfdbfe',
+      borderRadius: 2,
+    }}>
+      <CheckCircleIcon sx={{ fontSize: 18, color: '#2563eb', flexShrink: 0 }} />
+      <Box>
+        <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#1e40af', mb: 0.25 }}>
+          Patient Transferred / Referred Out {facility ? `to ${facility}` : ''}
+        </Typography>
+        <Typography sx={{ fontSize: 12, color: '#1d4ed8' }}>
+          Doctor assessment finalized this consultation as Transferred/Referred to an external hospital. Form 3 administration was not required and the patient visit is completed. The referral details and printable slip are preserved in history.
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
 // ─── Patient Hero Header ────────────────────────────────────────────────────
 function ModalPatientHero({
   entry,
@@ -204,6 +254,17 @@ function ModalPatientHero({
               }} />
               <span style={{ color: statusCfg.color, fontWeight: 600 }}>{statusCfg.label}</span>
             </Box>
+            {entry.call_count > 0 && (
+              <>
+                <span>·</span>
+                <span style={{
+                  color: entry.call_count >= 3 ? '#dc2626' : '#7e22ce',
+                  fontWeight: 600,
+                }}>
+                  No Response {Math.min(entry.call_count, 3)}/3
+                </span>
+              </>
+            )}
           </Box>
         </Box>
       </Box>
@@ -308,6 +369,7 @@ function TabBar({ active, onSelect, userRole }: {
 // ─── Patient Consultation History Tab ───────────────────────────────────────
 export function PatientConsultationHistoryTab({ patientId }: { patientId?: number }) {
   const [loading, setLoading] = useState(false);
+  const [reprintTreatment, setReprintTreatment] = useState<any | null>(null);
   const [treatments, setTreatments] = useState<any[]>([]);
   const [searchFilter, setSearchFilter] = useState('');
 
@@ -447,6 +509,34 @@ export function PatientConsultationHistoryTab({ patientId }: { patientId?: numbe
               </Typography>
             </Box>
 
+            {(t.referred_to || t.outcome === 'Transferred/Referred') && (
+              <Box sx={{ mt: 1.5, p: 1.25, bgcolor: '#eff6ff', borderRadius: 1.5, border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+                <Box>
+                  <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#1e40af', textTransform: 'uppercase' }}>
+                    Transferred / Referred Out
+                  </Typography>
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#1d4ed8' }}>
+                    🏥 {t.referred_to || 'External Hospital / ABTC'}
+                  </Typography>
+                  {t.reason_for_referral && (
+                    <Typography sx={{ fontSize: 11.5, color: '#2563eb' }}>
+                      Reason: {t.reason_for_referral}
+                    </Typography>
+                  )}
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<HugeiconsIcon icon={PrinterIcon} size={13} />}
+                  onClick={() => setReprintTreatment(t)}
+                  sx={{ textTransform: 'none', fontWeight: 700 }}
+                >
+                  Reprint Slip
+                </Button>
+              </Box>
+            )}
+
             {(t.prescribed_vaccine_type || t.medication_treatment) && (
               <Box sx={{ mt: 1.5, p: 1.25, bgcolor: '#f8fafc', borderRadius: 1.5, border: '1px solid #e2e8f0' }}>
                 {t.prescribed_vaccine_type && (
@@ -469,6 +559,25 @@ export function PatientConsultationHistoryTab({ patientId }: { patientId?: numbe
             )}
           </Paper>
         ))}
+      {reprintTreatment && (
+        <DohTransferSlipModal
+          open={Boolean(reprintTreatment)}
+          onClose={() => setReprintTreatment(null)}
+          patient={{ patient_id: patientId }}
+          incident={{
+            case_number: reprintTreatment.registry_no || reprintTreatment.case_number,
+            exposure_category: reprintTreatment.exposure_category,
+            diagnosis: reprintTreatment.diagnosis,
+            transferred_to_facility: reprintTreatment.referred_to,
+            transfer_reason: reprintTreatment.reason_for_referral,
+          }}
+          treatmentRecords={[reprintTreatment]}
+          transferredToFacility={reprintTreatment.referred_to}
+          transferReason={reprintTreatment.reason_for_referral}
+          transferDate={reprintTreatment.consultation_date}
+          diagnosis={reprintTreatment.diagnosis}
+        />
+      )}
       </Stack>
     </Box>
   );
@@ -476,6 +585,14 @@ export function PatientConsultationHistoryTab({ patientId }: { patientId?: numbe
 
 type EpisodeSummary = {
   bite_id: number;
+  transferred_to_facility?: string;
+  transfer_reason?: string;
+  transferred_at?: string;
+  case_number?: string;
+  exposure_category?: string;
+  severity?: string;
+  exposure_type?: string;
+  diagnosis?: string;
   episode_number?: number;
   episode_type?: string;
   bite_date?: string;
@@ -502,6 +619,7 @@ function EpisodeHistoryTab({
   onOpenEpisode: (episode: EpisodeSummary, form: 'form2' | 'form3') => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const [reprintEpisode, setReprintEpisode] = useState<EpisodeSummary | null>(null);
   const [episodes, setEpisodes] = useState<EpisodeSummary[]>([]);
 
   useEffect(() => {
@@ -535,6 +653,7 @@ function EpisodeHistoryTab({
           const records = episode.treatment_records || episode.treatmentRecords || [];
           const completedDoses = records.filter((record: any) => record.dose_number !== null && record.dose_number !== undefined && record.status === 'completed').length;
           const plan = episode.treatment_plan || episode.treatmentPlan;
+          const isTransferred = episode.status === 'transferred_out' || Boolean(episode.transferred_to_facility);
           return (
             <Paper key={episode.bite_id} elevation={0} sx={{ p: 2, border: isCurrent ? '1.5px solid #6ee7b7' : '1px solid #e2e8f0', borderRadius: 2.5, bgcolor: isCurrent ? '#f0fdf4' : '#fff' }}>
               <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
@@ -542,6 +661,9 @@ function EpisodeHistoryTab({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                     <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a' }}>Episode #{episode.episode_number || '—'}</Typography>
                     <Chip label={isCurrent ? 'Current episode' : (episode.status || 'recorded')} size="small" color={isCurrent ? 'success' : 'default'} sx={{ height: 20, fontSize: 10.5, fontWeight: 700 }} />
+                    {isTransferred && (
+                      <Chip label={`Transferred: ${episode.transferred_to_facility || 'External Facility'}`} size="small" sx={{ height: 20, fontSize: 10.5, fontWeight: 700, bgcolor: '#dbeafe', color: '#1e40af' }} />
+                    )}
                   </Box>
                   <Typography sx={{ mt: 0.55, fontSize: 12, color: '#475569' }}>
                     {episodeLabel(episode)} · Bite date: {episode.bite_date || 'Not recorded'}
@@ -550,14 +672,29 @@ function EpisodeHistoryTab({
                     {plan?.plan_type ? `Plan: ${plan.plan_type.replaceAll('_', ' ')}` : 'Treatment plan not recorded'} · {completedDoses} completed dose{completedDoses === 1 ? '' : 's'}
                   </Typography>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button size="small" variant="outlined" onClick={() => onOpenEpisode(episode, 'form2')} sx={{ textTransform: 'none', fontWeight: 700 }}>Record Form 2</Button>
-                  <Button size="small" variant="outlined" onClick={() => onOpenEpisode(episode, 'form3')} sx={{ textTransform: 'none', fontWeight: 700 }}>Record Form 3</Button>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  {isTransferred && (
+                    <Button size="small" variant="outlined" color="success" startIcon={<HugeiconsIcon icon={PrinterIcon} size={13} />} onClick={() => setReprintEpisode(episode)} sx={{ textTransform: 'none', fontWeight: 700 }}>Reprint Slip</Button>
+                  )}
+                  <Button size="small" variant="outlined" onClick={() => onOpenEpisode(episode, 'form2')} sx={{ textTransform: 'none', fontWeight: 700 }}>View Form 2</Button>
+                  <Button size="small" variant="outlined" onClick={() => onOpenEpisode(episode, 'form3')} sx={{ textTransform: 'none', fontWeight: 700 }}>View Form 3</Button>
                 </Box>
               </Box>
             </Paper>
           );
         })}
+      {reprintEpisode && (
+        <DohTransferSlipModal
+          open={Boolean(reprintEpisode)}
+          onClose={() => setReprintEpisode(null)}
+          patient={{ patient_id: patientId }}
+          incident={reprintEpisode}
+          treatmentRecords={reprintEpisode.treatment_records || reprintEpisode.treatmentRecords || []}
+          transferredToFacility={reprintEpisode.transferred_to_facility}
+          transferReason={reprintEpisode.transfer_reason}
+          transferDate={reprintEpisode.transferred_at}
+        />
+      )}
       </Stack>
     </Box>
   );
@@ -600,19 +737,32 @@ export default function QueuePatientDetailModal({
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [cancelDialog,   setCancelDialog]   = useState(false);
   const [completeDialog, setCompleteDialog] = useState(false);
-  const [noRespDialog,   setNoRespDialog]   = useState(false);
-  const [recallDialog,   setRecallDialog]   = useState(false);
-  const [absentDialog,   setAbsentDialog]   = useState(false);
+  const [noRespDialog,      setNoRespDialog]      = useState(false);
+  const [recallDialog,      setRecallDialog]      = useState(false);
+  const [returnQueueDialog, setReturnQueueDialog] = useState(false);
+  const [absentDialog,      setAbsentDialog]      = useState(false);
 
   const handleNoResponse = async () => {
     if (!queueId) return;
     try {
-      await markNoResponse(Number(queueId));
-      setSuccessModal({
-        open: true,
-        title: 'No Response Recorded',
-        message: `Queue #${entry?.queue_number} moved to the Second Chance Queue.`,
-      });
+      const res = await markNoResponse(Number(queueId));
+      if (res.data?.requires_checkin || (entry && entry.call_count >= 2)) {
+        setSuccessModal({
+          open: true,
+          title: 'Registration Check-in Required',
+          message: 'Patient did not respond 3 times. Please return to Registration for check-in.',
+          onConfirm: () => {
+            onSaved?.();
+            onClose();
+          },
+        });
+      } else {
+        setSuccessModal({
+          open: true,
+          title: 'No Response Recorded',
+          message: `Queue #${entry?.queue_number} moved to the Second Chance Queue.`,
+        });
+      }
       reload();
       onSaved?.();
     } catch {
@@ -620,8 +770,32 @@ export default function QueuePatientDetailModal({
     }
   };
 
+  const handleReturnToQueue = async () => {
+    if (!queueId) return;
+    if (entry && entry.call_count >= 3) {
+      toast('Patient did not respond 3 times. Please return to Registration for check-in.', 'error');
+      return;
+    }
+    try {
+      await returnQueuePatientToQueue(Number(queueId));
+      setSuccessModal({
+        open: true,
+        title: 'Returned to Queue',
+        message: `Queue #${entry?.queue_number} has been returned to the waiting queue.`,
+      });
+      reload();
+      onSaved?.();
+    } catch {
+      toast('Failed to return patient to queue', 'error');
+    }
+  };
+
   const handleRecall = async () => {
     if (!queueId) return;
+    if (entry && entry.call_count >= 3) {
+      toast('Patient did not respond 3 times. Please return to Registration for check-in.', 'error');
+      return;
+    }
     try {
       await recallQueuePatient(Number(queueId));
       setSuccessModal({
@@ -693,7 +867,7 @@ export default function QueuePatientDetailModal({
     ) : (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 2, px: 2, py: 1.15, border: '1px solid #bbf7d0', borderRadius: 2, bgcolor: '#f0fdf4' }}>
         <Box><Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#166534' }}>Current episode · {(formEntry as any).incident?.episode_type === 're_exposure' ? 'Re-exposure' : 'Active assessment'}</Typography><Typography sx={{ fontSize: 11.5, color: '#15803d' }}>Save here only records this episode.</Typography></Box>
-        <Button size="small" onClick={() => setActiveTab('history')} sx={{ textTransform: 'none', fontWeight: 700, color: '#047857', whiteSpace: 'nowrap' }}>Previous episodes record</Button>
+        <Button size="small" onClick={() => setActiveTab('history')} sx={{ textTransform: 'none', fontWeight: 700, color: '#047857', whiteSpace: 'nowrap' }}>View previous episodes</Button>
       </Box>
     );
 
@@ -716,8 +890,19 @@ export default function QueuePatientDetailModal({
               open={true}
               entry={formEntry}
               onClose={onClose}
-              onSave={() => {
-                toast('Form 2 saved successfully · Patient referred to Treatment');
+              onSave={(savedData: any) => {
+                const notes = (savedData as any)?.queue?.consultation_notes || '';
+                const isReferralCompleted = Boolean((savedData as any)?.is_referral_completed);
+                const isNoTreatment = savedData?.queue?.status === 'completed' || notes.includes('No treatment required');
+                if (isReferralCompleted) {
+                  toast('Patient successfully Transferred/Referred · Queue visit completed');
+                } else if (isNoTreatment) {
+                  toast('Form 2 saved · Category I consultation finalized (No treatment required)');
+                } else if (notes.includes('Tetanus prophylaxis prescribed')) {
+                  toast('Form 2 saved · Category I referred to Treatment for Tetanus Prophylaxis');
+                } else {
+                  toast('Form 2 saved successfully · Patient referred to Treatment');
+                }
                 onSaved?.();
                 onClose();
               }}
@@ -733,11 +918,24 @@ export default function QueuePatientDetailModal({
         const isNewCaseAwaitingTriage = !historicalEpisode && entry.visit_type === 'new_case' && !entry.consultation_notes?.includes('Form 2');
         const isBoosterRequest = !historicalEpisode && entry.check_in_notes?.toLowerCase().includes('booster request');
         const isReExposure = !historicalEpisode && isReExposureAssessment(entry);
+        const isTransferredOut = !historicalEpisode && (
+          Boolean(entry.consultation_notes?.includes('Transferred')) ||
+          (entry.biteIncident as any)?.status === 'transferred_out' ||
+          (entry as any).incident?.status === 'transferred_out'
+        );
+        const isCategory1NoTreatment = !historicalEpisode && !isTransferredOut && (
+          Boolean(entry.consultation_notes?.includes('Category I — No treatment required')) ||
+          (((entry.biteIncident as any)?.exposure_category === 'I' || (entry as any).incident?.exposure_category === 'I' || entry.biteIncident?.severity === 'minor') && entry.status === 'completed')
+        );
         return (
           <Box sx={{ p: 2.5 }}>
             {episodeContext}
             {isNewCaseAwaitingTriage ? (
               <AwaitingTriageBanner isBoosterRequest={isBoosterRequest} isReExposure={isReExposure} />
+            ) : isTransferredOut ? (
+              <TransferredOutBanner facility={(entry.biteIncident as any)?.transferred_to_facility || (entry as any).incident?.transferred_to_facility} />
+            ) : isCategory1NoTreatment ? (
+              <Category1NoTreatmentBanner />
             ) : !editable ? (
               <ReadOnlyBanner />
             ) : null}
@@ -745,12 +943,12 @@ export default function QueuePatientDetailModal({
               open={true}
               entry={formEntry}
               onClose={onClose}
-              onSave={() => {
+              onSave={(savedData: any) => {
                 toast('Vaccination record saved successfully · Queue ticket completed');
                 onSaved?.();
                 onClose();
               }}
-              readOnly={!editable || isNewCaseAwaitingTriage}
+              readOnly={!editable || isNewCaseAwaitingTriage || isCategory1NoTreatment || isTransferredOut}
               inline={true}
             />
           </Box>
@@ -800,23 +998,36 @@ export default function QueuePatientDetailModal({
           <Typography sx={{ color: '#6b7280', fontSize: 14 }}>Loading patient queue details…</Typography>
         </Box>
       ) : error || !entry ? (
-        <Box sx={{ p: 4 }}>
-          <Alert severity="error">{error ?? 'Queue entry not found'}</Alert>
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-            <button
+        <Box sx={{ p: 3.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#111827' }}>
+              Queue Record Unavailable
+            </Typography>
+            <Tooltip title="Close">
+              <IconButton size="small" onClick={onClose} sx={{ color: '#9ca3af', '&:hover': { color: '#374151' } }}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+          <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 2 }}>
+            {error && (error.toLowerCase().includes('no query results') || error.toLowerCase().includes('not found'))
+              ? 'The requested queue record is unavailable or no longer exists.'
+              : (error ?? 'The requested queue record is unavailable or no longer exists.')}
+          </Alert>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant="outlined"
               onClick={onClose}
-              style={{
-                padding: '6px 14px',
-                backgroundColor: '#e5e7eb',
-                border: 'none',
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontSize: 13,
+              sx={{
+                textTransform: 'none',
                 fontWeight: 600,
+                color: '#4b5563',
+                borderColor: '#d1d5db',
+                '&:hover': { borderColor: '#9ca3af', bgcolor: '#f3f4f6' },
               }}
             >
               Close
-            </button>
+            </Button>
           </Box>
         </Box>
       ) : (
@@ -849,20 +1060,34 @@ export default function QueuePatientDetailModal({
           >
             {['waiting','called','in_consultation'].includes(entry.status) && (
               <MenuItem onClick={() => { setMenuAnchor(null); setNoRespDialog(true); }} sx={{ gap: 1.5, fontSize: 13 }}>
-                <NoRespIcon sx={{ fontSize: 17, color: '#9333ea' }} /> No Response
+                <NoRespIcon sx={{ fontSize: 17, color: '#9333ea' }} />
+                {entry.call_count >= 2 ? 'No Response (3/3)' : `No Response (${entry.call_count + 1}/3)`}
               </MenuItem>
             )}
             {['second_chance','final_recall'].includes(entry.status) && (
-              <MenuItem onClick={() => { setMenuAnchor(null); setRecallDialog(true); }} sx={{ gap: 1.5, fontSize: 13 }}>
-                <RecallIcon sx={{ fontSize: 17, color: '#ea580c' }} /> Recall
-              </MenuItem>
+              <>
+                <MenuItem
+                  disabled={entry.call_count >= 3}
+                  onClick={() => { setMenuAnchor(null); setReturnQueueDialog(true); }}
+                  sx={{ gap: 1.5, fontSize: 13, color: entry.call_count >= 3 ? '#9ca3af' : '#2563eb' }}
+                >
+                  <ReturnQueueIcon sx={{ fontSize: 17 }} /> Return to Waiting Queue
+                </MenuItem>
+                <MenuItem
+                  disabled={entry.call_count >= 3}
+                  onClick={() => { setMenuAnchor(null); setRecallDialog(true); }}
+                  sx={{ gap: 1.5, fontSize: 13, color: entry.call_count >= 3 ? '#9ca3af' : undefined }}
+                >
+                  <RecallIcon sx={{ fontSize: 17, color: entry.call_count >= 3 ? '#9ca3af' : '#ea580c' }} /> Recall
+                </MenuItem>
+              </>
             )}
             {entry.status === 'final_recall' && (
               <MenuItem onClick={() => { setMenuAnchor(null); setAbsentDialog(true); }} sx={{ gap: 1.5, fontSize: 13, color: '#dc2626' }}>
                 <AbsentIcon sx={{ fontSize: 17 }} /> Mark No-Show
               </MenuItem>
             )}
-            {userRole !== 'triage' && (
+            {userRole !== 'triage' && userRole !== 'treatment' && userRole !== 'admin' && (
               <MenuItem onClick={() => { setMenuAnchor(null); setCancelDialog(true); }} sx={{ gap: 1.5, fontSize: 13, color: '#dc2626' }}>
                 <CancelIcon sx={{ fontSize: 17 }} /> Cancel Queue Entry
               </MenuItem>
@@ -871,11 +1096,32 @@ export default function QueuePatientDetailModal({
 
           {/* Confirmation Dialogs */}
           {noRespDialog && (
-            <ConfirmationDialog variant="confirm" title="No Response"
-              message={<><strong>#{entry.queue_number} · {entry.patient?.name}</strong> did not respond. Move to Second Chance Queue?</>}
-              confirmLabel="Move to Second Chance" cancelLabel="Go Back"
+            <ConfirmationDialog
+              variant={entry.call_count >= 2 ? 'danger' : 'confirm'}
+              title={entry.call_count >= 2 ? 'No Response (3/3)' : `No Response (${entry.call_count + 1}/3)`}
+              message={
+                entry.call_count >= 2 ? (
+                  <>
+                    <strong>#{entry.queue_number} · {entry.patient?.name}</strong> did not respond 3 times.<br /><br />
+                    This will mark them as <strong>Requires Registration Check-in</strong> and remove them from active queues. The patient must return to Registration to check in again.
+                  </>
+                ) : (
+                  <><strong>#{entry.queue_number} · {entry.patient?.name}</strong> did not respond. Move to Second Chance Queue?</>
+                )
+              }
+              confirmLabel={entry.call_count >= 2 ? 'Mark Requires Check-in' : 'Move to Second Chance'}
+              cancelLabel="Go Back"
               onConfirm={() => { setNoRespDialog(false); handleNoResponse(); }}
-              onCancel={() => setNoRespDialog(false)} />
+              onCancel={() => setNoRespDialog(false)}
+            />
+          )}
+          {returnQueueDialog && (
+            <ConfirmationDialog variant="confirm"
+              title="Return to Waiting Queue"
+              message={<>Return <strong>#{entry.queue_number} · {entry.patient?.name}</strong> to the waiting queue?</>}
+              confirmLabel="Return to Queue" cancelLabel="Go Back"
+              onConfirm={() => { setReturnQueueDialog(false); handleReturnToQueue(); }}
+              onCancel={() => setReturnQueueDialog(false)} />
           )}
           {recallDialog && (
             <ConfirmationDialog variant="confirm"
@@ -1069,9 +1315,10 @@ type Form1Entry = QueueEntry & {
   patient_details?: unknown;
 };
 
-function Form1InlineView({ entry, readOnly: _readOnly }: { entry: Form1Entry; readOnly: boolean }) {
+export function Form1InlineView({ entry, readOnly: _readOnly }: { entry: Form1Entry; readOnly: boolean }) {
   const patient = toRecord(entry?.patient);
   const details = toRecord(firstNonEmpty(entry?.patient_details, patient.details));
+  const animalIncident = toRecord((entry as any).incident || (entry as any).bite_incident || (entry as any).biteIncident);
   const memberships = getPatientMemberships(entry?.patient);
 
   const philhealth = getMembershipByType(memberships, 'philhealth');
@@ -1102,6 +1349,14 @@ function Form1InlineView({ entry, readOnly: _readOnly }: { entry: Form1Entry; re
   return (
     <Box sx={{ bgcolor: 'var(--card-bg-solid, #ffffff)', borderRadius: 2, border: '1px solid var(--border-glow, #e5e7eb)', overflow: 'hidden' }}>
       {/* 1. Basic Information */}
+      <Form1Section title="Animal">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <Form1Field label="Species" value={asDisplayValue(animalIncident.animal_type)} capitalize />
+          <Form1Field label="Ownership" value={asDisplayValue(animalIncident.animal_status)} capitalize />
+          <Form1Field label="Available for 14-day observation" value={animalIncident.animal_available == null ? (animalIncident.animal_available_answered ? 'Unknown' : '—') : animalIncident.animal_available ? 'Yes' : 'No'} />
+          <Form1Field label="Condition" value={asDisplayValue(animalIncident.animal_observation_status)} capitalize />
+        </div>
+      </Form1Section>
       <Form1Section title="1. Basic Information">
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 2 }}>
           <Form1Field label="Last Name" value={asDisplayValue(patient.last_name)} />

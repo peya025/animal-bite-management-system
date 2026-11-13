@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../app/app_theme.dart';
 
 class CampaignBanner extends StatelessWidget {
-  const CampaignBanner({super.key});
+  const CampaignBanner({
+    super.key,
+    this.onStartWalkthrough,
+    this.onOpenFaq,
+    this.walkthroughButtonKey,
+  });
+
+  final VoidCallback? onStartWalkthrough;
+  final VoidCallback? onOpenFaq;
+  final GlobalKey? walkthroughButtonKey;
 
   @override
   Widget build(BuildContext context) {
@@ -12,7 +22,7 @@ class CampaignBanner extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.primary,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Stack(
         children: [
@@ -48,7 +58,7 @@ class CampaignBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Small pill badge: "March 2026"
+                // Small pill badge
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -59,7 +69,7 @@ class CampaignBanner extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
-                    'March 2026',
+                    'Patient Care Companion',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 10,
@@ -68,50 +78,106 @@ class CampaignBanner extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                // Title: "Anti-Rabies Awareness Month"
+                // Title
                 const Text(
-                  'Anti-Rabies\nAwareness Month',
+                  'Anti-Rabies\nAwareness & PEP Guide',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    height: 1.3,
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
                   ),
                 ),
                 const SizedBox(height: 14),
-                // CTA button: "View workflow →"
-                InkWell(
-                  onTap: () {},
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
+                // Action buttons row: Guide Walkthrough + FAQs
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    Material(
+                      key: walkthroughButtonKey,
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'View workflow',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                      child: InkWell(
+                        onTap: onStartWalkthrough,
+                        borderRadius: BorderRadius.circular(20),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 7.5,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                LucideIcons.compass,
+                                size: 14,
+                                color: AppColors.primaryDark,
+                              ),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'Guide walkthrough',
+                                  style: TextStyle(
+                                    color: AppColors.primaryDark,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 4),
+                              Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 14,
+                                color: AppColors.primaryDark,
+                              ),
+                            ],
                           ),
                         ),
-                        SizedBox(width: 4),
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 14,
-                          color: AppColors.primary,
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                    if (onOpenFaq != null)
+                      Material(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(20),
+                        child: InkWell(
+                          onTap: onOpenFaq,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.35),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  LucideIcons.helpCircle,
+                                  size: 13.5,
+                                  color: Colors.white,
+                                ),
+                                SizedBox(width: 5),
+                                Text(
+                                  'FAQs',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),

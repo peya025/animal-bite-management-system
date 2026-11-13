@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { lazy, Suspense, useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
+import { Typography } from '@mui/material';
 import api from '../../../shared/services/api';
 import { ROUTES } from '../../../shared/config/routes';
 import DashboardLayout from '../../../components/Layout/DashboardLayout';
@@ -14,6 +15,8 @@ import type { PsgcItem } from '../../patients/types';
 const PSGC_API = 'https://psgc.gitlab.io/api';
 const MIS_OR_CODE = '104300000';
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const AnnouncementManager = lazy(() => import('../../announcements/AnnouncementsPage'));
+type DashboardTab = 'overview' | 'cases' | 'vaccinations' | 'announcements';
 
 function isAuthenticated(): boolean {
   const token = localStorage.getItem('authToken');
@@ -37,7 +40,18 @@ export function SimpleDashboardPage() {
   });
   const [isLoading, setIsLoading] = useState<boolean>(() => !localStorage.getItem('userData'));
   const [setupCheckDone, setSetupCheckDone] = useState<boolean>(() => !!localStorage.getItem('userData'));
-  const [activeTab, setActiveTab] = useState<'overview' | 'cases' | 'vaccinations'>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const canManageAnnouncements = !!user && user.is_active !== false &&
+    ['admin', 'developer', 'registration', 'triage', 'treatment', 'doctor', 'nurse', 'staff'].includes(user.role);
+  const requestedTab = searchParams.get('tab');
+  const activeTab: DashboardTab = requestedTab === 'cases' || requestedTab === 'vaccinations' ||
+    (requestedTab === 'announcements' && canManageAnnouncements) ? requestedTab : 'overview';
+  const setActiveTab = (tab: DashboardTab) => setSearchParams(previous => {
+    const next = new URLSearchParams(previous);
+    if (tab === 'overview') next.delete('tab');
+    else next.set('tab', tab);
+    return next;
+  }, { replace: true });
   const [caseDistPeriod, setCaseDistPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
 
   // Location / Place & Barangay Risk State (Using Registration PSGC API)
@@ -296,32 +310,77 @@ export function SimpleDashboardPage() {
 
   return (
     <DashboardLayout pageTitle="Dashboard">
-      <div className="sd-dash-header" style={{ marginTop: '4px', marginBottom: '14px' }}>
-        <div>
-          <h1 style={{ margin: '0 0 3px 0', fontSize: '22px', lineHeight: 1.25 }}>Animal Bite Treatment Center</h1>
-          <p style={{ margin: 0, fontSize: '12px' }}>Overview · {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+      <div
+        className="sd-dashboard-container"
+        data-walkthrough="dashboard-overview"
+        data-tour="dashboard-overview"
+        style={{ width: '100%', minHeight: '100%' }}
+      >
+        <div className="sd-dash-header" data-walkthrough="dashboard-header" style={{ marginTop: '4px', marginBottom: '14px' }}>
+        <div data-walkthrough="dashboard-welcome" data-tour="dashboard-welcome">
+          <Typography
+            component="h1"
+            sx={{
+              fontFamily: 'Poppins',
+              fontSize: '24px',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
+            }}
+          >
+            Animal Bite Treatment Center
+          </Typography>
+          <Typography
+            sx={{
+              fontFamily: 'Poppins',
+              fontSize: '13px',
+              color: 'var(--text-secondary, #6b7280)',
+              m: 0,
+            }}
+          >
+            Overview · {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </Typography>
         </div>
-        <div className="sd-dash-tabs">
+        <div className="sd-dash-tabs" data-walkthrough="dashboard-tabs" data-tour="dashboard-tabs" style={{ flexWrap: 'wrap' }}>
           <button
             className={`sd-dash-tab ${activeTab === 'overview' ? 'sd-dash-tab--active' : ''}`}
             onClick={() => setActiveTab('overview')}
+            data-walkthrough="dashboard-tab-overview"
           >
             Overview
           </button>
           <button
             className={`sd-dash-tab ${activeTab === 'cases' ? 'sd-dash-tab--active' : ''}`}
             onClick={() => setActiveTab('cases')}
+            data-walkthrough="dashboard-tab-cases"
           >
             Cases
           </button>
           <button
             className={`sd-dash-tab ${activeTab === 'vaccinations' ? 'sd-dash-tab--active' : ''}`}
             onClick={() => setActiveTab('vaccinations')}
+            data-walkthrough="dashboard-tab-vaccinations"
           >
             Vaccinations
           </button>
+          {canManageAnnouncements && <button
+            className={`sd-dash-tab ${activeTab === 'announcements' ? 'sd-dash-tab--active' : ''}`}
+            onClick={() => setActiveTab('announcements')}
+          >
+            Announcements
+          </button>}
         </div>
       </div>
+
+      {activeTab === 'announcements' && canManageAnnouncements && (
+        <section aria-label="Staff announcement management">
+          <Suspense fallback={<p role="status">Loading announcement controls…</p>}>
+            <AnnouncementManager />
+          </Suspense>
+        </section>
+      )}
 
       {activeTab === 'overview' && (
         <>
@@ -339,225 +398,183 @@ export function SimpleDashboardPage() {
             {/* Calendar Card on the Left */}
             <SdCalendar />
 
-            {/* Cards Grid - Role Specific */}
-            <div style={{ minWidth: 0, height: '100%' }}>
-              {(() => {
-                switch (user?.role) {
-                  case 'admin':
-                    return (
-                      <div
-                        className="sd-cards-grid"
-                        style={{
-                          marginBottom: 0,
-                          gridTemplateColumns: 'repeat(4, 1fr)',
-                          gridTemplateRows: 'repeat(2, 1fr)',
-                          gap: '14px',
-                          height: '100%',
-                        }}
-                      >
-                        <SdCard color="purple"  label="Total Patients"      value={stats.totalPatients.toString()} sub="Registered" />
-                        <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
-                        <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
-                        <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
-                        <SdCard color="violet"  label="Completed Cases"      value={stats.completedCases.toString()} sub="This month" />
-                        <SdCard color="cyan"    label="Follow-up Patients"   value={stats.followupPatients.toString()} sub="This week" />
-                        <SdCard color="green"   label="Bite Cases"           value={stats.biteCases.toString()} sub="Total" />
-                        <SdCard color="emerald" label="New Today"            value={stats.newToday.toString()} sub="Registered" />
-                      </div>
-                    );
-                  case 'registration':
-                    return (
-                      <div
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(3, 1fr)',
-                          gap: '14px',
-                          height: '100%',
-                        }}
-                      >
-                        <SdCard color="purple"  label="Total Patients" value={stats.totalPatients.toString()} sub="Registered" />
-                        <SdCard color="teal"    label="Today's Queue"  value={stats.todayQueue.toString()} sub="Waiting" />
-                        <SdCard color="emerald" label="New Today"       value={stats.newToday.toString()} sub="Registered" />
-                      </div>
-                    );
-                  case 'triage':
-                    return (
-                      <div
-                        className="sd-cards-grid"
-                        style={{
-                          marginBottom: 0,
-                          gridTemplateColumns: 'repeat(3, 1fr)',
-                          gridTemplateRows: 'repeat(2, 1fr)',
-                          gap: '14px',
-                          height: '100%',
-                        }}
-                      >
-                        <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
-                        <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
-                        <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
-                        <SdCard color="purple"  label="Total Patients"       value={stats.totalPatients.toString()} sub="Registered" />
-                        <SdCard color="green"   label="Bite Cases"           value={stats.biteCases.toString()} sub="Total" />
-                        <SdCard color="violet"  label="Completed Cases"      value={stats.completedCases.toString()} sub="This month" />
-                      </div>
-                    );
-                  case 'treatment':
-                    return (
-                      <div
-                        className="sd-cards-grid"
-                        style={{
-                          marginBottom: 0,
-                          gridTemplateColumns: 'repeat(2, 1fr)',
-                          gridTemplateRows: 'repeat(2, 1fr)',
-                          gap: '14px',
-                          height: '100%',
-                        }}
-                      >
-                        <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
-                        <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
-                        <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
-                        <SdCard color="violet"  label="Completed Cases"      value={stats.completedCases.toString()} sub="This month" />
-                      </div>
-                    );
-                  default:
-                    return (
-                      <div
-                        className="sd-cards-grid"
-                        style={{
-                          marginBottom: 0,
-                          gridTemplateColumns: 'repeat(2, 1fr)',
-                          gridTemplateRows: 'repeat(2, 1fr)',
-                          gap: '14px',
-                          height: '100%',
-                        }}
-                      >
-                        <SdCard color="purple"  label="Total Patients"      value={stats.totalPatients.toString()} sub="Registered" />
-                        <SdCard color="blue"    label="Active Cases"         value={stats.activeCases.toString()} sub="Ongoing" />
-                        <SdCard color="indigo"  label="Pending Vaccinations" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
-                        <SdCard color="teal"    label="Today's Queue"        value={stats.todayQueue.toString()} sub="Waiting" />
-                      </div>
-                    );
-                }
-              })()}
+            {/* Cards Grid: Overview statistics + Cases summary + Vaccination summary */}
+            <div style={{ minWidth: 0 }}>
+              <div
+                className="sd-cards-grid"
+                data-walkthrough="dashboard-stat-cards" data-tour="dashboard-summary-cards"
+                style={{
+                  marginBottom: 0,
+                  gap: '12px',
+                }}
+              >
+                {/* 1. Overview Statistics */}
+                <SdCard color="purple" label="Total Patients" value={stats.totalPatients.toString()} sub="Registered" />
+                <SdCard color="teal" label="Today's Queue" value={stats.todayQueue.toString()} sub="Waiting" />
+                <SdCard color="emerald" label="New Today" value={stats.newToday.toString()} sub="Registered" />
+
+                {/* 2. Cases Summary Cards */}
+                <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" />
+                <SdCard color="blue" label="Active Cases" value={stats.activeCases.toString()} sub="Ongoing treatment" />
+                <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" />
+
+                {/* 3. Vaccination Summary Cards */}
+                <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
+                <SdCard color="purple" label="Total Scheduled" value={stats.followupPatients.toString()} sub="Doses tracked" />
+                <SdCard color="teal" label="Queue Count" value={stats.todayQueue.toString()} sub="Today waiting" />
+              </div>
             </div>
           </div>
 
-          {/* ── MIDDLE SECTION: Full-Width Filters Bar Directly Below Calendar and Cards ── */}
+          {/* ── SHARED CONTAINER: Filters (Top) + Cases Over Time & Vaccination Trend (Side-by-Side Below) ── */}
           <div
-            className="sd-filter-card"
+            className="sd-chart-card"
             style={{
-              marginBottom: '20px',
+              marginBottom: '18px',
               borderRadius: '20px',
-              padding: '18px 22px',
+              padding: '20px 24px',
             }}
           >
-            <p className="sd-filter-title" style={{ marginBottom: '14px', fontSize: '13.5px', fontWeight: 750 }}>
-              Filters
-            </p>
+            {/* Filters Section at the Top */}
+            <div style={{ marginBottom: '20px' }} data-walkthrough="dashboard-filters" data-tour="dashboard-filters">
+              <p className="sd-filter-title" style={{ marginBottom: '14px', fontSize: '13.5px', fontWeight: 750 }}>
+                Filters
+              </p>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(5, 1fr)',
+                  gap: '14px',
+                  alignItems: 'flex-end',
+                }}
+                className="sd-filters-bar-grid"
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }} data-walkthrough="filter-role">
+                  <span className="sd-filter-label">
+                    Role
+                  </span>
+                  <select className="sd-filter-select" style={{ width: '100%' }}>
+                    <option>All</option><option>Admin</option><option>Triage</option>
+                    <option>Registration</option><option>Treatment</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }} data-walkthrough="filter-status">
+                  <span className="sd-filter-label">
+                    Status
+                  </span>
+                  <select className="sd-filter-select" style={{ width: '100%' }}>
+                    <option>All</option><option>Ongoing</option>
+                    <option>Completed</option><option>Abandoned</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }} data-walkthrough="filter-date-range">
+                  <span className="sd-filter-label">
+                    Date Range
+                  </span>
+                  <select className="sd-filter-select" style={{ width: '100%' }}>
+                    <option>This Month</option><option>Last 3 Months</option>
+                    <option>Last 6 Months</option><option>This Year</option>
+                  </select>
+                </div>
+
+                <div data-walkthrough="btn-goto-patients">
+                  <button
+                    className="sd-filter-link"
+                    onClick={() => { navigate('/patients'); }}
+                    style={{ padding: '8px 12px', fontSize: '12.5px', justifyContent: 'center' }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                    </svg>
+                    Patients
+                  </button>
+                </div>
+
+                <div data-walkthrough="btn-goto-cases">
+                  <button
+                    className="sd-filter-link"
+                    onClick={() => { navigate('/bite-cases'); }}
+                    style={{ padding: '8px 12px', fontSize: '12.5px', justifyContent: 'center' }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                    Cases
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Divider line between Filters and Charts */}
+            <div style={{ height: '1px', background: 'var(--table-row-border, #f1f5f9)', width: '100%', marginBottom: '20px' }} />
+
+            {/* Cases Over Time & Vaccination Trend Side-by-Side Below Filters */}
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(5, 1fr)',
-                gap: '14px',
-                alignItems: 'flex-end',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '24px',
               }}
-              className="sd-filters-bar-grid"
+              className="sd-analytics-row"
+              data-walkthrough="dashboard-trends"
+              data-tour="dashboard-trends"
             >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span className="sd-filter-label">
-                  Role
-                </span>
-                <select className="sd-filter-select" style={{ width: '100%' }}>
-                  <option>All</option><option>Admin</option><option>Triage</option>
-                  <option>Registration</option><option>Treatment</option>
-                </select>
+              {/* Cases Over Time */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: '230px',
+                }}
+                data-walkthrough="chart-cases-over-time"
+              >
+                <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Cases Over Time <span>(last 6 months)</span></p>
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  <SdLineChart />
+                </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span className="sd-filter-label">
-                  Status
-                </span>
-                <select className="sd-filter-select" style={{ width: '100%' }}>
-                  <option>All</option><option>Ongoing</option>
-                  <option>Completed</option><option>Abandoned</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span className="sd-filter-label">
-                  Date Range
-                </span>
-                <select className="sd-filter-select" style={{ width: '100%' }}>
-                  <option>This Month</option><option>Last 3 Months</option>
-                  <option>Last 6 Months</option><option>This Year</option>
-                </select>
-              </div>
-
-              <div>
-                <button
-                  className="sd-filter-link"
-                  onClick={() => { navigate('/patients'); }}
-                  style={{ padding: '8px 12px', fontSize: '12.5px', justifyContent: 'center' }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                  </svg>
-                  Patients
-                </button>
-              </div>
-
-              <div>
-                <button
-                  className="sd-filter-link"
-                  onClick={() => { navigate('/bite-cases'); }}
-                  style={{ padding: '8px 12px', fontSize: '12.5px', justifyContent: 'center' }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                  </svg>
-                  Cases
-                </button>
+              {/* Vaccination Trend */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: '230px',
+                }}
+                data-walkthrough="chart-vaccination-trend"
+              >
+                <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Vaccination Trend <span>(last 6 months)</span></p>
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  <SdLineChart color="#3b82f6" />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* ── BOTTOM SECTION: 2-Column Analytics Layout ── */}
-          {/* Row 1: Cases Over Time (Left) & Case Distribution (Right) */}
+          {/* Row 2: Case Distribution (Left) & High & Low Risk Places (Right) */}
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
               gap: '18px',
-              marginBottom: '18px',
             }}
             className="sd-analytics-row"
+            data-walkthrough="dashboard-risk-row"
+            data-tour="dashboard-risk-row"
           >
-            {/* Cases Over Time */}
-            <div
-              className="sd-chart-card"
-              style={{
-                borderRadius: '20px',
-                padding: '20px 24px',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: '230px',
-              }}
-            >
-              <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Cases Over Time <span>(last 6 months)</span></p>
-              <div style={{ flex: 1, minHeight: 0 }}>
-                <SdLineChart />
-              </div>
-            </div>
-
             {/* Case Distribution */}
             <div
               className="sd-chart-card"
+              data-walkthrough="chart-case-distribution"
               style={{
                 borderRadius: '20px',
                 padding: '20px 24px',
                 display: 'flex',
                 flexDirection: 'column',
-                minHeight: '230px',
+                minHeight: '235px',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
@@ -565,6 +582,7 @@ export function SimpleDashboardPage() {
                   Case Distribution
                 </p>
                 <div
+                  data-walkthrough="case-dist-period-controls"
                   style={{
                     display: 'flex',
                     gap: '3px',
@@ -634,37 +652,11 @@ export function SimpleDashboardPage() {
                 />
               </div>
             </div>
-          </div>
-
-          {/* Row 2: Vaccination Trend (Left) & Animal Bite Severity (Right) */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '18px',
-            }}
-            className="sd-analytics-row"
-          >
-            {/* Vaccination Trend */}
-            <div
-              className="sd-chart-card"
-              style={{
-                borderRadius: '20px',
-                padding: '20px 24px',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: '235px',
-              }}
-            >
-              <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Vaccination Trend <span>(last 6 months)</span></p>
-              <div style={{ flex: 1, minHeight: 0 }}>
-                <SdLineChart color="#3b82f6" />
-              </div>
-            </div>
 
             {/* High & Low Risk Places Card with Registration PSGC API */}
             <div
               className="sd-chart-card"
+              data-walkthrough="chart-risk-places"
               style={{
                 borderRadius: '20px',
                 padding: '20px 24px',
@@ -683,7 +675,7 @@ export function SimpleDashboardPage() {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {/* Registration PSGC Municipality Dropdown Selector */}
-                  <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                  <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }} data-walkthrough="risk-places-municipality">
                     <select
                       value={selectedMunicipality}
                       onChange={(e) => setSelectedMunicipality(e.target.value)}
@@ -720,6 +712,7 @@ export function SimpleDashboardPage() {
                   {/* Bite Map link button */}
                   <button
                     type="button"
+                    data-walkthrough="btn-risk-places-bitemap"
                     onClick={() => navigate((ROUTES as any).BITE_MAP || '/bite-cases/map')}
                     style={{
                       display: 'inline-flex',
@@ -782,14 +775,14 @@ export function SimpleDashboardPage() {
       )}
 
       {activeTab === 'cases' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="sd-cards-grid">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} data-walkthrough="cases-tab-view">
+          <div className="sd-cards-grid" data-walkthrough="cases-tab-cards">
             <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" />
             <SdCard color="blue" label="Active Cases" value={stats.activeCases.toString()} sub="Ongoing treatment" />
             <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" />
           </div>
 
-          <div className="sd-chart-card" style={{ borderRadius: '20px', padding: '24px' }}>
+          <div className="sd-chart-card" data-walkthrough="table-recent-cases" style={{ borderRadius: '20px', padding: '24px' }}>
             <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: 'var(--text-h)' }}>Recent Bite Incident Cases</p>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -842,14 +835,14 @@ export function SimpleDashboardPage() {
       )}
 
       {activeTab === 'vaccinations' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="sd-cards-grid">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} data-walkthrough="vaccinations-tab-view">
+          <div className="sd-cards-grid" data-walkthrough="vaccinations-tab-cards">
             <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
             <SdCard color="purple" label="Total Scheduled" value={stats.followupPatients.toString()} sub="Doses tracked" />
             <SdCard color="teal" label="Queue Count" value={stats.todayQueue.toString()} sub="Today waiting" />
           </div>
 
-          <div className="sd-chart-card" style={{ borderRadius: '20px', padding: '24px' }}>
+          <div className="sd-chart-card" data-walkthrough="table-recent-vaccinations" style={{ borderRadius: '20px', padding: '24px' }}>
             <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: 'var(--text-h)' }}>Recent Vaccinations & Scheduled Doses</p>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -891,6 +884,7 @@ export function SimpleDashboardPage() {
           </div>
         </div>
       )}
+      </div>
     </DashboardLayout>
   );
 }
@@ -929,6 +923,8 @@ function SdCalendar() {
   return (
     <div
       className="sd-chart-card"
+      data-walkthrough="dashboard-calendar"
+      data-tour="dashboard-calendar"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -943,7 +939,7 @@ function SdCalendar() {
         <p className="sd-chart-title" style={{ margin: 0 }}>
           {monthNames[month]} {year}
         </p>
-        <div style={{ display: 'flex', gap: '5px' }}>
+        <div style={{ display: 'flex', gap: '5px' }} data-walkthrough="calendar-nav">
           <button
             onClick={prevMonth}
             style={{
@@ -1057,8 +1053,9 @@ function SdCalendar() {
 }
 
 function SdCard({ color, label, value, sub }: { color: string; label: string; value: string; sub: string }) {
+  const autoId = `card-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   return (
-    <div className={`sd-card sd-card--${color}`} style={{ height: '100%', boxSizing: 'border-box' }}>
+    <div className={`sd-card sd-card--${color}`} data-walkthrough={autoId} data-card-label={label}>
       <p className="sd-card-label">{label}</p>
       <p className="sd-card-value">{value}</p>
       <p className="sd-card-sub">{sub}</p>

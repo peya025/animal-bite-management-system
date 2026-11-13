@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react';
+import { useSavedExposureCategory } from '../hooks/useSavedExposureCategory';
+import ProphylaxisAdministrationSection from './ProphylaxisAdministrationSection';
+import type { ProphylaxisRecord } from './ProphylaxisAdministrationSection';
+import type { ProphylaxisAdministration, ProphylaxisStock } from '../../../shared/types/prophylaxis';
+import { isProphylaxisInventoryName } from '../../../shared/types/prophylaxis';
+import SignatureImage from '../../../shared/components/SignatureImage';
 import FormModal from '../../../components/forms/FormModal';
 import api from '../../../shared/services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { formatPhilHealthNumber } from '../../../shared/utils';
+import { isValidFourDigitYearDate } from '../../../shared/utils/date';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import {
   getNextFifoBatch,
   getVaccineNames,
@@ -10,9 +18,55 @@ import {
 } from '../../inventory/services/vaccineInventoryService';
 import type { VaccineTypePreset } from '../../inventory/types';
 import DohTransferSlipModal from './DohTransferSlipModal';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 import {
-  useAddressLocation,
-} from '../../patients/hooks/useAddressLocation';
+  SegmentedControl,
+  ChipGroup,
+  FormSection,
+  DoseCard,
+  DoseRow,
+} from './form3';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  LockIcon,
+  AlertCircleIcon,
+  CheckmarkCircle02Icon,
+} from '@hugeicons/core-free-icons';
+
+const BORDER_RADIUS = 8;
+
+const MODE_OF_EXPOSURE_CHIPS = [
+  { key: 'nibbling_uncovered', label: 'Lick, intact skin' },
+  { key: 'nibbling_wounded', label: 'Lick, broken skin' },
+  { key: 'scratch_abrasion', label: 'Scratch' },
+  { key: 'transdermal_bite', label: 'Bite' },
+  { key: 'handling_ingestion', label: 'Raw meat contact' },
+] as const;
+
+const BODY_PART_CHIPS = [
+  { key: 'head_neck', label: 'Head & neck' },
+  { key: 'upper_extremities', label: 'Arm / hand' },
+  { key: 'lower_extremities', label: 'Leg / foot' },
+  { key: 'trunk_torso', label: 'Trunk' },
+  { key: 'multiple_sites', label: 'Multiple' },
+  { key: 'na_ingestion', label: 'Ingestion' },
+] as const;
+
+export function cleanPurok(val: string): string {
+  if (!val) return '';
+  let cleaned = val.trim().replace(/\s+/g, ' ');
+  cleaned = cleaned.replace(/\b(purok|zone|sitio|block|blk|street|st|phase|prk)\b/gi, (match) => {
+    return match.charAt(0).toUpperCase() + match.slice(1).toLowerCase();
+  });
+  return cleaned;
+}
+
+const FORM3_ANIMAL_SPECIES_OPTIONS = [
+  { value: 'dog', label: 'Dog' },
+  { value: 'cat', label: 'Cat' },
+  { value: 'other', label: 'Other' },
+] as const;
 
 type ApiError = {
   response?: {
@@ -27,7 +81,7 @@ interface VaccinationRecordFormProps {
   open: boolean;
   entry: any;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (data?: any) => void;
   readOnly?: boolean;
   inline?: boolean;
 }
@@ -44,7 +98,6 @@ interface TreatmentFormData {
   date_of_birth: string;
   address: string;
   sex: 'male' | 'female' | '';
-  exposure_category: 'I' | 'II' | 'III' | '';
   date_of_exposure: string;
   date_treatment_started: string;
   place_of_exposure: string;
@@ -65,10 +118,14 @@ interface TreatmentFormData {
     na_ingestion: boolean;
   };
   body_part_affected_text: string;
-  animal_type: 'dog' | 'cat' | 'other' | '';
+  animal_type: string;
   animal_type_other: string;
-  past_history_bite: 'yes' | 'no' | '';
-  pep_completed: 'yes' | 'no' | '';
+  animal_status: 'owned' | 'stray' | 'unknown' | '';
+  animal_available: 'yes' | 'no' | 'unknown' | '';
+  animal_condition: 'healthy' | 'sick' | 'died' | 'unknown' | '';
+  past_history_bite: 'yes' | 'no' | 'unsure' | '';
+  past_bite_dates: string;
+  pep_completed: 'completed' | 'incomplete' | 'none' | 'unsure' | 'yes' | 'no' | '';
 }
 
 interface VaccinationDose {
@@ -82,6 +139,7 @@ interface VaccinationDose {
   license_no?: string;
   signature: string;
   signature_path?: string;
+  treatment_id?: number;
   vaccine_type: string;
   inventory_units_used: string;
   batch_number: string;
@@ -127,11 +185,7 @@ interface ExistingVaccinationRecord {
   external_facility_name?: string | null;
 }
 
-interface AdditionalMeds {
-  erig: boolean;
-  tt: boolean;
-  ats: boolean;
-}
+
 
 const PERIOD_TO_DOSE_NUMBER: Record<string, number> = {
   'Day 0': 0,
@@ -282,9 +336,8 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   date_of_birth: '',
   address: '',
   sex: '',
-  exposure_category: '',
-  date_of_exposure: '',
-  date_treatment_started: '',
+  date_of_exposure: getLocalDateString(),
+  date_treatment_started: getLocalDateString(),
   place_of_exposure: '',
   mode_of_exposure: {
     nibbling_uncovered: false,
@@ -305,7 +358,11 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   body_part_affected_text: '',
   animal_type: '',
   animal_type_other: '',
+  animal_status: 'unknown',
+  animal_available: 'unknown',
+  animal_condition: 'unknown',
   past_history_bite: '',
+  past_bite_dates: '',
   pep_completed: '',
 };
 
@@ -329,76 +386,36 @@ const formatDateForInput = (dateString: string | null | undefined): string => {
   }
 };
 
-export default function VaccinationRecordForm({ open, entry, onClose, onSave, readOnly = false, inline = false }: VaccinationRecordFormProps) {
-  const { user: currentUser } = useAuth();
-  const [formData, setFormData] = useState<TreatmentFormData>(INITIAL_FORM_DATA);
-
-  // ── Place of Exposure address location (same hook as Add Patient) ──────────
-  const expLoc = useAddressLocation();
-
-  // Sync composed address string → place_of_exposure field (Municipality + Barangay only)
-  useEffect(() => {
-    const parts = [expLoc.brgyName, expLoc.munName].filter(Boolean);
-    if (parts.length > 0) {
-      setFormData(prev => ({ ...prev, place_of_exposure: parts.join(', ') }));
-    }
-  }, [expLoc.munName, expLoc.brgyName]);
-
-  // Synchronize expLoc with existing place_of_exposure or default to Tagoloan for new cases
-  useEffect(() => {
-    if (!open) {
-      expLoc.setMunicipality('');
-      expLoc.setBarangay('');
-      expLoc.setUseManual(false);
-      expLoc.setManualMun('');
-      expLoc.setManualBrgy('');
-      return;
-    }
-
-    if (expLoc.loadingMun) return;
-
-    const rawPlace = (formData.place_of_exposure || '').trim();
-
-    if (rawPlace && !expLoc.municipality && !expLoc.manualMun) {
-      const parts = rawPlace.split(',').map(s => s.trim()).filter(Boolean);
-      
-      const matchedMun = expLoc.municipalities.find(m => 
-        parts.some(p => p.toLowerCase() === m.name.toLowerCase() || m.name.toLowerCase().includes(p.toLowerCase()))
-      );
-
-      if (matchedMun) {
-        expLoc.setMunicipality(matchedMun.code);
-      } else if (parts.length > 0) {
-        expLoc.setUseManual(true);
-        if (parts.length >= 2) {
-          expLoc.setManualBrgy(parts[0]);
-          expLoc.setManualMun(parts[1]);
-        } else {
-          expLoc.setManualMun(parts[0]);
-        }
-      }
-    } else if (!rawPlace && !expLoc.municipality && !expLoc.manualMun && expLoc.municipalities.length > 0) {
-      const tagoloan = expLoc.municipalities.find(m => m.name.toLowerCase() === 'tagoloan');
-      if (tagoloan) {
-        expLoc.setMunicipality(tagoloan.code);
-      }
-    }
-  }, [open, expLoc.loadingMun, expLoc.municipalities, formData.place_of_exposure]);
-
-  // When barangays finish loading for selected municipality, match the barangay from place_of_exposure
-  useEffect(() => {
-    if (!open || expLoc.useManual || !expLoc.barangays.length || expLoc.barangay) return;
-    const rawPlace = (formData.place_of_exposure || '').trim();
-    if (!rawPlace) return;
-
-    const parts = rawPlace.split(',').map(s => s.trim()).filter(Boolean);
-    const matchedBrgy = expLoc.barangays.find(b => 
-      parts.some(p => p.toLowerCase() === b.name.toLowerCase() || b.name.toLowerCase().includes(p.toLowerCase()))
+const hasAnyProphylaxisOrder = (orders: any): boolean => {
+  if (!orders) return false;
+  if (Array.isArray(orders)) return orders.length > 0;
+  if (typeof orders === 'object') {
+    return Boolean(
+      (orders.tetanus_category && orders.tetanus_category !== 'not_indicated') ||
+      (orders.tetanus_vaccine && orders.tetanus_vaccine !== 'none') ||
+      (orders.tetanus_passive && orders.tetanus_passive !== 'none') ||
+      (orders.rig && orders.rig !== 'none')
     );
-    if (matchedBrgy) {
-      expLoc.setBarangay(matchedBrgy.code);
-    }
-  }, [open, expLoc.barangays, expLoc.useManual, formData.place_of_exposure]);
+  }
+  return false;
+};
+
+export default function VaccinationRecordForm({ open, entry, onClose, onSave, readOnly = false, inline = false }: VaccinationRecordFormProps) {
+  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
+  const { user: currentUser } = useAuth();
+
+  // Draft key is scoped to patient + bite episode so each case has an isolated draft
+  const vacDraftPatientId = entry?.patient?.patient_id ?? entry?.patient?.id ?? null;
+  const vacDraftBiteId = entry?.bite_id ?? entry?.incident?.bite_id ?? entry?.bite_incident?.bite_id ?? entry?.biteIncident?.bite_id ?? null;
+  const vacDraftQueueId = entry?.queue_id ?? null;
+  const vacDraftKey = open && vacDraftPatientId && !readOnly
+    ? `vaccination-${vacDraftPatientId}${vacDraftBiteId ? `-b${vacDraftBiteId}` : ''}${vacDraftQueueId ? `-q${vacDraftQueueId}` : ''}`
+    : null;
+  const draft = useFormDraft(vacDraftKey);
+  // Whether to skip restoring the draft (once-per-open flag, flipped after first restore attempt)
+  const draftRestored = useState(false);
+
+  const [formData, setFormData] = useState<TreatmentFormData>(INITIAL_FORM_DATA);
   const [doses, setDoses] = useState<VaccinationDose[]>(createInitialDoses());
   
   // ── Immutability Logic: Lock patient info & exposure fields if ANY dose is completed ──────────
@@ -406,15 +423,47 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   // For new incidents, all doses are is_completed=false, so form stays unlocked.
   const hasCompletedDoseInCurrentIncident = doses.some(dose => dose.is_completed || dose.inventory_linked);
   const isFormLocked = readOnly || hasCompletedDoseInCurrentIncident;
+  // The nurse owns the remaining exposure and anatomical details; category is from Form 2.
+  // They lock only after a dose has been administered or in read-only mode.
+  const clinicalAssessmentLocked = isFormLocked;
+  const savedExposureCategory = useSavedExposureCategory(open,
+    entry?.patient?.patient_id || entry?.patient?.id,
+    entry?.bite_id || entry?.incident?.bite_id || entry?.bite_incident?.bite_id || entry?.biteIncident?.bite_id);
+  const exposureCategory = savedExposureCategory ?? '';
   
   const [showFullSchedule, setShowFullSchedule] = useState(false); // 8.1: expand to show Day 28 + Boosters
-  const [additionalMeds, setAdditionalMeds] = useState<AdditionalMeds>({
-    erig: false,
-    tt: false,
-    ats: false,
-  });
+  const [prophylaxisAdministrations, setProphylaxisAdministrations] = useState<ProphylaxisAdministration[]>([]);
+  const [prophylaxisRecords, setProphylaxisRecords] = useState<ProphylaxisRecord[]>([]);
+  const [prophylaxisStock, setProphylaxisStock] = useState<ProphylaxisStock | null | undefined>(undefined);
   const [icdCode, setIcdCode] = useState('');
   const [saving, setSaving] = useState(false);
+  const [signatureVersion, setSignatureVersion] = useState<string | null>(null);
+  const [signatureReady, setSignatureReady] = useState(false);
+  const [applySignature, setApplySignature] = useState(false);
+  const [signatureLoadError, setSignatureLoadError] = useState(false);
+  const [signatureRefresh, setSignatureRefresh] = useState(0);
+  const [form3Ready, setForm3Ready] = useState(true);
+  const [form3BlockReason, setForm3BlockReason] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    setApplySignature(false);
+    setSignatureReady(false);
+    setSignatureVersion(null);
+    setSignatureLoadError(false);
+    if (open && !readOnly) {
+      api.get('/staff-signature').then(response => {
+        if (active) {
+          const path = response.data?.signature_path;
+          setSignatureVersion(path || null);
+          if (path) {
+            setSignatureReady(true);
+            setApplySignature(true);
+          }
+        }
+      }).catch(() => { if (active) setSignatureLoadError(true); });
+    }
+    return () => { active = false; };
+  }, [open, readOnly, currentUser?.id, entry?.queue_id, entry?.patient_id, entry?.bite_id, signatureRefresh]);
   const [error, setError] = useState('');
   const [availableVaccineTypes, setAvailableVaccineTypes] = useState<string[]>([]);
   const [vaccinePresets, setVaccinePresets] = useState<VaccineTypePreset[]>([]);
@@ -430,7 +479,12 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   // Doctor's prescribed vaccine from Form 2 — hard-locks nurse's vaccine dropdown
   const [prescribedVaccineType, setPrescribedVaccineType] = useState('');
   const [latestConsultation, setLatestConsultation] = useState<any>(null);
+  const [previousConsultations, setPreviousConsultations] = useState<any[]>([]);
+  const [visitOutcome, setVisitOutcome] = useState<'administered' | 'not_administered'>('administered');
+  const [notAdministeredReason, setNotAdministeredReason] = useState('');
+  const [patientReportedIntake, setPatientReportedIntake] = useState<any>(null);
   const [showHistoricalPEP, setShowHistoricalPEP] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('');
 
   const isPhilHealthMember = Boolean(
     entry?.patient?.philhealth_member === 'yes' ||
@@ -441,6 +495,10 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   useEffect(() => {
     if (open && entry?.patient) {
+      setSelectedPeriod('');
+      setVisitOutcome('administered');
+      setNotAdministeredReason('');
+      setPreviousConsultations([]);
       const pObj = entry.patient;
       const dObj = entry.patient.details || {};
       const isMember = Boolean(
@@ -481,7 +539,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         getVaccineNames(),
         getVaccinePresets(),
       ]);
-      setAvailableVaccineTypes(Array.isArray(names) ? names : []);
+      setAvailableVaccineTypes(Array.isArray(names) ? names.filter(name => !isProphylaxisInventoryName(name)) : []);
       setVaccinePresets(Array.isArray(presets) ? presets : []);
       setInventorySetupMessage('');
     } catch {
@@ -511,18 +569,31 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   };
 
   const loadAllFormData = async () => {
+    setProphylaxisAdministrations([]);
+    setProphylaxisRecords([]);
+    setProphylaxisStock(undefined);
     const patientId = entry?.patient?.patient_id || entry?.patient?.id;
     if (!patientId) return;
 
     try {
       const activeBiteId = entry?.bite_id || entry?.incident?.bite_id || entry?.bite_incident?.bite_id || entry?.biteIncident?.bite_id;
       const biteIdParam = activeBiteId ? `?bite_id=${activeBiteId}` : '';
-      const [cardRes, apptRes, vacRes, incidentRes] = await Promise.all([
+      const [cardRes, apptRes, vacRes, incidentRes, stockRes] = await Promise.all([
         api.get(`/tagoloan-treatment-cards/patient/${patientId}${biteIdParam}`).catch(() => null),
         api.get(`/appointments?patient_id=${patientId}&status=scheduled`).catch(() => null),
         api.get(`/vaccination-records/patient/${patientId}${biteIdParam}`).catch(() => null),
         activeBiteId ? api.get(`/cases/${activeBiteId}`).catch(() => null) : Promise.resolve(null),
+        api.get('/inventory/prophylaxis-stock').catch(() => null),
       ]);
+
+      if (cardRes?.data) {
+        if (cardRes.data.form3_ready !== undefined) {
+          setForm3Ready(Boolean(cardRes.data.form3_ready));
+        }
+        if (cardRes.data.form3_block_reason !== undefined) {
+          setForm3BlockReason(cardRes.data.form3_block_reason);
+        }
+      }
 
       const isReturning = Boolean(vacRes?.data?.is_returning_new_bite);
       setIsReturningNewBite(isReturning);
@@ -530,14 +601,19 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
       const bite = vacRes?.data?.active_bite_incident || cardRes?.data?.bite_incident || entry?.incident;
       const card = cardRes?.data?.existing_card;
+      const intake = cardRes?.data?.patient_reported_intake;
+      setPatientReportedIntake(intake || null);
       const consultation = cardRes?.data?.latest_consultation;
       setLatestConsultation(consultation || null);
+      setPreviousConsultations(cardRes?.data?.previous_consultations || []);
       setDoctorPlanType(incidentRes?.data?.incident?.treatment_plan?.plan_type || consultation?.treatment_plan || bite?.treatment_plan?.plan_type || '');
       const appointments = apptRes?.data?.data || [];
       const records: ExistingVaccinationRecord[] = vacRes?.data?.vaccination_records || [];
 
       setCurrentIncident(bite || null);
       setExistingRecordsData(records);
+      setProphylaxisRecords(vacRes?.data?.prophylaxis_records || []);
+      setProphylaxisStock(stockRes?.data?.stock || null);
 
       // Read doctor's prescribed vaccine from treatment record (Form 2 → hard-locks Form 3)
       const doctorPrescribed = consultation?.prescribed_vaccine_type || '';
@@ -545,21 +621,24 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
       // 1. Resolve Day 0 and Exposure dates
       const day0Record = records.find((item) => item.dose_number === 0);
-      const day0AdministeredDate = formatDateForInput(day0Record?.treatment_date || day0Record?.scheduled_date);
+      const day0AdministeredDate = (day0Record && (day0Record.status === 'completed' || day0Record.treatment_date) && day0Record.status !== 'scheduled')
+        ? formatDateForInput(day0Record.treatment_date)
+        : '';
       const cardDate = formatDateForInput(card?.card_date);
-      const biteExposureDate = formatDateForInput(bite?.bite_date);
+      const biteExposureDate = formatDateForInput(bite?.bite_date || intake?.date_of_exposure || intake?.bite_date);
 
       // Date of Exposure is from bite incident (or fallback to card if any)
       const resolvedExposureDate = biteExposureDate || cardDate || '';
 
-      // Date Treatment Started is from Day 0 dose record, or saved treatment card date, or exposure date, or today for new unsaved forms
-      const treatmentStartDate = day0AdministeredDate || cardDate || biteExposureDate || (readOnly ? '' : getLocalDateString());
+      // Date Treatment Started is from actual Day 0 administration date, or today when Day 0 is not yet administered
+      const treatmentStartDate = day0AdministeredDate || (readOnly ? (cardDate || biteExposureDate || '') : getLocalDateString());
 
       // 2. Set Form Metadata
-      const mode = card?.mode_of_exposure || bite?.mode_of_exposure || '';
-      const bodyPart = card?.body_part_exposed || bite?.body_part_exposed || '';
-      const animal = card?.animal_type || bite?.animal_type || '';
-      const animalOther = card?.animal_type_others || bite?.animal_type_others || '';
+      const mode = card?.mode_of_exposure || bite?.mode_of_exposure || intake?.reported_mode_of_exposure || intake?.exposure_type || '';
+      const bodyPart = card?.body_part_exposed || bite?.body_part_exposed || intake?.body_part_group || intake?.body_part_exposed || '';
+      const bodyPartDetail = bite?.body_part_detail || bite?.site_number || intake?.body_part_detail || intake?.wound_location || '';
+      const animal = card?.animal_type || bite?.animal_type || intake?.animal_species || intake?.animal_type || '';
+      const animalOther = card?.animal_type_others || bite?.animal_type_others || intake?.animal_species_other || intake?.animal_type_others || '';
       const resolvedReferredBy = consultation?.referred_by || consultation?.referred_from || card?.referred_by || bite?.referred_from || '';
 
       // Clinic hospital number configured in Clinic Information
@@ -573,10 +652,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         registry_no: prev.registry_no || card?.registry_no || bite?.case_number || '',
         hospital_no: card?.hospital_no || clinicHospitalNo || prev.hospital_no || '',
         referred_by: resolvedReferredBy || prev.referred_by || '',
-        exposure_category: card?.exposure_category || prev.exposure_category || '',
-        date_of_exposure: resolvedExposureDate || prev.date_of_exposure,
-        date_treatment_started: treatmentStartDate || prev.date_treatment_started,
-        place_of_exposure: bite?.bite_place || prev.place_of_exposure,
+        date_of_exposure: resolvedExposureDate || prev.date_of_exposure || getLocalDateString(),
+        date_treatment_started: treatmentStartDate || prev.date_treatment_started || getLocalDateString(),
+        place_of_exposure: bite?.bite_place || intake?.place_of_exposure || intake?.bite_place || prev.place_of_exposure,
         date: cardDate || day0AdministeredDate || prev.date || getLocalDateString(),
         mode_of_exposure: {
           nibbling_uncovered: mode === 'nibbling_uncovered_skin',
@@ -594,11 +672,29 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           other_parts:       bodyPart === 'other_parts',
           na_ingestion:      bodyPart === 'na_ingestion',
         },
-        body_part_affected_text: bodyPart === 'head_neck' ? 'Head and/or neck' : bodyPart === 'other_parts' ? 'Other parts of the body' : bodyPart === 'na_ingestion' ? 'N/A if Ingestion mode' : (bodyPart || ''),
-        animal_type: animal.toLowerCase() === 'dog' ? 'dog' : animal.toLowerCase() === 'cat' ? 'cat' : animal ? 'other' : prev.animal_type,
-        animal_type_other: animalOther || (animal && !['dog', 'cat'].includes(animal.toLowerCase()) ? animal : ''),
-        past_history_bite: card?.past_bite_history ? 'yes' : card ? 'no' : prev.past_history_bite,
-        pep_completed: card?.past_pep_completed ? 'yes' : card ? 'no' : prev.pep_completed,
+        body_part_affected_text: bodyPartDetail || '',
+        animal_type: FORM3_ANIMAL_SPECIES_OPTIONS.some((option) => option.value === animal.toLowerCase())
+          ? animal.toLowerCase()
+          : animal
+            ? 'other'
+            : prev.animal_type,
+        animal_type_other: animalOther || (animal && !FORM3_ANIMAL_SPECIES_OPTIONS.some((option) => option.value === animal.toLowerCase()) ? animal : ''),
+        animal_status: (bite?.animal_status || intake?.animal_ownership || intake?.animal_status || prev.animal_status || 'unknown') as any,
+        animal_available: (bite?.animal_available != null
+          ? (bite.animal_available ? 'yes' : 'no')
+          : (intake?.animal_available != null
+            ? (intake.animal_available ? 'yes' : 'no')
+            : (prev.animal_available || 'unknown'))) as any,
+        animal_condition: (bite?.animal_observation_status
+          ? (bite.animal_observation_status === 'apparently_healthy' ? 'healthy' : (bite.animal_observation_status === 'dead' ? 'died' : bite.animal_observation_status))
+          : (intake?.animal_condition_reported === 'apparently_healthy' ? 'healthy' : (intake?.animal_condition_reported === 'dead' ? 'died' : (bite?.animal_condition_reported || intake?.animal_condition_reported || prev.animal_condition || 'unknown')))) as any,
+        past_history_bite: card
+          ? (card.past_bite_history ? 'yes' : 'no')
+          : (['yes', 'no', 'unsure'].includes(intake?.past_bite_history) ? intake.past_bite_history : prev.past_history_bite),
+        past_bite_dates: card?.past_bite_dates || intake?.past_bite_dates || prev.past_bite_dates,
+        pep_completed: card
+          ? (card.past_pep_completed ? 'completed' : (intake?.prior_pep_status || 'none'))
+          : (intake?.prior_pep_status || prev.pep_completed || ''),
       }));
 
       // 3. Map Doses cleanly
@@ -620,7 +716,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           const staff = getAdministeredStaff(record);
           const staffName = staff?.name || extractGivenBy(record.remarks, null) || (record.is_external ? (record.external_facility_name ? `External (${record.external_facility_name})` : 'External Clinic') : 'Staff Nurse');
           const staffLicense = staff?.professional_license_no || '';
-          const signaturePath = staff?.signature_path || record.signature || '';
+          const signaturePath = record.signature || '';
 
           return {
             ...dose,
@@ -630,6 +726,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             license_no: staffLicense,
             signature: record.signature || (signaturePath ? 'On File' : ''),
             signature_path: signaturePath,
+            treatment_id: record.treatment_id,
             vaccine_type: record.vaccine_brand || record.vaccine_generic || '',
             inventory_units_used: (record.inventory_units_used !== null && record.inventory_units_used !== undefined) ? String(record.inventory_units_used) : '1',
             batch_number: record.batch_no || '',
@@ -661,7 +758,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       });
 
       // 4. Auto-prepare active follow-up dose (either late or on time) ready to update
-      if (!readOnly) {
+      const isCat1Case = bite?.exposure_category === 'I' || bite?.severity === 'minor' || consultation?.treatment_plan === 'no_vaccine';
+      if (!readOnly && !isCat1Case) {
         const staffInfo = getLoggedInStaffInfo();
 
         let activeIdx = -1;
@@ -695,10 +793,22 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             schedule_drift_days: driftDays,
             given_by: currentUser?.name || activeDose.given_by || staffInfo.name || 'Staff Nurse',
             license_no: currentUser?.professional_license_no || '',
-            signature: currentUser?.signature_path ? 'On File' : (staffInfo.signature || ''),
-            signature_path: currentUser?.signature_path || '',
+            signature: '',
+            signature_path: '',
             vaccine_type: activeDose.vaccine_type || preferredVaccine,
           };
+
+          // When Day 0 is being administered today, ensure Day 3, Day 7, and Day 28
+          // follow-up dates are calculated from today's actual Day 0 administration date,
+          // never from an earlier unadministered consultation date.
+          if (activeIdx === 0) {
+            const recalculated = calculateDoseDates(todayStr, mappedDoses);
+            for (let i = 1; i < mappedDoses.length; i++) {
+              if (!mappedDoses[i].is_completed && !mappedDoses[i].inventory_linked) {
+                mappedDoses[i] = { ...mappedDoses[i], date: recalculated[i].date };
+              }
+            }
+          }
 
           // If preferred vaccine is available and batch is not yet set, trigger FIFO batch fetch
           if (preferredVaccine && !activeDose.batch_number) {
@@ -740,6 +850,42 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  const scrollToFirstError = (elementId: string) => {
+    setTimeout(() => {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+
+      let scrollParent: HTMLElement | null = el.parentElement;
+      while (scrollParent && scrollParent !== document.body) {
+        const overflowY = window.getComputedStyle(scrollParent).overflowY;
+        if (overflowY === 'auto' || overflowY === 'scroll') {
+          break;
+        }
+        scrollParent = scrollParent.parentElement;
+      }
+
+      if (scrollParent && scrollParent !== document.body) {
+        const parentRect = scrollParent.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const relativeTop = elRect.top - parentRect.top + scrollParent.scrollTop;
+        scrollParent.scrollTo({
+          top: Math.max(0, relativeTop - 24),
+          behavior: 'smooth',
+        });
+      } else {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      const focusable = el.querySelector<HTMLElement>(
+        'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex="0"]'
+      ) || (el.matches('input, select, textarea, button') ? el : null);
+
+      if (focusable) {
+        focusable.focus({ preventScroll: true });
+      }
+    }, 50);
+  };
+
   const handleFieldChange = (key: keyof TreatmentFormData) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -750,7 +896,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
     if (key === 'date_of_exposure') {
       setFormData(prev => {
-        // Only set date_treatment_started if it's currently blank; do NOT overwrite existing saved or chosen date
         const nextTreatmentDate = prev.date_treatment_started || value;
         if (!prev.date_treatment_started && value) {
           setDoses(d => calculateDoseDates(value, d));
@@ -771,13 +916,15 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       setFormData(prev => ({ ...prev, [key]: value }));
     }
 
-    if (fieldErrors[key]) {
-      setFieldErrors(prev => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-    }
+    setFieldErrors(prev => {
+      if (!prev[key] && (key !== 'body_part_affected_text' || !prev.body_part_affected)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      if (key === 'body_part_affected_text' && value.trim()) {
+        delete next.body_part_affected;
+      }
+      return next;
+    });
   };
 
   const handleCheckboxChange = (section: 'mode_of_exposure' | 'body_part_affected', key: string) => (
@@ -804,6 +951,22 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   const handleDoseChange = (index: number, field: keyof VaccinationDose, value: string | boolean) => {
     if (doses[index]?.is_completed || doses[index]?.inventory_linked) return;
+    const currentPeriod = doses[index]?.period;
+
+    setFieldErrors(fe => {
+      const next = { ...fe };
+      if (currentPeriod) {
+        delete next[`dose_${currentPeriod}_${String(field)}`];
+        delete next[`dose_${currentPeriod}_date`];
+        delete next[`dose_${currentPeriod}_route`];
+        delete next[`dose_${currentPeriod}_external_facility_name`];
+      }
+      if (field === 'date') delete next.dose_date;
+      if (field === 'route') delete next.route;
+      if (field === 'external_facility_name') delete next.external_facility_name;
+      return next;
+    });
+
     setDoses(prev => {
       const updated = prev.map((dose, i) => {
         if (i === index) {
@@ -835,6 +998,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     if (!selectedDose || selectedDose.is_completed || selectedDose.inventory_linked) return;
 
     setFifoErrors(prev => ({ ...prev, [selectedDose.period]: '' }));
+    setFieldErrors(fe => {
+      const next = { ...fe };
+      delete next[`dose_${selectedDose.period}_vaccine_type`];
+      delete next.vaccine_type;
+      delete next[`fifo_${selectedDose.period}`];
+      delete next.fifo;
+      return next;
+    });
 
     const todayStr = getLocalDateString();
     const suggestedUnits = vaccineType ? getSuggestedWholeUnits(vaccineType) : '1';
@@ -912,66 +1083,73 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     }
   };
 
+  // ── Auto-save draft whenever formData or non-completed dose fields change ───
+  // We only draft when the form is actively being edited (not readOnly, not locked).
+  // The dependency on formData / doses triggers a debounced write via useFormDraft.
+  useEffect(() => {
+    if (!open || readOnly || isFormLocked) return;
+    const pendingDoses = doses.filter(d => !d.is_completed && !d.inventory_linked);
+    draft.saveDraft({ formData, pendingDoses });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, doses]);
+
+  const FIELD_ORDER = [
+    'mode_of_exposure',
+    'body_part_affected',
+    'body_part_affected_text',
+    'animal_type',
+    'animal_type_other',
+    'animal_status',
+    'animal_available',
+    'animal_condition',
+    'past_history_bite',
+    'past_bite_dates',
+    'pep_completed',
+    'dose_route',
+    'dose_date',
+    'vaccine_type',
+    'external_facility_name',
+    'fifo',
+  ];
+
+  const getElementIdForErrorKey = (errorKey: string, period: string): string => {
+    if (errorKey === 'mode_of_exposure') return 'field-mode_of_exposure';
+    if (errorKey === 'body_part_affected') return 'field-body_part_affected';
+    if (errorKey === 'body_part_affected_text') return 'field-body_part_affected_text';
+    if (errorKey === 'animal_type') return 'field-animal_type';
+    if (errorKey === 'animal_type_other') return 'field-animal_type_other';
+    if (errorKey === 'animal_status') return 'field-animal_status';
+    if (errorKey === 'animal_available') return 'field-animal_available';
+    if (errorKey === 'animal_condition') return 'field-animal_condition';
+    if (errorKey === 'past_history_bite') return 'field-past_history_bite';
+    if (errorKey === 'past_bite_dates') return 'field-past_bite_dates';
+    if (errorKey === 'pep_completed') return 'field-pep_completed';
+    if (errorKey.includes('route')) return `field-dose_route-${period}`;
+    if (errorKey.includes('date') && errorKey.includes('dose')) return `field-dose_date-${period}`;
+    if (errorKey === 'dose_date') return `field-dose_date-${period}`;
+    if (errorKey.includes('vaccine_type') || errorKey === 'vaccine_type') return `field-vaccine_type-${period}`;
+    if (errorKey.includes('external_facility') || errorKey === 'external_facility_name') return `field-dose_external_facility-${period}`;
+    if (errorKey.includes('fifo') || errorKey === 'fifo') return `field-fifo-${period}`;
+    return `field-${errorKey}`;
+  };
+
   const handleSubmit = async () => {
     const newFieldErrors: Record<string, string> = {};
-    const today = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
 
-    if (isPhilHealthMember && formData.philhealth_pin && formData.philhealth_pin.replace(/\D/g, '').length !== 12) {
-      newFieldErrors.philhealth_pin = 'PhilHealth PIN must be exactly 12 digits.';
-    }
-    if (!formData.exposure_category) {
-      newFieldErrors.exposure_category = 'Please select Exposure Category';
-    }
-    if (!formData.date_of_exposure) {
-      newFieldErrors.date_of_exposure = 'Please enter Date of Exposure';
-    } else if (formData.date_of_exposure > today) {
-      newFieldErrors.date_of_exposure = 'Date of Exposure cannot be a future date.';
-    }
-    if (formData.date_treatment_started && formData.date_treatment_started > today) {
-      newFieldErrors.date_treatment_started = 'Date Treatment Started cannot be a future date.';
-    }
-
-    // Validate dose dates — only check doses the nurse is actually submitting now
-    // (has vaccine_type + date set, not already completed).
-    // Scheduled future rows (Day 3, Day 7) without a vaccine type selected are skipped.
-    // NOTE: actual check happens below after filledDoses is computed
-
-    setFieldErrors(newFieldErrors);
-
-    if (Object.keys(newFieldErrors).length > 0) {
-      const errorList = Object.values(newFieldErrors);
-      setError(`Required: ${errorList.join(' • ')}`);
-
-      const fieldOrder = ['philhealth_pin', 'exposure_category', 'date_of_exposure'];
-      const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
-
-      if (firstErrorKey) {
-        setTimeout(() => {
-          const el = document.getElementById(`field-${firstErrorKey}`);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            const scrollParent = el.closest('[class*="Body"]') || el.closest('.fm-body');
-            if (scrollParent) {
-              const rect = el.getBoundingClientRect();
-              const parentRect = scrollParent.getBoundingClientRect();
-              if (rect.top < parentRect.top || rect.bottom > parentRect.bottom) {
-                scrollParent.scrollBy({ top: rect.top - parentRect.top - 40, behavior: 'smooth' });
-              }
-            }
-            const focusable = el.querySelector('input, select') as HTMLElement;
-            if (focusable) {
-              focusable.focus({ preventScroll: true });
-            }
-          }
-        }, 50);
+    if (!clinicalAssessmentLocked) {
+      if (!Object.values(formData.mode_of_exposure).some(Boolean)) {
+        newFieldErrors.mode_of_exposure = 'Please select an option.';
       }
-      return;
+      if (!Object.values(formData.body_part_affected).some(Boolean) && !formData.body_part_affected_text.trim()) {
+        newFieldErrors.body_part_affected = 'Please select an option.';
+      }
+ else if (formData.animal_type === 'other' && !formData.animal_type_other.trim()) {
+        newFieldErrors.animal_type_other = 'This field is required.';
+      }
     }
-
-    const patientId = entry?.patient?.patient_id || entry?.patient?.id;
 
     // Auto-fill today's date for candidate doses with vaccine type selected
-    const todayStr = getLocalDateString();
     const candidateDoses = doses.map(d => {
       if (d.vaccine_type && !d.date) {
         return { ...d, date: todayStr };
@@ -982,7 +1160,6 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     // Only submit active uncompleted doses being administered today
     const filledDoses = candidateDoses.filter(d => {
       if (d.is_completed || !d.date || !d.vaccine_type) return false;
-      // 22.1 — block prerequisite-locked doses from being submitted
       const PREREQ: Record<string, string> = { 'Day 3': 'Day 0', 'Day 7': 'Day 3', 'Day 28': 'Day 7', 'Booster 2': 'Booster 1' };
       const prereqPeriod = PREREQ[d.period];
       if (prereqPeriod) {
@@ -991,26 +1168,143 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       }
       return true;
     });
-    if (filledDoses.length === 0) {
-      setError("Please select a Vaccine Type for today's dose before saving.");
+
+    const isCat1OrNoVaccine = exposureCategory === 'I'
+      || currentIncident?.exposure_category === 'I'
+      || currentIncident?.severity === 'minor'
+      || doctorPlanType === 'no_vaccine';
+
+    const activeDose = (isCat1OrNoVaccine || visitOutcome === 'not_administered')
+      ? undefined
+      : candidateDoses.find(d => !d.is_completed && !d.inventory_linked && !isDosePrerequisiteLocked(d.period));
+    const targetPeriod = activeDose ? activeDose.period : activeUnlockedPeriod;
+
+    if (visitOutcome === 'not_administered' && !notAdministeredReason.trim()) {
+      setError('Please provide the reason why no injection was administered during this visit.');
       return;
     }
 
-    // Validate: doses being submitted now cannot have future dates
-    const futureDose = filledDoses.find(d => d.date && d.date > todayStr);
+    if (activeDose && prophylaxisAdministrations.length === 0) {
+      if (!activeDose.vaccine_type) {
+        newFieldErrors[`dose_${activeDose.period}_vaccine_type`] = 'Please select an option.';
+        newFieldErrors.vaccine_type = 'Please select an option.';
+      }
+      if (isSectionEnabled('treatment_section_enabled') && isFieldRequired('route')) {
+        if (!activeDose.route) {
+          newFieldErrors[`dose_${activeDose.period}_route`] = 'Route is required.';
+          newFieldErrors.route = 'Route is required.';
+        }
+      }
+      if (!activeDose.date) {
+        newFieldErrors[`dose_${activeDose.period}_date`] = 'Please enter a valid date.';
+        newFieldErrors.dose_date = 'Please enter a valid date.';
+      } else if (!isValidFourDigitYearDate(activeDose.date)) {
+        newFieldErrors[`dose_${activeDose.period}_date`] = 'Please enter a valid 4-digit year.';
+        newFieldErrors.dose_date = 'Please enter a valid 4-digit year.';
+      } else if (activeDose.date > todayStr) {
+        newFieldErrors[`dose_${activeDose.period}_date`] = 'Date cannot be a future date.';
+        newFieldErrors.dose_date = 'Date cannot be a future date.';
+      }
+      if (activeDose.is_external && !activeDose.external_facility_name?.trim()) {
+        newFieldErrors[`dose_${activeDose.period}_external_facility_name`] = 'This field is required.';
+        newFieldErrors.external_facility_name = 'This field is required.';
+      }
+      if (!activeDose.is_external && fifoErrors[activeDose.period]) {
+        newFieldErrors[`fifo_${activeDose.period}`] = fifoErrors[activeDose.period];
+        newFieldErrors.fifo = fifoErrors[activeDose.period];
+      }
+    }
+
+    setFieldErrors(newFieldErrors);
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setError('');
+      const firstErrorKey = FIELD_ORDER.find(key => (
+        newFieldErrors[key] ||
+        newFieldErrors[`dose_${targetPeriod}_${key}`] ||
+        newFieldErrors[`dose_${targetPeriod}_date`] && key === 'dose_date' ||
+        newFieldErrors[`dose_${targetPeriod}_vaccine_type`] && key === 'vaccine_type' ||
+        newFieldErrors[`dose_${targetPeriod}_external_facility_name`] && key === 'external_facility_name' ||
+        newFieldErrors[`fifo_${targetPeriod}`] && key === 'fifo'
+      )) || Object.keys(newFieldErrors)[0];
+
+      if (firstErrorKey) {
+        const elementId = getElementIdForErrorKey(firstErrorKey, targetPeriod);
+        scrollToFirstError(elementId);
+      }
+      return;
+    }
+
+    const patientId = entry?.patient?.patient_id || entry?.patient?.id;
+
+    if (!form3Ready) {
+      setError(form3BlockReason || 'Form 3 administration is locked for this patient.');
+      return;
+    }
+
+    const isCat1Submit = exposureCategory === 'I'
+      || currentIncident?.exposure_category === 'I'
+      || currentIncident?.severity === 'minor';
+
+    if ((isCat1Submit || doctorPlanType === 'no_vaccine') && filledDoses.length > 0) {
+      setError('Rabies vaccine doses cannot be administered for Category I exposures.');
+      return;
+    }
+
+    if (currentUser?.role === 'triage') {
+      setError('Triage doctors are not permitted to record vaccine doses (Form 3). Dose administration must be recorded by the Treatment Nurse.');
+      return;
+    }
+
+    if (visitOutcome !== 'not_administered' && filledDoses.length === 0 && prophylaxisAdministrations.length === 0) {
+      setError("Select a vaccine dose or record a prescribed prophylaxis administration before saving.");
+      return;
+    }
+
+    const effectiveFilledDoses = visitOutcome === 'not_administered' ? [] : filledDoses;
+
+    const invalidYearDose = effectiveFilledDoses.find(d => d.date && !isValidFourDigitYearDate(d.date));
+    if (invalidYearDose) {
+      newFieldErrors[`dose_${invalidYearDose.period}_date`] = 'Please enter a valid 4-digit year.';
+      newFieldErrors.dose_date = 'Please enter a valid 4-digit year.';
+      setFieldErrors(newFieldErrors);
+      scrollToFirstError(`field-dose_date-${invalidYearDose.period}`);
+      return;
+    }
+
+    const futureDose = effectiveFilledDoses.find(d => d.date && d.date > todayStr);
     if (futureDose) {
-      setError(`${futureDose.period} administration date cannot be a future date.`);
+      newFieldErrors[`dose_${futureDose.period}_date`] = 'Date cannot be a future date.';
+      newFieldErrors.dose_date = 'Date cannot be a future date.';
+      setFieldErrors(newFieldErrors);
+      scrollToFirstError(`field-dose_date-${futureDose.period}`);
       return;
     }
 
-    for (const d of filledDoses) {
+    const invalidProphDate = prophylaxisAdministrations.find(p => p.date && !isValidFourDigitYearDate(p.date));
+    if (invalidProphDate) {
+      setError('Please enter a valid 4-digit year for prophylaxis administration date.');
+      return;
+    }
+
+    const missingNotAdminReason = prophylaxisAdministrations.find(
+      p => p.status === 'not_administered' && !p.not_administered_reason?.trim()
+    );
+    if (missingNotAdminReason) {
+      setError(`Please provide a reason why ${missingNotAdminReason.medication} was not administered.`);
+      return;
+    }
+
+    for (const d of effectiveFilledDoses) {
       const units = parseInt(d.inventory_units_used, 10);
       if (isNaN(units) || units < 0) {
         setError(`Please enter valid Stock Units Used (0 for shared open vial, or 1+ for new vial) for ${d.period}.`);
         return;
       }
       if (!d.inventory_linked && fifoErrors[d.period] && units > 0) {
-        setError(`Cannot save dose ${d.period}: ${fifoErrors[d.period]}`);
+        newFieldErrors[`fifo_${d.period}`] = fifoErrors[d.period];
+        setFieldErrors(newFieldErrors);
+        scrollToFirstError(`field-fifo-${d.period}`);
         return;
       }
     }
@@ -1018,28 +1312,34 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
     setError('');
     setSaving(true);
 
+    const activeBite = currentIncident || entry?.incident || entry?.bite_incident || entry?.biteIncident;
+    const incidentPlace = (formData.place_of_exposure || activeBite?.bite_place || '').trim();
+
     try {
       await api.post('/vaccination-records', {
         patient_id: patientId,
         queue_id: entry.queue_id,
+        apply_signature: Boolean(applySignature && (signatureReady || signatureVersion)),
+        signature_version: (applySignature && signatureVersion) ? signatureVersion : null,
         ...formData,
+        place_of_exposure: incidentPlace || null,
         mode_of_exposure: Object.keys(formData.mode_of_exposure).filter(
           key => formData.mode_of_exposure[key as keyof typeof formData.mode_of_exposure]
         ),
-        body_part_affected: formData.body_part_affected_text
-          ? [formData.body_part_affected_text]
-          : Object.keys(formData.body_part_affected).filter(
-              key => formData.body_part_affected[key as keyof typeof formData.body_part_affected]
-            ),
-        body_part_exposed: formData.body_part_affected_text || undefined,
-        animal_type: formData.animal_type || 'dog',
-        animal_type_other: formData.animal_type === 'other' ? formData.animal_type_other : '',
-        doses: filledDoses.map(d => ({
+        body_part_affected: Object.keys(formData.body_part_affected).filter(
+          key => formData.body_part_affected[key as keyof typeof formData.body_part_affected]
+        ),
+        body_part_detail: formData.body_part_affected_text || null,
+        animal_type: undefined,
+        animal_type_other: undefined,
+        animal_status: undefined,
+        animal_available: undefined,
+        animal_condition: undefined,
+        doses: effectiveFilledDoses.map(d => ({
           period: d.period,
           route: d.route || null,
           date: d.date || todayStr,
           given_by: currentUser?.name || d.given_by || null,
-          signature: currentUser?.signature_path || d.signature || null,
           vaccine_type: d.vaccine_type,
           inventory_units_used: d.is_external ? 0 : (parseInt(d.inventory_units_used, 10) || 0),
           is_external: Boolean(d.is_external),
@@ -1047,14 +1347,93 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         })),
         bite_id: currentIncident?.bite_id || entry?.bite_id || entry?.incident?.bite_id || entry?.bite_incident?.bite_id || entry?.biteIncident?.bite_id || null,
         episode_type: manualReExposure ? 're_exposure' : (currentIncident?.episode_type || entry?.incident?.episode_type || 'primary'),
-        additional_meds: additionalMeds,
+        prophylaxis_administrations: prophylaxisAdministrations,
+        visit_outcome: visitOutcome === 'not_administered' ? 'not_administered' : 'administered',
+        not_administered_reason: visitOutcome === 'not_administered' ? notAdministeredReason.trim() : null,
         icd_code: icdCode || null,
       });
 
       onSave();
+      draft.clearDraft();
       onClose();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save treatment record');
+      if (err.response?.status === 422 && err.response?.data?.errors) {
+        const backendErrors = err.response.data.errors;
+        const mappedErrors: Record<string, string> = {};
+
+        for (const [key, msgs] of Object.entries(backendErrors)) {
+          const msg = Array.isArray(msgs) ? msgs[0] : String(msgs);
+          if (key === 'mode_of_exposure' || key.startsWith('mode_of_exposure.')) {
+            mappedErrors.mode_of_exposure = msg;
+          } else if (key === 'body_part_affected' || key.startsWith('body_part_affected.')) {
+            mappedErrors.body_part_affected = msg;
+          } else if (key === 'body_part_detail') {
+            mappedErrors.body_part_affected_text = msg;
+          } else if (key === 'place_of_exposure') {
+            mappedErrors.place_of_exposure = msg;
+          } else if (key === 'animal_type') {
+            mappedErrors.animal_type = msg;
+          } else if (key === 'animal_type_other') {
+            mappedErrors.animal_type_other = msg;
+          } else if (key === 'animal_status') {
+            mappedErrors.animal_status = msg;
+          } else if (key === 'animal_available') {
+            mappedErrors.animal_available = msg;
+          } else if (key === 'animal_condition') {
+            mappedErrors.animal_condition = msg;
+          } else if (key === 'past_history_bite') {
+            mappedErrors.past_history_bite = msg;
+          } else if (key === 'past_bite_dates') {
+            mappedErrors.past_bite_dates = msg;
+          } else if (key === 'pep_completed') {
+            mappedErrors.pep_completed = msg;
+          } else if (key.startsWith('doses.')) {
+            const parts = key.split('.');
+            const doseIdx = parseInt(parts[1], 10);
+            const doseField = parts[2];
+            const dosePeriod = filledDoses[doseIdx]?.period || targetPeriod;
+            if (doseField === 'vaccine_type') {
+              mappedErrors[`dose_${dosePeriod}_vaccine_type`] = msg;
+              mappedErrors.vaccine_type = msg;
+            } else if (doseField === 'date') {
+              mappedErrors[`dose_${dosePeriod}_date`] = msg;
+              mappedErrors.dose_date = msg;
+            } else if (doseField === 'route') {
+              mappedErrors[`dose_${dosePeriod}_route`] = msg;
+              mappedErrors.route = msg;
+            } else if (doseField === 'external_facility_name') {
+              mappedErrors[`dose_${dosePeriod}_external_facility_name`] = msg;
+              mappedErrors.external_facility_name = msg;
+            } else {
+              mappedErrors[`dose_${dosePeriod}_vaccine_type`] = msg;
+            }
+          } else if (key === 'doses') {
+            mappedErrors[`dose_${targetPeriod}_vaccine_type`] = msg;
+            mappedErrors.vaccine_type = msg;
+          } else {
+            mappedErrors[key] = msg;
+          }
+        }
+
+        setFieldErrors(mappedErrors);
+        const allMsgs = Array.from(new Set(Object.values(mappedErrors)));
+        setError(allMsgs.join(' • ') || err.response?.data?.message || 'Failed to save vaccination record');
+        const firstErrorKey = FIELD_ORDER.find(key => (
+          mappedErrors[key] ||
+          mappedErrors[`dose_${targetPeriod}_${key}`] ||
+          mappedErrors[`dose_${targetPeriod}_date`] && key === 'dose_date' ||
+          mappedErrors[`dose_${targetPeriod}_vaccine_type`] && key === 'vaccine_type' ||
+          mappedErrors[`dose_${targetPeriod}_external_facility_name`] && key === 'external_facility_name' ||
+          mappedErrors[`fifo_${targetPeriod}`] && key === 'fifo'
+        )) || Object.keys(mappedErrors)[0];
+
+        if (firstErrorKey) {
+          const elementId = getElementIdForErrorKey(firstErrorKey, targetPeriod);
+          scrollToFirstError(elementId);
+        }
+      } else {
+        setError(err.response?.data?.message || 'Failed to save treatment record');
+      }
     } finally {
       setSaving(false);
     }
@@ -1062,12 +1441,21 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
 
   if (!entry) return null;
 
+  const isCategory1 = exposureCategory === 'I'
+    || currentIncident?.exposure_category === 'I'
+    || currentIncident?.severity === 'minor'
+    || (entry as any)?.exposure_category === 'I'
+    || (entry as any)?.incident?.exposure_category === 'I'
+    || (entry as any)?.incident?.severity === 'minor';
+
   const isBoosterPlan = doctorPlanType === 'single_booster'
     || doctorPlanType === 'two_dose_booster'
     || currentIncident?.episode_type === 're_exposure'
     || (currentIncident?.episode_number && Number(currentIncident.episode_number) > 1)
     || manualReExposure;
-  const orderedDosePeriods = doctorPlanType === 'single_booster'
+  const orderedDosePeriods = (isCategory1 || doctorPlanType === 'no_vaccine')
+    ? []
+    : doctorPlanType === 'single_booster'
     ? ['Day 0']
     : (doctorPlanType === 'two_dose_booster' || isBoosterPlan)
       ? ['Day 0', 'Day 3']
@@ -1075,1607 +1463,649 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         ? ['Day 0', 'Day 3', 'Day 7']
         : null;
 
+  const candidateDoseList = (isCategory1 || doctorPlanType === 'no_vaccine')
+    ? []
+    : orderedDosePeriods
+    ? doses.filter(d => orderedDosePeriods.includes(d.period))
+    : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
+    ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
+    : showFullSchedule ? doses : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period)));
+
+  const PREREQ: Record<string, string> = {
+    'Day 3':     'Day 0',
+    'Day 7':     'Day 3',
+    'Day 28':    'Day 7',
+    'Booster 2': 'Booster 1',
+  };
+
+  const isDosePrerequisiteLocked = (period: string) => {
+    const prereqPeriod = PREREQ[period];
+    if (!prereqPeriod) return false;
+    const prereqDose = doses.find(d => d.period === prereqPeriod);
+    return !prereqDose || (!prereqDose.is_completed && !prereqDose.inventory_linked);
+  };
+
+  const activeCandidate = candidateDoseList.find(d => !d.is_completed && !d.inventory_linked && !isDosePrerequisiteLocked(d.period));
+  const activeUnlockedPeriod = activeCandidate ? activeCandidate.period : (candidateDoseList[0]?.period || 'Day 0');
+  const currentExpandedPeriod = selectedPeriod || activeUnlockedPeriod;
+
+  const handleToggleExposureMode = (key: string) => {
+    if (clinicalAssessmentLocked) return;
+    setFormData(prev => {
+      const nextMode = {
+        ...prev.mode_of_exposure,
+        [key]: !prev.mode_of_exposure[key as keyof typeof prev.mode_of_exposure],
+      };
+      if (Object.values(nextMode).some(Boolean)) {
+        setFieldErrors(fe => {
+          if (!fe.mode_of_exposure) return fe;
+          const next = { ...fe };
+          delete next.mode_of_exposure;
+          return next;
+        });
+      }
+      return {
+        ...prev,
+        mode_of_exposure: nextMode,
+      };
+    });
+  };
+
+  const handleToggleBodyPart = (key: string) => {
+    if (clinicalAssessmentLocked) return;
+    setFormData(prev => {
+      const nextBodyPart = {
+        ...prev.body_part_affected,
+        [key]: !prev.body_part_affected[key as keyof typeof prev.body_part_affected],
+      };
+      if (Object.values(nextBodyPart).some(Boolean)) {
+        setFieldErrors(fe => {
+          if (!fe.body_part_affected) return fe;
+          const next = { ...fe };
+          delete next.body_part_affected;
+          return next;
+        });
+      }
+      return {
+        ...prev,
+        body_part_affected: nextBodyPart,
+      };
+    });
+  };
+
   const formContent = (
     <div style={{ padding: inline ? '0' : '24px 32px' }}>
+      {/* Returning Consultation vs Previous Consultation Prescription Banner */}
+      {previousConsultations.length > 1 && (
+        <div style={{
+          backgroundColor: 'var(--bg-secondary, #fffbeb)',
+          border: '1px solid #f59e0b',
+          borderLeft: '4px solid #d97706',
+          borderRadius: BORDER_RADIUS,
+          padding: '12px 16px',
+          marginBottom: 18,
+          fontSize: 12.5,
+        }}>
+          <div style={{ fontWeight: 700, color: '#92400e', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>📋 Returning Patient — Previous vs. Current Reassessment Prescriptions</span>
+            <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600 }}>
+              Record only what is actually administered today
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+            {previousConsultations.map((c: any, idx: number) => {
+              const isLatest = idx === previousConsultations.length - 1;
+              return (
+                <div
+                  key={c.treatment_id || idx}
+                  style={{
+                    backgroundColor: isLatest ? '#fef3c7' : 'var(--card-bg-solid, #ffffff)',
+                    border: isLatest ? '1px solid #f59e0b' : '1px solid #cbd5e1',
+                    borderRadius: 6,
+                    padding: '8px 12px',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: 12, color: isLatest ? '#92400e' : '#334155', marginBottom: 4 }}>
+                    {isLatest ? `Current Reassessment (${c.consultation_date || 'Today'})` : `Previous Consultation #${idx + 1} (${c.consultation_date || '—'})`}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: '#475569' }}>
+                    <strong>Category:</strong> {c.exposure_category || '—'} ·{' '}
+                    <strong>Prescribed:</strong>{' '}
+                    {[
+                      c.prescribed_vaccine_type ? `PEP: ${c.prescribed_vaccine_type}` : (c.exposure_category === 'I' ? 'PEP: Not Indicated' : null),
+                      c.prescribed_tt ? `TT: ${c.prescribed_tt}` : null,
+                      c.prescribed_ats ? `ATS: ${c.prescribed_ats}` : null,
+                      c.prescribed_rig ? `ERIG: ${c.prescribed_rig}` : null,
+                    ].filter(Boolean).join(' • ') || 'None'}
+                  </div>
+                  {c.reassessment_decision && (
+                    <div style={{ fontSize: 11, color: '#78350f', marginTop: 3 }}>
+                      <strong>Doctor Decision:</strong> {String(c.reassessment_decision).replace(/_/g, ' ')}
+                      {c.reassessment_notes ? ` — "${c.reassessment_notes}"` : ''}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Category I Locked Alert - When Doctor confirmed Category I without nurse administration */}
+      {!form3Ready && (
+        <div style={{
+          backgroundColor: '#f0fdf4',
+          border: '1px solid #86efac',
+          borderRadius: BORDER_RADIUS,
+          padding: 14,
+          marginBottom: 20,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12
+        }}>
+          <HugeiconsIcon icon={CheckmarkCircle02Icon} size={22} color="#16a34a" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#166534', marginBottom: 2 }}>
+              Form 3 Locked · Category I (No Nurse-Administered Treatment Required)
+            </div>
+            <div style={{ fontSize: 12, color: '#15803d' }}>
+              {form3BlockReason || 'Doctor assessment confirmed Category I with no nurse-administered treatment required. Form 3 administration is locked. The completed record is safely preserved in patient history.'}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Lock Alert - Show when form has completed doses */}
       {hasCompletedDoseInCurrentIncident && !readOnly && (
         <div style={{
           backgroundColor: '#fffbeb',
           border: '1px solid #fbbf24',
-          borderRadius: 8,
+          borderRadius: BORDER_RADIUS,
           padding: 12,
           marginBottom: 20,
           display: 'flex',
           alignItems: 'center',
           gap: 10
         }}>
-          <span style={{ fontSize: 20 }}>🔒</span>
+          <HugeiconsIcon icon={LockIcon} size={20} color="#b45309" />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#92400e', marginBottom: 2 }}>
-              Patient Information & Exposure Details Locked
+              Patient Information &amp; Exposure Details Locked
             </div>
             <div style={{ fontSize: 12, color: '#78350f' }}>
-              These fields cannot be edited because at least one dose has been administered for this incident. Only future doses can be recorded. For re-exposure cases, create a new treatment card.
+              These fields cannot be edited because at least one dose has been administered for this incident. Pending vaccine doses and prescribed tetanus / immunoglobulin administrations can still be recorded.
             </div>
           </div>
         </div>
       )}
-      
-      {/* SECTION 1: PATIENT & REGISTRATION INFORMATION */}
-      <div style={{ marginBottom: 32 }}>
-        <h3 style={{ color: '#10b981', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          PATIENT &amp; REGISTRATION INFORMATION
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date</label>
-            <input type="date" value={formData.date} onChange={handleFieldChange('date')} disabled={readOnly} max={new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined }} />
+
+      {/* 1. EXPOSURE */}
+      <FormSection title="Exposure">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 12 }}>
+          <div id="field-mode_of_exposure">
+            <ChipGroup
+              label="Mode of exposure"
+              options={MODE_OF_EXPOSURE_CHIPS}
+              selectedKeys={formData.mode_of_exposure}
+              onToggle={handleToggleExposureMode}
+              disabled={clinicalAssessmentLocked}
+              error={fieldErrors.mode_of_exposure}
+            />
           </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-              Registry No. <span style={{ fontSize: 11, fontWeight: 400, color: '#6b7280' }}>(Admin / System Managed)</span>
-            </label>
-            <input
-              type="text"
-              value={formData.registry_no || '—'}
-              readOnly
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--input-border)',
-                borderRadius: 6,
-                fontSize: 13,
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                fontWeight: 600,
-                cursor: 'not-allowed',
-              }}
+
+          <div id="field-body_part_affected">
+            <ChipGroup
+              label="Body part"
+              options={BODY_PART_CHIPS}
+              selectedKeys={formData.body_part_affected}
+              onToggle={handleToggleBodyPart}
+              disabled={clinicalAssessmentLocked}
+              error={fieldErrors.body_part_affected}
             />
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-              Hospital No. <span style={{ fontSize: 11, fontWeight: 400, color: '#6b7280' }}>(Admin Managed)</span>
-            </label>
-            <input
-              type="text"
-              value={formData.hospital_no || ''}
-              placeholder="Not assigned (Managed in Admin Patient Profile)"
-              readOnly
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--input-border)',
-                borderRadius: 6,
-                fontSize: 13,
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                fontWeight: formData.hospital_no ? 600 : 400,
-                cursor: 'not-allowed',
-              }}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-              Referred by
-            </label>
-            <input
-              type="text"
-              value={formData.referred_by || ''}
-              readOnly
-              disabled
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--input-border)',
-                borderRadius: 6,
-                fontSize: 13,
-                backgroundColor: 'var(--bg-secondary, #e8fdf6)',
-                color: '#374151',
-                cursor: 'not-allowed',
-                fontWeight: 500,
-              }}
-              placeholder="— Form 2 Consultation"
-            />
-          </div>
-        </div>
-        <div id="field-philhealth_pin" style={{
-          marginBottom: 16,
-          padding: fieldErrors.philhealth_pin ? '12px' : '0px',
-          border: fieldErrors.philhealth_pin ? '2px solid #ef4444' : 'none',
-          borderRadius: '8px',
-          backgroundColor: fieldErrors.philhealth_pin ? '#fef2f2' : 'transparent',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.philhealth_pin ? '#dc2626' : '#374151' }}>
-              PhilHealth Identification Number (PIN)
-            </label>
-            {!isPhilHealthMember && (
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', padding: '2px 8px', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <span>⚠</span> No PhilHealth Information Provided in Form 1
-              </span>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <input
-              type="text"
-              value={isPhilHealthMember ? formData.philhealth_pin : 'No PhilHealth Information Provided in Form 1'}
-              onChange={handleFieldChange('philhealth_pin')}
-              placeholder={isPhilHealthMember ? "XX-XXXXXXXXX-X" : "No PhilHealth Information Provided in Form 1"}
-              maxLength={14}
-              disabled={readOnly || !isPhilHealthMember}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                border: fieldErrors.philhealth_pin ? '2px solid #ef4444' : !isPhilHealthMember ? '1px dashed #fca5a5' : '1px solid var(--input-border)',
-                borderRadius: 6,
-                fontSize: 13,
-                backgroundColor: !isPhilHealthMember ? '#fef2f2' : readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
-                color: !isPhilHealthMember ? '#dc2626' : '#111827',
-                fontWeight: !isPhilHealthMember ? 500 : 400,
-                fontStyle: !isPhilHealthMember ? 'italic' : 'normal',
-                cursor: !isPhilHealthMember ? 'not-allowed' : undefined,
-              }}
-            />
-            <select
-              value={isPhilHealthMember ? formData.philhealth_type : ''}
-              onChange={handleFieldChange('philhealth_type')}
-              disabled={readOnly || !isPhilHealthMember}
-              style={{
-                padding: '8px 12px',
-                border: !isPhilHealthMember ? '1px dashed #fca5a5' : '1px solid var(--input-border)',
-                borderRadius: 6,
-                fontSize: 13,
-                backgroundColor: !isPhilHealthMember ? '#fef2f2' : readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
-                color: !isPhilHealthMember ? '#dc2626' : '#111827',
-                outline: 'none',
-                cursor: !isPhilHealthMember ? 'not-allowed' : undefined,
-              }}
-            >
-              <option value="">{isPhilHealthMember ? '— Select —' : '— Not Provided —'}</option>
-              {isPhilHealthMember && (
-                <>
-                  <option value="member">Member</option>
-                  <option value="dependent">Dependent</option>
-                </>
-              )}
-            </select>
-          </div>
-          {fieldErrors.philhealth_pin && (
-            <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6 }}>⚠ {fieldErrors.philhealth_pin}</div>
+
+        <div id="field-body_part_affected_text">
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.body_part_affected_text ? '#dc2626' : 'var(--text-h, #374151)', marginBottom: 6 }}>
+            Exact location (optional)
+          </label>
+          <input
+            type="text"
+            value={formData.body_part_affected_text}
+            onChange={handleFieldChange('body_part_affected_text')}
+            placeholder="e.g. left forearm, near the wrist"
+            disabled={clinicalAssessmentLocked}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              border: fieldErrors.body_part_affected_text ? '1.5px solid #ef4444' : '1px solid var(--input-border, #d1d5db)',
+              borderRadius: BORDER_RADIUS,
+              fontSize: 13,
+              backgroundColor: isFormLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+              color: 'var(--input-text, #111827)',
+              boxSizing: 'border-box',
+              outline: 'none',
+              boxShadow: fieldErrors.body_part_affected_text ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
+              transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+            }}
+            onFocus={(e) => {
+              if (fieldErrors.body_part_affected_text) {
+                e.currentTarget.style.borderColor = '#ef4444';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.25)';
+              } else {
+                e.currentTarget.style.borderColor = '#10b981';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.2)';
+              }
+            }}
+            onBlur={(e) => {
+              if (fieldErrors.body_part_affected_text) {
+                e.currentTarget.style.borderColor = '#ef4444';
+                e.currentTarget.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.15)';
+              } else {
+                e.currentTarget.style.borderColor = 'var(--input-border, #d1d5db)';
+                e.currentTarget.style.boxShadow = 'none';
+              }
+            }}
+          />
+          {fieldErrors.body_part_affected_text && (
+            <span style={{ color: '#ef4444', fontSize: 12, fontWeight: 500, marginTop: 4, display: 'block' }}>
+              {fieldErrors.body_part_affected_text}
+            </span>
           )}
         </div>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Patient Name <span style={{ color: '#ef4444' }}>*</span></label>
-          <input type="text" value={formData.patient_name} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280' }} placeholder="Last, First Middle" />
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Age</label>
-            <input type="text" value={formData.age} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280' }} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Date of Birth</label>
-            <input type="date" value={formData.date_of_birth} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280' }} />
-          </div>
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Address</label>
-          <input type="text" value={formData.address} readOnly style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, backgroundColor: 'var(--bg-secondary, #f9fafb)', color: '#6b7280' }} />
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Sex</label>
-            <div style={{ display: 'flex', gap: 24 }}>
-              <label style={{ display: 'flex', alignItems: 'center', cursor: 'default' }}>
-                <input type="radio" name="sex" value="male" checked={formData.sex === 'male'} readOnly style={{ marginRight: 6 }} />
-                <span style={{ fontSize: 13, color: '#6b7280' }}>Male</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', cursor: 'default' }}>
-                <input type="radio" name="sex" value="female" checked={formData.sex === 'female'} readOnly style={{ marginRight: 6 }} />
-                <span style={{ fontSize: 13, color: '#6b7280' }}>Female</span>
-              </label>
-            </div>
-          </div>
-          <div id="field-exposure_category" style={{
-            padding: fieldErrors.exposure_category ? '10px' : '0px',
-            border: fieldErrors.exposure_category ? '2px solid #ef4444' : 'none',
-            borderRadius: '8px',
-            backgroundColor: fieldErrors.exposure_category ? '#fef2f2' : 'transparent',
-          }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.exposure_category ? '#dc2626' : '#374151', marginBottom: 8 }}>Exposure Category <span style={{ color: '#ef4444' }}>*</span></label>
-            <div style={{ display: 'flex', gap: 16 }}>
-              {(['I', 'II', 'III'] as const).map((cat) => (
-                <label key={cat} style={{ display: 'flex', alignItems: 'center', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                  <input type="radio" name="exposure_category" value={cat} checked={formData.exposure_category === cat} onChange={handleFieldChange('exposure_category')} disabled={isFormLocked} style={{ marginRight: 6 }} />
-                  <span style={{ fontSize: 13, color: fieldErrors.exposure_category ? '#991b1b' : '#374151' }}>{cat}</span>
-                </label>
-              ))}
-            </div>
-            {fieldErrors.exposure_category && (
-              <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6 }}>⚠ {fieldErrors.exposure_category}</div>
-            )}
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-          <div id="field-date_of_exposure" style={{
-            padding: fieldErrors.date_of_exposure ? '10px' : '0px',
-            border: fieldErrors.date_of_exposure ? '2px solid #ef4444' : 'none',
-            borderRadius: '8px',
-            backgroundColor: fieldErrors.date_of_exposure ? '#fef2f2' : 'transparent',
-          }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.date_of_exposure ? '#dc2626' : '#374151', marginBottom: 6 }}>
-              Date of Exposure <span style={{ color: '#ef4444' }}>*</span>
-            </label>
-            <input 
-              type="date" 
-              value={formData.date_of_exposure} 
-              onChange={handleFieldChange('date_of_exposure')} 
-              max={new Date().toISOString().split('T')[0]}
-              disabled={readOnly} 
-              style={{ 
-                width: '100%', 
-                padding: '8px 12px', 
-                border: fieldErrors.date_of_exposure ? '2px solid #ef4444' : '1px solid var(--input-border)', 
-                borderRadius: 6, 
-                fontSize: 13, 
-                backgroundColor: readOnly ? '#f3f4f6' : undefined,
-                cursor: readOnly ? 'not-allowed' : undefined,
-              }} 
-            />
-            {fieldErrors.date_of_exposure && (
-              <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 600, marginTop: 6 }}>⚠ {fieldErrors.date_of_exposure}</div>
-            )}
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-              Date Treatment Started
-            </label>
-            <input 
-              type="date" 
-              value={formData.date_treatment_started} 
-              onChange={handleFieldChange('date_treatment_started')} 
-              max={new Date().toISOString().split('T')[0]}
-              disabled={readOnly} 
-              style={{ 
-                width: '100%', 
-                padding: '8px 12px', 
-                border: '1px solid var(--input-border)', 
-                borderRadius: 6, 
-                fontSize: 13, 
-                backgroundColor: readOnly ? '#f3f4f6' : undefined,
-                cursor: readOnly ? 'not-allowed' : undefined,
-              }} 
-            />
-          </div>
-        </div>
-        <div>
-          {/* ── Label row: "Place of Exposure" label + toggle button side by side ── */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Place of Exposure</label>
-            {false && !readOnly && (
-              <button
-                type="button"
-                onClick={() => expLoc.setUseManual(!expLoc.useManual)}
-                style={{
-                  padding: '5px 12px', fontSize: 12, fontWeight: 600,
-                  background: '#f8fbff', color: '#475569',
-                  border: '1px solid #cfd8e3', borderRadius: 10,
-                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6,
-                  flexShrink: 0, whiteSpace: 'nowrap',
-                  boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
-                }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  {expLoc.useManual ? (
-                    <>
-                      <path d="M8 6h12"/><path d="M8 12h12"/><path d="M8 18h12"/>
-                      <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none"/>
-                      <circle cx="4" cy="12" r="1" fill="currentColor" stroke="none"/>
-                      <circle cx="4" cy="18" r="1" fill="currentColor" stroke="none"/>
-                    </>
-                  ) : (
-                    <>
-                      <path d="M12 20h9"/>
-                      <path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z"/>
-                    </>
-                  )}
-                </svg>
-                {expLoc.useManual ? 'Switch to Dropdown' : 'Switch to Manual Typing'}
-              </button>
-            )}
-          </div>
+      </FormSection>
 
-          {/* ── Same dropdown UI as Add Patient residential address ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-
-            {/* API error warning */}
-            {expLoc.apiError && !expLoc.useManual && (
-              <div style={{ padding: '6px 10px', background: '#fef9c3', border: '1px solid #fcd34d', borderRadius: 6, fontSize: 12, color: '#92400e' }}>
-                ⚠ Address API unavailable. <button type="button" onClick={() => expLoc.setUseManual(true)} style={{ background: 'none', border: 'none', color: '#b45309', cursor: 'pointer', textDecoration: 'underline', fontSize: 12, padding: 0 }}>Switch to manual entry</button>
-              </div>
-            )}
-
-            {expLoc.useManual ? (
-              /* ── Manual free-text mode ── */
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>City / Municipality</label>
-                  <input
-                    type="text"
-                    value={expLoc.manualMun}
-                    onChange={e => expLoc.setManualMun(e.target.value)}
-                    disabled={readOnly}
-                    placeholder="Enter municipality"
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Barangay</label>
-                  <input
-                    type="text"
-                    value={expLoc.manualBrgy}
-                    onChange={e => expLoc.setManualBrgy(e.target.value)}
-                    disabled={readOnly}
-                    placeholder="Enter barangay"
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)' }}
-                  />
-                </div>
-              </div>
-            ) : (
-              /* ── Dropdown mode (same as Add Patient) ── */
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>City / Municipality *</label>
-                  <select
-                    value={expLoc.municipality}
-                    onChange={e => expLoc.setMunicipality(e.target.value)}
-                    disabled={readOnly || expLoc.loadingMun}
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)', boxSizing: 'border-box' }}
-                  >
-                    <option value="">{expLoc.loadingMun ? 'Loading…' : '— Select —'}</option>
-                    {expLoc.municipalities.map(m => (
-                      <option key={m.code} value={m.code}>{m.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Barangay *</label>
-                  <select
-                    value={expLoc.barangay}
-                    onChange={e => expLoc.setBarangay(e.target.value)}
-                    disabled={readOnly || !expLoc.municipality || expLoc.loadingBrgy}
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: (readOnly || !expLoc.municipality) ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)', boxSizing: 'border-box' }}
-                  >
-                    <option value="">{expLoc.loadingBrgy ? 'Loading…' : '— Select —'}</option>
-                    {expLoc.barangays.map(b => (
-                      <option key={b.code} value={b.code}>{b.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Read-only display when form is read-only and value came from bite record */}
-            {readOnly && !expLoc.full && formData.place_of_exposure && (
-              <div style={{ padding: '7px 11px', background: 'var(--bg-secondary, #f9fafb)', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, color: '#374151' }}>
-                {formData.place_of_exposure}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION 2: EXPOSURE DETAILS */}
-      <div style={{ marginBottom: 32 }}>
-        <h3 style={{ color: '#10b981', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>EXPOSURE DETAILS</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>1. Mode of Animal Exposure</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[
-                ['nibbling_uncovered', 'Nibbling/Licking of uncovered skin'],
-                ['nibbling_wounded', 'Nibbling/Licking of wounded/broken skin'],
-                ['scratch_abrasion', 'Scratch / Abrasion'],
-                ['transdermal_bite', 'Transdermal Bite'],
-                ['handling_ingestion', 'Handling / Ingestion of raw infected meat'],
-              ].map(([key, label]) => (
-                <label key={key} style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                  <input type="checkbox" checked={formData.mode_of_exposure[key as keyof typeof formData.mode_of_exposure]} onChange={handleCheckboxChange('mode_of_exposure', key as any)} disabled={isFormLocked} style={{ marginRight: 8, marginTop: 2 }} />
-                  <span style={{ fontSize: 13, color: '#374151' }}>{label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>2. Body Part Affected / Exposed</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
-              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={formData.body_part_affected.head_neck} 
-                  onChange={handleCheckboxChange('body_part_affected', 'head_neck')} 
-                  disabled={isFormLocked} 
-                  style={{ marginRight: 8, marginTop: 2 }} 
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Head & Neck</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={formData.body_part_affected.upper_extremities} 
-                  onChange={handleCheckboxChange('body_part_affected', 'upper_extremities')} 
-                  disabled={isFormLocked} 
-                  style={{ marginRight: 8, marginTop: 2 }} 
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Upper Extremities (Arm/Hand)</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={formData.body_part_affected.lower_extremities} 
-                  onChange={handleCheckboxChange('body_part_affected', 'lower_extremities')} 
-                  disabled={isFormLocked} 
-                  style={{ marginRight: 8, marginTop: 2 }} 
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Lower Extremities (Leg/Foot)</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={formData.body_part_affected.trunk_torso} 
-                  onChange={handleCheckboxChange('body_part_affected', 'trunk_torso')} 
-                  disabled={isFormLocked} 
-                  style={{ marginRight: 8, marginTop: 2 }} 
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Trunk / Torso</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={formData.body_part_affected.multiple_sites} 
-                  onChange={handleCheckboxChange('body_part_affected', 'multiple_sites')} 
-                  disabled={isFormLocked} 
-                  style={{ marginRight: 8, marginTop: 2 }} 
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Multiple Sites</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'start', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={formData.body_part_affected.na_ingestion} 
-                  onChange={handleCheckboxChange('body_part_affected', 'na_ingestion')} 
-                  disabled={isFormLocked} 
-                  style={{ marginRight: 8, marginTop: 2 }} 
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>N/A (Ingestion)</span>
-              </label>
-            </div>
-            <input
-                type="text"
-                value={formData.body_part_affected_text}
-                onChange={handleFieldChange('body_part_affected_text')}
-                placeholder="Specify exact location (optional)"
-                disabled={isFormLocked}
-                style={{
-                  width: '100%',
-                  padding: '7px 10px',
-                  border: '1px solid var(--input-border)',
-                  borderRadius: 4,
-                  fontSize: 13,
-                  backgroundColor: isFormLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
-                }}
-              />
-          </div>
-
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>3. Type of Animal</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
-                <input
-                  type="radio"
-                  name="vr_animal_type"
-                  checked={formData.animal_type === 'dog'}
-                  onChange={() => setFormData((prev) => ({ ...prev, animal_type: 'dog', animal_type_other: '' }))}
-                  disabled={isFormLocked}
-                  style={{ marginRight: 6 }}
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Dog</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
-                <input
-                  type="radio"
-                  name="vr_animal_type"
-                  checked={formData.animal_type === 'cat'}
-                  onChange={() => setFormData((prev) => ({ ...prev, animal_type: 'cat', animal_type_other: '' }))}
-                  disabled={isFormLocked}
-                  style={{ marginRight: 6 }}
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Cat</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', cursor: readOnly ? 'default' : 'pointer' }}>
-                <input
-                  type="radio"
-                  name="vr_animal_type"
-                  checked={formData.animal_type === 'other'}
-                  onChange={() => setFormData((prev) => ({ ...prev, animal_type: 'other' }))}
-                  disabled={isFormLocked}
-                  style={{ marginRight: 6 }}
-                />
-                <span style={{ fontSize: 13, color: '#374151' }}>Others:</span>
-              </label>
-              {formData.animal_type === 'other' && (
-                <input
-                  type="text"
-                  value={formData.animal_type_other}
-                  onChange={handleFieldChange('animal_type_other')}
-                  placeholder="Specify animal (e.g. Monkey, Bat, Rat)"
-                  disabled={isFormLocked}
-                  style={{
-                    flex: 1,
-                    minWidth: 160,
-                    padding: '6px 10px',
-                    border: '1px solid var(--input-border)',
-                    borderRadius: 4,
-                    fontSize: 13,
-                    backgroundColor: readOnly ? 'var(--bg-secondary, #f9fafb)' : undefined,
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 24 }}>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>4. Past History of animal bite</p>
-            <div style={{ display: 'flex', gap: 24 }}>
-              {['yes', 'no'].map(v => (
-                <label key={v} style={{ display: 'flex', alignItems: 'center', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                  <input type="radio" name="past_history_bite" value={v} checked={formData.past_history_bite === v} onChange={handleFieldChange('past_history_bite')} disabled={isFormLocked} style={{ marginRight: 6 }} />
-                  <span style={{ fontSize: 13, color: '#374151', textTransform: 'capitalize' }}>{v}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Was PEP Immunization completed?</p>
-            <div style={{ display: 'flex', gap: 24 }}>
-              {['yes', 'no'].map(v => (
-                <label key={v} style={{ display: 'flex', alignItems: 'center', cursor: isFormLocked ? 'default' : 'pointer' }}>
-                  <input type="radio" name="pep_completed" value={v} checked={formData.pep_completed === v} onChange={handleFieldChange('pep_completed')} disabled={isFormLocked} style={{ marginRight: 6 }} />
-                  <span style={{ fontSize: 13, color: '#374151', textTransform: 'capitalize' }}>{v}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── SEPARATE SECTION: DOCTOR FINDINGS & NEW BITE EXPOSURE SUMMARY (BOOSTER / RE-EXPOSURE) ── */}
-      {(isBoosterPlan || isReturningNewBite || (currentIncident?.episode_number && Number(currentIncident.episode_number) > 1)) && (
-        <div style={{ marginBottom: 28 }}>
-          {/* Card 1: Doctor Triage Findings & Clinical Orders */}
-          <div style={{
-            padding: '18px 20px',
-            borderRadius: 12,
-            border: '1.5px solid #bfdbfe',
-            background: 'linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%)',
-            marginBottom: 16,
-            boxShadow: '0 2px 8px rgba(30, 58, 138, 0.06)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, borderBottom: '1px solid #dbeafe', paddingBottom: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 22 }}>🩺</span>
-                <div>
-                  <h4 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: '#1e40af' }}>
-                    Doctor Consultation &amp; Triage Findings (Form 2)
-                  </h4>
-                  <p style={{ margin: '2px 0 0', fontSize: 11.5, color: '#475569' }}>
-                    Clinical triage vitals and prescribed rabies vaccination regimen from the attending physician.
-                  </p>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#1e40af', backgroundColor: '#dbeafe', padding: '3px 9px', borderRadius: 12 }}>
-                  Dr. {latestConsultation?.attending_provider || latestConsultation?.provider_name || 'Attending Physician'}
-                </span>
-                <span style={{ fontSize: 11, color: '#64748b' }}>
-                  {latestConsultation?.consultation_date || formData.date}
-                </span>
-              </div>
-            </div>
-
-            {/* Vitals Highlights: Temperature & Blood Pressure */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 14, padding: '12px 16px', borderRadius: 8, backgroundColor: '#ffffff', border: '1px solid #e2e8f0' }}>
-              <div>
-                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Body Temperature</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
-                  <strong style={{ fontSize: 15, color: '#1e293b' }}>
-                    {latestConsultation?.temperature ? `${latestConsultation.temperature} °C` : 'Not recorded'}
-                  </strong>
-                  {latestConsultation?.temperature && (
-                    parseFloat(latestConsultation.temperature) >= 38.0 ? (
-                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#b91c1c', background: '#fee2e2', padding: '1px 6px', borderRadius: 4 }}>High Fever</span>
-                    ) : parseFloat(latestConsultation.temperature) >= 37.5 ? (
-                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#b45309', background: '#fef3c7', padding: '1px 6px', borderRadius: 4 }}>Low Grade</span>
-                    ) : (
-                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#15803d', background: '#dcfce7', padding: '1px 6px', borderRadius: 4 }}>Afebrile</span>
-                    )
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Blood Pressure</span>
-                <strong style={{ fontSize: 15, color: '#1e293b', display: 'block', marginTop: 3 }}>
-                  {latestConsultation?.blood_pressure ? `${latestConsultation.blood_pressure} mmHg` : '—'}
-                </strong>
-              </div>
-
-              <div>
-                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Weight / Height</span>
-                <span style={{ fontSize: 13, color: '#334155', fontWeight: 600, display: 'block', marginTop: 4 }}>
-                  {latestConsultation?.weight ? `${latestConsultation.weight} kg` : '—'} · {latestConsultation?.height ? `${latestConsultation.height} cm` : '—'}
-                </span>
-              </div>
-
-              <div>
-                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Doctor Prescribed Regimen</span>
-                <span style={{
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  color: '#4338ca',
-                  backgroundColor: '#e0e7ff',
-                  padding: '2px 8px',
-                  borderRadius: 6,
-                  display: 'inline-block',
-                  marginTop: 3
-                }}>
-                  {doctorPlanType === 'two_dose_booster'
-                    ? '🛡️ 2-Dose Booster (Day 0, 3)'
-                    : doctorPlanType === 'single_booster'
-                      ? '🛡️ 1-Dose Booster (Day 0)'
-                      : doctorPlanType === 'full_pep'
-                        ? 'Full PEP (Day 0, 3, 7)'
-                        : 'Re-Exposure Regimen'}
-                </span>
-              </div>
-            </div>
-
-            {/* Doctor Clinical Impression & Orders */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 14, fontSize: 12.5 }}>
-              <div style={{ padding: '10px 12px', borderRadius: 6, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                <strong style={{ color: '#334155', display: 'block', marginBottom: 3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                  Doctor Diagnosis / Clinical Impression:
-                </strong>
-                <span style={{ color: '#0f172a' }}>
-                  {latestConsultation?.diagnosis || 'Animal bite exposure, awaiting clinical impression.'}
-                </span>
-                {latestConsultation?.chief_complaints && (
-                  <div style={{ marginTop: 6, fontSize: 11.5, color: '#64748b' }}>
-                    <em>Chief complaint:</em> {latestConsultation.chief_complaints}
-                  </div>
-                )}
-              </div>
-
-              <div style={{ padding: '10px 12px', borderRadius: 6, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                <strong style={{ color: '#334155', display: 'block', marginBottom: 3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                  Prescribed PEP Vaccine Brand:
-                </strong>
-                <span style={{ fontWeight: 700, color: prescribedVaccineType ? '#15803d' : '#b45309' }}>
-                  {prescribedVaccineType ? `💉 ${prescribedVaccineType}` : '⚠️ Follow clinic standard vaccine'}
-                </span>
-                {latestConsultation?.medication_treatment && (
-                  <div style={{ marginTop: 6, fontSize: 11.5, color: '#64748b' }}>
-                    <em>Orders:</em> {latestConsultation.medication_treatment}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: New Bite Incident & Exposure Details */}
-          <div style={{
-            padding: '16px 20px',
-            borderRadius: 12,
-            border: '1.5px solid #fed7aa',
-            background: '#fffaf5',
-            boxShadow: '0 2px 6px rgba(234, 88, 12, 0.05)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid #ffedd5', paddingBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 18 }}>⚠️</span>
-                <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#9a3412', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                  New Bite Exposure Details (Episode #{currentIncident?.episode_number || 2})
-                </h4>
-              </div>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#9a3412', backgroundColor: '#ffedd5', padding: '2px 8px', borderRadius: 10 }}>
-                {currentIncident?.episode_type === 're_exposure' ? 'Re-Exposure Case' : 'New Animal Incident'}
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, fontSize: 12.5, color: '#334155' }}>
-              <div>
-                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>EXPOSURE DATE</span>
-                <strong>{formData.date_of_exposure || currentIncident?.bite_date || 'Not recorded'}</strong>
-              </div>
-              <div>
-                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>INCIDENT LOCATION</span>
-                <strong>{formData.place_of_exposure || currentIncident?.bite_place || 'Misamis Oriental'}</strong>
-              </div>
-              <div>
-                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>CATEGORY &amp; NATURE</span>
-                <strong>Category {formData.exposure_category || currentIncident?.severity || 'II'} · {currentIncident?.exposure_type || 'Bite'}</strong>
-              </div>
-              <div>
-                <span style={{ fontSize: 11, color: '#78350f', fontWeight: 600, display: 'block' }}>ANIMAL INVOLVED</span>
-                <strong>
-                  {formData.animal_type ? formData.animal_type.toUpperCase() : (currentIncident?.animal_type ? currentIncident.animal_type.toUpperCase() : 'CANINE')}
-                  {currentIncident?.animal_status ? ` (${currentIncident.animal_status})` : ''}
-                </strong>
-              </div>
-            </div>
-
-            {(formData.body_part_affected_text || currentIncident?.body_part_exposed || currentIncident?.wound_description) && (
-              <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed #fed7aa', display: 'flex', gap: 16, fontSize: 12, color: '#431407' }}>
-                {(formData.body_part_affected_text || currentIncident?.body_part_exposed) && (
-                  <div>
-                    <strong>Anatomical Site:</strong> {formData.body_part_affected_text || currentIncident?.body_part_exposed}
-                  </div>
-                )}
-                {currentIncident?.wound_description && (
-                  <div>
-                    <strong>Wound Characteristics:</strong> {currentIncident.wound_description}
-                  </div>
-                )}
-                {currentIncident?.site_washed !== undefined && (
-                  <div>
-                    <strong>Washed:</strong> {currentIncident.site_washed ? 'Yes (Soap & Water)' : 'No'}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* SECTION 3: VACCINATION RECORD */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
-          <div>
-            <h3 style={{ color: isBoosterPlan ? '#7c3aed' : '#10b981', fontSize: 14, fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {isBoosterPlan ? '🛡️ RE-EXPOSURE BOOSTER VACCINE ADMINISTRATION' : 'PERIOD EXPOSURE VACCINATION RECORD'}
-            </h3>
-            <span style={{ fontSize: 12, color: '#6b7280', display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: isBoosterPlan ? '#7c3aed' : '#10b981' }}></span>
-              {isBoosterPlan ? 'Dedicated Episode Booster Table • Historical Records Archived Below' : 'Automatic FIFO Stock Deduction on Save • Cross-Clinic Continuity Supported'}
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* 8.2 — Re-Exposure / Re-Bite toggle */}
-            {!readOnly && (
-              <button
-                type="button"
-                onClick={() => {
-                  setManualReExposure(v => !v);
-                  // Reset show full schedule when switching modes
-                  setShowFullSchedule(false);
-                }}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '6px 12px',
-                  backgroundColor: manualReExposure ? '#fef3c7' : 'var(--card-bg-solid, #ffffff)',
-                  border: `1px solid ${manualReExposure ? '#f59e0b' : '#cbd5e1'}`,
-                  borderRadius: 6, fontSize: 12, fontWeight: 700,
-                  color: manualReExposure ? '#92400e' : '#64748b',
-                  cursor: 'pointer',
-                }}
-                title="Toggle if this is a new bite on a previously vaccinated patient (DOH 2-dose booster protocol)"
-              >
-                {manualReExposure ? '🔄 Re-Bite Active' : '🔄 Re-Bite / Re-Exposure?'}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setTransferModalOpen(true)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '6px 12px',
-                backgroundColor: 'var(--card-bg-solid, #ffffff)',
-                border: '1px solid var(--border-glow, #cbd5e1)',
-                borderRadius: 6,
-                fontSize: 12,
-                fontWeight: 600,
-                color: 'var(--text-h, #1e293b)',
-                cursor: 'pointer',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+      {/* 3. HISTORY */}
+      <FormSection title="History">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+          <div id="field-past_history_bite">
+            <SegmentedControl
+              label="Past animal bite"
+              options={[
+                { value: 'yes', label: 'Yes' },
+                { value: 'no', label: 'No' },
+                { value: 'unsure', label: 'Unsure' },
+              ]}
+              value={formData.past_history_bite || ''}
+              onChange={(val) => {
+                setFormData(prev => ({ ...prev, past_history_bite: val }));
+                setFieldErrors(fe => {
+                  const next = { ...fe };
+                  delete next.past_history_bite;
+                  if (val !== 'yes') delete next.past_bite_dates;
+                  return next;
+                });
               }}
-            >
-              📄 Transfer Out / Referral Slip
-            </button>
+              disabled={isFormLocked}
+              error={fieldErrors.past_history_bite}
+            />
+          </div>
+
+          <div id="field-pep_completed">
+            <SegmentedControl
+              label="Previous rabies vaccination"
+              options={[
+                { value: 'completed', label: 'Completed' },
+                { value: 'incomplete', label: 'Incomplete' },
+                { value: 'none', label: 'None' },
+                { value: 'unsure', label: 'Unsure' },
+              ]}
+              value={
+                formData.pep_completed === 'yes'
+                  ? 'completed'
+                  : formData.pep_completed === 'no'
+                  ? 'none'
+                  : formData.pep_completed || ''
+              }
+              onChange={(val) => {
+                setFormData(prev => ({ ...prev, pep_completed: val }));
+                setFieldErrors(fe => {
+                  const next = { ...fe };
+                  delete next.pep_completed;
+                  return next;
+                });
+              }}
+              disabled={isFormLocked}
+              error={fieldErrors.pep_completed}
+            />
+            {patientReportedIntake?.prior_pep_date && (
+              <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#64748b' }}>
+                Reported prior date: <strong>{patientReportedIntake.prior_pep_date}</strong>
+              </p>
+            )}
           </div>
         </div>
 
-        {isBoosterPlan ? (
+        {formData.past_history_bite === 'yes' && (
+          <div id="field-past_bite_dates" style={{ marginTop: 12 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: fieldErrors.past_bite_dates ? '#dc2626' : 'var(--text-h, #374151)', marginBottom: 6 }}>
+              Approximate previous bite date(s)
+            </label>
+            <input
+              type="text"
+              value={formData.past_bite_dates || ''}
+              onChange={handleFieldChange('past_bite_dates')}
+              placeholder="Approximate previous bite date(s)"
+              disabled={isFormLocked}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: fieldErrors.past_bite_dates ? '1.5px solid #ef4444' : '1px solid var(--input-border, #d1d5db)',
+                borderRadius: BORDER_RADIUS,
+                fontSize: 13,
+                backgroundColor: isFormLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+                color: 'var(--input-text, #111827)',
+                boxSizing: 'border-box',
+                outline: 'none',
+                boxShadow: fieldErrors.past_bite_dates ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
+                transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+              }}
+              onFocus={(e) => {
+                if (fieldErrors.past_bite_dates) {
+                  e.currentTarget.style.borderColor = '#ef4444';
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.25)';
+                } else {
+                  e.currentTarget.style.borderColor = '#10b981';
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.2)';
+                }
+              }}
+              onBlur={(e) => {
+                if (fieldErrors.past_bite_dates) {
+                  e.currentTarget.style.borderColor = '#ef4444';
+                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.15)';
+                } else {
+                  e.currentTarget.style.borderColor = 'var(--input-border, #d1d5db)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }
+              }}
+            />
+            {fieldErrors.past_bite_dates && (
+              <span style={{ color: '#ef4444', fontSize: 12, fontWeight: 500, marginTop: 4, display: 'block' }}>
+                {fieldErrors.past_bite_dates}
+              </span>
+            )}
+          </div>
+        )}
+      </FormSection>
+
+      {/* 4. VACCINATION RECORD */}
+      <FormSection title="Vaccination record" showDivider={false}>
+        {inventorySetupMessage && (
+          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: 'rgba(245, 158, 11, 0.12)', border: '1px solid #fde68a', borderRadius: BORDER_RADIUS, color: '#92400e', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <HugeiconsIcon icon={AlertCircleIcon} size={14} color="#92400e" />
+            <span>{inventorySetupMessage}</span>
+          </div>
+        )}
+
+        {(isCategory1 || doctorPlanType === 'no_vaccine') ? (
           <div style={{
-            marginBottom: 16,
-            padding: '12px 16px',
-            backgroundColor: '#f5f3ff',
-            border: '1.5px solid #c4b5fd',
-            borderRadius: 8,
-            color: '#4c1d95',
+            padding: '16px 18px',
+            backgroundColor: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            borderRadius: BORDER_RADIUS,
+            color: '#166534',
             fontSize: 13,
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 10,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 20 }}>🛡️</span>
-              <div>
-                <div style={{ fontWeight: 700 }}>
-                  {doctorPlanType === 'single_booster' ? 'Single-Dose Booster Regimen' : 'Two-Dose Booster Regimen (Day 0 & Day 3)'}
-                </div>
-                <div style={{ fontSize: 12, color: '#5b21b6', marginTop: 1 }}>
-                  {doctorPlanType === 'single_booster'
-                    ? 'Doctor ordered Day 0 booster only. Administer dose below and complete consultation.'
-                    : 'Doctor ordered Day 0 and Day 3 boosters per re-exposure management guidelines.'}
-                </div>
-              </div>
-            </div>
-            <span style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: '#5b21b6',
-              background: '#ede9fe',
-              padding: '4px 10px',
-              borderRadius: 14,
-              border: '1px solid #ddd6fe'
-            }}>
-              Episode #{currentIncident?.episode_number || 2} Active
-            </span>
-          </div>
-        ) : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && (
-          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: 'rgba(16, 185, 129, 0.12)', border: '1px solid var(--border-glow, #a7f3d0)', borderRadius: 6, color: 'var(--text-h, #065f46)', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>🛡️</span>
-            <span><strong>Legacy re-exposure record</strong>: This historical schedule predates the Doctor-plan workflow. Follow its documented order; all new exposures require a Doctor decision before any dose is recorded.</span>
-          </div>
-        )}
-
-        {inventorySetupMessage && (
-          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: 'rgba(245, 158, 11, 0.12)', border: '1px solid var(--border-glow, #fde68a)', borderRadius: 6, color: 'var(--text-b, #92400e)', fontSize: 12 }}>
-            ⚠ {inventorySetupMessage}
-          </div>
-        )}
-
-        {isReturningNewBite && pastHistoryRecords.length > 0 && (
-          <div style={{
+            flexDirection: 'column',
+            gap: 6,
             marginBottom: 16,
-            padding: '12px 16px',
-            borderRadius: 8,
-            backgroundColor: 'rgba(16, 185, 129, 0.12)',
-            border: '1px solid var(--border-glow, #a7f3d0)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
           }}>
-            <span style={{ fontSize: 20 }}>🛡️</span>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-h, #065f46)' }}>
-                Prior Immunization History Verified ({pastHistoryRecords.filter(r => r.status === 'completed').length} completed doses on file)
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text-b, #047857)', marginTop: 2 }}>
-                Patient is returning with a new animal bite exposure. A fresh vaccination regimen has been initiated — doses below are open for recording today's treatment.
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700 }}>
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} color="#16a34a" />
+              <span>Category I Exposure · No Rabies PEP Vaccine Prescribed</span>
             </div>
+            <p style={{ margin: 0, fontSize: 12, color: '#15803d', lineHeight: 1.5 }}>
+              Per Philippine clinical guidelines, Rabies Post-Exposure Prophylaxis (PEP) vaccine is not indicated for Category I exposures.
+              {hasAnyProphylaxisOrder(latestConsultation?.prophylaxis_orders)
+                ? ' Record the doctor-prescribed tetanus prophylaxis administration in the section below.'
+                : ' No nurse-administered treatments are indicated for this case.'}
+            </p>
           </div>
-        )}
+        ) : (
+          <>
+            {/* Dose List: active/selected dose as DoseCard, other doses as DoseRow */}
+        <div style={{ marginBottom: 12 }}>
+          {candidateDoseList.map((dose) => {
+            const isCompleted = Boolean(dose.is_completed || dose.inventory_linked);
+            const isPrereqLocked = isDosePrerequisiteLocked(dose.period);
+            const isLocked = readOnly || isCompleted || isPrereqLocked;
+            const isExpanded = dose.period === currentExpandedPeriod;
 
-        <div style={{ overflowX: 'auto', border: '1px solid var(--border-glow, #e5e7eb)', borderRadius: 8, backgroundColor: 'var(--card-bg-solid, #ffffff)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-            <thead>
-              <tr style={{ backgroundColor: 'var(--table-header-bg, #f8fafc)', borderBottom: '2px solid var(--border-glow, #e2e8f0)' }}>
-                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 85 }}>Period</th>
-                <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 95 }}>Route</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 125 }}>Date</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 185 }}>Vaccine Type & Source</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 195 }}>FIFO Batch Preview</th>
-                <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 105 }}>Stock Units</th>
-                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 155 }}>Given by / Attended by</th>
-                <th style={{ padding: '10px 10px', textAlign: 'center', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 110 }}>Signature</th>
-                <th style={{ padding: '10px 10px', textAlign: 'center', fontWeight: 700, color: 'var(--text-m, #334155)', minWidth: 100 }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(orderedDosePeriods
-                ? doses.filter(d => orderedDosePeriods.includes(d.period))
-                : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
-                ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
-                : showFullSchedule
-                  ? doses
-                  : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period)))
-              ).map((dose, index) => {
-                const isFilled = Boolean(dose.date);
-                const isLinked = dose.inventory_linked;
-                const isCompleted = Boolean(dose.is_completed || isLinked);
+            if (isExpanded) {
+              const doseIndex = doses.findIndex(d => d.period === dose.period);
+              return (
+                <DoseCard
+                  key={dose.period}
+                  dose={dose}
+                  index={doseIndex}
+                  isToday={dose.period === activeUnlockedPeriod}
+                  isCompleted={isCompleted}
+                  isLocked={isLocked}
+                  prescribedVaccineType={prescribedVaccineType}
+                  availableVaccineTypes={availableVaccineTypes}
+                  fifoError={fifoErrors[dose.period]}
+                  fieldErrors={fieldErrors}
+                  readOnly={readOnly}
+                  currentUser={currentUser}
+                  applySignature={applySignature}
+                  signatureReady={signatureReady}
+                  signatureVersion={signatureVersion}
+                  signatureLoadError={signatureLoadError}
+                  onDoseChange={handleDoseChange}
+                  onDoseVaccineTypeChange={handleDoseVaccineTypeChange}
+                  onToggleSignature={setApplySignature}
+                  onSignatureReady={() => setSignatureReady(true)}
+                  onRefreshSignature={() => setSignatureRefresh(v => v + 1)}
+                />
+              );
+            }
 
-                // 22.1 — Prerequisite dose lock
-                // Determine which dose must be completed before this one can be recorded.
-                // Chain: Day 3 → requires Day 0 | Day 7 → requires Day 3 | Day 28 → requires Day 7
-                const PREREQ: Record<string, string> = {
-                  'Day 3':     'Day 0',
-                  'Day 7':     'Day 3',
-                  'Day 28':    'Day 7',
-                  'Booster 2': 'Booster 1',
-                };
-                const prereqPeriod = PREREQ[dose.period];
-                const prereqDose = prereqPeriod ? doses.find(d => d.period === prereqPeriod) : undefined;
-                const isPrerequisiteLocked =
-                  !isCompleted &&
-                  !!prereqDose &&
-                  !prereqDose.is_completed &&
-                  !prereqDose.inventory_linked;
+            return (
+              <DoseRow
+                key={dose.period}
+                dose={dose}
+                isCompleted={isCompleted}
+                isPrerequisiteLocked={isPrereqLocked}
+                prereqPeriod={PREREQ[dose.period]}
+                onClick={() => setSelectedPeriod(dose.period)}
+              />
+            );
+          })}
+        </div>
 
-                const isLocked = readOnly || isCompleted || isPrerequisiteLocked;
-                const hasFifoError = Boolean(fifoErrors[dose.period]);
-                const candidateList = orderedDosePeriods
-                  ? doses.filter(d => orderedDosePeriods.includes(d.period))
-                  : (manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure'
-                  ? doses.filter(d => ['Day 0', 'Day 3'].includes(d.period))
-                  : showFullSchedule ? doses : doses.filter(d => ['Day 0', 'Day 3', 'Day 7'].includes(d.period)));
-                const activeCandidateIdx = candidateList.findIndex(d => !d.is_completed && !d.inventory_linked && !PREREQ[d.period]?.includes(doses.find(x => x.period === PREREQ[d.period])?.is_completed === false ? 'no' : 'yes'));
-                const isActiveFollowUp = !readOnly && !isCompleted && !isPrerequisiteLocked && index === activeCandidateIdx;
-                const isActivelyRecording = !isCompleted && !isPrerequisiteLocked && (isActiveFollowUp || Boolean(dose.vaccine_type || dose.is_external));
-                const showRequiredWarning = isActivelyRecording && !dose.is_external && !dose.vaccine_type;
+        {/* Secondary text buttons below the list */}
+        <div style={{ display: 'flex', gap: 16, marginTop: 12, alignItems: 'center' }}>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => {
+                setManualReExposure(v => !v);
+                setShowFullSchedule(false);
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: manualReExposure ? '#b45309' : '#047857',
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: 'pointer',
+                textDecoration: 'none',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+            >
+              {manualReExposure ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} color="#b45309" />
+                  <span>Re-bite active</span>
+                </span>
+              ) : (
+                'Re-bite / re-exposure'
+              )}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setTransferModalOpen(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: '#047857',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: 'pointer',
+              textDecoration: 'none',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+          >
+            Transfer out / referral slip
+          </button>
+        </div>
 
-                return (
-                  <tr
-                    key={dose.period}
-                    style={{
-                      borderBottom: '1px solid #f1f5f9',
-                      backgroundColor: isPrerequisiteLocked ? 'var(--bg-secondary, #f9fafb)' : isCompleted ? '#f0fdf4' : isActiveFollowUp ? '#f0fdf4' : isFilled ? 'var(--table-header-bg, #f8fafc)' : 'var(--card-bg-solid, #ffffff)',
-                      boxShadow: isActiveFollowUp ? 'inset 4px 0 0 #10b981' : isPrerequisiteLocked ? 'inset 4px 0 0 #f59e0b' : undefined,
-                      opacity: isPrerequisiteLocked ? 0.65 : 1,
-                    }}
-                  >
-                    {/* 1. Period */}
-                    <td style={{ padding: '10px 12px', fontWeight: 700, color: isCompleted ? '#15803d' : isPrerequisiteLocked ? '#92400e' : '#1e293b' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          {isCompleted && <span style={{ color: '#16a34a', fontSize: 14 }}>✓</span>}
-                          {isPrerequisiteLocked && <span style={{ color: '#f59e0b', fontSize: 13 }}>🔒</span>}
-                          <span>{isBoosterPlan ? (dose.period === 'Day 0' ? 'Booster (Day 0)' : dose.period === 'Day 3' ? 'Booster (Day 3)' : dose.period) : dose.period}</span>
-                          {isActiveFollowUp && (
-                            <span style={{
-                              fontSize: 10,
-                              fontWeight: 700,
-                              padding: '1px 6px',
-                              borderRadius: 4,
-                              backgroundColor: '#dcfce7',
-                              color: '#15803d',
-                              border: '1px solid #86efac',
-                            }}>
-                              Ready to Administer
-                            </span>
-                          )}
-                          {isPrerequisiteLocked && prereqPeriod && (
-                            <span
-                              title={`Prerequisite dose (${prereqPeriod}) must be administered before ${dose.period} can be recorded.`}
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 700,
-                                padding: '1px 6px',
-                                borderRadius: 4,
-                                backgroundColor: '#fef3c7',
-                                color: '#92400e',
-                                border: '1px solid #fcd34d',
-                                cursor: 'help',
-                              }}
-                            >
-                              Locked — {prereqPeriod} pending
-                            </span>
-                          )}
-                        </div>
-                        {isActiveFollowUp && dose.schedule_drift_days !== undefined && dose.schedule_drift_days > 0 && (
-                          <span style={{ fontSize: 10.5, color: '#dc2626', fontWeight: 600 }}>
-                            ⚠️ {dose.schedule_drift_days}d overdue
-                          </span>
-                        )}
-                      </div>
-                    </td>
+        {/* Subtle helper line */}
+        <p style={{ fontSize: 12, color: '#64748b', marginTop: 12, marginBottom: 0 }}>Automatic FIFO stock deduction on save · Cross-clinic continuity supported</p></>)}<p style={{ display: 'none' }}>
 
-                    {/* 2. Route */}
-                    <td style={{ padding: '8px', textAlign: 'center' }}>
-                      <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}>
-                        {(['ID', 'IM'] as const).map(route => (
-                          <label key={route} style={{ display: 'inline-flex', alignItems: 'center', cursor: isLocked ? 'default' : 'pointer', fontSize: 12, fontWeight: 500, color: '#475569' }}>
-                            <input
-                              type="radio"
-                              name={`route_${index}`}
-                              value={route}
-                              checked={dose.route === route}
-                              onChange={() => handleDoseChange(index, 'route', route)}
-                              disabled={isLocked}
-                              style={{ marginRight: 4 }}
-                            />
-                            {route}
-                          </label>
-                        ))}
-                      </div>
-                    </td>
+        </p>
+      </FormSection>
 
-                    {/* 3. Date */}
-                    <td style={{ padding: '8px 10px' }}>
-                      <input
-                        type="date"
-                        value={dose.date}
-                        onChange={(e) => handleDoseChange(index, 'date', e.target.value)}
-                        disabled={isLocked}
-                        max={isActiveFollowUp ? new Date().toISOString().split('T')[0] : undefined}
-                        style={{
-                          width: '100%',
-                          padding: '6px 8px',
-                          border: isFilled ? '1px solid #94a3b8' : '1px solid #cbd5e1',
-                          borderRadius: 5,
-                          fontSize: 12,
-                          backgroundColor: isCompleted ? 'var(--card-bg-nested, #f8fafc)' : 'var(--card-bg-solid, #ffffff)',
-                          color: isCompleted ? '#334155' : '#0f172a',
-                          cursor: isCompleted ? 'not-allowed' : 'text',
-                          fontWeight: isCompleted ? 600 : 400,
-                        }}
-                      />
-                      {isActiveFollowUp && dose.ideal_date && dose.ideal_date !== dose.date && (
-                        <div
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 3,
-                            marginTop: 4,
-                            padding: '2px 6px',
-                            backgroundColor: (dose.schedule_drift_days || 0) > 0 ? '#fef2f2' : '#eff6ff',
-                            border: `1px solid ${(dose.schedule_drift_days || 0) > 0 ? '#fecaca' : '#bfdbfe'}`,
-                            borderRadius: 4,
-                            fontSize: 10,
-                            color: (dose.schedule_drift_days || 0) > 0 ? '#b91c1c' : '#1d4ed8',
-                            fontWeight: 600,
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          <span>{(dose.schedule_drift_days || 0) > 0 ? '⚠️' : 'ℹ️'}</span>
-                          <span>
-                            {(dose.schedule_drift_days || 0) > 0
-                              ? `Was scheduled: ${dose.ideal_date} (+${dose.schedule_drift_days}d late)`
-                              : `Was scheduled: ${dose.ideal_date}`}
-                          </span>
-                        </div>
-                      )}
-                      {!isActiveFollowUp && dose.schedule_drift_days !== undefined && dose.schedule_drift_days !== 0 && (
-                        <div
-                          title={dose.schedule_adjustment_reason || 'Operating schedule adjustment'}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 3,
-                            marginTop: 4,
-                            padding: '2px 6px',
-                            backgroundColor: '#fffbeb',
-                            border: '1px solid #fde68a',
-                            borderRadius: 4,
-                            fontSize: 10,
-                            color: '#b45309',
-                            fontWeight: 600,
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          <span>ℹ️</span>
-                          <span>
-                            Ideal: {dose.ideal_date || 'Standard'} ({dose.schedule_drift_days > 0 ? `+${dose.schedule_drift_days}d` : `${dose.schedule_drift_days}d`})
-                          </span>
-                        </div>
-                      )}
-                    </td>
+      {/* PROPHYLAXIS (ATS / TT / RIG) ADMINISTRATION IF PRESCRIBED */}
+      {hasAnyProphylaxisOrder(latestConsultation?.prophylaxis_orders) && (
+        <div style={{ marginTop: 24, borderTop: '1px solid var(--border-color, #e5e7eb)', paddingTop: 20 }}>
+          <ProphylaxisAdministrationSection
+            orders={latestConsultation?.prophylaxis_orders}
+            stock={prophylaxisStock}
+            records={prophylaxisRecords}
+            value={prophylaxisAdministrations}
+            onChange={setProphylaxisAdministrations}
+            disabled={readOnly || saving || !form3Ready}
+            today={getLocalDateString()}
+            icdCode={icdCode}
+            onIcdCodeChange={setIcdCode}
+          />
+        </div>
+      )}
 
-                    {/* 4. Vaccine Type & Source Selection */}
-                    <td style={{ padding: '8px 10px' }}>
-                      {/* Doctor's Order badge — shown when vaccine is prescribed */}
-                      {prescribedVaccineType && !isCompleted && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4, fontSize: 10, fontWeight: 700, color: '#166534', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 99, padding: '2px 8px', width: 'fit-content' }}>
-                          🩺 Doctor's Order: {prescribedVaccineType}
-                        </div>
-                      )}
-                      <select
-                        value={dose.vaccine_type}
-                        onChange={(e) => handleDoseVaccineTypeChange(index, e.target.value)}
-                        disabled={isLocked || Boolean(prescribedVaccineType && !isCompleted)}
-                        style={{
-                          width: '100%',
-                          padding: '6px 8px',
-                          border: showRequiredWarning ? '1.5px solid #ef4444' : prescribedVaccineType && !isCompleted ? '1.5px solid #86efac' : '1px solid #cbd5e1',
-                          borderRadius: 5,
-                          fontSize: 12,
-                          backgroundColor: isCompleted ? 'var(--card-bg-nested, #f8fafc)' : prescribedVaccineType && !isCompleted ? '#f0fdf4' : 'var(--card-bg-solid, #ffffff)',
-                          color: dose.vaccine_type ? '#166534' : '#64748b',
-                          fontWeight: dose.vaccine_type ? 700 : 400,
-                          cursor: (isCompleted || Boolean(prescribedVaccineType && !isCompleted)) ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        <option value="">— Select Vaccine —</option>
-                        {availableVaccineTypes.map((vType) => (
-                          <option key={vType} value={vType}>
-                            {vType}
-                          </option>
-                        ))}
-                      </select>
-
-                      {/* Transferred-in external toggle */}
-                      <div style={{ marginTop: 4 }}>
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: '#0369a1', cursor: isLocked ? 'default' : 'pointer', fontWeight: 500 }}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(dose.is_external)}
-                            disabled={isLocked}
-                            onChange={(e) => handleDoseChange(index, 'is_external', e.target.checked)}
-                          />
-                          <span>Transferred-In (External Clinic)</span>
-                        </label>
-                        {dose.is_external && (
-                          <input
-                            type="text"
-                            value={dose.external_facility_name || ''}
-                            placeholder="External hospital / clinic name"
-                            disabled={isLocked}
-                            onChange={(e) => handleDoseChange(index, 'external_facility_name', e.target.value)}
-                            style={{
-                              width: '100%',
-                              marginTop: 4,
-                              padding: '3px 6px',
-                              fontSize: 10.5,
-                              borderRadius: 4,
-                              border: '1px solid #7dd3fc',
-                              backgroundColor: '#f0f9ff',
-                              color: '#0c4a6e',
-                            }}
-                          />
-                        )}
-                      </div>
-
-                      {showRequiredWarning ? (
-                        <div style={{ color: '#dc2626', fontSize: 10, fontWeight: 600, marginTop: 3 }}>
-                          Required to record dose
-                        </div>
-                      ) : isActiveFollowUp && dose.vaccine_type ? (
-                        <div style={{ color: '#15803d', fontSize: 10, fontWeight: 600, marginTop: 3 }}>
-                          ✓ Ready to record for today
-                        </div>
-                      ) : isActiveFollowUp && !dose.vaccine_type ? (
-                        <div style={{ color: '#059669', fontSize: 10, fontWeight: 600, marginTop: 3 }}>
-                          👉 Select vaccine to record
-                        </div>
-                      ) : dose.date && !dose.vaccine_type && !isCompleted ? (
-                        <div style={{ color: '#0369a1', fontSize: 10, fontWeight: 500, marginTop: 3 }}>
-                          📅 Scheduled follow-up
-                        </div>
-                      ) : null}
-                    </td>
-
-                    {/* 5. FIFO Batch & Open-Vial Preview */}
-                    <td style={{ padding: '8px 10px' }}>
-                      {dose.is_external ? (
-                        <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 2, padding: '4px 8px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 6 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#0369a1' }}>
-                            🏥 Transferred-In Dose
-                          </span>
-                          <span style={{ fontSize: 10, color: '#0284c7' }}>
-                            {dose.external_facility_name || 'External Facility'} (0 local stock deducted)
-                          </span>
-                        </div>
-                      ) : isCompleted ? (
-                        <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 2, padding: '4px 8px', backgroundColor: dose.inventory_units_used === '0' ? '#ecfeff' : '#dcfce7', border: dose.inventory_units_used === '0' ? '1px solid #a5f3fc' : '1px solid #86efac', borderRadius: 6 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: dose.inventory_units_used === '0' ? '#0e7490' : '#15803d' }}>
-                            ✓ Batch: {dose.batch_number || 'Administered'} {dose.inventory_units_used === '0' ? '(Shared Vial)' : dose.inventory_units_used ? `(${dose.inventory_units_used} deducted)` : ''}
-                          </span>
-                          {dose.expiration_date && (
-                            <span style={{ fontSize: 10, color: dose.inventory_units_used === '0' ? '#155e75' : '#166534' }}>
-                              Exp: {dose.expiration_date}
-                            </span>
-                          )}
-                        </div>
-                      ) : dose.vaccine_type ? (
-                        dose.batch_number ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '5px 8px', backgroundColor: dose.is_open_vial ? '#ecfeff' : '#eff6ff', border: dose.is_open_vial ? '1px solid #a5f3fc' : '1px solid #bfdbfe', borderRadius: 6 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                              <span style={{ fontSize: 11, fontWeight: 700, color: dose.is_open_vial ? '#0e7490' : '#1e40af' }}>
-                                {dose.is_open_vial ? `🟢 Open Vial (Dose ${dose.next_dose_index} of ${dose.total_doses})` : `📦 Opening New Vial (Dose 1 of ${dose.total_doses || 1})`}
-                              </span>
-                              {dose.available_stock !== undefined && (
-                                <span style={{ fontSize: 10, fontWeight: 700, color: dose.available_stock > 5 ? '#059669' : '#d97706' }}>
-                                  {dose.available_stock} in stock
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#475569' }}>
-                              <span>Batch: {dose.batch_number} {dose.expiration_date ? `• Exp: ${dose.expiration_date}` : ''}</span>
-                              <span style={{ color: dose.is_open_vial ? '#0891b2' : '#1d4ed8', fontWeight: 600 }}>
-                                {dose.is_open_vial ? '0 vials deducted' : '1 vial deducted'}
-                              </span>
-                            </div>
-                          </div>
-                        ) : hasFifoError ? (
-                          <div style={{ padding: '4px 8px', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, color: '#dc2626', fontSize: 11, fontWeight: 600 }}>
-                            ⚠ Out of Stock / No FIFO Batch
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic' }}>
-                            Fetching FIFO allocation...
-                          </span>
-                        )
-                      ) : (
-                        <span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
-                          Select vaccine to preview
-                        </span>
-                      )}
-                    </td>
-
-                    {/* 6. Automated Stock Allocation */}
-                    <td style={{ padding: '8px', textAlign: 'center' }}>
-                      {dose.is_external ? (
-                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 6, backgroundColor: '#f0f9ff', color: '#0369a1', fontSize: 11, fontWeight: 600 }}>
-                          External (0 stock)
-                        </span>
-                      ) : isCompleted ? (
-                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 6, backgroundColor: 'var(--card-bg-nested, #f8fafc)', color: '#475569', fontSize: 11, fontWeight: 600 }}>
-                          {dose.inventory_units_used === '0' ? 'Shared Vial' : `${dose.inventory_units_used || 1} vial(s)`}
-                        </span>
-                      ) : dose.vaccine_type && dose.batch_number ? (
-                        dose.is_open_vial ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                            <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: 5, backgroundColor: '#cffafe', color: '#0e7490', fontSize: 10, fontWeight: 700 }}>
-                              🤝 Auto-Shared
-                            </span>
-                            <span style={{ fontSize: 10, color: '#0891b2', fontWeight: 600 }}>0 stock</span>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                            <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: 5, backgroundColor: '#dbeafe', color: '#1e40af', fontSize: 10, fontWeight: 700 }}>
-                              📦 Auto-New
-                            </span>
-                            <span style={{ fontSize: 10, color: '#1d4ed8', fontWeight: 600 }}>1 vial</span>
-                          </div>
-                        )
-                      ) : (
-                        <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>
-                      )}
-                    </td>
-
-                    {/* 7. Given by / Attended by */}
-                    <td style={{ padding: '8px 12px' }}>
-                      {isCompleted ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ fontWeight: 600, color: '#1e293b', fontSize: 12 }}>
-                              {dose.given_by || 'Staff Nurse'}
-                            </span>
-                            <span title="Verified Clinician" style={{ color: '#16a34a', fontSize: 12, fontWeight: 700 }}>✓</span>
-                          </div>
-                          {dose.license_no ? (
-                            <span style={{ fontSize: 10.5, color: '#0369a1', fontWeight: 600 }}>
-                              PRC: {dose.license_no}
-                            </span>
-                          ) : (
-                            <span style={{ fontSize: 10, color: '#64748b' }}>
-                              Licensed Staff
-                            </span>
-                          )}
-                        </div>
-                      ) : dose.is_external ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#0369a1' }}>
-                            🏥 {dose.external_facility_name || dose.given_by || 'External Clinic'}
-                          </span>
-                          <span style={{ fontSize: 10, color: '#64748b' }}>External Clinician</span>
-                        </div>
-                      ) : (isActiveFollowUp || isActivelyRecording) ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <span style={{ fontWeight: 600, color: '#1e293b', fontSize: 12 }}>
-                              {currentUser?.name || dose.given_by || 'Current Nurse'}
-                            </span>
-                            <span style={{
-                              fontSize: 9,
-                              fontWeight: 700,
-                              padding: '1px 5px',
-                              borderRadius: 4,
-                              backgroundColor: '#dbeafe',
-                              color: '#1d4ed8',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.04em',
-                            }}>
-                              Attending
-                            </span>
-                          </div>
-                          {(currentUser?.professional_license_no || dose.license_no) ? (
-                            <span style={{ fontSize: 10.5, color: '#0369a1', fontWeight: 600 }}>
-                              PRC: {currentUser?.professional_license_no || dose.license_no}
-                            </span>
-                          ) : (
-                            <span style={{ fontSize: 10, color: '#64748b' }}>
-                              Registered Nurse
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: 12, color: '#94a3b8' }}>—</span>
-                      )}
-                    </td>
-
-                    {/* 8. Signature */}
-                    <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                      {isCompleted ? (
-                        <div
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            padding: '3px 8px',
-                            borderRadius: 6,
-                            backgroundColor: '#f0fdf4',
-                            border: '1px solid #bbf7d0',
-                            color: '#15803d',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            whiteSpace: 'nowrap',
-                          }}
-                          title="Digital signature on file stamped on official record"
-                        >
-                          <span>✍️</span>
-                          <span>{dose.signature && dose.signature !== 'On File' ? dose.signature : 'On File'}</span>
-                          <span>✓</span>
-                        </div>
-                      ) : dose.is_external ? (
-                        <span style={{
-                          display: 'inline-block',
-                          padding: '3px 8px',
-                          borderRadius: 6,
-                          backgroundColor: '#f0f9ff',
-                          color: '#0369a1',
-                          fontSize: 11,
-                          fontWeight: 600,
-                        }}>
-                          External Card
-                        </span>
-                      ) : (isActiveFollowUp || isActivelyRecording) ? (
-                        (currentUser?.signature_path || dose.signature_path) ? (
-                          <div
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                              backgroundColor: '#eff6ff',
-                              border: '1px solid #bfdbfe',
-                              color: '#1d4ed8',
-                              fontSize: 11,
-                              fontWeight: 600,
-                              whiteSpace: 'nowrap',
-                            }}
-                            title="Digital signature on file will authenticate this dose upon saving"
-                          >
-                            <span>✍️</span>
-                            <span>On File</span>
-                            <span style={{ color: '#16a34a' }}>✓</span>
-                          </div>
-                        ) : (
-                          <div
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                            backgroundColor: '#f8fafc',
-                            border: '1px solid #cbd5e1',
-                            color: '#475569',
-                              fontSize: 10.5,
-                              fontWeight: 600,
-                              whiteSpace: 'nowrap',
-                            }}
-                            title="Digital signature is optional. Sign the printed record by hand if required by your clinic."
-                          >
-                            <span>⚠️</span>
-                            <span>Hand-sign printout</span>
-                          </div>
-                        )
-                      ) : (
-                        <span style={{ fontSize: 12, color: '#94a3b8' }}>—</span>
-                      )}
-                    </td>
-
-                    {/* 9. Status Pill */}
-                    <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                      {dose.is_external ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, backgroundColor: '#e0f2fe', color: '#0369a1', fontSize: 10, fontWeight: 700 }}>
-                          🏥 External
-                        </span>
-                      ) : isCompleted ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, backgroundColor: '#dcfce7', color: '#15803d', fontSize: 10, fontWeight: 700 }}>
-                          ✓ Administered
-                        </span>
-                      ) : (isActiveFollowUp || isActivelyRecording) ? (
-                        dose.vaccine_type && dose.batch_number ? (
-                          dose.is_open_vial ? (
-                            <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 12, backgroundColor: '#cffafe', color: '#0891b2', fontSize: 10, fontWeight: 700 }}>
-                              Auto-Shared ({dose.next_dose_index}/{dose.total_doses})
-                            </span>
-                          ) : (
-                            <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 12, backgroundColor: '#dbeafe', color: '#1e40af', fontSize: 10, fontWeight: 700 }}>
-                              Auto-New Vial (1/{dose.total_doses || 1})
-                            </span>
-                          )
-                        ) : (
-                          <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 12, backgroundColor: '#fee2e2', color: '#b91c1c', fontSize: 10, fontWeight: 700 }}>
-                            Missing Stock Info
-                          </span>
-                        )
-                      ) : (
-                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 12, backgroundColor: 'var(--card-bg-nested, #e4fbf4)', color: '#64748b', fontSize: 10, fontWeight: 500 }}>
-                          Pending
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {/* 8.1 — Expand / Collapse Day 28 + Booster rows (primary regimen only) */}
-          {false && !orderedDosePeriods && !(manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure') && !readOnly && (
-            <div style={{ textAlign: 'center', marginTop: 10 }}>
-              <button
-                type="button"
-                onClick={() => setShowFullSchedule(v => !v)}
+      {/* UNADMINISTERED VISIT OUTCOME OPTION (Patient Left / Deferred Treatment) */}
+      {!readOnly && !hasCompletedDoseInCurrentIncident && form3Ready && (
+        <div
+          style={{
+            marginTop: 20,
+            padding: '12px 16px',
+            borderRadius: BORDER_RADIUS,
+            border: visitOutcome === 'not_administered' ? '1.5px solid #dc2626' : '1px solid var(--border-color, #e5e7eb)',
+            backgroundColor: visitOutcome === 'not_administered' ? '#fef2f2' : 'var(--bg-secondary, #f8fafc)',
+          }}
+        >
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: visitOutcome === 'not_administered' ? '#b91c1c' : '#334155' }}>
+            <input
+              type="checkbox"
+              checked={visitOutcome === 'not_administered'}
+              onChange={(e) => {
+                setVisitOutcome(e.target.checked ? 'not_administered' : 'administered');
+                if (!e.target.checked) setNotAdministeredReason('');
+              }}
+              disabled={saving}
+            />
+            Record Visit Outcome as Not Administered (Patient left clinic / deferred injection without receiving any dose today)
+          </label>
+          {visitOutcome === 'not_administered' && (
+            <div style={{ marginTop: 10 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#991b1b', marginBottom: 4 }}>
+                Reason Treatment Was Not Administered *
+              </label>
+              <input
+                type="text"
+                value={notAdministeredReason}
+                onChange={(e) => setNotAdministeredReason(e.target.value)}
+                placeholder="e.g., Patient left clinic before nurse administration / deferred due to elevated BP..."
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '6px 16px',
-                  background: showFullSchedule ? 'var(--card-bg-nested, #e4fbf4)' : '#f0fdf4',
-                  border: `1px solid ${showFullSchedule ? '#cbd5e1' : '#a7f3d0'}`,
-                  borderRadius: 20, fontSize: 12, fontWeight: 600,
-                  color: showFullSchedule ? '#475569' : '#065f46',
-                  cursor: 'pointer', transition: 'all 0.15s',
+                  width: '100%',
+                  padding: '8px 12px',
+                  fontSize: 13,
+                  borderRadius: 6,
+                  border: '1px solid #fca5a5',
+                  backgroundColor: '#ffffff',
                 }}
-              >
-                {showFullSchedule
-                  ? '▲ Hide Booster Doses'
-                  : '▼ Show Booster 1 / Booster 2 (optional follow-up)'}
-              </button>
+              />
+              <div style={{ fontSize: 11.5, color: '#7f1d1d', marginTop: 4 }}>
+                Saving this outcome preserves the visit record and marks the prescribed treatment as Not Administered without deducting inventory stock.
+              </div>
             </div>
           )}
         </div>
+      )}
 
-        {/* ── Collapsible Prior Immunization History (Read Only) ── */}
-        {false && pastHistoryRecords.length > 0 && isBoosterPlan && (
-          <div style={{ marginTop: 20, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+      {/* Sticky footer for inline mode */}
+      {inline && (
+        <div
+          style={{
+            position: 'sticky',
+            bottom: 0,
+            background: 'var(--card-bg-solid, #ffffff)',
+            borderTop: '1px solid var(--border-color, #e5e7eb)',
+            padding: '16px 0',
+            marginTop: 24,
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            gap: 12,
+            zIndex: 10,
+          }}
+        >
+          <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
+          {error && (
+            <span style={{ fontSize: 13, color: '#ef4444', marginRight: 12, fontWeight: 500 }}>
+              {error}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            style={{
+              padding: '8px 20px',
+              fontSize: 13,
+              fontWeight: 600,
+              borderRadius: BORDER_RADIUS,
+              border: '1px solid var(--border-color, #d1d5db)',
+              background: 'var(--card-bg-solid, #ffffff)',
+              color: 'var(--text-secondary, #475569)',
+              cursor: saving ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            {readOnly ? 'Close' : 'Cancel'}
+          </button>
+
+          {!readOnly && (
             <button
               type="button"
-              onClick={() => setShowHistoricalPEP(prev => !prev)}
+              onClick={handleSubmit}
+              disabled={saving || currentUser?.role === 'triage' || !form3Ready}
               style={{
-                width: '100%',
-                padding: '10px 16px',
-                background: '#f8fafc',
+                padding: '8px 20px',
+                fontSize: 13,
+                fontWeight: 600,
+                borderRadius: BORDER_RADIUS,
                 border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                textAlign: 'left',
+                background: visitOutcome === 'not_administered' ? '#dc2626' : '#047857',
+                color: '#ffffff',
+                cursor: (saving || currentUser?.role === 'triage' || !form3Ready) ? 'not-allowed' : 'pointer',
+                opacity: (saving || currentUser?.role === 'triage' || !form3Ready) ? 0.6 : 1,
+                transition: 'background-color 0.15s ease',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 16 }}>📁</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>
-                  Historical Primary PEP Immunization Course (Episode 1: {pastHistoryRecords.filter(r => r.status === 'completed').length} Completed Doses)
-                </span>
-              </div>
-              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
-                {showHistoricalPEP ? '▲ Hide Historical Records' : '▼ View Historical PEP Record'}
-              </span>
-            </button>
-
-            {showHistoricalPEP && (
-              <div style={{ padding: '12px 16px', background: '#ffffff', borderTop: '1px solid #e2e8f0' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Dose Period</th>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Date Administered</th>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Vaccine Brand</th>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Batch No.</th>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569' }}>Administered By</th>
-                      <th style={{ padding: '8px 10px', textAlign: 'center', color: '#475569' }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pastHistoryRecords.map((r, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '8px 10px', fontWeight: 600, color: '#1e293b' }}>
-                          Day {r.dose_number}
-                        </td>
-                        <td style={{ padding: '8px 10px', color: '#475569' }}>
-                          {r.treatment_date || '—'}
-                        </td>
-                        <td style={{ padding: '8px 10px', color: '#475569' }}>
-                          {r.vaccine_brand || 'ARV'}
-                        </td>
-                        <td style={{ padding: '8px 10px', color: '#475569' }}>
-                          {r.batch_no || '—'}
-                        </td>
-                        <td style={{ padding: '8px 10px', color: '#475569' }}>
-                          {(typeof r.administered_by === 'object' && r.administered_by?.name) ? r.administered_by.name : (r.administeredBy?.name || 'Staff')}
-                        </td>
-                        <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#15803d', background: '#dcfce7', padding: '1px 8px', borderRadius: 10 }}>
-                            Completed ✓
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* SECTION 4: ADDITIONAL MEDICATIONS & ICD CODE */}
-      <div style={{ marginTop: 32, display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
-        <div>
-          <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>Additional Medications</h3>
-          <div style={{ display: 'flex', gap: 24 }}>
-            {(['erig', 'tt', 'ats'] as const).map(med => {
-              const isReExposure = manualReExposure || currentIncident?.episode_type === 're_exposure' || entry?.episode_type === 're_exposure' || entry?.incident?.episode_type === 're_exposure';
-              const isErigContraindicated = med === 'erig' && isReExposure;
-              return (
-                <label
-                  key={med}
-                  title={isErigContraindicated ? 'RIG omitted — contraindicated in previously immunized patients (DOH Rabies Manual)' : undefined}
-                  style={{ display: 'flex', alignItems: 'center', cursor: isErigContraindicated || readOnly ? 'not-allowed' : 'pointer', opacity: isErigContraindicated ? 0.45 : 1 }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={additionalMeds[med]}
-                    onChange={(e) => setAdditionalMeds(prev => ({ ...prev, [med]: e.target.checked }))}
-                    disabled={readOnly || isErigContraindicated}
-                    style={{ marginRight: 8 }}
-                  />
-                  <span style={{ fontSize: 13, color: isErigContraindicated ? '#9ca3af' : '#374151', fontWeight: 500 }}>
-                    {med.toUpperCase()}
-                    {isErigContraindicated && <span style={{ fontSize: 10, marginLeft: 4, color: '#6b7280' }}>(contraindicated)</span>}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>ICD 10 Code</label>
-          <input type="text" value={icdCode} onChange={(e) => setIcdCode(e.target.value)} placeholder="e.g., W54.0" disabled={readOnly} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 13, backgroundColor: readOnly ? 'var(--bg-secondary, #e8fdf6)' : undefined }} />
-        </div>
-      </div>
-
-      {/* Inline footer buttons */}
-      {inline && (
-        <div style={{ marginTop: 32, paddingTop: 20, borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-          {error && <p style={{ flex: 1, fontSize: 13, color: '#ef4444', margin: 0, alignSelf: 'center' }}>{error}</p>}
-          {!readOnly && (
-            <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
-              {saving ? 'Saving…' : '✓ Save Record'}
+              {saving
+                ? 'Saving…'
+                : visitOutcome === 'not_administered'
+                  ? 'Save Unadministered Visit Outcome'
+                  : (isCategory1 || doctorPlanType === 'no_vaccine')
+                    ? 'Save prophylaxis administration'
+                    : `Save and record ${activeUnlockedPeriod}`}
             </button>
           )}
         </div>
@@ -2701,11 +2131,18 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       maxWidth={1000}
       footer={
         <>
+          <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
           {error && <p style={{ flex: 1, fontSize: 13, color: '#ef4444', margin: 0, alignSelf: 'center' }}>{error}</p>}
           <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>{readOnly ? 'Close' : 'Cancel'}</button>
           {!readOnly && (
-            <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
-              {saving ? 'Saving…' : '✓ Save Record'}
+            <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving || currentUser?.role === 'triage' || !form3Ready}>
+              {saving
+                ? 'Saving…'
+                : visitOutcome === 'not_administered'
+                  ? 'Save Unadministered Visit Outcome'
+                  : (isCategory1 || doctorPlanType === 'no_vaccine')
+                    ? 'Save prophylaxis administration'
+                    : `Save and record ${activeUnlockedPeriod}`}
             </button>
           )}
         </>

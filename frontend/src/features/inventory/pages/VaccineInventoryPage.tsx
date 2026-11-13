@@ -11,24 +11,29 @@ type ApiError = {
 import {
   Box,
   Button,
-  Chip,
+  IconButton,
+  Tooltip,
   Snackbar,
   Stack,
   Tab,
   Tabs,
   Typography,
   Alert,
+  Paper,
+  Skeleton,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
   Add as AddIcon,
-  LocalHospital as ClinicIcon,
-  VerifiedUser as VerifiedIcon,
+  Inventory2 as InventoryIcon,
+  CheckCircleOutlined as ActiveIcon,
+  WarningAmberOutlined as ExpiringIcon,
+  AccessTime as OpenedIcon,
+  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { ROUTES } from '../../../shared/config/routes';
-import StatCard from '../../../components/common/StatCard';
 import AddEditInventoryDialog from '../components/AddEditInventoryDialog/AddEditInventoryDialog';
 import AdjustStockDialog from '../components/AdjustStockDialog/AdjustStockDialog';
 import TransactionHistoryDialog from '../components/TransactionHistoryDialog/TransactionHistoryDialog';
@@ -38,21 +43,51 @@ import StockCardView from '../components/StockCardView/StockCardView';
 import FifoComplianceReport from '../components/FifoComplianceReport/FifoComplianceReport';
 import NurseVaccineList from '../components/NurseVaccineList/NurseVaccineList';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
-import StockLevelIndicator from '../components/StockLevelIndicator/StockLevelIndicator';
-import type { InventoryItem } from '../types';
+import type { InventoryItem, VaccineTypePreset } from '../types';
+import { getVaccinePresets } from '../services/vaccineInventoryService';
 import { deriveInventoryStatus } from '../utils/inventoryStatus';
+import { daysUntil } from '../../../shared/utils';
+import { highlightRecordElement } from '../../../shared/utils/notificationNavigation';
 
 interface VaccineInventoryProps {
   initialTab?: 'table' | 'stockcard' | 'fifo' | 'administrations';
 }
 
+function InventorySummaryCard({ label, value, subtitle, tone, icon, loading }: { label: string; value: number; subtitle: string; tone: 'green' | 'blue' | 'amber' | 'cyan'; icon: React.ReactNode; loading: boolean }) {
+  const colors = {
+    green: { color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' },
+    blue: { color: '#0d9488', bg: '#f0fdfa', border: '#99f6e4' },
+    amber: { color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+    cyan: { color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' },
+  }[tone];
+
+  return (
+    <Paper elevation={0} sx={{ border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '14px', p: '16px 20px', display: 'flex', alignItems: 'center', gap: 2, minHeight: 102, bgcolor: 'var(--card-bg-solid, #fff)', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', transition: 'box-shadow 0.25s ease', '&:hover': { boxShadow: '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)' } }}>
+      <Box sx={{ width: 46, height: 46, borderRadius: '12px', bgcolor: colors.bg, color: colors.color, border: `1px solid ${colors.border}`, display: 'grid', placeItems: 'center', flexShrink: 0, '& svg': { fontSize: 22 } }}>
+        {icon}
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography sx={{ mb: 0.35, fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{label}</Typography>
+        {loading ? <Skeleton width={46} height={30} /> : <Typography sx={{ fontSize: 27, lineHeight: 1, fontWeight: 800, color: 'var(--text-h, #111827)' }}>{value}</Typography>}
+        <Typography sx={{ mt: 0.45, fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>{subtitle}</Typography>
+      </Box>
+    </Paper>
+  );
+}
+
 export default function VaccineInventory({ initialTab }: VaccineInventoryProps = {}) {
-  const { clinic, user } = useAuth();
+  const { user } = useAuth();
+  const isNurseRole = user?.role === 'treatment';
+  const isAdminRole = user?.role === 'admin';
   const location = useLocation();
   const navigate = useNavigate();
 
-  const searchParams = new URLSearchParams(location.search);
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const tabParam = searchParams.get('tab');
+  const batchParam = searchParams.get('batchId') || searchParams.get('initialItemId');
+  const searchUrlParam = searchParams.get('search');
+  const statusFilterUrlParam = searchParams.get('statusFilter');
+  const categoryFilterUrlParam = searchParams.get('category') || searchParams.get('categoryFilter');
 
   const defaultTab = initialTab
     || (location.pathname.includes('/administrations') ? 'administrations' : undefined)
@@ -63,23 +98,38 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(15);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState(() => searchUrlParam || '');
+  const [categoryFilter, setCategoryFilter] = useState(() => categoryFilterUrlParam || '');
+  const [statusFilter, setStatusFilter] = useState(() => statusFilterUrlParam || '');
   const [batchFilter, setBatchFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
   const [expiryFrom, setExpiryFrom] = useState('');
   const [expiryTo, setExpiryTo] = useState('');
   const [view, setView] = useState<'table' | 'stockcard' | 'fifo' | 'administrations'>(defaultTab);
+  const [selectedStockCardId, setSelectedStockCardId] = useState<number | null>(() => batchParam ? parseInt(batchParam, 10) : null);
+  const [batchNotFound, setBatchNotFound] = useState(false);
 
   useEffect(() => {
-    if (location.pathname.includes('/administrations') || initialTab === 'administrations') {
-      setView('administrations');
-    } else if (tabParam && ['table', 'stockcard', 'fifo', 'administrations'].includes(tabParam)) {
-      setView(tabParam as any);
-    } else {
-      setView('table');
+    if (batchParam) {
+      setSelectedStockCardId(parseInt(batchParam, 10));
     }
-  }, [initialTab, location.pathname, tabParam]);
+    if (searchUrlParam !== null) {
+      setSearch(searchUrlParam);
+    }
+    if (statusFilterUrlParam !== null) {
+      setStatusFilter(statusFilterUrlParam);
+    }
+    if (categoryFilterUrlParam !== null) {
+      setCategoryFilter(categoryFilterUrlParam);
+    }
+    if (tabParam === 'stockcard') {
+      setView('stockcard');
+    } else if (location.pathname.includes('/administrations') || initialTab === 'administrations') {
+      setView('administrations');
+    } else if (tabParam && ['table', 'fifo', 'administrations'].includes(tabParam)) {
+      setView((isNurseRole || isAdminRole) && tabParam === 'fifo' ? 'table' : tabParam as any);
+    }
+  }, [initialTab, isAdminRole, isNurseRole, location.pathname, tabParam, batchParam, searchUrlParam, categoryFilterUrlParam, statusFilterUrlParam]);
 
   useEffect(() => {
     const handleReset = () => {
@@ -103,21 +153,32 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const [deleteItem, setDeleteItem] = useState<InventoryItem | null>(null);
   const [openVialTarget, setOpenVialTarget] = useState<InventoryItem | null>(null);
   const [discardVialTarget, setDiscardVialTarget] = useState<InventoryItem | null>(null);
+  const [presets, setPresets] = useState<VaccineTypePreset[]>([]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/inventory', { params: { per_page: 200 } });
-      const liveItems: InventoryItem[] = res.data?.data || res.data || [];
-      setItems(Array.isArray(liveItems) ? liveItems : []);
-    } catch (err: unknown) {
-      const apiError = err as ApiError;
-      setItems([]);
-      setSnackbar({
-        open: true,
-        message: apiError.response?.data?.message || 'Failed to load vaccine inventory from server.',
-        severity: 'error',
-      });
+      const [invRes, presetsRes] = await Promise.allSettled([
+        api.get('/inventory', { params: { per_page: 200 } }),
+        getVaccinePresets(),
+      ]);
+
+      if (invRes.status === 'fulfilled') {
+        const liveItems: InventoryItem[] = invRes.value.data?.data || invRes.value.data || [];
+        setItems(Array.isArray(liveItems) ? liveItems : []);
+      } else {
+        const apiError = invRes.reason as ApiError;
+        setItems([]);
+        setSnackbar({
+          open: true,
+          message: apiError?.response?.data?.message || 'Failed to load vaccine inventory from server.',
+          severity: 'error',
+        });
+      }
+
+      if (presetsRes.status === 'fulfilled') {
+        setPresets(Array.isArray(presetsRes.value) ? presetsRes.value : []);
+      }
     } finally {
       setLoading(false);
     }
@@ -134,7 +195,17 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       const derivedStatus = deriveInventoryStatus(item);
-      const matchesSearch = !search || item.vaccine_type.toLowerCase().includes(search.toLowerCase());
+      const category = item.vaccine_category || presets.find((p) => p.vaccine_name.toLowerCase() === item.vaccine_type.toLowerCase())?.category;
+
+      const matchesCategory = !categoryFilter || (
+        categoryFilter === 'Not specified'
+          ? !category
+          : Boolean(category && category.toLowerCase() === categoryFilter.toLowerCase())
+      );
+
+      const matchesSearch = !search || 
+        item.vaccine_type.toLowerCase().includes(search.toLowerCase()) ||
+        Boolean(category && category.toLowerCase().includes(search.toLowerCase()));
       const matchesBatch = !batchFilter || (item.batch_number || '').toLowerCase().includes(batchFilter.toLowerCase());
       const matchesSource = !sourceFilter || (item.received_from || '').toLowerCase().includes(sourceFilter.toLowerCase());
 
@@ -168,49 +239,48 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
       const matchesFrom = !expiryFrom || !expiryDate || expiryDate >= expiryFrom;
       const matchesTo = !expiryTo || !expiryDate || expiryDate <= expiryTo;
 
-      return matchesSearch && matchesBatch && matchesSource && matchesStatus && matchesFrom && matchesTo;
+      return matchesCategory && matchesSearch && matchesBatch && matchesSource && matchesStatus && matchesFrom && matchesTo;
     });
-  }, [items, search, batchFilter, sourceFilter, statusFilter, expiryFrom, expiryTo]);
+  }, [items, search, categoryFilter, batchFilter, sourceFilter, statusFilter, expiryFrom, expiryTo, presets]);
+
 
   const pagedItems = useMemo(() => {
     const start = page * rowsPerPage;
     return filteredItems.slice(start, start + rowsPerPage);
   }, [filteredItems, page, rowsPerPage]);
 
-  const stats = useMemo(() => {
-    const statusCounts = items.reduce(
-      (acc, item) => {
-        const status = deriveInventoryStatus(item);
-        acc.totalStock += item.current_quantity || 0;
-        if (item.current_quantity > 0 && item.current_quantity <= 10) acc.lowStock += 1;
-        if (status === 'Active') acc.active += 1;
-        if (status === 'Expiring') acc.expiring += 1;
-        if (status === 'Expired') acc.expired += 1;
-        if (status === 'Depleted') acc.depleted += 1;
-        if (status === 'Discard-Pending') acc.discardPending += 1;
-        return acc;
-      },
-      {
-        totalStock: 0,
-        lowStock: 0,
-        active: 0,
-        expiring: 0,
-        expired: 0,
-        depleted: 0,
-        discardPending: 0,
-      },
-    );
+  // Locate and highlight referenced batch or report not found
+  useEffect(() => {
+    if (!batchParam || loading || items.length === 0) return;
+    const targetId = parseInt(batchParam, 10);
+    const exists = items.some(i => i.inventory_id === targetId);
+    if (!exists) {
+      setBatchNotFound(true);
+      return;
+    }
 
-    return {
-      total_batches: items.length,
-      total_stock: statusCounts.totalStock,
-      active_batches: statusCounts.active,
-      expiring_soon: statusCounts.expiring,
-      expired_batches: statusCounts.expired,
-      depleted_batches: statusCounts.depleted,
-      discard_pending: statusCounts.discardPending,
-      low_stock: statusCounts.lowStock,
-    };
+    if (view === 'table') {
+      const matchIdx = filteredItems.findIndex(i => i.inventory_id === targetId);
+      if (matchIdx !== -1) {
+        const targetPage = Math.floor(matchIdx / rowsPerPage);
+        if (page !== targetPage) setPage(targetPage);
+        setTimeout(() => highlightRecordElement(`inventory-batch-${targetId}`), 350);
+      }
+    }
+  }, [batchParam, loading, items, view, filteredItems, rowsPerPage, page]);
+
+  const stats = useMemo(() => {
+    return items.reduce((summary, item) => {
+      const daysToExpiry = item.expiration_date ? daysUntil(item.expiration_date) : Number.POSITIVE_INFINITY;
+      const operational = item.status === 'active' && item.current_quantity > 0 && daysToExpiry >= 0;
+      if (operational) {
+        summary.available_vials += item.current_quantity;
+        summary.active_batches += 1;
+      }
+      if (operational && daysToExpiry <= 30) summary.expiring_soon += 1;
+      if (item.status === 'active' && item.open_vial_status === 'opened') summary.opened_vials += 1;
+      return summary;
+    }, { available_vials: 0, active_batches: 0, expiring_soon: 0, opened_vials: 0 });
   }, [items]);
 
   const [successModal, setSuccessModal] = useState<{ open: boolean; title: string; message: string } | null>(null);
@@ -265,122 +335,261 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
     <Box sx={{ px: 3 }}>
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-            <Typography component="h1" sx={{ fontWeight: 700, fontSize: '25px', lineHeight: 1.2, letterSpacing: '-0.5px', color: 'var(--text-h)', m: 0 }}>
-              {view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
-            </Typography>
-            <Chip
-              icon={<VerifiedIcon style={{ fontSize: 16 }} />}
-              label="Daily operations"
-              color="success"
-              variant="outlined"
-              size="small"
-              sx={{ fontWeight: 700, fontSize: '11px' }}
-            />
-          </Box>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#64748b', mt: 0.5 }}>
-            {view === 'administrations'
-              ? 'View nurse administration records, patient logs, and consumption details.'
-              : 'Add stock, monitor expiry, and manage opened-vial discard timers from one operational view.'}
+          <Typography
+            component="h1"
+            sx={{
+              fontSize: '24px',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
+            }}
+          >
+            {view === 'stockcard' ? 'Stock Card' : view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
           </Typography>
-
           {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '8px',
+              fontSize: '13px',
+            }}
+          >
             <button
               onClick={() => navigate(ROUTES.DASHBOARD)}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: '#3b82f6',
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
             >
               Dashboard
             </button>
             <span style={{ color: '#9ca3af' }}>›</span>
             <span style={{ color: '#6b7280' }}>Vaccine Stock Management</span>
             <span style={{ color: '#9ca3af' }}>›</span>
-            <span style={{ color: '#6b7280' }}>
-              {view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
-            </span>
+            {view === 'stockcard' ? (
+              <>
+                <button
+                  onClick={() => {
+                    setView('table');
+                    setSelectedStockCardId(null);
+                    navigate('/inventory');
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    color: '#059669',
+                    fontSize: '13px',
+                    fontFamily: 'inherit',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                  }}
+                >
+                  Vaccine Inventory
+                </button>
+                <span style={{ color: '#9ca3af' }}>›</span>
+                <span style={{ color: '#0f172a', fontWeight: 700 }}>Stock Card</span>
+              </>
+            ) : (
+              <span style={{ color: '#6b7280' }}>
+                {view === 'administrations' ? 'Inventory Transaction' : 'Vaccine Inventory'}
+              </span>
+            )}
           </div>
-
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.25, mt: 1.25, px: 1.5, py: 0.75, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 2, flexWrap: 'wrap' }}>
-            <ClinicIcon sx={{ color: '#059669', fontSize: 18 }} />
-            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#166534' }}>
-              Facility: {clinic?.name || 'Tagoloan Animal Bite Treatment Center'}
-            </Typography>
-            <Chip label="FIFO / FEFO view" size="small" sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#dcfce7', color: '#15803d' }} />
-          </Box>
         </Box>
 
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <Tabs
-            value={view}
-            onChange={(_, newValue) => {
-              setView(newValue);
-              if (newValue === 'administrations') {
-                navigate('/inventory/administrations');
-              } else if (newValue === 'table') {
-                navigate('/inventory');
-              } else {
-                navigate(`/inventory?tab=${newValue}`);
-              }
-            }}
-            sx={{
-              minHeight: 36,
-              '& .MuiTab-root': {
-                minHeight: 36,
-                fontSize: 12,
-                fontWeight: 700,
-                textTransform: 'none',
-                px: 2,
-              },
-            }}
-          >
-            <Tab label="Inventory Batches" value="table" />
-            <Tab label="Nurse Vaccine List" value="administrations" />
-            <Tab label="Stock Card" value="stockcard" />
-            <Tab label="FIFO Report" value="fifo" />
-          </Tabs>
+          {view === 'stockcard' ? (
+            <>
+              <Button
+                startIcon={<ArrowBackIcon />}
+                onClick={() => {
+                  setView('table');
+                  setSelectedStockCardId(null);
+                  navigate('/inventory');
+                }}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  color: '#334155',
+                  bgcolor: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: 2,
+                  px: 2,
+                  py: 0.75,
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                  '&:hover': {
+                    bgcolor: '#f1f5f9',
+                    borderColor: '#94a3b8',
+                    color: '#0f172a',
+                  },
+                }}
+              >
+                Back to Inventory Batches
+              </Button>
 
-          <Button
-            variant="outlined"
-            onClick={loadData}
-            disabled={loading}
-            startIcon={<RefreshIcon sx={{ fontSize: 16, transition: 'transform 0.4s', ...(loading && { animation: 'spin 0.8s linear infinite' }) }} />}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: 13,
-              borderRadius: 2,
-              px: 2,
-              borderColor: '#d1d5db',
-              color: '#374151',
-              '&:hover': { borderColor: '#10b981', color: '#10b981', bgcolor: '#f0fdf4' },
-              '&:disabled': { opacity: 0.5 },
-            }}
-          >
-            {loading ? 'Refreshing…' : 'Refresh'}
-          </Button>
+              <Tooltip title="Refresh Stock Card">
+                <span>
+                  <IconButton
+                    onClick={loadData}
+                    disabled={loading}
+                    sx={{
+                      bgcolor: '#f1f5f9',
+                      color: '#475569',
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      border: '1px solid #e2e8f0',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: '#e2e8f0',
+                        color: '#0f172a',
+                        borderColor: '#cbd5e1',
+                      },
+                      '&:disabled': { opacity: 0.5 },
+                    }}
+                  >
+                    <RefreshIcon sx={{ fontSize: 19, transition: 'transform 0.4s', ...(loading && { animation: 'spin 0.8s linear infinite' }) }} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </>
+          ) : (
+            <>
+              {!isAdminRole && (
+                <Tabs
+                  value={isNurseRole && view === 'administrations' ? false : view}
+                  onChange={(_, newValue) => {
+                    setView(newValue);
+                    if (newValue === 'administrations') {
+                      navigate('/inventory/administrations');
+                    } else if (newValue === 'table') {
+                      navigate('/inventory');
+                    } else {
+                      navigate(`/inventory?tab=${newValue}`);
+                    }
+                  }}
+                  sx={{
+                    minHeight: 36,
+                    '& .MuiTab-root': {
+                      minHeight: 36,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      textTransform: 'none',
+                      px: 2,
+                    },
+                  }}
+                >
+                  <Tab label="Inventory Batches" value="table" />
+                  {!isNurseRole && <Tab label="Nurse Vaccine List" value="administrations" />}
+                  {!isNurseRole && <Tab label="FIFO Report" value="fifo" />}
+                </Tabs>
+              )}
 
-          {(user?.role === 'admin' || user?.role === 'treatment') && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => {
-                setInitialVaccineType('');
-                setEditItem(null);
-                setAddOpen(true);
-              }}
-              sx={{
-                textTransform: 'none',
-                fontWeight: 700,
-                fontSize: 13,
-                borderRadius: 2,
-                px: 2.25,
-                bgcolor: '#059669',
-                '&:hover': { bgcolor: '#047857' },
-                boxShadow: '0 2px 8px rgba(5,150,105,0.25)',
-              }}
-            >
-              Add Stock Batch
-            </Button>
+              {/* Stock Card Button: only with stroke, turns green on hover */}
+              <Button
+                data-walkthrough="vax-inv-btn-stockcard vax-tx-btn-stockcard"
+                data-tour="vax-inv-btn-stockcard"
+                variant="outlined"
+                onClick={() => {
+                  setView('stockcard');
+                  navigate('/inventory?tab=stockcard');
+                }}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  borderRadius: 2,
+                  px: 2,
+                  minHeight: 36,
+                  border: '1.5px solid #10b981',
+                  borderColor: '#10b981',
+                  color: '#059669',
+                  bgcolor: 'transparent',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    bgcolor: '#059669',
+                    color: '#ffffff',
+                    borderColor: '#059669',
+                    boxShadow: '0 2px 8px rgba(5, 150, 105, 0.25)',
+                  },
+                }}
+              >
+                Stock Card
+              </Button>
+
+              {user?.role === 'admin' && view !== 'administrations' && (
+                <Button
+                  data-walkthrough="vax-inv-btn-add-batch"
+                  data-tour="vax-inv-btn-add-batch"
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => {
+                    setInitialVaccineType('');
+                    setEditItem(null);
+                    setAddOpen(true);
+                  }}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    borderRadius: 2,
+                    px: 2.25,
+                    minHeight: 36,
+                    bgcolor: '#059669',
+                    '&:hover': { bgcolor: '#047857' },
+                    boxShadow: '0 2px 8px rgba(5,150,105,0.25)',
+                  }}
+                >
+                  Add Stock Batch
+                </Button>
+              )}
+
+              {/* Circular Refresh button beside Add Stock Batch */}
+              <Tooltip title="Refresh Inventory">
+                <span>
+                  <IconButton
+                    data-walkthrough="vax-inv-btn-refresh vax-tx-btn-refresh"
+                    data-tour="vax-inv-btn-refresh"
+                    onClick={loadData}
+                    disabled={loading}
+                    sx={{
+                      bgcolor: '#f1f5f9',
+                      color: '#475569',
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      border: '1px solid #e2e8f0',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: '#e2e8f0',
+                        color: '#0f172a',
+                        borderColor: '#cbd5e1',
+                      },
+                      '&:disabled': { opacity: 0.5 },
+                    }}
+                  >
+                    <RefreshIcon
+                      sx={{
+                        fontSize: 19,
+                        transition: 'transform 0.4s',
+                        ...(loading && { animation: 'spin 0.8s linear infinite' }),
+                      }}
+                    />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </>
           )}
 
           <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
@@ -388,27 +597,17 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
         </Stack>
       </Box>
 
-      {/* Priority 14: Stock-Level Color Coding & Live Clinic Stock Summary */}
-      <StockLevelIndicator showLegend={true} />
-
       {view === 'table' && (
-        <>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' },
-              gap: 2,
-              mb: 3,
-              width: '100%',
-            }}
-          >
-            <StatCard label="Active Batches" value={stats.active_batches} color="success" loading={loading} />
-            <StatCard label="Available Sealed Vials" value={stats.total_stock} color="info" loading={loading} />
-            <StatCard label="Expiring Soon" value={stats.expiring_soon} color="warning" loading={loading} />
-            <StatCard label="Opened Vial — Dispose" value={stats.discard_pending} color="info" loading={loading} />
-            <StatCard label="Depleted" value={stats.depleted_batches} color="error" loading={loading} />
-          </Box>
-        </>
+        <Box
+          data-walkthrough="vax-inv-summary-cards"
+          data-tour="vax-inv-summary-cards"
+          sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 2, mb: 2.5 }}
+        >
+          <InventorySummaryCard label="Available Vials" value={stats.available_vials} subtitle="Usable sealed stock" tone="green" icon={<InventoryIcon />} loading={loading} />
+          <InventorySummaryCard label="Active Batches" value={stats.active_batches} subtitle="In current inventory" tone="blue" icon={<ActiveIcon />} loading={loading} />
+          <InventorySummaryCard label="Expiring Soon" value={stats.expiring_soon} subtitle="Within 30 days" tone="amber" icon={<ExpiringIcon />} loading={loading} />
+          <InventorySummaryCard label="Opened Vials" value={stats.opened_vials} subtitle="Discard timer active" tone="cyan" icon={<OpenedIcon />} loading={loading} />
+        </Box>
       )}
 
       {view === 'table' ? (
@@ -419,14 +618,20 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
           rowsPerPage={rowsPerPage}
           total={filteredItems.length}
           search={search}
+          categoryFilter={categoryFilter}
           statusFilter={statusFilter}
           batchFilter={batchFilter}
           sourceFilter={sourceFilter}
           expiryFrom={expiryFrom}
           expiryTo={expiryTo}
           allItems={items}
+          presets={presets}
           onSearchChange={(value) => {
             setSearch(value);
+            setPage(0);
+          }}
+          onCategoryFilterChange={(value) => {
+            setCategoryFilter(value);
             setPage(0);
           }}
           onStatusFilterChange={(value) => {
@@ -460,14 +665,18 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
           onDelete={setDeleteItem}
           onOpenVial={setOpenVialTarget}
           onDiscardVial={setDiscardVialTarget}
-          onViewStockCard={() => setView('stockcard')}
+          onViewStockCard={(item) => {
+            setSelectedStockCardId(item.inventory_id);
+            setView('stockcard');
+            navigate(`/inventory?tab=stockcard&batchId=${item.inventory_id}`);
+          }}
           onAddFirst={() => {
             setInitialVaccineType('');
             setAddOpen(true);
           }}
         />
       ) : view === 'stockcard' ? (
-        <StockCardView items={items} loading={loading} />
+        <StockCardView items={items} loading={loading} initialItemId={selectedStockCardId} />
       ) : view === 'administrations' ? (
         <NurseVaccineList />
       ) : (
@@ -548,6 +757,19 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
           confirmLabel="OK"
           hideCancel
           onConfirm={() => setSuccessModal(null)}
+        />
+      )}
+
+      {/* Batch Not Found Dialog */}
+      {batchNotFound && (
+        <ConfirmationDialog
+          variant="danger"
+          title="Vaccine Batch Not Found"
+          message={`The requested vaccine batch #${batchParam} could not be located in this clinic's inventory.`}
+          confirmLabel="Close"
+          hideCancel
+          onConfirm={() => setBatchNotFound(false)}
+          onClose={() => setBatchNotFound(false)}
         />
       )}
 

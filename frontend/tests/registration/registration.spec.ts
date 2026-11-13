@@ -23,7 +23,85 @@ async function requiredFields(page: Page) {
   await page.getByRole('button', { name: 'Switch to Manual Typing' }).click();
   await page.getByLabel('City / Municipality').fill('Tagoloan');
   await page.getByLabel('Barangay').fill('Poblacion');
+  await page.getByLabel('Contact Number (Mobile)', { exact: true }).fill('09123456789');
+  await page.getByLabel('Emergency Contact Name', { exact: true }).fill('Maria Santos');
+  await page.getByLabel('Emergency Contact Phone', { exact: true }).fill('09987654321');
 }
+
+async function referralTestRequiredFields(page: Page) {
+  await page.locator('input[name="last_name"]').fill('Dela Cruz');
+  await page.locator('input[name="first_name"]').fill('Juan');
+  await page.getByRole('radio', { name: 'Male', exact: true }).check();
+  await page.locator('input[name="date_of_birth"]').fill('1990-06-12');
+  await page.getByRole('button', { name: 'Switch to Manual Typing' }).click();
+  await page.getByLabel('City / Municipality').fill('Tagoloan');
+  await page.getByLabel('Barangay').fill('Poblacion');
+  await page.locator('input[name="contact_number"]').fill('09123456789');
+  await page.locator('input[name="emergency_contact_name"]').fill('Maria Santos');
+  await page.locator('input[name="emergency_contact_phone"]').fill('09987654321');
+}
+
+test('referral fields appear only for Referral and are cleared when switching modes', async ({ page }) => {
+  let patientPayload: Record<string, unknown> | undefined;
+  let queueRequests = 0;
+  await page.route('**/api/patients', route => {
+    patientPayload = route.request().postDataJSON();
+    return route.fulfill({ status: 201, json: { patient_id: 101 } });
+  });
+  await page.route('**/api/queue', route => { queueRequests++; return route.fulfill({ json: {} }); });
+
+  const facility = page.locator('input[name="reg_referred_by"]');
+  await expect(facility).toHaveCount(0);
+  await page.getByRole('radio', { name: 'Referral' }).check();
+  await expect(facility).toBeVisible();
+  const modeY = (await page.getByRole('radio', { name: 'Referral' }).boundingBox())!.y;
+  const referralY = (await page.getByText('Referred by', { exact: true }).boundingBox())!.y;
+  const consultationY = (await page.getByRole('heading', { name: /III\. Consultation Details/ }).boundingBox())!.y;
+  expect(referralY).toBeGreaterThan(modeY);
+  expect(referralY).toBeLessThan(consultationY);
+  const municipality = page.locator('select[name="reg_referred_by_municipality"]');
+  const barangay = page.locator('select[name="reg_referred_by_barangay"]');
+  await expect(barangay).toBeDisabled();
+  await municipality.selectOption('104324000');
+  await expect(barangay).toBeEnabled();
+  await barangay.selectOption('Poblacion');
+  await expect(facility).toHaveValue('Tagoloan Rural Health Unit (RHU) / BHS');
+  await facility.fill('Manual Referral Facility');
+  await page.getByRole('radio', { name: 'Visited' }).check();
+  await expect(facility).toHaveCount(0);
+  await page.getByRole('radio', { name: 'Referral' }).check();
+  await expect(facility).toHaveValue('');
+  await expect(municipality).toHaveValue('');
+  await page.getByRole('radio', { name: 'Walk in' }).check();
+
+  await referralTestRequiredFields(page);
+  await page.getByRole('button', { name: 'Save Patient Record' }).click();
+  await expect(page.getByText('Test record saved')).toBeVisible();
+  expect(patientPayload).toMatchObject({ mode_of_transaction: 'walk-in', reg_referred_by: null });
+  expect(queueRequests).toBe(1);
+});
+
+test('Referral saves the selected or manually entered facility', async ({ page }) => {
+  let patientPayload: Record<string, unknown> | undefined;
+  let queueRequests = 0;
+  await page.route('**/api/patients', route => {
+    patientPayload = route.request().postDataJSON();
+    return route.fulfill({ status: 201, json: { patient_id: 101 } });
+  });
+  await page.route('**/api/queue', route => { queueRequests++; return route.fulfill({ json: {} }); });
+
+  await referralTestRequiredFields(page);
+  await page.getByRole('radio', { name: 'Referral' }).check();
+  await page.locator('select[name="reg_referred_by_municipality"]').selectOption('104324000');
+  await page.locator('select[name="reg_referred_by_barangay"]').selectOption('Poblacion');
+  const facility = page.locator('input[name="reg_referred_by"]');
+  await expect(facility).toHaveValue('Tagoloan Rural Health Unit (RHU) / BHS');
+  await facility.fill('Manual Referral Facility');
+  await page.getByRole('button', { name: 'Save Patient Record' }).click();
+  await expect(page.getByText('Test record saved')).toBeVisible();
+  expect(patientPayload).toMatchObject({ mode_of_transaction: 'referral', reg_referred_by: 'Manual Referral Facility' });
+  expect(queueRequests).toBe(1);
+});
 
 test('Enter follows row order; Tab, Shift+Tab and native controls retain behavior', async ({ page }) => {
   const last = page.getByLabel('Last Name');
@@ -193,4 +271,32 @@ test('input hover is visible and keyboard focus remains distinct', async ({ page
   await page.getByLabel('Last Name').press('Enter');
   await expect(field).toBeFocused();
   await expect(field).toHaveCSS('outline-style', 'solid');
+});
+
+
+test('Animal uses the original options above consultation and restores draft selections', async ({ page }) => {
+  const animal = page.getByRole('region', { name: 'Animal', exact: true });
+  await expect(animal.getByRole('radio', { checked: true })).toHaveCount(0);
+  await animal.getByRole('radio', { name: 'Dog', exact: true }).click();
+  await animal.getByRole('radio', { name: 'Owned', exact: true }).click();
+  await animal.getByRole('radiogroup', { name: 'Available for 14-day observation' }).getByRole('radio', { name: 'No', exact: true }).click();
+  await animal.getByRole('radio', { name: 'Healthy', exact: true }).click();
+  const position = await page.evaluate(() => {
+    const animal = document.querySelector('section[aria-label="Animal"]')!;
+    const consultation = [...document.querySelectorAll('h3')].find(el => el.textContent?.includes('III. Consultation'))!;
+    return Boolean(animal.compareDocumentPosition(consultation) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(position).toBe(true);
+  const species = await animal.getByRole('radiogroup', { name: 'Species', exact: true }).boundingBox();
+  const ownership = await animal.getByRole('radiogroup', { name: 'Ownership', exact: true }).boundingBox();
+  const observation = await animal.getByRole('radiogroup', { name: 'Available for 14-day observation' }).boundingBox();
+  expect(Math.abs(species!.y - ownership!.y)).toBeLessThan(2);
+  expect(observation!.y).toBeGreaterThan(species!.y);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('form_draft__add-patient'))).toContain('dog');
+  await page.reload();
+  await page.getByRole('button', { name: 'Open registration' }).click();
+  await expect(animal.getByRole('radio', { name: 'Dog', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await expect(animal.getByRole('radio', { name: 'Owned', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await animal.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'test-results/animal-registration.png' });
 });

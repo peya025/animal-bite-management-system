@@ -9,6 +9,15 @@ class TreatmentRecord extends Model
 {
     use HasFactory;
 
+    public const LOCAL_RECEIVING_FACILITY = 'Tagoloan Rural Health Unit (RHU) / ABTC';
+
+    public static function isExternalReferralDestination(?string $destination): bool
+    {
+        $destination = trim((string) $destination);
+
+        return $destination !== '' && strcasecmp($destination, self::LOCAL_RECEIVING_FACILITY) !== 0;
+    }
+
     protected $table = 'treatment_records';
     protected $primaryKey = 'treatment_id';
 
@@ -39,6 +48,7 @@ class TreatmentRecord extends Model
         'administration_notes',
         'cost_recovery',
         'signature',
+        'signed_at',
         'outcome',
         'status',
         'voided_at',
@@ -66,6 +76,8 @@ class TreatmentRecord extends Model
         'diagnosis',
         'medication_treatment',
         'prescribed_vaccine_type',
+        'prophylaxis_orders',
+        'dose_iu',
         'provider_name',
         'laboratory_findings',
         'performed_lab_test',
@@ -74,12 +86,15 @@ class TreatmentRecord extends Model
     ];
 
     protected $casts = [
+        'prophylaxis_orders' => 'array',
+        'dose_iu' => 'decimal:2',
         'dose_number' => 'integer',
         'inventory_units_used' => 'integer',
         'scheduled_date' => 'date:Y-m-d',
         'treatment_date' => 'date:Y-m-d',
         'expiration_date' => 'date:Y-m-d',
         'administered_at' => 'datetime',
+        'signed_at' => 'datetime',
         'voided_at' => 'datetime',
         'dosage_ml' => 'decimal:2',
         'consultation_date' => 'date:Y-m-d',
@@ -133,6 +148,9 @@ class TreatmentRecord extends Model
     protected static function booted()
     {
         static::updating(function ($record) {
+            if ($record->getRawOriginal('status') === 'completed' && $record->isDirty(['signature', 'signed_at'])) {
+                throw new \DomainException('Completed record signatures are immutable.');
+            }
             if ($record->isDirty('administered_by')) {
                 throw new \DomainException('administered_by is immutable on treatment records.');
             }
@@ -141,7 +159,7 @@ class TreatmentRecord extends Model
 
     public function getSignaturePathAttribute()
     {
-        return $this->signature ?: $this->administeredBy?->signature_path;
+        return $this->signature;
     }
 
     /**

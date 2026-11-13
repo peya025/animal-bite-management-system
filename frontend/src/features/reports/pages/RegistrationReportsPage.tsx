@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
-import { Alert, Box, Button, Chip, CircularProgress, MenuItem, Pagination, Paper, Skeleton, Stack, Tab, Tabs, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { DownloadOutlined, PrintOutlined, ArrowForward, Refresh } from '@mui/icons-material';
+import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
+import { waitForPrintImages } from '../../../components/print/printReady';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../shared/config/routes';
+import { Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress, MenuItem, Pagination, Paper, Skeleton, Stack, Tab, Tabs, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { DownloadOutlined, PrintOutlined, Refresh, Close } from '@mui/icons-material';
 import api from '../../../services/api';
-import DohExposureRegistryTab from '../components/DohExposureRegistryTab';
-import DohMonthlyReportTab from '../components/DohMonthlyReportTab';
-import DohCohortReportTab from '../components/DohCohortReportTab';
+import { useAuth } from '../../../shared/contexts/AuthContext';
 import './RegistrationReports.css';
 
 type Report = 'summary' | 'pep' | 'followup' | 'awaiting' | 'surveillance' | 'referrals';
-type ReportTab = 'overview' | 'pep' | 'surveillance' | 'registry' | 'monthly' | 'cohort';
+type ReportTab = 'overview' | 'pep' | 'surveillance' | 'clinic_summary';
 type Counts = { label: string; count: number }[];
 type Completion = { eligible: number; completed: number; rate: number | null; excluded: number };
 type Filters = { from: string; to: string; category: string };
@@ -27,7 +28,15 @@ interface ReportData {
   records: { columns: Record<string, string>; rows: Record<string, string | number | null>[]; total: number; page: number; last_page: number };
 }
 
-const TITLES: Record<Report, string> = { summary: 'Clinic Summary', pep: 'PEP Treatment Outcomes', followup: 'Overdue Doses & Follow-up', awaiting: 'Awaiting First Dose', surveillance: 'Bite Surveillance', referrals: 'Referrals & Transfers' };
+const TITLES: Record<Report, string> = { summary: 'Clinic Summary (Key Metrics)', pep: 'PEP Treatment Outcomes', followup: 'Overdue Doses & Follow-up', awaiting: 'Awaiting First Dose', surveillance: 'Bite Surveillance', referrals: 'Referrals & Transfers' };
+const REPORT_COLUMNS: Record<Report, Record<string, string>> = {
+  summary: { metric: 'Metric', value: 'Value' },
+  pep: { case_number: 'Case no.', patient: 'Patient', regimen: 'Regimen', d0_date: 'D0 date', required_doses: 'Required', received_doses: 'Received', completion_date: 'Completed on', outcome: 'Outcome' },
+  followup: { case_number: 'Case no.', patient: 'Patient', contact: 'Contact', dose: 'Dose', due_date: 'Due date', days_overdue: 'Days overdue', last_dose_date: 'Last dose', schedule_source: 'Schedule basis', reminder_status: 'Last reminder status', last_reminder: 'Last reminder' },
+  awaiting: { case_number: 'Case no.', patient: 'Patient', contact: 'Contact', category: 'Category', regimen: 'Regimen', bite_date: 'Incident date', outcome: 'Outcome' },
+  surveillance: { case_number: 'Case no.', patient: 'Patient', category: 'Category', animal_type: 'Animal', ownership: 'Ownership', barangay: 'Incident barangay', age_at_incident: 'Age at incident', risk_flag: 'Current follow-up status', bite_date: 'Incident date' },
+  referrals: { case_number: 'Case no.', patient: 'Patient', category: 'Category', type: 'Type', destination: 'Destination', reason: 'Reason', date: 'Referral / transfer date', outcome: 'Recorded outcome' },
+};
 const dateString = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 function dateRange(preset: string): Filters {
   const now = new Date();
@@ -91,41 +100,127 @@ function CategoryTrend({ months }: { months: ReportData['months'] }) {
 }
 
 export default function RegistrationReportsPage() {
+  const navigate = useNavigate();
+  const { clinic: authClinic } = useAuth();
+  const storedClinic = localStorage.getItem('clinicData') ? JSON.parse(localStorage.getItem('clinicData')!) : null;
+  const clinic = authClinic || storedClinic;
+
   const [tab, setTab] = useState<ReportTab>('overview');
   const [report, setReport] = useState<Report>('summary');
   const [preset, setPreset] = useState('month');
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('landscape');
+  const [printModalOpen, setPrintModalOpen] = useState(false);
   const [draft, setDraft] = useState<Filters>(() => dateRange('month'));
   const [filters, setFilters] = useState<Filters>(() => dateRange('month'));
   const [page, setPage] = useState(1);
   const [refresh, setRefresh] = useState(0);
-  const [result, setResult] = useState<{ key: string; data?: ReportData; error?: string } | null>(null);
+  const [globalData, setGlobalData] = useState<ReportData | null>(null);
+  const [activeReportData, setActiveReportData] = useState<{ report: Report; page: number; data?: ReportData } | null>(null);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
+
+  const cacheRef = useRef<Map<string, ReportData>>(new Map());
+  const inFlightRef = useRef<Set<string>>(new Set());
+
   const valid = Boolean(draft.from && draft.to && draft.from <= draft.to && draft.to <= dateString(new Date()));
   const dirty = JSON.stringify(draft) !== JSON.stringify(filters);
-  const requestKey = JSON.stringify({ filters, report, page, refresh });
-  const loading = result?.key !== requestKey;
-  const data = loading ? null : result?.data ?? null;
-  const error = loading ? '' : result?.error ?? '';
+
+  const getCacheKey = (r: Report, p: number, f: Filters) =>
+    `${f.from}_${f.to}_${f.category}_${r}_${p}`;
+
+  const prefetchSiblings = useCallback((currentTab: ReportTab, currentFilters: Filters) => {
+    let siblings: Report[] = [];
+    if (currentTab === 'pep') {
+      siblings = ['pep', 'followup', 'awaiting'];
+    } else if (currentTab === 'surveillance') {
+      siblings = ['surveillance', 'referrals'];
+    }
+    for (const sibling of siblings) {
+      const key = `${currentFilters.from}_${currentFilters.to}_${currentFilters.category}_${sibling}_1`;
+      if (!cacheRef.current.has(key) && !inFlightRef.current.has(key)) {
+        inFlightRef.current.add(key);
+        api.get<ReportData>('/reports/registration', { params: { ...currentFilters, report: sibling, page: 1 } })
+          .then(res => {
+            cacheRef.current.set(key, res.data);
+            setActiveReportData(curr => {
+              if (curr?.report === sibling && curr?.page === 1) {
+                setTableLoading(false);
+                return { report: sibling, page: 1, data: res.data };
+              }
+              return curr;
+            });
+          })
+          .catch(() => {})
+          .finally(() => {
+            inFlightRef.current.delete(key);
+          });
+      }
+    }
+  }, []);
 
   useEffect(() => {
-    if (!['overview', 'pep', 'surveillance'].includes(tab)) return;
+    cacheRef.current.clear();
+    inFlightRef.current.clear();
+  }, [filters, refresh]);
+
+  useEffect(() => {
+    if (!['overview', 'pep', 'surveillance', 'clinic_summary'].includes(tab)) return;
+
+    const key = getCacheKey(report, page, filters);
+    const cached = cacheRef.current.get(key);
+
+    if (cached) {
+      setActiveReportData({ report, page, data: cached });
+      setTableLoading(false);
+      setError('');
+      prefetchSiblings(tab, filters);
+      return;
+    }
+
     const controller = new AbortController();
+    setError('');
+
     api.get<ReportData>('/reports/registration', { params: { ...filters, report, page }, signal: controller.signal })
-      .then(response => { if (!controller.signal.aborted) setResult({ key: requestKey, data: response.data }); })
-      .catch(() => { if (!controller.signal.aborted) setResult({ key: requestKey, error: 'Unable to load reports. Check your connection and try again.' }); });
+      .then(response => {
+        if (!controller.signal.aborted) {
+          cacheRef.current.set(key, response.data);
+          setGlobalData(response.data);
+          setActiveReportData({ report, page, data: response.data });
+          setTableLoading(false);
+          setError('');
+          prefetchSiblings(tab, filters);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setTableLoading(false);
+          setError('Unable to load reports. Check your connection and try again.');
+        }
+      });
+
     return () => controller.abort();
-  }, [tab, filters, report, page, requestKey]);
+  }, [tab, filters, report, page, refresh, prefetchSiblings]);
 
   const selectReport = (next: Report, switchTab: boolean = true) => {
-    setReport(next); setPage(1);
+    setReport(next);
+    setPage(1);
     if (switchTab) {
-      setTab(next === 'summary' ? 'overview' : ['pep', 'followup', 'awaiting'].includes(next) ? 'pep' : 'surveillance');
+      setTab(next === 'summary' ? 'clinic_summary' : ['pep', 'followup', 'awaiting'].includes(next) ? 'pep' : 'surveillance');
+    }
+    const key = getCacheKey(next, 1, filters);
+    const cached = cacheRef.current.get(key);
+    if (cached) {
+      setActiveReportData({ report: next, page: 1, data: cached });
+      setTableLoading(false);
+    } else {
+      setActiveReportData({ report: next, page: 1 });
+      setTableLoading(true);
     }
   };
 
-  const exportReport = async (format: 'csv' | 'print') => {
+  const exportReport = async (format: 'csv' | 'print', selectedOrientation: 'portrait' | 'landscape' = orientation) => {
     setExportError('');
     setExporting(true);
     try {
@@ -138,11 +233,16 @@ export default function RegistrationReportsPage() {
         const response = await api.get<ReportData>('/reports/registration', { params: { ...filters, report, format } });
         const result = response.data;
         const columns = Object.keys(result.records.columns);
+        const { leftLogoUrl: leftLogo, rightLogoUrl: rightLogo } = getGlobalPrintLogos(clinic);
+        const provinceName = (clinic?.province || 'MISAMIS ORIENTAL').toUpperCase();
+        const municipalityName = (clinic?.municipality || 'TAGOLOAN').toUpperCase();
+        const officeHeaderName = (clinic?.name || 'MUNICIPAL HEALTH OFFICE — ANIMAL BITE TREATMENT CENTER').toUpperCase();
+        const contactPhone = clinic?.contact_number || (clinic as any)?.phone || '';
 
         const printHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(result.meta.title)}</title><style>
-          @page{size:A4 ${orientation};margin:10mm}
+          @page{size:A4 ${selectedOrientation};margin:10mm}
           body{font:11px system-ui,-apple-system,sans-serif;color:#111827;margin:12px;line-height:1.4}
-          .header-box{text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:12px}
+          .header-box{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:12px}
           .header-box .republic{font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:#374151}
           .header-box .lgu{font-size:11px;font-weight:700;color:#111827}
           .header-box .office{font-size:13px;font-weight:800;color:#047857;margin-top:2px}
@@ -152,8 +252,8 @@ export default function RegistrationReportsPage() {
           .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;font-size:10px;border:1px solid #d1d5db;background:#f9fafb;padding:8px 12px;margin-bottom:12px;border-radius:4px}
           .meta-grid span.lbl{color:#6b7280;font-weight:600}
           .meta-grid span.val{color:#111827;font-weight:700}
-          table{border-collapse:collapse;width:100%;font-size:${orientation === 'portrait' ? '9.5px' : '10.5px'};margin-top:8px}
-          th,td{border:1px solid #d1d5db;padding:${orientation === 'portrait' ? '5px 4px' : '6px 7px'};text-align:left;overflow-wrap:anywhere}
+          table{border-collapse:collapse;width:100%;font-size:${selectedOrientation === 'portrait' ? '9.5px' : '10.5px'};margin-top:8px}
+          th,td{border:1px solid #d1d5db;padding:${selectedOrientation === 'portrait' ? '5px 4px' : '6px 7px'};text-align:left;overflow-wrap:anywhere}
           thead{display:table-header-group}
           tr{break-inside:avoid;page-break-inside:avoid}
           th{background:#f3f4f6;font-weight:700;color:#111827}
@@ -166,10 +266,14 @@ export default function RegistrationReportsPage() {
           @media print{body{margin:0}}
           </style></head><body>
           <div class="header-box">
-            <div class="republic">Republic of the Philippines · Province of Misamis Oriental</div>
-            <div class="lgu">MUNICIPALITY OF TAGOLOAN</div>
-            <div class="office">MUNICIPAL HEALTH OFFICE — ANIMAL BITE TREATMENT CENTER</div>
-            <div class="clinic">${escapeHtml(result.meta.clinic)}</div>
+            ${leftLogo ? `<img onerror="this.style.visibility='hidden'" src="${leftLogo}" alt="Left Logo" style="width:56px;height:56px;object-fit:contain;flex-shrink:0;" />` : `<div style="width:56px;height:56px;flex-shrink:0;"></div>`}
+            <div style="text-align:center;flex:1;padding:0 10px;">
+              <div class="republic">Republic of the Philippines · Province of ${provinceName}</div>
+              <div class="lgu">MUNICIPALITY OF ${municipalityName}</div>
+              <div class="office">${officeHeaderName}</div>
+              <div class="clinic">${escapeHtml(result.meta.clinic)}${contactPhone ? ` · Tel. ${contactPhone}` : ''}</div>
+            </div>
+            ${rightLogo ? `<img onerror="this.style.visibility='hidden'" src="${rightLogo}" alt="Right Logo" style="width:56px;height:56px;object-fit:contain;flex-shrink:0;" />` : `<div style="width:56px;height:56px;flex-shrink:0;"></div>`}
           </div>
           <div class="doc-title">
             <h2>${escapeHtml(result.meta.title)}</h2>
@@ -178,7 +282,7 @@ export default function RegistrationReportsPage() {
             <div><span class="lbl">Reporting Period: </span><span class="val">${escapeHtml(result.period.from)} to ${escapeHtml(result.period.to)}</span></div>
             <div><span class="lbl">Category: </span><span class="val">${escapeHtml(result.period.category)}</span></div>
             <div><span class="lbl">Prepared by: </span><span class="val">${escapeHtml(result.meta.prepared_by)}</span></div>
-            <div><span class="lbl">Date Generated: </span><span class="val">${new Date(result.meta.generated_at).toLocaleString()}</span></div>
+            <div><span class="lbl">Date Generated: </span><span class="val">${result.meta?.generated_at && !isNaN(new Date(result.meta.generated_at).getTime()) ? new Date(result.meta.generated_at).toLocaleString() : '—'}</span></div>
           </div>
           <table><thead><tr>${Object.values(result.records.columns).map(label => `<th>${escapeHtml(label)}</th>`).join('')}</tr></thead><tbody>
           ${result.records.rows.length ? result.records.rows.map(row => `<tr>${columns.map(key => `<td>${escapeHtml(display(row[key]))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${columns.length}">No matching records.</td></tr>`}
@@ -202,10 +306,11 @@ export default function RegistrationReportsPage() {
         iframe.style.position = 'fixed';
         iframe.style.right = '0';
         iframe.style.bottom = '0';
-        iframe.style.width = '0';
-        iframe.style.height = '0';
+        iframe.style.width = '1px';
+        iframe.style.height = '1px';
         iframe.style.border = '0';
-        iframe.style.visibility = 'hidden';
+        iframe.style.opacity = '0';
+        iframe.style.pointerEvents = 'none';
         document.body.appendChild(iframe);
 
         const frameDoc = iframe.contentWindow?.document;
@@ -217,8 +322,9 @@ export default function RegistrationReportsPage() {
         frameDoc.write(printHtml);
         frameDoc.close();
 
-        setTimeout(() => {
+        setTimeout(async () => {
           try {
+            if (iframe.contentDocument) await waitForPrintImages(iframe.contentDocument);
             iframe.contentWindow?.focus();
             iframe.contentWindow?.print();
           } catch (e) {
@@ -234,38 +340,213 @@ export default function RegistrationReportsPage() {
     finally { setExporting(false); }
   };
 
-  const stats = data?.stats;
+  const initialLoading = !globalData && !error;
+  const isCurrentReport = activeReportData?.report === report && activeReportData?.page === page && Boolean(activeReportData.data);
+  const data = isCurrentReport && activeReportData?.data ? activeReportData.data : globalData;
+  const stats = globalData?.stats ?? activeReportData?.data?.stats;
+  const displayedRecords = isCurrentReport && activeReportData?.data ? activeReportData.data.records : null;
+  const displayedMeta = isCurrentReport && activeReportData?.data ? activeReportData.data.meta : globalData?.meta;
+  const currentColumns = displayedRecords?.columns ?? REPORT_COLUMNS[report];
+
+  const renderFilters = (
+    standalone: boolean = true,
+    showSummary: boolean = standalone,
+    extraSummary?: ReactNode
+  ) => {
+    const filterContent = (
+      <>
+        <div className="rr-filter-row" data-walkthrough="reports-filters" data-tour="reports-filter-controls">
+          <TextField select size="small" label="Period" value={preset} onChange={event => { const next = event.target.value; setPreset(next); if (next !== 'custom') setDraft({ ...dateRange(next), category: draft.category }); }}>
+            <MenuItem value="today">Today</MenuItem>
+            <MenuItem value="week">This week</MenuItem>
+            <MenuItem value="month">This month</MenuItem>
+            <MenuItem value="previous">Previous month</MenuItem>
+            <MenuItem value="last30">Last 30 days</MenuItem>
+            <MenuItem value="year">This year</MenuItem>
+            <MenuItem value="custom">Custom range</MenuItem>
+          </TextField>
+          <TextField size="small" type="date" label="From" value={draft.from} slotProps={{ inputLabel: { shrink: true } }} onChange={e => { setDraft({ ...draft, from: e.target.value }); setPreset('custom'); }} />
+          <TextField size="small" type="date" label="To" value={draft.to} slotProps={{ inputLabel: { shrink: true } }} onChange={e => { setDraft({ ...draft, to: e.target.value }); setPreset('custom'); }} />
+          <TextField size="small" select label="Category" value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })}>
+            <MenuItem value="ALL">All categories</MenuItem>{['I', 'II', 'III'].map(value => <MenuItem key={value} value={value}>Category {value}</MenuItem>)}
+          </TextField>
+          <Button type="submit" variant="contained" disableElevation disabled={!valid || initialLoading}>Apply</Button>
+          <Button onClick={() => { const next = dateRange('month'); setDraft(next); setFilters(next); setPreset('month'); setPage(1); }}>Reset</Button>
+        </div>
+        {!valid && <p className="rr-error" role="alert">Enter a valid date range ending today or earlier.</p>}
+        {showSummary && (
+          <p className="rr-note">Showing {filters.from} to {filters.to} · {filters.category === 'ALL' ? 'All categories' : `Category ${filters.category}`}{dirty ? ' · Filter changes not applied' : ''}</p>
+        )}
+        {extraSummary}
+      </>
+    );
+
+    const handleFilterSubmit = (event: React.FormEvent) => {
+      event.preventDefault();
+      if (valid) {
+        setFilters({ ...draft });
+        setPage(1);
+      }
+    };
+
+    if (standalone) {
+      return (
+        <Paper elevation={0} className="rr-panel rr-filters" component="form" onSubmit={handleFilterSubmit}>
+          {filterContent}
+        </Paper>
+      );
+    }
+
+    return (
+      <Box component="form" className="rr-filters-unified" onSubmit={handleFilterSubmit}>
+        {filterContent}
+      </Box>
+    );
+  };
+
+  const renderTableContent = (showHeader: boolean = tab !== 'clinic_summary') => (
+    <>
+      {showHeader && (
+        <div className="rr-record-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <h2 className="rr-section-title" style={{ margin: 0 }}>{TITLES[report]}</h2>
+            {tableLoading && (
+              <span className="rr-tab-updating-badge" aria-live="polite">
+                <CircularProgress size={14} sx={{ color: '#1d9e75' }} />
+                Updating...
+              </span>
+            )}
+          </Box>
+          {tab !== 'pep' && tab !== 'surveillance' && (
+            <p className="rr-note rr-record-meta">
+              {tableLoading && !displayedRecords
+                ? 'Loading records...'
+                : `${displayedRecords?.total ?? 0} record(s) · ${displayedMeta?.basis ?? data?.meta?.basis ?? ''}`}
+            </p>
+          )}
+        </div>
+      )}
+      <div className="rr-table-loading-bar" aria-hidden={!tableLoading}>
+        {tableLoading ? (
+          <LinearProgress
+            sx={{
+              height: 3,
+              bgcolor: 'rgba(29, 158, 117, 0.12)',
+              '& .MuiLinearProgress-bar': { bgcolor: '#1d9e75' },
+            }}
+          />
+        ) : (
+          <Box sx={{ height: 3 }} />
+        )}
+      </div>
+      <div
+        className={`rr-table-scroll ${tableLoading && displayedRecords ? 'is-loading' : ''}`}
+        tabIndex={0}
+        role="region"
+        aria-label={TITLES[report]}
+        aria-busy={tableLoading}
+      >
+        <table className="rr-table">
+          <thead>
+            <tr>
+              {Object.values(currentColumns).map(label => (
+                <th key={label} scope="col">{label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tableLoading && !displayedRecords ? (
+              [1, 2, 3, 4, 5].map(i => (
+                <tr key={i}>
+                  {Object.keys(currentColumns).map(key => (
+                    <td key={key}>
+                      <Skeleton variant="text" width={`${Math.max(45, 90 - (key.length * 8) % 45)}%`} height={22} />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : displayedRecords && displayedRecords.rows.length ? (
+              displayedRecords.rows.map((row, index) => (
+                <tr key={`${page}-${index}`}>
+                  {Object.keys(currentColumns).map(key => (
+                    <td key={key}>
+                      {key === 'category' ? (
+                        <Chip size="small" variant="outlined" label={`Category ${display(row[key])}`} />
+                      ) : (
+                        display(row[key])
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={Object.keys(currentColumns).length} className="rr-empty">
+                  No matching records.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {displayedRecords && displayedRecords.last_page > 1 && (
+        <Pagination
+          sx={{ mt: 2 }}
+          count={displayedRecords.last_page}
+          page={displayedRecords.page}
+          onChange={(_, next) => {
+            setPage(next);
+            const key = getCacheKey(report, next, filters);
+            const cached = cacheRef.current.get(key);
+            if (cached) {
+              setActiveReportData({ report, page: next, data: cached });
+              setTableLoading(false);
+            } else {
+              setActiveReportData({ report, page: next });
+              setTableLoading(true);
+            }
+          }}
+          disabled={tableLoading}
+          aria-label="Report pages"
+        />
+      )}
+      <p className="rr-note">CSV and print include every matching record, across all pages.</p>
+    </>
+  );
+
   return <Box className="registration-reports" sx={{ color: 'text.primary', bgcolor: 'background.default' }}>
-    <header className="rr-header"><div><Typography component="h1">Reports &amp; Analytics</Typography><p>Treatment outcomes, follow-up priorities, and bite surveillance</p><small>Dashboard / Reports</small></div>
-      {['overview', 'pep', 'surveillance'].includes(tab) && (
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <ToggleButtonGroup
-            size="small"
-            value={orientation}
-            exclusive
-            onChange={(_, val) => { if (val) setOrientation(val); }}
-            aria-label="Print orientation"
-            sx={{ height: 36, bgcolor: 'background.paper' }}
+    <header className="rr-header" data-walkthrough="reports-header">
+      <div>
+        <Typography component="h1" sx={{ fontSize: '24px !important', fontWeight: '700 !important', color: 'var(--text-h)', letterSpacing: '-0.02em', lineHeight: 1.2, mb: 0.5 }}>
+          Reports &amp; Analytics
+        </Typography>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
+          <button
+            onClick={() => navigate(ROUTES.DASHBOARD)}
+            style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
           >
-            <ToggleButton value="portrait" sx={{ textTransform: 'none', px: 1.5, py: 0.5, fontSize: '0.8125rem' }}>
-              Portrait
-            </ToggleButton>
-            <ToggleButton value="landscape" sx={{ textTransform: 'none', px: 1.5, py: 0.5, fontSize: '0.8125rem' }}>
-              Landscape
-            </ToggleButton>
-          </ToggleButtonGroup>
-          <Button variant="outlined" startIcon={<DownloadOutlined />} disabled={!data || loading || exporting} onClick={() => void exportReport('csv')}>Export CSV</Button>
-          <Button variant="contained" disableElevation startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <PrintOutlined />} disabled={!data || loading || exporting} onClick={() => void exportReport('print')}>Print Report</Button>
+            Dashboard
+          </button>
+          <span style={{ color: '#9ca3af' }}>›</span>
+          <span style={{ color: '#6b7280' }}>Reports &amp; Analytics</span>
+        </div>
+      </div>
+      {['overview', 'pep', 'surveillance', 'clinic_summary'].includes(tab) && (
+        <Stack data-walkthrough="reports-action-buttons" direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          <Button variant="outlined" startIcon={<DownloadOutlined />} disabled={!data || Boolean(error) || initialLoading || exporting} onClick={() => void exportReport('csv')}>Export CSV</Button>
+          <Button variant="contained" disableElevation startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <PrintOutlined />} disabled={!data || Boolean(error) || initialLoading || exporting} onClick={() => setPrintModalOpen(true)}>Print Report</Button>
         </Stack>
       )}
     </header>
     <Tabs
+      data-walkthrough="reports-tabs" data-tour="reports-category-tabs"
       value={tab}
       onChange={(_, value: ReportTab) => {
         setTab(value);
         if (value === 'overview') selectReport('summary', false);
         else if (value === 'pep') selectReport('pep', false);
         else if (value === 'surveillance') selectReport('surveillance', false);
+        else if (value === 'clinic_summary') selectReport('summary', false);
       }}
       variant="scrollable"
       allowScrollButtonsMobile
@@ -275,122 +556,551 @@ export default function RegistrationReportsPage() {
       <Tab value="overview" label="Overview" />
       <Tab value="pep" label="PEP & Follow-up" />
       <Tab value="surveillance" label="Bite Surveillance" />
-      <Tab value="registry" label="Rabies Exposure Registry" />
-      <Tab value="monthly" label="ABTC Monthly Report" />
-      <Tab value="cohort" label="Cohort Report" />
+      <Tab value="clinic_summary" label="Clinic Summary" />
     </Tabs>
 
-    {/* Unified Global Filters for all report tabs */}
-    <Paper elevation={0} className="rr-panel rr-filters" component="form" onSubmit={event => { event.preventDefault(); if (valid) { setFilters({ ...draft }); setPage(1); } }}>
-      <div className="rr-filter-row">
-        <TextField select size="small" label="Period" value={preset} onChange={event => { const next = event.target.value; setPreset(next); if (next !== 'custom') setDraft({ ...dateRange(next), category: draft.category }); }}>
-          <MenuItem value="today">Today</MenuItem>
-          <MenuItem value="week">This week</MenuItem>
-          <MenuItem value="month">This month</MenuItem>
-          <MenuItem value="previous">Previous month</MenuItem>
-          <MenuItem value="last30">Last 30 days</MenuItem>
-          <MenuItem value="year">This year</MenuItem>
-          <MenuItem value="custom">Custom range</MenuItem>
-        </TextField>
-        <TextField size="small" type="date" label="From" value={draft.from} slotProps={{ inputLabel: { shrink: true } }} onChange={e => { setDraft({ ...draft, from: e.target.value }); setPreset('custom'); }} />
-        <TextField size="small" type="date" label="To" value={draft.to} slotProps={{ inputLabel: { shrink: true } }} onChange={e => { setDraft({ ...draft, to: e.target.value }); setPreset('custom'); }} />
-        <TextField size="small" select label="Category" value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })}>
-          <MenuItem value="ALL">All categories</MenuItem>{['I', 'II', 'III'].map(value => <MenuItem key={value} value={value}>Category {value}</MenuItem>)}
-        </TextField>
-        <Button type="submit" variant="contained" disableElevation disabled={!valid || loading}>Apply</Button>
-        <Button onClick={() => { const next = dateRange('month'); setDraft(next); setFilters(next); setPreset('month'); setPage(1); }}>Reset</Button>
-      </div>
-      {!valid && <p className="rr-error" role="alert">Enter a valid date range ending today or earlier.</p>}
-      <p className="rr-note">Showing {filters.from} to {filters.to} · {filters.category === 'ALL' ? 'All categories' : `Category ${filters.category}`}{dirty ? ' · Filter changes not applied' : ''}</p>
-    </Paper>
+    {/* Current Actions Alert: Displayed directly below tabs on the Overview tab */}
+    {tab === 'overview' && stats && (stats.overdue_patients > 0 || stats.awaiting_d0 > 0) && (
+      <Alert
+        severity="warning"
+        action={
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+            {stats.overdue_patients > 0 && (
+              <Button color="inherit" size="small" variant="outlined" onClick={() => selectReport('followup')}>
+                View Overdue ({stats.overdue_patients})
+              </Button>
+            )}
+            {stats.awaiting_d0 > 0 && (
+              <Button color="inherit" size="small" variant="outlined" onClick={() => selectReport('awaiting')}>
+                View Awaiting D0 ({stats.awaiting_d0})
+              </Button>
+            )}
+          </Stack>
+        }
+      >
+        Current actions: {stats.overdue_patients} patient(s) overdue · {stats.awaiting_d0} episode(s) awaiting D0. As of {data?.period?.as_of ?? globalData?.period?.as_of ?? ''}, across all incident dates.
+      </Alert>
+    )}
 
-    {tab === 'registry' && <DohExposureRegistryTab filters={filters} />}
-    {tab === 'monthly' && <DohMonthlyReportTab filters={filters} />}
-    {tab === 'cohort' && <DohCohortReportTab filters={filters} />}
+    {/* Unified Global Filters: Rendered at top for non-unified tabs if any */}
+    {tab !== 'overview' && tab !== 'pep' && tab !== 'surveillance' && tab !== 'clinic_summary' && renderFilters()}
 
-    {['overview', 'pep', 'surveillance'].includes(tab) && <>
+    {['overview', 'pep', 'surveillance', 'clinic_summary'].includes(tab) && <>
     {exportError && <Alert severity="error" onClose={() => setExportError('')}>{exportError}</Alert>}
     {error && <Alert severity="error" action={<Button color="inherit" startIcon={<Refresh />} onClick={() => setRefresh(n => n + 1)}>Retry</Button>}>{error}</Alert>}
-    {loading && <div aria-label="Loading reports" aria-busy="true"><div className="rr-grid rr-grid-three">{[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={160} />)}</div><Skeleton variant="rounded" height={250} sx={{ mt: 2 }} /></div>}
-    {!loading && data && stats && <>
-      {tab === 'overview' && <>
-        <div className="rr-grid rr-grid-three">
-          <Paper elevation={0} className="rr-panel rr-metric"><h2>PEP vaccine-course completion</h2><strong>{percent(stats.completion.rate)}</strong><p>{stats.completion.completed} of {stats.completion.eligible} eligible courses completed</p>
-            <small>{stats.completion_change_pp === null ? 'No comparable prior cohort' : `${stats.completion_change_pp > 0 ? '+' : ''}${stats.completion_change_pp} percentage points vs previous D0 cohort`}</small>
-            <Button size="small" onClick={() => selectReport('pep')}>View outcomes</Button>
+    {initialLoading && (
+      <div aria-label="Loading reports" aria-busy="true">
+        {tab === 'overview' ? (
+          <>
+            <div className="rr-overview-top-section" data-walkthrough="reports-summary-cards" data-tour="reports-summary-cards">
+              <Skeleton variant="rounded" height={195} />
+              <Skeleton variant="rounded" height={195} />
+              <Skeleton variant="rounded" height={110} />
+              <Skeleton variant="rounded" height={110} />
+            </div>
+            <Paper elevation={0} className="rr-panel rr-unified-surveillance-container">
+              <div className="rr-section-heading">
+                <Skeleton variant="text" width={220} height={24} />
+                <Skeleton variant="text" width={340} height={16} />
+              </div>
+              <Skeleton variant="rounded" height={32} sx={{ my: 1.5 }} />
+              {renderFilters(false)}
+              <div className="rr-surveillance-row-1" data-walkthrough="reports-charts" data-tour="reports-charts">
+                {[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={260} />)}
+              </div>
+              <div className="rr-surveillance-row-2">
+                {[1, 2, 3, 4].map(n => <Skeleton key={n} variant="rounded" height={220} />)}
+              </div>
+            </Paper>
+          </>
+        ) : tab === 'pep' ? (
+          <div>
+            <Skeleton variant="rounded" height={48} sx={{ mb: 2.5 }} />
+            <Paper elevation={0} className="rr-panel rr-pep-unified-container">
+              <Skeleton variant="text" width={280} height={28} sx={{ mb: 0.5 }} />
+              <Skeleton variant="text" width={480} height={18} />
+              <Skeleton variant="text" width={380} height={16} sx={{ mt: 1.25, mb: 2 }} />
+              {renderFilters(false, true)}
+              <Skeleton variant="rounded" height={36} sx={{ my: 2 }} />
+              <Skeleton variant="rounded" height={250} />
+            </Paper>
+          </div>
+        ) : tab === 'surveillance' ? (
+          <Paper elevation={0} className="rr-panel rr-table-panel rr-surveillance-unified-container">
+            <div className="rr-surveillance-header">
+              <Skeleton variant="text" width={280} height={28} sx={{ mb: 0.5 }} />
+              <Skeleton variant="text" width={480} height={18} />
+              <Skeleton variant="text" width={380} height={16} sx={{ mt: 1.25, mb: 2 }} />
+            </div>
+            {renderFilters(
+              false,
+              true,
+              <div className="rr-activity rr-surveillance-metrics">
+                <Skeleton variant="text" width={120} height={20} />
+                <Skeleton variant="text" width={100} height={20} />
+                <Skeleton variant="text" width={140} height={20} />
+              </div>
+            )}
+            <Skeleton variant="rounded" height={36} sx={{ my: 2 }} />
+            <Skeleton variant="rounded" height={250} />
           </Paper>
-          <Paper elevation={0} className="rr-panel rr-metric"><h2>Average time to first dose</h2><strong>{stats.delay.average === null ? 'Not available' : `${stats.delay.average} days`}</strong><p>{stats.delay.samples ? `Median: ${stats.delay.median} · Range: ${stats.delay.min}–${stats.delay.max} days` : 'No valid D0 dates in the selected period'}</p><small>{stats.delay.samples} courses · Calendar days from exposure to D0</small></Paper>
-          <Paper elevation={0} className="rr-panel rr-metric"><h2>Patients needing follow-up</h2><strong>{stats.overdue_patients}</strong><p>{stats.overdue_doses} overdue doses · As of {data.period.as_of}</p><small>All incident dates · Not confirmed loss to follow-up</small><Button size="small" onClick={() => selectReport('followup')}>View follow-up list</Button></Paper>
-        </div>
-        {(stats.overdue_patients > 0 || stats.awaiting_d0 > 0) && (
-          <Alert
-            severity="warning"
-            action={
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                {stats.overdue_patients > 0 && (
-                  <Button color="inherit" size="small" variant="outlined" onClick={() => selectReport('followup', false)}>
-                    View Overdue ({stats.overdue_patients})
-                  </Button>
-                )}
-                {stats.awaiting_d0 > 0 && (
-                  <Button color="inherit" size="small" variant="outlined" onClick={() => selectReport('awaiting', false)}>
-                    View Awaiting D0 ({stats.awaiting_d0})
-                  </Button>
-                )}
-              </Stack>
-            }
-          >
-            Current actions: {stats.overdue_patients} patient(s) overdue · {stats.awaiting_d0} episode(s) awaiting D0. As of {data.period.as_of}, across all incident dates.
-          </Alert>
+        ) : tab === 'clinic_summary' ? (
+          <Paper elevation={0} className="rr-panel rr-table-panel rr-clinic-summary-unified-container">
+            <div className="rr-clinic-summary-header">
+              <Skeleton variant="text" width={240} height={28} sx={{ mb: 0.5 }} />
+            </div>
+            {renderFilters(false, true, (
+              <p className="rr-note rr-record-basis">
+                Loading records...
+              </p>
+            ))}
+            <Skeleton variant="rounded" height={300} sx={{ mt: 2 }} />
+          </Paper>
+        ) : (
+          <div>
+            <div className="rr-grid rr-grid-three">{[1, 2, 3].map(n => <Skeleton key={n} variant="rounded" height={160} />)}</div>
+            <Skeleton variant="rounded" height={250} sx={{ mt: 2 }} />
+          </div>
         )}
-        <div className="rr-grid rr-grid-two"><CategoryTrend months={data.months} /><Bars title="Top recorded incident barangays" rows={data.breakdowns.barangays.filter(row => row.label !== 'Not recorded')} limit={5} note={`${data.breakdowns.barangays.find(row => row.label === 'Not recorded')?.count ?? 0} incident(s) have no recorded barangay. Percentages use known locations.`} /></div>
-        <div className="rr-activity"><span><b>{stats.patients}</b> patients with incidents</span><span><b>{stats.incidents}</b> bite episodes</span><span><b>{stats.pep_starts}</b> PEP starts</span><Button component={RouterLink} to="/bite-map" endIcon={<ArrowForward />} size="small">Open Bite Map</Button></div>
+      </div>
+    )}
+    {!initialLoading && data && stats && <>
+      {tab === 'overview' && <>
+        {/* Top Summary Cards 2x2 Grid */}
+        <div className="rr-overview-top-section" data-walkthrough="reports-summary-cards" data-tour="reports-summary-cards">
+          {/* Row 1, Left: PEP vaccine-course completion */}
+          <Paper elevation={0} className="rr-panel rr-metric">
+            <h2>PEP vaccine-course completion</h2>
+            <strong>{percent(stats.completion.rate)}</strong>
+            <p>{stats.completion.completed} of {stats.completion.eligible} eligible courses completed</p>
+          </Paper>
+
+          {/* Row 1, Right: Follow-up priorities today */}
+          <Paper elevation={0} className="rr-panel rr-followup-priorities">
+            <Typography component="h2" className="rr-section-title">Follow-up priorities today</Typography>
+            <div className="rr-priorities-body">
+              <div className="rr-priority-stat">
+                <span className="rr-priority-val rr-priority-warn">{stats.overdue_patients}</span>
+                <div className="rr-priority-text">
+                  <p className="rr-priority-main"><b>{stats.overdue_patients}</b> patients have <b>{stats.overdue_doses}</b> overdue prescribed doses.</p>
+                  <span className="rr-priority-sub">Scheduled follow-up dose target dates exceeded</span>
+                </div>
+              </div>
+              <div className="rr-priority-stat">
+                <span className="rr-priority-val rr-priority-info">{stats.awaiting_d0}</span>
+                <div className="rr-priority-text">
+                  <p className="rr-priority-main"><b>{stats.awaiting_d0}</b> episodes have an ordered regimen with no recorded D0.</p>
+                  <span className="rr-priority-sub">Prescriptions awaiting initial vaccination administration</span>
+                </div>
+              </div>
+            </div>
+          </Paper>
+
+          {/* Row 2, Left: Average time to first dose */}
+          <Paper elevation={0} className="rr-panel rr-metric">
+            <h2>Average time to first dose</h2>
+            <strong>{stats.delay.average === null ? 'Not available' : `${stats.delay.average} days`}</strong>
+            <p>{stats.delay.samples ? `Median: ${stats.delay.median} · Range: ${stats.delay.min}–${stats.delay.max} days` : 'No valid D0 dates in the selected period'}</p>
+          </Paper>
+
+          {/* Row 2, Right: Patients needing follow-up */}
+          <Paper elevation={0} className="rr-panel rr-metric">
+            <h2>Patients needing follow-up</h2>
+            <strong>{stats.overdue_patients}</strong>
+            <p>{stats.overdue_doses} overdue doses · As of {data.period.as_of}</p>
+          </Paper>
+        </div>
+
+        {/* Unified Bite Surveillance Analytics Card */}
+        <Paper elevation={0} className="rr-panel rr-unified-surveillance-container">
+          {/* Bite Surveillance Analytics header & summary */}
+          <div className="rr-section-heading">
+            <Typography component="h2" className="rr-group-title">Bite Surveillance Analytics</Typography>
+            <span className="rr-group-desc">Temporal patterns, demographic distribution, and animal characteristics</span>
+          </div>
+          <div className="rr-activity">
+            <span><b>{stats.incidents}</b> incident episodes</span>
+            <span><b>{stats.patients}</b> unique patients</span>
+            <span><b>{stats.pep_starts}</b> PEP starts</span>
+            <span><b>{percent(stats.referral_rate)}</b> referred/transferred cases</span>
+          </div>
+
+          {/* Filter Section */}
+          {renderFilters(false)}
+
+          {/* Larger analytics charts with equal width and height */}
+          <div className="rr-surveillance-row-1" data-walkthrough="reports-charts" data-tour="reports-charts">
+            <CategoryTrend months={data.months} />
+            <Bars title="Age at incident" rows={data.breakdowns.ages} />
+            <Bars title="Incident day of week" rows={data.breakdowns.weekdays} />
+          </div>
+
+          {/* Smaller breakdown charts grouped together in a balanced row */}
+          <div className="rr-surveillance-row-2">
+            <Bars title="Incident barangays" rows={data.breakdowns.barangays} limit={10} />
+            <Bars title="Animal type" rows={data.breakdowns.animals} />
+            <Bars title="Animal ownership" rows={data.breakdowns.ownership} />
+            <Bars title="Recorded animal observation status" rows={data.breakdowns.observation} />
+          </div>
+        </Paper>
       </>}
       {tab === 'pep' && <>
+        {/* D0 Cohort Information Alert placed above the Period-to-Category filtering section */}
         <Alert severity="info">D0 cohort: {filters.from} to {filters.to}. Outcomes observed as of {data.period.as_of}. {stats.completion.excluded} course(s) are not eligible for the completion denominator. Current follow-up and awaiting-D0 lists include all incident dates.</Alert>
-        <div className="rr-grid rr-grid-two"><Bars title="Treatment outcomes — selected D0 cohort" rows={data.breakdowns.outcomes} /><Paper elevation={0} className="rr-panel"><h2 className="rr-section-title">Follow-up priorities today</h2>
-          <p>{stats.overdue_patients} patients have {stats.overdue_doses} overdue prescribed doses.</p><p>{stats.awaiting_d0} episodes have an ordered regimen with no recorded D0.</p>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}><Button onClick={() => selectReport('followup')}>Overdue doses</Button><Button onClick={() => selectReport('awaiting')}>Awaiting D0</Button></Stack>
-          <p className="rr-note">Reminder status shows the latest recorded send attempt. Confirmed loss to follow-up and contact outcomes are not currently recorded.</p></Paper></div>
+
+        {/* Unified PEP & Follow-up Clinical Records Module */}
+        <Paper elevation={0} className="rr-panel rr-table-panel rr-pep-unified-container">
+          <div className="rr-pep-header">
+            <Typography component="h2" className="rr-section-title" sx={{ mb: '4px !important' }}>PEP &amp; Follow-up Clinical Records</Typography>
+            <p className="rr-note" style={{ margin: 0 }}>Review patient treatment outcomes, overdue dose queues, and episodes awaiting initial Day 0 doses.</p>
+            <p className="rr-note" style={{ margin: '10px 0 0' }}>
+              {tableLoading && !displayedRecords
+                ? 'Loading records...'
+                : `${displayedRecords?.total ?? 0} record(s) · ${displayedMeta?.basis ?? data?.meta?.basis ?? ''}`}
+            </p>
+          </div>
+
+          {/* Filters Section with Current filter summary text */}
+          {renderFilters(false, true)}
+
+          {/* Tabs */}
+          <div className="rr-pep-tabs-bar">
+            <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+              <Button
+                variant={report === 'pep' ? 'contained' : 'outlined'}
+                size="small"
+                className="rr-pep-tab-btn"
+                onClick={() => selectReport('pep', false)}
+              >
+                PEP Treatment Outcomes
+              </Button>
+              <Button
+                variant={report === 'followup' ? 'contained' : 'outlined'}
+                size="small"
+                className="rr-pep-tab-btn"
+                onClick={() => selectReport('followup', false)}
+              >
+                Overdue Patients ({stats.overdue_patients})
+              </Button>
+              <Button
+                variant={report === 'awaiting' ? 'contained' : 'outlined'}
+                size="small"
+                className="rr-pep-tab-btn"
+                onClick={() => selectReport('awaiting', false)}
+              >
+                Awaiting D0 ({stats.awaiting_d0})
+              </Button>
+            </Stack>
+          </div>
+
+          {/* Data Table */}
+          {renderTableContent()}
+        </Paper>
       </>}
       {tab === 'surveillance' && <>
-        <div className="rr-activity"><span><b>{stats.incidents}</b> incident episodes</span><span><b>{stats.patients}</b> unique patients</span><span><b>{percent(stats.referral_rate)}</b> referred/transferred cases</span><Button component={RouterLink} to="/bite-map" endIcon={<ArrowForward />}>Open Bite Map</Button></div>
-        <div className="rr-grid rr-grid-two"><CategoryTrend months={data.months} /><Bars title="Age at incident" rows={data.breakdowns.ages} note="Counts bite episodes. A patient with separate incidents can appear more than once." /><Bars title="Incident barangays" rows={data.breakdowns.barangays} limit={10} note="Recorded bite locations only. Open Bite Map for the geographic view." /><Bars title="Incident day of week" rows={data.breakdowns.weekdays} note="Hourly patterns are unavailable because incident times are not recorded." /><Bars title="Animal type" rows={data.breakdowns.animals} /><Bars title="Animal ownership" rows={data.breakdowns.ownership} note="Ownership and vaccination are different attributes. Animal vaccination status is not currently recorded as a structured field." /><Bars title="Recorded animal observation status" rows={data.breakdowns.observation} /></div>
-      </>}
-      <Paper elevation={0} className="rr-panel">
-        <div className="rr-record-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h2 className="rr-section-title">{TITLES[report]}</h2>
-            <p className="rr-note">{data.records.total} record(s) · {data.meta.basis}</p>
+        {/* Unified Bite Surveillance Incident Records Module */}
+        <Paper elevation={0} className="rr-panel rr-table-panel rr-surveillance-unified-container">
+          <div className="rr-surveillance-header">
+            <Typography component="h2" className="rr-section-title" sx={{ mb: '4px !important' }}>Bite Surveillance Incident Records</Typography>
+            <p className="rr-note" style={{ margin: 0 }}>Examine incident registry logs, bite exposures by barangay and animal species, and referred cases.</p>
+            <p className="rr-note" style={{ margin: '10px 0 0' }}>
+              {tableLoading && !displayedRecords
+                ? 'Loading records...'
+                : `${displayedRecords?.total ?? 0} record(s) · ${displayedMeta?.basis ?? data?.meta?.basis ?? ''}`}
+            </p>
           </div>
-          <TextField
-            select
-            size="small"
-            label="Report / Patient List"
-            value={report}
-            onChange={e => selectReport(e.target.value as Report, false)}
-            sx={{ minWidth: 280 }}
-          >
-            <MenuItem value="surveillance">Patient Bite Incident List (Category, Animal, Location)</MenuItem>
-            <MenuItem value="followup">Overdue Patients &amp; Follow-up</MenuItem>
-            <MenuItem value="awaiting">Patients Awaiting First Dose (D0)</MenuItem>
-            <MenuItem value="pep">PEP Treatment Outcomes</MenuItem>
-            <MenuItem value="referrals">Referrals &amp; Transfers</MenuItem>
-            <MenuItem value="summary">Clinic Summary (Key Metrics)</MenuItem>
-          </TextField>
-        </div>
-        <div className="rr-table-scroll" tabIndex={0} role="region" aria-label={TITLES[report]}><table className="rr-table"><thead><tr>{Object.values(data.records.columns).map(label => <th key={label} scope="col">{label}</th>)}</tr></thead><tbody>
-          {data.records.rows.length ? data.records.rows.map((row, index) => <tr key={`${page}-${index}`}>{Object.keys(data.records.columns).map(key => <td key={key}>{key === 'category' ? <Chip size="small" variant="outlined" label={`Category ${display(row[key])}`} /> : display(row[key])}</td>)}</tr>) : <tr><td colSpan={Object.keys(data.records.columns).length} className="rr-empty">No matching records.</td></tr>}
-        </tbody></table></div>
-        {data.records.last_page > 1 && <Pagination sx={{ mt: 2 }} count={data.records.last_page} page={data.records.page} onChange={(_, next) => setPage(next)} aria-label="Report pages" />}
-        <p className="rr-note">CSV and print include every matching record, across all pages.</p>
-      </Paper>
+
+          {/* Filters Section with Current filter summary text and summary metrics */}
+          {renderFilters(
+            false,
+            true,
+            <div className="rr-activity rr-surveillance-metrics">
+              <span><b>{stats.incidents}</b> incident episodes</span>
+              <span><b>{stats.patients}</b> unique patients</span>
+              <span><b>{percent(stats.referral_rate)}</b> referred/transferred cases</span>
+            </div>
+          )}
+
+          {/* Tabs */}
+          <div className="rr-surveillance-tabs-bar">
+            <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+              <Button
+                variant={report === 'surveillance' ? 'contained' : 'outlined'}
+                size="small"
+                className="rr-surveillance-tab-btn"
+                onClick={() => selectReport('surveillance', false)}
+              >
+                Incident List ({stats.incidents})
+              </Button>
+              <Button
+                variant={report === 'referrals' ? 'contained' : 'outlined'}
+                size="small"
+                className="rr-surveillance-tab-btn"
+                onClick={() => selectReport('referrals', false)}
+              >
+                Referrals &amp; Transfers ({stats.referrals})
+              </Button>
+            </Stack>
+          </div>
+
+          {/* Data Table */}
+          {renderTableContent()}
+        </Paper>
+      </>}
+      {tab === 'clinic_summary' && (
+        <Paper elevation={0} className="rr-panel rr-table-panel rr-clinic-summary-unified-container">
+          <div className="rr-clinic-summary-header">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography component="h2" className="rr-section-title" sx={{ margin: 0 }}>
+                {TITLES[report]}
+              </Typography>
+              {tableLoading && (
+                <span className="rr-tab-updating-badge" aria-live="polite">
+                  <CircularProgress size={14} sx={{ color: '#1d9e75' }} />
+                  Updating...
+                </span>
+              )}
+            </Box>
+          </div>
+
+          {renderFilters(
+            false,
+            true,
+            <p className="rr-note rr-record-basis">
+              {tableLoading && !displayedRecords
+                ? 'Loading records...'
+                : `${displayedRecords?.total ?? 0} record(s) · ${displayedMeta?.basis ?? data?.meta?.basis ?? ''}`}
+            </p>
+          )}
+
+          {renderTableContent(false)}
+        </Paper>
+      )}
       <details className="rr-definitions"><summary>Metric definitions and data availability</summary>{data.meta.notes.map(note => <p key={note}>{note}</p>)}
         <p>Previous D0 cohort: {data.period.previous_from} to {data.period.previous_to}; {stats.previous_completion.completed}/{stats.previous_completion.eligible} eligible courses completed ({percent(stats.previous_completion.rate)}). Both cohorts are observed today, so follow-up durations differ.</p>
         <p>{stats.delay.excluded} D0 course(s) excluded from delay calculations because exposure-to-dose dates are invalid or unavailable. Zero means a measured zero; “Not available” means no eligible observations.</p>
       </details>
-      <p className="rr-note rr-updated">Updated {new Date(data.meta.generated_at).toLocaleString()} · {data.meta.clinic}</p>
+      <p className="rr-note rr-updated">Updated {data.meta?.generated_at && !isNaN(new Date(data.meta.generated_at).getTime()) ? new Date(data.meta.generated_at).toLocaleString() : '—'} · {data.meta.clinic}</p>
     </>}
     </>}
+
+    {/* Print Settings & Orientation Modal */}
+    <Dialog
+      open={printModalOpen}
+      onClose={() => { if (!exporting) setPrintModalOpen(false); }}
+      maxWidth="xs"
+      fullWidth
+      aria-labelledby="print-dialog-title"
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: '16px',
+            p: 0.5,
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+          },
+        },
+      }}
+    >
+      <DialogTitle
+        id="print-dialog-title"
+        sx={{
+          pb: 1,
+          pt: 2,
+          px: 2.5,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box
+            sx={{
+              width: 38,
+              height: 38,
+              borderRadius: '10px',
+              bgcolor: 'rgba(29, 158, 117, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#1d9e75',
+              flexShrink: 0,
+            }}
+          >
+            <PrintOutlined sx={{ fontSize: 20 }} />
+          </Box>
+          <Box>
+            <Typography variant="h6" sx={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1.25, color: 'text.primary' }}>
+              Print Settings
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.75rem', mt: 0.25 }}>
+              {TITLES[report]} · {filters.from} to {filters.to}
+            </Typography>
+          </Box>
+        </Box>
+        <IconButton
+          size="small"
+          onClick={() => setPrintModalOpen(false)}
+          disabled={exporting}
+          aria-label="Close print dialog"
+          sx={{ color: 'text.secondary' }}
+        >
+          <Close fontSize="small" />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent sx={{ px: 2.5, py: 1.5 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary', mb: 0.5 }}>
+          Page Orientation
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8125rem', mb: 2 }}>
+          Choose document orientation before generating the printable report.
+        </Typography>
+
+        <ToggleButtonGroup
+          value={orientation}
+          exclusive
+          onChange={(_, val) => { if (val) setOrientation(val); }}
+          aria-label="Print orientation"
+          fullWidth
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 1.5,
+            '& .MuiToggleButtonGroup-grouped': {
+              border: '1.5px solid !important',
+              borderRadius: '10px !important',
+            },
+          }}
+        >
+          <ToggleButton
+            value="landscape"
+            aria-label="Landscape"
+            sx={{
+              p: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 1.25,
+              textTransform: 'none',
+              borderColor: orientation === 'landscape' ? '#1d9e75 !important' : 'divider !important',
+              bgcolor: orientation === 'landscape' ? 'rgba(29, 158, 117, 0.08) !important' : 'background.paper',
+              color: 'text.primary',
+              transition: 'all 0.15s ease-in-out',
+              '&:hover': {
+                bgcolor: orientation === 'landscape' ? 'rgba(29, 158, 117, 0.12) !important' : 'rgba(0, 0, 0, 0.02)',
+              },
+            }}
+          >
+            <Box
+              sx={{
+                width: 48,
+                height: 34,
+                borderRadius: '4px',
+                border: '1.5px solid',
+                borderColor: orientation === 'landscape' ? '#1d9e75' : '#94a3b8',
+                bgcolor: orientation === 'landscape' ? '#e6f7f2' : '#f8fafc',
+                p: '5px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Box sx={{ width: '45%', height: 3, bgcolor: orientation === 'landscape' ? '#1d9e75' : '#94a3b8', borderRadius: 0.5 }} />
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <Box sx={{ width: '100%', height: 2, bgcolor: orientation === 'landscape' ? 'rgba(29, 158, 117, 0.6)' : '#cbd5e1', borderRadius: 0.5 }} />
+                <Box sx={{ width: '80%', height: 2, bgcolor: orientation === 'landscape' ? 'rgba(29, 158, 117, 0.6)' : '#cbd5e1', borderRadius: 0.5 }} />
+              </Box>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', justifyContent: 'center' }}>
+                <Typography sx={{ fontWeight: 600, fontSize: '0.875rem' }}>Landscape</Typography>
+                <Chip label="Best" size="small" sx={{ height: 18, fontSize: '0.65rem', bgcolor: 'rgba(29, 158, 117, 0.15)', color: '#1d9e75', fontWeight: 600, px: 0.5 }} />
+              </Stack>
+              <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.25 }}>
+                Wide (Multi-column)
+              </Typography>
+            </Box>
+          </ToggleButton>
+
+          <ToggleButton
+            value="portrait"
+            aria-label="Portrait"
+            sx={{
+              p: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 1.25,
+              textTransform: 'none',
+              borderColor: orientation === 'portrait' ? '#1d9e75 !important' : 'divider !important',
+              bgcolor: orientation === 'portrait' ? 'rgba(29, 158, 117, 0.08) !important' : 'background.paper',
+              color: 'text.primary',
+              transition: 'all 0.15s ease-in-out',
+              '&:hover': {
+                bgcolor: orientation === 'portrait' ? 'rgba(29, 158, 117, 0.12) !important' : 'rgba(0, 0, 0, 0.02)',
+              },
+            }}
+          >
+            <Box
+              sx={{
+                width: 34,
+                height: 48,
+                borderRadius: '4px',
+                border: '1.5px solid',
+                borderColor: orientation === 'portrait' ? '#1d9e75' : '#94a3b8',
+                bgcolor: orientation === 'portrait' ? '#e6f7f2' : '#f8fafc',
+                p: '5px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Box sx={{ width: '60%', height: 3, bgcolor: orientation === 'portrait' ? '#1d9e75' : '#94a3b8', borderRadius: 0.5 }} />
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <Box sx={{ width: '100%', height: 2, bgcolor: orientation === 'portrait' ? 'rgba(29, 158, 117, 0.6)' : '#cbd5e1', borderRadius: 0.5 }} />
+                <Box sx={{ width: '85%', height: 2, bgcolor: orientation === 'portrait' ? 'rgba(29, 158, 117, 0.6)' : '#cbd5e1', borderRadius: 0.5 }} />
+                <Box sx={{ width: '70%', height: 2, bgcolor: orientation === 'portrait' ? 'rgba(29, 158, 117, 0.6)' : '#cbd5e1', borderRadius: 0.5 }} />
+              </Box>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography sx={{ fontWeight: 600, fontSize: '0.875rem' }}>Portrait</Typography>
+              <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.25 }}>
+                Vertical (Standard)
+              </Typography>
+            </Box>
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 2.5, pb: 2, pt: 1, gap: 1 }}>
+        <Button
+          variant="outlined"
+          onClick={() => setPrintModalOpen(false)}
+          disabled={exporting}
+          sx={{ textTransform: 'none', borderRadius: '8px', fontWeight: 500, borderColor: 'divider', color: 'text.secondary' }}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          disableElevation
+          startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <PrintOutlined />}
+          disabled={exporting}
+          onClick={async () => {
+            await exportReport('print');
+            setPrintModalOpen(false);
+          }}
+          sx={{
+            bgcolor: '#1d9e75',
+            '&:hover': { bgcolor: '#16805f' },
+            textTransform: 'none',
+            borderRadius: '8px',
+            fontWeight: 500,
+          }}
+        >
+          {exporting ? 'Generating...' : 'Print'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   </Box>;
 }

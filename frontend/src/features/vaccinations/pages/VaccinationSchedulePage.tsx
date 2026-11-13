@@ -1,4 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../../shared/contexts/AuthContext';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
+import { ROUTES } from '../../../shared/config/routes';
+import { highlightRecordElement } from '../../../shared/utils/notificationNavigation';
 import {
   Box,
   Paper,
@@ -23,6 +28,7 @@ import {
   Radio,
   Stack,
   useTheme,
+  Checkbox,
 } from '@mui/material';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -40,10 +46,13 @@ import {
   RefreshIcon,
   UserMultiple02Icon,
   MailSend01Icon,
+  ViewIcon,
+  PrinterIcon,
 } from '@hugeicons/core-free-icons';
 import api from '../../../services/api';
 import { TablePager } from '../../../components/data-display';
 import TagoloanTreatmentCardModal from '../components/TagoloanTreatmentCardModal';
+import BatchTreatmentCardPrintModal, { type BatchCardItem } from '../components/BatchTreatmentCardPrintModal';
 import VaccinationRecordForm from '../components/VaccinationRecordForm';
 import { ConfirmationDialog } from '../../../components/feedback';
 
@@ -110,6 +119,13 @@ interface JourneyKPI {
 }
 
 export default function VaccinationSchedulePage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { isTreatmentModuleEnabled } = useClinicModuleConfig();
+  const treatmentEnabled = isTreatmentModuleEnabled();
+  const isTriageDoctor = user?.role === 'triage';
+  const isNurse = user?.role === 'treatment' || Boolean(user?.is_nursing) || Boolean(user?.is_solo_nurse) || Boolean(user?.roles?.some((r: any) => r.slug === 'intake_nurse' || r.slug === 'follow_up_nurse'));
+  const canRecordDose = treatmentEnabled && !isTriageDoctor && !isNurse && (user?.role === 'admin' || user?.role === 'developer');
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [loading, setLoading] = useState(true);
@@ -125,13 +141,31 @@ export default function VaccinationSchedulePage() {
     online_count: 0,
   });
 
+  // URL query params for notification deep-linking
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+
+  const targetPatientId = searchParams.get('patient_id') ? Number(searchParams.get('patient_id')) : null;
+  const targetAppointmentId = searchParams.get('appointment_id') ? Number(searchParams.get('appointment_id')) : null;
+  const targetDose = searchParams.get('dose');
+  const statusContext = searchParams.get('status_context');
+
+  const [recordNotFoundDialog, setRecordNotFoundDialog] = useState(false);
+  const [statusChangeMessage, setStatusChangeMessage] = useState<string | null>(null);
+
   // Pagination
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
 
   // Filters & Tabs
-  const [activeTab, setActiveTab] = useState<'matrix' | 'today' | 'online' | 'missed'>('matrix');
+  const [activeTab, setActiveTab] = useState<'matrix' | 'today' | 'online' | 'missed'>(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && ['matrix', 'today', 'online', 'missed'].includes(tabFromUrl)) {
+      return tabFromUrl as any;
+    }
+    return 'matrix';
+  });
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [channelFilter, setChannelFilter] = useState<'all' | 'walk_in' | 'online'>('all');
@@ -146,9 +180,60 @@ export default function VaccinationSchedulePage() {
     return () => clearTimeout(handler);
   }, [search]);
 
+  // Sync tab from URL query params (supports same-page notification clicks & refresh)
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && ['matrix', 'today', 'online', 'missed'].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl as any);
+    }
+  }, [searchParams]);
+
   // Treatment Card Modal
   const [cardModalOpen, setCardModalOpen] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+
+  // Batch Treatment Card Print Modal (2 cards per bondpaper)
+  const [selectedPatientsForPrint, setSelectedPatientsForPrint] = useState<BatchCardItem[]>([]);
+  const [batchPrintOpen, setBatchPrintOpen] = useState(false);
+
+  const isPatientSelected = (patientId: number) =>
+    selectedPatientsForPrint.some((p) => p.patientId === patientId);
+
+  const handleTogglePatient = (patient: PatientJourney) => {
+    setSelectedPatientsForPrint((prev) => {
+      if (prev.some((p) => p.patientId === patient.patient_id)) {
+        return prev.filter((p) => p.patientId !== patient.patient_id);
+      }
+      return [
+        ...prev,
+        {
+          patientId: patient.patient_id,
+          biteId: patient.bite_incident?.bite_id || null,
+          name: patient.full_name,
+        },
+      ];
+    });
+  };
+
+  const handleSelectAllOnPage = (displayedList: PatientJourney[]) => {
+    const allCurrentSelected = displayedList.length > 0 && displayedList.every((p) =>
+      selectedPatientsForPrint.some((sp) => sp.patientId === p.patient_id)
+    );
+
+    if (allCurrentSelected) {
+      const pageIds = new Set(displayedList.map((p) => p.patient_id));
+      setSelectedPatientsForPrint((prev) => prev.filter((p) => !pageIds.has(p.patientId)));
+    } else {
+      const newItems = displayedList
+        .filter((p) => !selectedPatientsForPrint.some((sp) => sp.patientId === p.patient_id))
+        .map((p) => ({
+          patientId: p.patient_id,
+          biteId: p.bite_incident?.bite_id || null,
+          name: p.full_name,
+        }));
+      setSelectedPatientsForPrint((prev) => [...prev, ...newItems]);
+    }
+  };
 
   // Form 3 Vaccination Record Modal
   const [showRecordForm, setShowRecordForm] = useState(false);
@@ -185,17 +270,50 @@ export default function VaccinationSchedulePage() {
           search: debouncedSearch.trim() || undefined,
           channel: channelParam,
           status: statusParam,
+          patient_id: targetPatientId || undefined,
+          appointment_id: targetAppointmentId || undefined,
           page: page + 1,
           per_page: rowsPerPage,
         },
       });
 
-      setPatients(res.data.patients || []);
+      const fetchedList: PatientJourney[] = res.data.patients || [];
+      setPatients(fetchedList);
       if (res.data.pagination) {
         setTotalCount(res.data.pagination.total);
+        if (typeof res.data.pagination.page === 'number' && res.data.pagination.page - 1 !== page) {
+          setPage(res.data.pagination.page - 1);
+        }
       }
       if (res.data.kpi) {
         setKpi(res.data.kpi);
+      }
+
+      // Check target patient if one was requested via notification
+      if (targetPatientId) {
+        const targetInfo = res.data.target_patient;
+        if (targetInfo && targetInfo.found === false) {
+          setRecordNotFoundDialog(true);
+        } else if (targetInfo && targetInfo.status_changed && targetInfo.message) {
+          setStatusChangeMessage(targetInfo.message);
+        } else if (statusContext === 'overdue') {
+          const inList = fetchedList.find(p => p.patient_id === targetPatientId);
+          if (inList && targetDose !== null && targetDose !== undefined) {
+            const doseObj = inList.doses?.find(d => String(d.dose_number) === String(targetDose));
+            if (doseObj && doseObj.status === 'completed') {
+              setStatusChangeMessage(`This overdue appointment (${doseObj.label}) has already been completed.`);
+            }
+          }
+        }
+
+        // Highlight after render
+        const patientExists = fetchedList.some(p => p.patient_id === targetPatientId);
+        if (patientExists) {
+          highlightRecordElement(`journey-patient-${targetPatientId}`, false, 350);
+          if (targetDose !== null && targetDose !== undefined && targetDose !== '') {
+            highlightRecordElement(`dose-pill-${targetPatientId}-${targetDose}`, true, 500);
+          }
+        }
       }
     } catch (err: any) {
       setFeedback({
@@ -205,7 +323,7 @@ export default function VaccinationSchedulePage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, channelFilter, activeTab, page, rowsPerPage]);
+  }, [debouncedSearch, channelFilter, activeTab, page, rowsPerPage, targetPatientId, targetAppointmentId, targetDose, statusContext]);
 
   useEffect(() => {
     fetchJourneyData();
@@ -372,30 +490,46 @@ export default function VaccinationSchedulePage() {
     <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: isDark ? 'transparent' : '#f8fafc', minHeight: '100vh' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box
+        <Box>
+          <Typography
+            component="h1"
             sx={{
-              width: 44,
-              height: 44,
-              borderRadius: '12px',
-              bgcolor: '#047857',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(4, 120, 87, 0.2)',
+              fontSize: '24px',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
             }}
           >
-            <HugeiconsIcon icon={Medicine01Icon} size={24} />
-          </Box>
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a', letterSpacing: '-0.02em', fontFamily: "'Poppins', sans-serif" }}>
-              Vaccination & Regimen Center
-            </Typography>
-            <Typography variant="body2" sx={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '13px', fontFamily: "'Poppins', sans-serif" }}>
-              Post-Exposure Prophylaxis (PEP) journey tracking, channel filtration, and multi-channel recall alerts
-            </Typography>
-          </Box>
+            Vaccination Schedule
+          </Typography>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '8px',
+              fontSize: '13px',
+            }}
+          >
+            <button
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: '#3b82f6',
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
+            >
+              Dashboard
+            </button>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Vaccination Schedule</span>
+          </div>
         </Box>
 
         {/* Header Action Buttons */}
@@ -478,6 +612,12 @@ export default function VaccinationSchedulePage() {
         </Box>
       </Box>
 
+      {!treatmentEnabled && (
+        <Alert severity="warning" sx={{ mb: 2.5, borderRadius: '12px' }}>
+          <strong>Treatment Module is currently disabled for this clinic.</strong> Recording new vaccine doses (Form 3) and treatment check-ins are blocked, while existing vaccination schedules and history remain accessible in read-only mode.
+        </Alert>
+      )}
+
       {/* KPI Cards Grid */}
       <Box
         sx={{
@@ -528,43 +668,52 @@ export default function VaccinationSchedulePage() {
             icon: <HugeiconsIcon icon={Medicine01Icon} size={20} />,
             color: '#10b981',
           },
-        ].map((item) => (
-          <Paper
-            key={item.id}
-            elevation={0}
-            sx={{
-              p: '16px 18px',
-              borderRadius: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.75,
-              position: 'relative',
-              overflow: 'hidden',
-              cursor: 'default',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              ...(isDark
-                ? {
-                    background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
-                    border: '1px solid rgba(163, 230, 53, 0.3)',
-                    boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2)',
-                    '&:hover': {
-                      transform: 'translateY(-3px)',
-                      borderColor: 'rgba(163, 230, 53, 0.55)',
-                      boxShadow: '0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35), inset 0 1px 3px 0 rgba(255, 255, 255, 0.3)',
-                    },
-                  }
-                : {
-                    background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
-                    border: '1px solid rgba(16, 185, 129, 0.32)',
-                    boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
-                    '&:hover': {
-                      transform: 'translateY(-3px)',
-                      borderColor: 'rgba(16, 185, 129, 0.55)',
-                      boxShadow: '0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 1)',
-                    },
-                  }),
-            }}
-          >
+        ].map((item) => {
+          const hoverShadow = isDark
+            ? item.color === '#ef4444'
+              ? '0 8px 24px rgba(239, 68, 68, 0.35), 0 0 16px rgba(239, 68, 68, 0.25)'
+              : item.color === '#f59e0b'
+              ? '0 8px 24px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.25)'
+              : '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+            : item.color === '#ef4444'
+            ? '0 8px 22px rgba(239, 68, 68, 0.28), 0 2px 8px rgba(239, 68, 68, 0.16)'
+            : item.color === '#f59e0b'
+            ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
+            : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
+
+          return (
+            <Paper
+              key={item.id}
+              elevation={0}
+              sx={{
+                p: '16px 18px',
+                borderRadius: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.75,
+                position: 'relative',
+                overflow: 'hidden',
+                cursor: 'default',
+                transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                ...(isDark
+                  ? {
+                      background: '#111827',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                      '&:hover': {
+                        boxShadow: hoverShadow,
+                      },
+                    }
+                  : {
+                      background: '#ffffff',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                      '&:hover': {
+                        boxShadow: hoverShadow,
+                      },
+                    }),
+              }}
+            >
             <Box
               sx={{
                 width: 42,
@@ -620,7 +769,8 @@ export default function VaccinationSchedulePage() {
               </Typography>
             </Box>
           </Paper>
-        ))}
+          );
+        })}
       </Box>
 
       {/* Filters & Search Bar — 8.3: Status dropdown + Dose dropdown + Search */}
@@ -703,6 +853,17 @@ export default function VaccinationSchedulePage() {
         </Box>
       </Paper>
 
+      {/* Status Change Notice Banner */}
+      {statusChangeMessage && (
+        <Alert
+          severity="info"
+          onClose={() => setStatusChangeMessage(null)}
+          sx={{ mb: 2, borderRadius: '10px' }}
+        >
+          <strong>Record Update:</strong> {statusChangeMessage}
+        </Alert>
+      )}
+
       {/* Patient Stepper Matrix List */}
       {loading ? (
         <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '12px', border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? '#111827' : 'var(--card-bg-solid, #fff)' }}>
@@ -724,26 +885,110 @@ export default function VaccinationSchedulePage() {
         </Paper>
       ) : (
         <Paper sx={{ p: 2, borderRadius: '14px', border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? '#111827' : 'var(--card-bg-solid, #fff)' }}>
-          <Stack spacing={2}>
-            {patients
-              .filter(patient => {
-                if (doseFilter === 'all') return true;
-                if (doseFilter === 'Booster') {
-                  return patient.doses?.some(d => d.is_booster || d.label.toLowerCase().includes('booster'));
-                }
-                // Map dose label to dose_number
-                const doseMap: Record<string, number> = { 'Day 0': 0, 'Day 3': 3, 'Day 7': 7, 'Booster 1': 90, 'Booster 2': 365 };
-                const targetNum = doseMap[doseFilter];
-                // Show patient if their next pending dose matches, or any dose in their schedule matches
-                return patient.doses?.some(d => d.dose_number === targetNum);
-              })
-              .map((patient) => {
+          {(() => {
+            const filteredPatients = patients.filter(patient => {
+              if (doseFilter === 'all') return true;
+              if (doseFilter === 'Booster') {
+                return patient.doses?.some(d => d.is_booster || d.label.toLowerCase().includes('booster'));
+              }
+              const doseMap: Record<string, number> = { 'Day 0': 0, 'Day 3': 3, 'Day 7': 7, 'Booster 1': 90, 'Booster 2': 365 };
+              const targetNum = doseMap[doseFilter];
+              return patient.doses?.some(d => d.dose_number === targetNum);
+            });
+
+            const isAllDisplayedSelected = filteredPatients.length > 0 && filteredPatients.every(p => isPatientSelected(p.patient_id));
+            const isSomeDisplayedSelected = filteredPatients.some(p => isPatientSelected(p.patient_id));
+
+            return (
+              <>
+                {/* Batch Print Selection Bar */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    mb: 2,
+                    pb: 1.5,
+                    borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #f1f5f9',
+                    flexWrap: 'wrap',
+                    gap: 1.5,
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Checkbox
+                      checked={isAllDisplayedSelected}
+                      indeterminate={isSomeDisplayedSelected && !isAllDisplayedSelected}
+                      onChange={() => handleSelectAllOnPage(filteredPatients)}
+                      size="small"
+                      sx={{
+                        p: 0.5,
+                        color: isDark ? '#64748b' : '#94a3b8',
+                        '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#10b981' },
+                      }}
+                    />
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: isDark ? '#e2e8f0' : '#475569', fontSize: '13px' }}>
+                      Select all on page ({filteredPatients.length})
+                    </Typography>
+                  </Box>
+
+                  {selectedPatientsForPrint.length > 0 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="caption" sx={{ color: isDark ? '#a7f3d0' : '#047857', fontWeight: 600 }}>
+                        {selectedPatientsForPrint.length} selected · {Math.ceil(selectedPatientsForPrint.length / 2)} sheet{Math.ceil(selectedPatientsForPrint.length / 2) === 1 ? '' : 's'}
+                      </Typography>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={() => setBatchPrintOpen(true)}
+                        startIcon={<HugeiconsIcon icon={PrinterIcon} size={15} />}
+                        sx={{
+                          textTransform: 'none',
+                          bgcolor: '#10b981',
+                          color: '#fff',
+                          fontWeight: 600,
+                          fontSize: '12px',
+                          py: 0.4,
+                          px: 1.5,
+                          borderRadius: '7px',
+                          boxShadow: 'none',
+                          '&:hover': { bgcolor: '#059669', boxShadow: 'none' },
+                        }}
+                      >
+                        Print Cards (2 per page)
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => setSelectedPatientsForPrint([])}
+                        sx={{
+                          textTransform: 'none',
+                          fontSize: '12px',
+                          py: 0.4,
+                          px: 1.25,
+                          borderRadius: '7px',
+                          color: isDark ? '#cbd5e1' : '#64748b',
+                          borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1',
+                          '&:hover': { borderColor: isDark ? '#94a3b8' : '#94a3b8' },
+                        }}
+                      >
+                        Clear
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
+
+                <Stack spacing={2}>
+                  {filteredPatients.map((patient) => {
               const isMissed = patient.compliance_status === 'overdue_missed';
               const isDueToday = patient.compliance_status === 'due_today';
+              const showNextLabel = !isTriageDoctor && Boolean(patient.next_appointment);
+              const showOverdueNotice = Boolean(isMissed && patient.next_appointment && patient.next_appointment.late_days > 0);
+              const hasTextAbove = showNextLabel || showOverdueNotice;
 
               return (
                 <Paper
                   key={`journey-p-${patient.patient_id}`}
+                  id={`journey-patient-${patient.patient_id}`}
                   sx={{
                     p: 2.5,
                     borderRadius: '12px',
@@ -766,7 +1011,18 @@ export default function VaccinationSchedulePage() {
                     }}
                   >
                     {/* Left Column: Patient Profile & Incident Summary */}
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <Checkbox
+                        checked={isPatientSelected(patient.patient_id)}
+                        onChange={() => handleTogglePatient(patient)}
+                        size="small"
+                        sx={{
+                          p: 0.5,
+                          mt: 0.5,
+                          color: isDark ? '#64748b' : '#94a3b8',
+                          '&.Mui-checked': { color: '#10b981' },
+                        }}
+                      />
                       <Box
                         sx={{
                           width: 40,
@@ -878,6 +1134,7 @@ export default function VaccinationSchedulePage() {
                             )}
                             <Tooltip title={tooltipText} arrow>
                               <Box
+                                id={`dose-pill-${patient.patient_id}-${dose.dose_number}`}
                                 sx={{
                                   px: 1.5, py: 0.75,
                                   borderRadius: '8px',
@@ -940,16 +1197,27 @@ export default function VaccinationSchedulePage() {
                     </Box>
 
                     {/* Right Column: Actions & Recall Trigger */}
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: { xs: 'flex-start', md: 'flex-end' }, gap: 1 }}>
-                      {patient.next_appointment && (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: { xs: 'flex-start', md: 'flex-end' },
+                        justifyContent: 'center',
+                        gap: hasTextAbove ? 0.75 : 0,
+                        minHeight: hasTextAbove ? 44 : 'auto',
+                      }}
+                    >
+                      {hasTextAbove && patient.next_appointment && (
                         <Box sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-                          <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>
-                            Next:{' '}
-                            <strong style={{ color: isMissed ? '#dc2626' : isDueToday ? '#d97706' : '#047857' }}>
-                              {patient.next_appointment.label} on {patient.next_appointment.scheduled_date_formatted}
-                            </strong>
-                          </Typography>
-                          {isMissed && patient.next_appointment && patient.next_appointment.late_days > 0 && (
+                          {showNextLabel && (
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>
+                              Next:{' '}
+                              <strong style={{ color: isMissed ? '#dc2626' : isDueToday ? '#d97706' : '#047857' }}>
+                                {patient.next_appointment.label} on {patient.next_appointment.scheduled_date_formatted}
+                              </strong>
+                            </Typography>
+                          )}
+                          {showOverdueNotice && (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#dc2626' }}>
                               <HugeiconsIcon icon={AlertCircleIcon} size={13} />
                               <Typography variant="caption" sx={{ fontWeight: 600 }}>
@@ -960,7 +1228,7 @@ export default function VaccinationSchedulePage() {
                         </Box>
                       )}
 
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                         {isMissed && (
                           <Button
                             size="small"
@@ -985,37 +1253,39 @@ export default function VaccinationSchedulePage() {
                           </Button>
                         )}
 
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => {
-                            setSelectedRecordPatient(patient);
-                            setShowRecordForm(true);
-                          }}
-                          sx={{
-                            textTransform: 'none',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            py: 0.5,
-                            px: 1.25,
-                            borderRadius: '6px',
-                            borderColor: isDark ? 'rgba(16, 185, 129, 0.35)' : '#bbf7d0',
-                            color: isDark ? '#34d399' : '#166534',
-                            bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            '&:hover': { bgcolor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#dcfce7', borderColor: isDark ? '#34d399' : '#86efac' },
-                          }}
-                        >
-                          <HugeiconsIcon icon={Medicine01Icon} size={14} />
-                          Record Dose (Form 3)
-                        </Button>
+                        {canRecordDose && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => {
+                              setSelectedRecordPatient(patient);
+                              setShowRecordForm(true);
+                            }}
+                            sx={{
+                              textTransform: 'none',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              py: 0.5,
+                              px: 1.25,
+                              borderRadius: '6px',
+                              borderColor: isDark ? 'rgba(16, 185, 129, 0.35)' : '#bbf7d0',
+                              color: isDark ? '#34d399' : '#166534',
+                              bgcolor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                              '&:hover': { bgcolor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#dcfce7', borderColor: isDark ? '#34d399' : '#86efac' },
+                            }}
+                          >
+                            <HugeiconsIcon icon={Medicine01Icon} size={14} />
+                            Record Dose (Form 3)
+                          </Button>
+                        )}
 
                         <Tooltip title="View / Print Official Tagoloan Treatment Card">
                           <Button
                             size="small"
-                            variant="text"
+                            variant="outlined"
                             onClick={() => {
                               setSelectedPatientId(patient.patient_id);
                               setCardModalOpen(true);
@@ -1025,12 +1295,24 @@ export default function VaccinationSchedulePage() {
                               fontSize: '11px',
                               fontWeight: 600,
                               py: 0.5,
-                              px: 0.75,
-                              color: isDark ? '#94a3b8' : '#64748b',
+                              px: 1.25,
+                              borderRadius: '6px',
+                              borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : '#cbd5e1',
+                              color: isDark ? '#cbd5e1' : '#475569',
+                              bgcolor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#ffffff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
                               minWidth: 'auto',
-                              '&:hover': { bgcolor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9', color: isDark ? '#ffffff' : '#1e293b' },
+                              '&:hover': {
+                                bgcolor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#f8fafc',
+                                borderColor: isDark ? '#94a3b8' : '#94a3b8',
+                                color: isDark ? '#ffffff' : '#0f172a',
+                              },
                             }}
                           >
+                            <HugeiconsIcon icon={ViewIcon} size={14} />
                             Card
                           </Button>
                         </Tooltip>
@@ -1040,7 +1322,10 @@ export default function VaccinationSchedulePage() {
                 </Paper>
               );
             })}
-          </Stack>
+                </Stack>
+              </>
+            );
+          })()}
 
           {/* Server-side Pagination Controls */}
           <TablePager
@@ -1055,7 +1340,7 @@ export default function VaccinationSchedulePage() {
       )}
 
       {/* Form 3 Vaccination Record Modal */}
-      {showRecordForm && selectedRecordPatient && (
+      {canRecordDose && showRecordForm && selectedRecordPatient && (
         <VaccinationRecordForm
           open={showRecordForm}
           entry={{
@@ -1107,6 +1392,15 @@ export default function VaccinationSchedulePage() {
           onSaved={() => {
             fetchJourneyData();
           }}
+        />
+      )}
+
+      {/* Batch Treatment Card Print Modal (2 Cards per Sheet) */}
+      {batchPrintOpen && selectedPatientsForPrint.length > 0 && (
+        <BatchTreatmentCardPrintModal
+          open={batchPrintOpen}
+          onClose={() => setBatchPrintOpen(false)}
+          items={selectedPatientsForPrint}
         />
       )}
 
@@ -1279,6 +1573,35 @@ export default function VaccinationSchedulePage() {
           autoClose={3500}
           onConfirm={() => setSuccessModal(null)}
           onClose={() => setSuccessModal(null)}
+        />
+      )}
+
+      {/* Record Not Found Modal */}
+      {recordNotFoundDialog && (
+        <ConfirmationDialog
+          title="Patient Record Not Found"
+          message="The referenced patient or vaccination schedule record could not be found or has been removed from this clinic."
+          confirmLabel="Dismiss"
+          hideCancel
+          variant="danger"
+          onConfirm={() => {
+            setRecordNotFoundDialog(false);
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete('patient_id');
+            nextParams.delete('appointment_id');
+            nextParams.delete('dose');
+            nextParams.delete('status_context');
+            setSearchParams(nextParams, { replace: true });
+          }}
+          onClose={() => {
+            setRecordNotFoundDialog(false);
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete('patient_id');
+            nextParams.delete('appointment_id');
+            nextParams.delete('dose');
+            nextParams.delete('status_context');
+            setSearchParams(nextParams, { replace: true });
+          }}
         />
       )}
     </Box>

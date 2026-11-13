@@ -1,12 +1,17 @@
+import AnimalSection from './AddPatientModal/AnimalSection';
 import { useState, useEffect } from 'react';
 import FormModal from '../../../components/forms/FormModal';
 import { formatPhilHealthNumber, formatPWDNumber } from '../../../shared/utils';
+import { isValidFourDigitYearDate, sanitizeDateInput } from '../../../shared/utils/date';
 import { PatientFormContent } from '../styles/AddPatientModal.styles';
 import type { Patient, EnrolmentFormData } from '../types';
 import { INITIAL_ENROLMENT_DATA } from '../types';
 import { useAddressLocation } from '../hooks';
 import api from '../../../shared/services/api';
 import { buildEnrolmentFromPatient, buildLegacyMembershipFields, toRecord } from '../utils/memberships';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import {
   PatientInfoSection,
   AddressSection,
@@ -23,6 +28,10 @@ interface EditPatientModalProps {
 }
 
 export default function EditPatientModal({ open, patient, onClose, onSuccess }: EditPatientModalProps) {
+  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
+  const patientId = patient ? (patient.patient_id ?? patient.id) : null;
+  const draft = useFormDraft(patientId ? `edit-patient-${patientId}` : null);
+
   const [enrolment, setEnrolment] = useState<EnrolmentFormData>(INITIAL_ENROLMENT_DATA);
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState('');
@@ -36,17 +45,27 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
     }
 
     setFullPatient(patient);
-    setEnrolment(buildEnrolmentFromPatient(patient));
+
+    // If there's a saved draft for this patient, restore it instead of the server data
+    const savedDraft = draft.readDraft<EnrolmentFormData>();
+    if (savedDraft) {
+      setEnrolment(savedDraft);
+    } else {
+      setEnrolment(buildEnrolmentFromPatient(patient));
+    }
 
     if (patient.address) {
       setPurok(patient.address);
     }
 
-    const patientId = patient.patient_id || patient.id;
-    api.get(`/patients/${patientId}`)
+    const pid = patient.patient_id || patient.id;
+    api.get(`/patients/${pid}`)
       .then(({ data }) => {
         setFullPatient(data as Record<string, unknown>);
-        setEnrolment(buildEnrolmentFromPatient(data as Record<string, unknown>));
+        // Only overwrite with server data if we did not restore a draft
+        if (!savedDraft) {
+          setEnrolment(buildEnrolmentFromPatient(data as Record<string, unknown>));
+        }
         if (typeof data?.address === 'string') {
           setPurok(data.address);
         }
@@ -54,7 +73,7 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
       .catch(() => {
         setFullPatient(patient);
       });
-  }, [open, patient, setPurok]);
+  }, [open, patient, setPurok]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!open || !patient) return null;
 
@@ -64,21 +83,37 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
     let value = ev.target.value;
     if (key === 'contact_number' || key === 'emergency_contact_phone') {
       value = value.replace(/\D/g, '').slice(0, 11);
+    } else if (key === 'date_of_birth') {
+      value = sanitizeDateInput(value);
     } else if (key === 'philhealth_no') {
       value = formatPhilHealthNumber(value);
     } else if (key === 'other_membership_no' && enrolment.other_membership === 'pwd') {
       value = formatPWDNumber(value);
     }
-    setEnrolment(prev => ({ ...prev, [key]: value }));
+    setEnrolment(prev => {
+      const next = { ...prev, [key]: value };
+      draft.saveDraft(next);
+      return next;
+    });
   };
 
   const handleDirectChange = (key: keyof EnrolmentFormData, value: unknown) => {
-    setEnrolment(prev => ({ ...prev, [key]: value }));
+    setEnrolment(prev => {
+      const next = { ...prev, [key]: value };
+      draft.saveDraft(next);
+      return next;
+    });
   };
 
   const handleSubmit = async () => {
+    // Identity invariants
     if (!enrolment.last_name || !enrolment.first_name || !enrolment.date_of_birth || !enrolment.sex) {
       setError('Please fill in all required fields (Last Name, First Name, Date of Birth, Sex).');
+      return;
+    }
+
+    if (!isValidFourDigitYearDate(enrolment.date_of_birth)) {
+      setError('Please enter a valid 4-digit year for Date of Birth.');
       return;
     }
 
@@ -87,13 +122,33 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
       return;
     }
 
-    if (enrolment.contact_number && enrolment.contact_number.length !== 11) {
-      setError('Contact number must be exactly 11 digits.');
+    // Dynamic checks
+    if (isSectionEnabled('patient_registration_enabled')) {
+      if (isFieldRequired('blood_type') && !enrolment.blood_type) {
+        setError('Blood type is required.');
+        return;
+      }
+      if (isFieldRequired('mother_maiden_name') && !enrolment.mother_maiden_name?.trim()) {
+        setError("Mother's maiden name is required.");
+        return;
+      }
+      if (isFieldRequired('civil_status') && !enrolment.civil_status) {
+        setError('Civil status is required.');
+        return;
+      }
+      if (enrolment.civil_status === 'married' && isFieldRequired('spouse_name') && !enrolment.spouse_name?.trim()) {
+        setError("Spouse's name is required.");
+        return;
+      }
+    }
+
+    if (enrolment.contact_number && !/^09\d{9}$/.test(enrolment.contact_number.trim())) {
+      setError('Mobile number must start with 09 and contain 11 digits.');
       return;
     }
 
-    if (enrolment.emergency_contact_phone && enrolment.emergency_contact_phone.length !== 11) {
-      setError('Emergency contact phone must be exactly 11 digits.');
+    if (enrolment.emergency_contact_phone && !/^09\d{9}$/.test(enrolment.emergency_contact_phone.trim())) {
+      setError('Emergency contact phone must start with 09 and contain 11 digits.');
       return;
     }
 
@@ -118,54 +173,107 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
     const patientDetails = toRecord(patientRecord.details);
     const membershipFields = buildLegacyMembershipFields(enrolment);
 
-    const payload = {
+    // Build payload: Only include fields that are visible/enabled to prevent wiping existing history
+    const payload: Record<string, any> = {
+      ...(enrolment.animal_bite_id ? {
+        animal_bite_id: enrolment.animal_bite_id,
+        animal_type: enrolment.animal_type || undefined,
+        animal_type_others: enrolment.animal_type_others || undefined,
+        animal_status: enrolment.animal_status || undefined,
+        animal_available: enrolment.animal_available || undefined,
+        animal_condition: enrolment.animal_condition || undefined,
+      } : {}),
       first_name: enrolment.first_name.trim(),
       middle_name: cleanField(enrolment.middle_name),
       last_name: enrolment.last_name.trim(),
       suffix: cleanField(enrolment.suffix),
       gender: enrolment.sex,
       date_of_birth: cleanField(enrolment.date_of_birth),
-      address: loc.full || (typeof patientRecord.address === 'string' ? patientRecord.address : patient.address),
-      address_municipality: cleanField(loc.munName) || toRecord(patientDetails).address_municipality || null,
-      address_barangay: cleanField(loc.brgyName) || toRecord(patientDetails).address_barangay || null,
-      address_purok: cleanField(loc.purok) || toRecord(patientDetails).address_purok || null,
-      province: toRecord(patientDetails).province || 'Misamis Oriental',
       contact_number: cleanField(enrolment.contact_number),
       email: cleanField(enrolment.email),
       emergency_contact_name: cleanField(enrolment.emergency_contact_name),
       emergency_contact_number: cleanField(enrolment.emergency_contact_phone),
-      civil_status: cleanField(enrolment.civil_status),
-      blood_type: cleanField(enrolment.blood_type),
-      spouse_name: cleanField(enrolment.spouse_name),
-      mother_maiden_name: cleanField(enrolment.mother_maiden_name),
-      family_member: cleanField(enrolment.family_member),
-      educational_attainment: cleanField(enrolment.educational_attainment),
-      employment_status: cleanField(enrolment.employment_status),
-      philhealth_member: membershipFields.philhealth_member,
-      philhealth_status: cleanField(membershipFields.philhealth_status ?? enrolment.philhealth_status),
-      philhealth_no: cleanField(membershipFields.philhealth_no ?? enrolment.philhealth_no),
-      philhealth_category: cleanField(membershipFields.philhealth_category ?? enrolment.philhealth_category),
-      fourps_member: membershipFields.fourps_member,
-      fourps_category: cleanField(membershipFields.fourps_category ?? enrolment.fourps_category),
-      fourps_relationship: cleanField(membershipFields.fourps_relationship ?? enrolment.fourps_relationship),
-      registered_fourps_beneficiary: cleanField(membershipFields.registered_fourps_beneficiary ?? enrolment.registered_fourps_beneficiary),
-      dswd_nhts: membershipFields.dswd_nhts,
-      has_membership: membershipFields.has_membership,
-      other_membership: membershipFields.other_membership,
-      other_membership_name: membershipFields.other_membership_name,
-      other_membership_no: membershipFields.other_membership_no,
-      memberships: membershipFields.memberships,
     };
+
+    if (isSectionEnabled('address_section_enabled')) {
+      payload.address = loc.full || (typeof patientRecord.address === 'string' ? patientRecord.address : patient.address);
+      if (isFieldVisible('address_municipality')) {
+        payload.address_municipality = cleanField(loc.munName) || toRecord(patientDetails).address_municipality || null;
+      }
+      if (isFieldVisible('address_barangay')) {
+        payload.address_barangay = cleanField(loc.brgyName) || toRecord(patientDetails).address_barangay || null;
+      }
+      if (isFieldVisible('address_purok')) {
+        payload.address_purok = cleanField(loc.purok) || toRecord(patientDetails).address_purok || null;
+      }
+      if (isFieldVisible('province')) {
+        payload.province = toRecord(patientDetails).province || 'Misamis Oriental';
+      }
+    }
+
+    if (isSectionEnabled('patient_registration_enabled')) {
+      if (isFieldVisible('civil_status')) {
+        payload.civil_status = cleanField(enrolment.civil_status);
+      }
+      if (isFieldVisible('blood_type')) {
+        payload.blood_type = cleanField(enrolment.blood_type);
+      }
+      if (isFieldVisible('spouse_name')) {
+        payload.spouse_name = cleanField(enrolment.spouse_name);
+      }
+      if (isFieldVisible('mother_maiden_name')) {
+        payload.mother_maiden_name = cleanField(enrolment.mother_maiden_name);
+      }
+    }
+
+    if (isSectionEnabled('socioeconomic_section_enabled')) {
+      if (isFieldVisible('family_member')) {
+        payload.family_member = cleanField(enrolment.family_member);
+      }
+      if (isFieldVisible('educational_attainment')) {
+        payload.educational_attainment = cleanField(enrolment.educational_attainment);
+      }
+      if (isFieldVisible('employment_status')) {
+        payload.employment_status = cleanField(enrolment.employment_status);
+      }
+    }
+
+    if (isSectionEnabled('gov_programs_section_enabled')) {
+      payload.has_membership = membershipFields.has_membership;
+      if (isFieldVisible('philhealth_member')) {
+        payload.philhealth_member = membershipFields.philhealth_member;
+      }
+      if (isFieldVisible('philhealth_status')) {
+        payload.philhealth_status = cleanField(membershipFields.philhealth_status ?? enrolment.philhealth_status);
+      }
+      if (isFieldVisible('philhealth_no')) {
+        payload.philhealth_no = cleanField(membershipFields.philhealth_no ?? enrolment.philhealth_no);
+      }
+      if (isFieldVisible('philhealth_category')) {
+        payload.philhealth_category = cleanField(membershipFields.philhealth_category ?? enrolment.philhealth_category);
+      }
+      if (isFieldVisible('fourps_member')) {
+        payload.fourps_member = membershipFields.fourps_member;
+      }
+      payload.fourps_category = cleanField(membershipFields.fourps_category ?? enrolment.fourps_category);
+      payload.fourps_relationship = cleanField(membershipFields.fourps_relationship ?? enrolment.fourps_relationship);
+      payload.registered_fourps_beneficiary = cleanField(membershipFields.registered_fourps_beneficiary ?? enrolment.registered_fourps_beneficiary);
+      if (isFieldVisible('dswd_nhts')) {
+        payload.dswd_nhts = membershipFields.dswd_nhts;
+      }
+      payload.other_membership = membershipFields.other_membership;
+      payload.other_membership_name = membershipFields.other_membership_name;
+      payload.other_membership_no = membershipFields.other_membership_no;
+      payload.memberships = membershipFields.memberships;
+    }
 
     try {
       await api.put(`/patients/${patientId}`, payload);
+      draft.clearDraft();
       onSuccess();
-      onClose();
-    } catch (e: unknown) {
-      const message = typeof e === 'object' && e !== null && 'response' in e
-        ? (e as { response?: { data?: { message?: string } } }).response?.data?.message
-        : undefined;
-      setError(message || (e instanceof Error ? e.message : 'Failed to update patient record.'));
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e.response?.data?.message || e.message || 'Failed to update patient record.');
     } finally {
       setSaving(false);
     }
@@ -173,26 +281,33 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
 
   return (
     <FormModal
-      title="Edit Patient Record"
-      subtitle={`Form 1 — Update Patient Profile (#${patient.patient_number || patient.id})`}
+      title="Edit Patient Information"
+      subtitle={`Form 1 — Updating ${patient.first_name} ${patient.last_name}`}
       onClose={onClose}
-      maxWidth={850}
+      maxWidth={900}
       footer={
         <>
-          {error && <p style={{ flex: 1, fontSize: 13, color: '#ef4444', margin: 0, alignSelf: 'center' }}>{error}</p>}
-          <button className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Saving…' : 'Save Changes'}
+          <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
+          <button type="button" className="fm-btn fm-btn--cancel" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="button" className="fm-btn fm-btn--submit" onClick={handleSubmit} disabled={saving}>
+            {saving ? 'Saving\u2026' : 'Save Changes'}
           </button>
         </>
       }
     >
       <PatientFormContent>
-        <PatientInfoSection data={enrolment} onChange={handleFieldChange} />
-        <AddressSection loc={loc} />
-        <ContactSection data={enrolment} onChange={handleFieldChange} />
-        <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />
-        <GovProgramsSection data={enrolment} onChange={handleFieldChange} onDirectChange={handleDirectChange} />
+        <form className="registration-form" onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
+          <p className="registration-intro">Update patient details below. Click <strong>Save Changes</strong> to apply updates.</p>
+          {error && <div className="registration-error">{error}</div>}
+          <PatientInfoSection data={enrolment} onChange={handleFieldChange} />
+          {enrolment.animal_bite_id && (
+            <AnimalSection data={enrolment} onChange={handleFieldChange} />
+          )}
+          <AddressSection loc={loc} />
+          <ContactSection data={enrolment} onChange={handleFieldChange} />
+          <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />
+          <GovProgramsSection data={enrolment} onChange={handleFieldChange} onDirectChange={handleDirectChange} />
+        </form>
       </PatientFormContent>
     </FormModal>
   );

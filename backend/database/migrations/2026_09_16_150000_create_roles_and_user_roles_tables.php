@@ -58,7 +58,7 @@ return new class extends Migration
             [
                 'slug'          => 'doctor',
                 'display_name'  => 'Doctor / Triage Officer',
-                'default_route' => '/doctor/patients',
+                'default_route' => '/queue',
                 'created_at'    => now(),
                 'updated_at'    => now(),
             ],

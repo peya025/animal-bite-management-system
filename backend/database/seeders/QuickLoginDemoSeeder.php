@@ -41,10 +41,14 @@ class QuickLoginDemoSeeder extends Seeder
                 ['slug' => 'clinic_admin'],
                 ['display_name' => 'Clinic Administrator', 'default_route' => '/dashboard']
             ),
-            'doctor' => Role::firstOrCreate(
+            'doctor' => tap(Role::firstOrCreate(
                 ['slug' => 'doctor'],
-                ['display_name' => 'Doctor / Triage Officer', 'default_route' => '/doctor/patients']
-            ),
+                ['display_name' => 'Doctor / Triage Officer', 'default_route' => '/queue']
+            ), function ($role) {
+                if ($role->default_route !== '/queue') {
+                    $role->update(['default_route' => '/queue']);
+                }
+            }),
             'receptionist' => Role::firstOrCreate(
                 ['slug' => 'receptionist'],
                 ['display_name' => 'Receptionist / Registration Staff', 'default_route' => '/patients']

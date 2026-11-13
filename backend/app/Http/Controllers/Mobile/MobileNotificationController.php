@@ -3,77 +3,52 @@
 namespace App\Http\Controllers\Mobile;
 
 use App\Http\Controllers\Controller;
+use App\Services\Mobile\MobileNotificationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 
 class MobileNotificationController extends Controller
 {
-    public function index(Request $request)
+    public function __construct(
+        protected MobileNotificationService $notificationService
+    ) {}
+
+    /**
+     * Get paginated notifications for the authenticated patient account
+     */
+    public function index(Request $request): JsonResponse
     {
-        $accountId = $request->user()->id;
-        $page = $request->input('page', 1);
-        $cacheKey = "mobile:notifications:account:{$accountId}:page:{$page}";
-
-        // Cache for 2 minutes (notifications update frequently)
-        return response()->json(
-            Cache::remember($cacheKey, 120, function () use ($request) {
-                $paginated = $request->user()->notifications()
-                    ->with('patient')
-                    ->latest()
-                    ->paginate(20);
-
-                $patients = $request->user()->patients()->get()->keyBy('patient_id');
-
-                $paginated->getCollection()->transform(function ($n) use ($patients) {
-                    $p = $patients->get($n->patient_id);
-                    $n->relationship = $p ? ($p->pivot->relationship ?? 'self') : 'self';
-                    return $n;
-                });
-
-                return $paginated;
-            })
+        $page = (int) $request->input('page', 1);
+        $paginated = $this->notificationService->getPaginatedNotifications(
+            $request->user(),
+            $page
         );
+
+        return response()->json($paginated);
     }
 
-    public function markAsRead(Request $request, int $notification)
+    /**
+     * Mark a specific notification as read
+     */
+    public function markAsRead(Request $request, int $notification): JsonResponse
     {
-        $notification = $request->user()->notifications()
-            ->whereKey($notification)
-            ->firstOrFail();
+        $updated = $this->notificationService->markNotificationAsRead(
+            $request->user(),
+            $notification
+        );
 
-        $notification->update([
-            'status' => 'read',
-            'read_at' => now(),
+        return response()->json($updated);
+    }
+
+    /**
+     * Mark all notifications as read
+     */
+    public function markAllAsRead(Request $request): JsonResponse
+    {
+        $this->notificationService->markAllNotificationsAsRead($request->user());
+
+        return response()->json([
+            'message' => 'All notifications marked as read.',
         ]);
-
-        // Invalidate cache for all notification pages
-        $accountId = $request->user()->id;
-        Cache::forget("mobile:notifications:account:{$accountId}:page:1");
-        // Clear up to 10 pages of cache
-        for ($i = 2; $i <= 10; $i++) {
-            Cache::forget("mobile:notifications:account:{$accountId}:page:{$i}");
-        }
-
-        return response()->json($notification);
-    }
-
-    public function markAllAsRead(Request $request)
-    {
-        $request->user()->notifications()
-            ->where('status', '!=', 'read')
-            ->update([
-                'status' => 'read',
-                'read_at' => now(),
-            ]);
-
-        // Invalidate cache for all notification pages
-        $accountId = $request->user()->id;
-        Cache::forget("mobile:notifications:account:{$accountId}:page:1");
-        // Clear up to 10 pages of cache
-        for ($i = 2; $i <= 10; $i++) {
-            Cache::forget("mobile:notifications:account:{$accountId}:page:{$i}");
-        }
-
-        return response()->json(['message' => 'All notifications marked as read.']);
     }
 }

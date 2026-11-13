@@ -35,42 +35,36 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
     label: 'Patient Registration',
     path: ROUTES.PATIENTS.LIST,
     icon: GLOBAL_NAV_ICONS['Patient Registration'],
-    roles: ['registration', 'admin'],
+    roles: ['registration', 'admin', 'developer'],
   },
   {
     label: 'Treatment Queues',
     icon: GLOBAL_NAV_ICONS['Patient Queue'],
-    roles: ['registration', 'triage', 'treatment', 'admin'],
+    roles: ['registration', 'triage', 'treatment', 'admin', 'developer'],
     submenu: [
       {
         label: 'Station 1: New & Day 0',
         path: ROUTES.QUEUE.DASHBOARD,
-        roles: ['registration', 'triage', 'treatment', 'admin'],
+        roles: ['registration', 'triage', 'treatment', 'admin', 'developer'],
       },
       {
         label: 'Station 2: Follow-up Doses',
         path: ROUTES.PATIENTS.NURSE_LIST,
-        roles: ['treatment'],
+        roles: ['treatment', 'admin', 'developer'],
       },
     ],
   },
   {
-    label: 'Patients List',
-    path: ROUTES.PATIENTS.DOCTOR_LIST,
-    icon: GLOBAL_NAV_ICONS['Patients'],
-    roles: ['triage'],
-  },
-  {
-    label: 'Patient Registry',
+    label: 'Patient List',
     path: ROUTES.PATIENTS.REGISTRY,
     icon: GLOBAL_NAV_ICONS['Patients'],
-    roles: ['developer', 'admin', 'triage', 'treatment'],
+    roles: ['developer', 'triage', 'treatment'],
   },
   {
     label: 'Bite Cases Summary',
     path: ROUTES.BITE_CASES.LIST,
     icon: GLOBAL_NAV_ICONS['Bite Cases'],
-    roles: ['triage', 'treatment', 'admin'],
+    roles: ['developer', 'admin', 'registration', 'triage', 'treatment'],
   },
   {
     label: 'Bite Map',
@@ -80,13 +74,13 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
   },
   {
     label: 'Vaccine Stock Management',
-    path: ROUTES.INVENTORY.LIST,
+    path: ROUTES.INVENTORY.TYPES,
     icon: GLOBAL_NAV_ICONS['Vaccine Stock Management'],
     roles: ['admin', 'treatment'],
     submenu: [
+      { label: 'Vaccine Setup', path: ROUTES.INVENTORY.TYPES, roles: ['admin'] },
       { label: 'Vaccine Inventory', path: ROUTES.INVENTORY.LIST, roles: ['admin', 'treatment'] },
       { label: 'Inventory Transaction', path: ROUTES.INVENTORY.ADMINISTRATIONS, roles: ['admin', 'treatment'] },
-      { label: 'Vaccine Setup', path: ROUTES.INVENTORY.TYPES, roles: ['admin'] },
     ],
   },
   {
@@ -123,7 +117,7 @@ export const DYNAMIC_NAV_ITEMS: NavItemConfig[] = [
   {
     label: 'Developer Tools',
     icon: GLOBAL_NAV_ICONS['Developer Settings'],
-    roles: ['developer', 'admin'],
+    roles: ['developer'],
     submenu: [
       { label: 'Appointment Bug Catcher', path: ROUTES.APPOINTMENT_DIAGNOSTICS },
       { label: 'Landing & Footer Settings', path: ROUTES.DEVELOPER_SETTINGS },
@@ -139,7 +133,9 @@ export function getNavItemsForRole(role?: string): NavItemConfig[] {
     if (!item.submenu) return item;
     // Filter submenu items by role if specified
     const filteredSubmenu = item.submenu.filter((sub) => !sub.roles || sub.roles.includes(role));
-    return { ...item, submenu: filteredSubmenu };
+    // When a nav item has a submenu, route to its first available submenu item
+    const firstSubPath = filteredSubmenu.length > 0 ? filteredSubmenu[0].path : item.path;
+    return { ...item, path: firstSubPath, submenu: filteredSubmenu };
   });
 }
 

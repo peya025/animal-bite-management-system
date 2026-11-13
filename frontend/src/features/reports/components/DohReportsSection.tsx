@@ -1,4 +1,7 @@
+import { resolvePrintLogoUrls } from '../../../components/print/printHeaderHelper';
+import { waitForPrintImages } from '../../../components/print/printReady';
 import { useState } from 'react';
+import { useAuth } from '../../../contexts/AuthContext';
 import {
   Alert,
   Box,
@@ -42,6 +45,12 @@ const getQuarterRange = () => {
 };
 
 export default function DohReportsSection() {
+  const { user } = useAuth();
+
+  // Triage Doctor/Doctor ('triage'), Treatment Nurse/Nurse ('treatment'), and Registration Staff ('registration')
+  // do not have access to DOH report cards. The entire section is omitted for these roles.
+  const isRestrictedRole = user?.role === 'triage' || user?.role === 'treatment' || user?.role === 'registration';
+
   const [loadingType, setLoadingType] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -83,7 +92,13 @@ export default function DohReportsSection() {
       throw new Error(`Failed to load print template (HTTP ${response.status})`);
     }
 
-    return await response.text();
+    const rawHtml = await response.text();
+    const cleanHtml = rawHtml
+      .replace(/<div class="[^"]*no-print-bar[^"]*">[\s\S]*?<\/div>/gi, '')
+      .replace(/<button class="btn-print"[^>]*>[\s\S]*?<\/button>/gi, '')
+      .replace(/<script\b[\s\S]*?<\/script>/gi, '');
+
+    return resolvePrintLogoUrls(cleanHtml);
   };
 
   const handleSilentPrint = async (
@@ -116,9 +131,10 @@ export default function DohReportsSection() {
       frameDoc.write(html);
       frameDoc.close();
 
-      setTimeout(() => {
+      setTimeout(async () => {
         try {
-          iframe.contentWindow?.focus();
+          if (iframe.contentDocument) await waitForPrintImages(iframe.contentDocument);
+            iframe.contentWindow?.focus();
           iframe.contentWindow?.print();
         } catch (e) {
           console.error('Print trigger failed', e);
@@ -157,13 +173,17 @@ export default function DohReportsSection() {
     }
   };
 
-  const printFromPreview = () => {
+  const printFromPreview = async () => {
     const previewFrame = document.getElementById('doh-preview-iframe') as HTMLIFrameElement;
     if (previewFrame?.contentWindow) {
+      await waitForPrintImages(previewFrame.contentWindow.document);
       previewFrame.contentWindow.focus();
       previewFrame.contentWindow.print();
     }
   };
+
+  // Triage Doctor/Doctor and Treatment Nurse/Nurse roles see none of the DOH report cards — return nothing.
+  if (isRestrictedRole) return null;
 
   return (
     <Box sx={{ mt: 3, mb: 4 }}>
@@ -202,22 +222,22 @@ export default function DohReportsSection() {
             boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
             transition: 'all 0.2s ease',
             '&:hover': {
-              borderColor: '#0284c7',
-              boxShadow: '0 4px 12px rgba(2, 132, 199, 0.08)',
+              borderColor: '#9ca3af',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
             },
           }}
         >
           <CardContent sx={{ flexGrow: 1, p: 2.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0369a1' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'text.primary' }}>
                 Rabies Exposure Registry
               </Typography>
               <Box
                 sx={{
                   px: 1,
                   py: 0.25,
-                  bgcolor: '#e0f2fe',
-                  color: '#0369a1',
+                  bgcolor: '#f3f4f6',
+                  color: '#374151',
                   borderRadius: 1,
                   fontSize: '0.75rem',
                   fontWeight: 600,
@@ -325,8 +345,8 @@ export default function DohReportsSection() {
               }
               sx={{
                 flex: 1.5,
-                bgcolor: '#0284c7',
-                '&:hover': { bgcolor: '#0369a1' },
+                bgcolor: '#059669',
+                '&:hover': { bgcolor: '#047857' },
               }}
             >
               Print Registry
@@ -346,22 +366,22 @@ export default function DohReportsSection() {
             boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
             transition: 'all 0.2s ease',
             '&:hover': {
-              borderColor: '#7c3aed',
-              boxShadow: '0 4px 12px rgba(124, 58, 237, 0.08)',
+              borderColor: '#9ca3af',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
             },
           }}
         >
           <CardContent sx={{ flexGrow: 1, p: 2.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#6d28d9' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'text.primary' }}>
                 ABTC Monthly Report
               </Typography>
               <Box
                 sx={{
                   px: 1,
                   py: 0.25,
-                  bgcolor: '#ede9fe',
-                  color: '#6d28d9',
+                  bgcolor: '#f3f4f6',
+                  color: '#374151',
                   borderRadius: 1,
                   fontSize: '0.75rem',
                   fontWeight: 600,
@@ -423,8 +443,8 @@ export default function DohReportsSection() {
               }
               sx={{
                 flex: 1.5,
-                bgcolor: '#7c3aed',
-                '&:hover': { bgcolor: '#6d28d9' },
+                bgcolor: '#059669',
+                '&:hover': { bgcolor: '#047857' },
               }}
             >
               Print Monthly
@@ -444,22 +464,22 @@ export default function DohReportsSection() {
             boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
             transition: 'all 0.2s ease',
             '&:hover': {
-              borderColor: '#059669',
-              boxShadow: '0 4px 12px rgba(5, 150, 105, 0.08)',
+              borderColor: '#9ca3af',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
             },
           }}
         >
           <CardContent sx={{ flexGrow: 1, p: 2.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#047857' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'text.primary' }}>
                 Cohort Report (Quarterly)
               </Typography>
               <Box
                 sx={{
                   px: 1,
                   py: 0.25,
-                  bgcolor: '#d1fae5',
-                  color: '#047857',
+                  bgcolor: '#f3f4f6',
+                  color: '#374151',
                   borderRadius: 1,
                   fontSize: '0.75rem',
                   fontWeight: 600,
@@ -573,7 +593,7 @@ export default function DohReportsSection() {
             <Close fontSize="small" />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ p: 0, flexGrow: 1, bgcolor: '#f8fafc' }}>
+        <DialogContent sx={{ p: 0, flexGrow: 1, bgcolor: '#ffffff' }}>
           <iframe
             id="doh-preview-iframe"
             title="DOH Report Preview"

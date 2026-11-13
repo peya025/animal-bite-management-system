@@ -101,3 +101,81 @@ export function isExpiringSoon(dateStr: string | null | undefined, days = 30): b
   const d = daysUntil(dateStr);
   return d >= 0 && d <= days;
 }
+
+/**
+ * Current date and time formatted in the Asia/Manila timezone (+08:00).
+ * - date: 'YYYY-MM-DD' (standard format for <input type="date" />)
+ * - time: 'HH:MM' 24-hour (standard format for <input type="time" />)
+ */
+export function getManilaCurrentDateTime(d: Date = new Date()): { date: string; time: string } {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+  const parts = formatter.formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || '';
+  return {
+    date: `${get('year')}-${get('month')}-${get('day')}`,
+    time: `${get('hour')}:${get('minute')}`,
+  };
+}
+
+export function getManilaDateString(d: Date = new Date()): string {
+  return getManilaCurrentDateTime(d).date;
+}
+
+export function getManilaTimeString(d: Date = new Date()): string {
+  return getManilaCurrentDateTime(d).time;
+}
+
+/**
+ * Clamps/sanitizes manual date input so the year part cannot exceed 4 digits.
+ */
+export function sanitizeDateInput(rawVal: string): string {
+  if (!rawVal) return '';
+  const parts = rawVal.split('-');
+  if (parts.length > 0 && parts[0].length > 4) {
+    parts[0] = parts[0].slice(0, 4);
+    return parts.join('-');
+  }
+  return rawVal;
+}
+
+/**
+ * Validates that a date string contains exactly a 4-digit year (YYYY-MM-DD),
+ * and is a legitimate calendar date.
+ */
+export function isValidFourDigitYearDate(dateStr: string | null | undefined): boolean {
+  if (!dateStr || !dateStr.trim()) return true;
+  const trimmed = dateStr.trim();
+  const match = trimmed.match(/^(\d{4,})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    const parts = trimmed.split('-');
+    if (parts.length === 3 && parts[0].length !== 4) return false;
+    return false;
+  }
+
+  const yearStr = match[1];
+  if (yearStr.length !== 4) return false;
+
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(match[2], 10);
+  const day = parseInt(match[3], 10);
+
+  if (isNaN(year) || year < 1000 || year > 9999) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+
+  const d = new Date(year, month - 1, day);
+  return (
+    d.getFullYear() === year &&
+    d.getMonth() === month - 1 &&
+    d.getDate() === day
+  );
+}
+

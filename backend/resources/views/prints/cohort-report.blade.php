@@ -135,13 +135,23 @@
     </style>
 </head>
 <body>
-
-    <div class="no-print no-print-bar">
-        <span><strong>Cohort Report (Quarterly &amp; Annual)</strong> &mdash; DOH Form</span>
-        <button class="btn-print" onclick="window.print()">Print Report</button>
+    {{-- Non-printable print toolbar --}}
+    <div class="no-print-bar no-print">
+        <button class="btn-print" onclick="window.print()">🖨️ Print Report</button>
     </div>
 
     <div class="page-container">
+        <!-- Header with Configurable Logos & Dynamic Clinic Metadata -->
+        <div class="header-banner" style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 8px;">
+            @include('prints.partials.logo', ['url' => $left_print_logo_url ?? null, 'side' => 'Left', 'size' => 56])
+            <div style="text-align: center;">
+                <div style="font-size: 8pt; font-style: italic;">Republic of the Philippines &bull; {{ $province }} &bull; {{ $municipality }}</div>
+                <div style="font-size: 11pt; font-weight: 800; text-transform: uppercase; margin-top: 1px;">{{ $abtc }}</div>
+                <div style="font-size: 9.5pt; font-weight: bold; text-transform: uppercase;">ABTC COHORT REPORT</div>
+            </div>
+            @include('prints.partials.logo', ['url' => $right_print_logo_url ?? null, 'side' => 'Right', 'size' => 56])
+        </div>
+
         <!-- Metadata Header matching Image 3 -->
         <div class="meta-section">
             <div>PROVINCE:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ strtoupper($province) }}</div>
@@ -350,13 +360,5 @@
             Page 1 of 1
         </div>
     </div>
-
-    <script>
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                window.print();
-            }, 350);
-        });
-    </script>
 </body>
 </html>

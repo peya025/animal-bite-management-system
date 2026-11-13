@@ -693,6 +693,35 @@ tbody tr:last-child td,
   border: 1px solid var(--border-glow) !important;
   border-radius: var(--radius-lg) !important;
   box-shadow: var(--card-shadow) !important;
+  max-height: calc(100dvh - 48px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+}
+
+.MuiDialogContent-root {
+  overflow-y: auto !important;
+  flex: 1 1 auto !important;
+  overscroll-behavior: contain;
+  box-sizing: border-box !important;
+}
+
+.MuiDialogTitle-root {
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.MuiDialogActions-root {
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  flex-wrap: wrap !important;
+}
+
+/* Ensure responsive tables inside dialogs and cards scroll properly instead of breaking layout */
+.MuiTableContainer-root,
+.table-responsive {
+  max-width: 100% !important;
+  overflow-x: auto !important;
 }
 
 .MuiMenu-paper {
@@ -755,6 +784,82 @@ tbody tr:last-child td,
   border-bottom-color: var(--table-row-border) !important;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   6. GLOBAL TEXTBOX & INPUT HOVER / FOCUS SYSTEM (Matches Login Page)
+   ══════════════════════════════════════════════════════════════════ */
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):hover:not(:disabled),
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):hover:not(:disabled),
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select):hover:not(:disabled),
+.fm-input:hover:not(:disabled),
+.fm-select:hover:not(:disabled),
+.fm-textarea:hover:not(:disabled),
+.pm-search:hover:not(:disabled),
+.pm-entries-select:hover:not(:disabled) {
+  border-color: #10b981 !important;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus,
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus-visible,
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus,
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus-visible,
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus,
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
+.fm-input:focus,
+.fm-input:focus-visible,
+.fm-select:focus,
+.fm-select:focus-visible,
+.fm-textarea:focus,
+.fm-textarea:focus-visible,
+.pm-search:focus,
+.pm-search:focus-visible,
+.pm-entries-select:focus,
+.pm-entries-select:focus-visible {
+  outline: none !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1) !important;
+}
+
+/* Material UI TextFields & OutlinedInputs Hover & Focus */
+.MuiOutlinedInput-root:hover:not(.Mui-disabled):not(.Mui-error) .MuiOutlinedInput-notchedOutline {
+  border-color: #10b981 !important;
+}
+
+.MuiOutlinedInput-root.Mui-focused:not(.Mui-error) .MuiOutlinedInput-notchedOutline {
+  border-color: #10b981 !important;
+  border-width: 1.5px !important;
+}
+
+.MuiOutlinedInput-root.Mui-focused {
+  outline: none !important;
+}
+
+/* Material UI inner input element reset — prevent double highlights or inner box pills */
+.MuiInputBase-input,
+.MuiOutlinedInput-input,
+.MuiFilledInput-input,
+.MuiInput-input {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.MuiInputBase-input:focus,
+.MuiOutlinedInput-input:focus,
+.MuiFilledInput-input:focus,
+.MuiInput-input:focus,
+.MuiInputBase-input:focus-visible,
+.MuiOutlinedInput-input:focus-visible {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.MuiInputLabel-root.Mui-focused:not(.Mui-error) {
+  color: #10b981 !important;
+}
+
 [data-theme='dark'] .MuiOutlinedInput-root,
 [data-theme='dark'] .MuiInputBase-root,
 [data-theme='dark'] .MuiSelect-select {
@@ -767,9 +872,9 @@ tbody tr:last-child td,
 }
 
 /* Form inputs, selects & textareas in dark mode */
-[data-theme='dark'] input,
-[data-theme='dark'] select,
-[data-theme='dark'] textarea,
+[data-theme='dark'] input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input),
+[data-theme='dark'] select:not(.MuiSelect-select):not(.MuiNativeSelect-select),
+[data-theme='dark'] textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input),
 [data-theme='dark'] .pm-search,
 [data-theme='dark'] .pm-entries-select,
 [data-theme='dark'] .sd-filter-select {
@@ -787,14 +892,18 @@ tbody tr:last-child td,
   color: #64748b !important;
 }
 
-[data-theme='dark'] input:focus,
-[data-theme='dark'] select:focus,
-[data-theme='dark'] textarea:focus,
+[data-theme='dark'] input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus,
+[data-theme='dark'] input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus-visible,
+[data-theme='dark'] select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus,
+[data-theme='dark'] select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
+[data-theme='dark'] textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus,
+[data-theme='dark'] textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus-visible,
 [data-theme='dark'] .pm-search:focus,
 [data-theme='dark'] .pm-entries-select:focus,
 [data-theme='dark'] .sd-filter-select:focus {
+  outline: none !important;
   border-color: #10b981 !important;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25) !important;
 }
 
 /* Universal Cards & Containers in dark mode */
@@ -890,6 +999,13 @@ tbody tr:last-child td,
   color: #cbd5e1 !important;
 }
 
+[data-theme='dark'] .pm-tab-btn:hover {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  color: #ffffff !important;
+  border-color: #34d399 !important;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.45) !important;
+}
+
 [data-theme='dark'] .pm-print-btn,
 [data-theme='dark'] .action-secondary {
   background: var(--input-bg) !important;
@@ -919,7 +1035,9 @@ tbody tr:last-child td,
 }
 
 /* Inputs & Form Controls */
-input, select, textarea {
+input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.pm-search):not(.auth-input):not(.login-input),
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select),
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input) {
   font-family: var(--sans);
   color: var(--input-text);
   background-color: var(--input-bg);
@@ -931,7 +1049,9 @@ input, select, textarea {
   transition: all 0.18s ease;
 }
 
-input:focus, select:focus, textarea:focus {
+input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.auth-input):not(.login-input):focus,
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus,
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus {
   outline: none;
   border-color: var(--accent-green);
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
@@ -1094,4 +1214,100 @@ input[type='month']:hover::-webkit-calendar-picker-indicator {
   opacity: 1;
   background: rgba(16, 185, 129, 0.18);
   filter: invert(1) sepia(1) saturate(4) hue-rotate(100deg) brightness(1.2);
+}
+
+/* Dashboard Summary Cards - Shadow Removal & 3-Column Grid Enforcement */
+.sd-cards-grid {
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 14px !important;
+}
+.sd-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+  border-radius: 16px !important;
+  padding: 14px 18px !important;
+  min-height: 88px !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  transition: box-shadow 0.25s ease !important;
+}
+[data-theme='dark'] .sd-card {
+  background: #111827 !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+.sd-card:hover {
+  box-shadow: 0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16) !important;
+}
+[data-theme='dark'] .sd-card:hover {
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25) !important;
+}
+
+/* Treatment Nurse — Form 3 Responsive 2-column grid */
+.form3-equal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 640px) {
+  .form3-equal-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Notification Record Highlighting ── */
+@keyframes notification-target-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    outline: 2px solid #10b981;
+    transform: scale(1.008);
+  }
+  30% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.25);
+    outline: 2px solid #10b981;
+    transform: scale(1.008);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(16, 185, 129, 0.1);
+    outline: 2px solid #10b981;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    outline: 2px solid transparent;
+    transform: scale(1);
+  }
+}
+
+.notification-highlight-target {
+  animation: notification-target-glow 3.5s ease-out forwards !important;
+  border-color: #10b981 !important;
+}
+
+@keyframes notification-pill-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.8);
+    transform: scale(1.12);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.3);
+    transform: scale(1.12);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    transform: scale(1);
+  }
+}
+
+.notification-highlight-pill {
+  animation: notification-pill-glow 3.5s ease-out forwards !important;
+  outline: 2px solid #10b981 !important;
+  border-color: #10b981 !important;
+}
+
+
+.pm-search {
+  padding-left: 38px !important;
+  padding-right: 34px !important;
 }

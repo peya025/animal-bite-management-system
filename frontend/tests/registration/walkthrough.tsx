@@ -159,8 +159,13 @@ function MockPatients() {
         data-walkthrough="patients-search-filter"
         style={{ display: 'flex', gap: 12, padding: 12, background: '#f8fafc', borderRadius: 8, marginBottom: 16 }}
       >
-        <select><option>All Programs</option></select>
-        <input placeholder="Search patients..." />
+        <div className="pm-membership-filter-wrap" data-walkthrough="patients-program-filter">
+          <select><option>All Programs</option></select>
+        </div>
+        <div className="pm-search-wrap" data-walkthrough="patients-search-input">
+          <input placeholder="Search patients..." />
+        </div>
+        <button data-patient-action="print" className="pm-print-btn">Print</button>
       </div>
 
       <div className="pm-table-wrap" data-walkthrough="patients-table-actions">
@@ -177,9 +182,15 @@ function MockPatients() {
               <td>PT-001</td>
               <td>Juan Dela Cruz</td>
               <td>
-                <div className="pm-actions">
-                  <button>Check In</button>
-                  <button>View</button>
+                <div className="pm-actions" style={{ display: 'flex', gap: 6 }}>
+                  <span data-patient-action="awaiting-checkin" className="pm-badge-awaiting-checkin">Booked — Awaiting Check-In</span>
+                  <button data-patient-action="checkin-mobile">Check In to Triage</button>
+                  <button data-patient-action="new-exposure">+ New Exposure</button>
+                  <button data-patient-action="portal-invite">Portal Invite</button>
+                  <button data-patient-action="view">View</button>
+                  <button data-patient-action="checkin">Check In</button>
+                  <button data-patient-action="checkin-reassessment">Check In for Reassessment</button>
+                  <button data-patient-action="checkin-nurse">Check In to Nurse</button>
                 </div>
               </td>
             </tr>

@@ -596,8 +596,18 @@ export default function PatientList() {
     }
   }, [page, searchTerm, perPage, membershipFilter, tab]);
 
+  const handleTabChange = useCallback((newTab: 'today_queue' | 'all' | 'online' | 'pre_registered' | 'overdue') => {
+    if (tab === newTab) return;
+    setTab(newTab);
+    setPage(1);
+  }, [tab]);
+
+  const handleMembershipFilterChange = useCallback((val: string) => {
+    setMembershipFilter(val);
+    setPage(1);
+  }, []);
+
   useEffect(() => { fetchPatients(); }, [fetchPatients]);
-  useEffect(() => { setPage(1); }, [perPage, membershipFilter, tab]);
 
   // Track clinic date for automatic midnight refresh when the page remains open overnight
   const clinicDateRef = useRef(getManilaDateString());
@@ -1125,7 +1135,7 @@ export default function PatientList() {
             <button
               data-walkthrough="tab-today-queue"
               className={`pm-tab-btn ${tab === 'today_queue' ? 'pm-tab-btn--active' : ''}`}
-              onClick={() => setTab('today_queue')}
+              onClick={() => handleTabChange('today_queue')}
             >
               Today's Queue
               <span className="pm-tab-badge">{tabCounts.today_queue}</span>
@@ -1133,7 +1143,7 @@ export default function PatientList() {
             <button
               data-walkthrough="tab-all-patients"
               className={`pm-tab-btn ${tab === 'all' ? 'pm-tab-btn--active' : ''}`}
-              onClick={() => setTab('all')}
+              onClick={() => handleTabChange('all')}
             >
               All Patients
               <span className="pm-tab-badge">{tabCounts.all || total}</span>
@@ -1141,7 +1151,7 @@ export default function PatientList() {
             <button
               data-walkthrough="tab-online-appointments"
               className={`pm-tab-btn ${tab === 'online' ? 'pm-tab-btn--active' : ''}`}
-              onClick={() => setTab('online')}
+              onClick={() => handleTabChange('online')}
             >
               Online Appointments
               <span className="pm-tab-badge">{tabCounts.online}</span>
@@ -1149,7 +1159,7 @@ export default function PatientList() {
             <button
               data-walkthrough="tab-pre-registered"
               className={`pm-tab-btn ${tab === 'pre_registered' ? 'pm-tab-btn--active' : ''}`}
-              onClick={() => setTab('pre_registered')}
+              onClick={() => handleTabChange('pre_registered')}
             >
               Pre-Registered (Mobile)
               <span className="pm-tab-badge">{tabCounts.pre_registered}</span>
@@ -1157,7 +1167,7 @@ export default function PatientList() {
             <button
               data-walkthrough="tab-overdue"
               className={`pm-tab-btn ${tab === 'overdue' ? 'pm-tab-btn--active' : ''}`}
-              onClick={() => setTab('overdue')}
+              onClick={() => handleTabChange('overdue')}
             >
               Overdue
               <span className="pm-tab-badge">{tabCounts.overdue}</span>
@@ -1166,12 +1176,14 @@ export default function PatientList() {
 
           {/* Controls */}
           <div className="pm-controls" data-walkthrough="patients-search-filter">
-            <div className="pm-membership-filter-wrap">
-              <span className="pm-filter-label">Program:</span>
+            <div className="pm-membership-filter-wrap" data-walkthrough="patients-program-filter">
+              <label htmlFor="patient-program-filter" className="pm-filter-label">Program:</label>
               <select
+                id="patient-program-filter"
+                name="program_filter"
                 className="pm-filter-select"
                 value={membershipFilter}
-                onChange={(e) => setMembershipFilter(e.target.value)}
+                onChange={(e) => handleMembershipFilterChange(e.target.value)}
               >
                 <option value="all">All Programs</option>
                 <option value="philhealth">PhilHealth</option>
@@ -1183,11 +1195,20 @@ export default function PatientList() {
               </select>
             </div>
 
-            <div className="pm-search-wrap">
+            <div className="pm-search-wrap" data-walkthrough="patients-search-input">
               <svg className="pm-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
-              <input className="pm-search" style={{ paddingLeft: '38px', paddingRight: '34px' }} placeholder="Search patients…" value={search} onChange={e => setSearch(e.target.value)} />
+              <input
+                id="patient-search-input"
+                name="patient_search"
+                autoComplete="off"
+                className="pm-search"
+                style={{ paddingLeft: '38px', paddingRight: '34px' }}
+                placeholder="Search patients…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
               {search && (
                 <button className="pm-search-clear" onClick={() => setSearch('')}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1263,9 +1284,9 @@ export default function PatientList() {
 
           {/* Table */}
           <div className="pm-table-wrap" data-walkthrough="patients-table-actions" data-patient-tab={tab} aria-busy={loading}>
-            {loading ? (
+            {loading && patients.length === 0 ? (
               <div className="pm-state"><div className="pm-spinner" /><p>Loading patients…</p></div>
-            ) : error ? (
+            ) : error && patients.length === 0 ? (
               <div className="pm-state">
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth="1.5">
                   <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -1273,7 +1294,7 @@ export default function PatientList() {
                 <p style={{ color: '#ef4444' }}>{error}</p>
                 <button className="pm-retry-btn" onClick={fetchPatients}>Retry</button>
               </div>
-            ) : patients.length === 0 ? (
+            ) : !loading && patients.length === 0 ? (
               <div className="pm-state">
                 <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.5">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -1289,13 +1310,22 @@ export default function PatientList() {
                 </p>
               </div>
             ) : (
-              <table className="pm-table">
+              <table
+                className="pm-table"
+                style={{
+                  opacity: loading ? 0.6 : 1,
+                  transition: 'opacity 0.15s ease',
+                  pointerEvents: loading ? 'none' : 'auto',
+                }}
+              >
                 <thead>
                   <tr>
                     <th style={{ width: '40px', textAlign: 'center' }}>
                       {canSendPortalInvite && visibleWalkins.length > 0 && (
                         <input
                           type="checkbox"
+                          id="select-all-walkins-checkbox"
+                          name="select_all_walkins"
                           className="pm-checkbox"
                           checked={isAllWalkinSelected}
                           onChange={handleToggleSelectAllWalkins}
@@ -1393,6 +1423,8 @@ export default function PatientList() {
                           {canSendPortalInvite && !isOnline ? (
                             <input
                               type="checkbox"
+                              id={`select-walkin-${patientId}`}
+                              name={`select_walkin_${patientId}`}
                               className="pm-checkbox"
                               checked={selectedWalkinIds.includes(patientId)}
                               onChange={() => handleToggleWalkinPatient(patientId)}
@@ -1463,6 +1495,8 @@ export default function PatientList() {
                               </button>
                             ) : mobileIntakeForCheckIn ? (
                               <span
+                                data-patient-action="awaiting-checkin"
+                                className="pm-badge-awaiting-checkin"
                                 title="This patient has a submitted mobile bite intake. Check in the patient on the scheduled appointment date."
                                 style={{
                                   display: 'inline-flex',
@@ -1650,7 +1684,7 @@ export default function PatientList() {
                 </tbody>
               </table>
             )}
-            {!loading && !error && (
+            {!error && (patients.length > 0 || total > 0) && (
               <TablePaginator
                 count={total}
                 page={page - 1}

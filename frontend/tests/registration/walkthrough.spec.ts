@@ -121,7 +121,8 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
   }) => {
     await page.setViewportSize({ width: 1366, height: 632 });
     await setupRegistrationSession(page, true);
-    await page.goto('/patients');
+    await page.goto('/tests/registration/walkthrough.html');
+    await page.locator('[data-tour="nav-item-patient-registration"]').click();
 
     await page.getByTestId('walkthrough-help-button').click();
     await page.getByTestId('menu-start-module-tour').click();
@@ -129,6 +130,60 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
     // Step 1: Patient Registration
     await expect(page.getByTestId('walkthrough-module-badge')).toHaveText('Patient Registration');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Patient Registration');
+
+    // Test proceeding through steps without flicker or getting stuck
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 45');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Add Patient');
+
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 3 of 45');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Summary Statistics Cards');
+
+    // Step 4: Today's Queue Tab
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 4 of 45');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText("Today's Queue Tab");
+
+    // Advance to Step 5: Search & Filters
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 5 of 45');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Search & Filters');
+
+    // Advance to Step 6: Today's Queue Roster
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 6 of 45');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText("Today's Queue Roster");
+
+    // Advance to Step 7: Register New Bite Exposure (+ New Exposure)
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 7 of 45');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Register New Bite Exposure (+ New Exposure)');
+
+    // Advance to Step 8: Invite to Mobile Portal (Portal Invite)
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 8 of 45');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Invite to Mobile Portal (Portal Invite)');
+
+    // Advance to Step 9: View Patient Record (View)
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 9 of 45');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('View Patient Record (View)');
+
+    // Advance to Step 10: Check In to Doctor Triage
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 10 of 45');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Check In to Doctor Triage');
+
+    // Advance to Step 11: Check In for Reassessment
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 11 of 45');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Check In for Reassessment');
+
+    // Advance to Step 12: Check In to Nurse
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 12 of 45');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Check In to Nurse');
 
     // Close or skip tour
     await page.getByTestId('walkthrough-btn-skip').click();
@@ -140,30 +195,22 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
   }) => {
     await page.setViewportSize({ width: 1366, height: 632 });
     await setupRegistrationSession(page, true);
-    await page.goto('/queue');
+    await page.goto('/tests/registration/walkthrough.html');
+    await page.locator('[data-tour="nav-item-treatment-queues"]').click();
 
     await page.getByTestId('walkthrough-help-button').click();
     await page.getByTestId('menu-start-module-tour').click();
 
-    // Step 1 of 4: Treatment Queues Overview
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 4');
-    await expect(page.getByTestId('walkthrough-module-badge')).toHaveText('Patient Queue');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Treatment Queues');
+    // Step 1 of 12: Station 1: New & Day 0
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 12');
+    await expect(page.getByTestId('walkthrough-module-badge')).toHaveText('Treatment Queues');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Station 1: New & Day 0');
 
-    // Step 2 of 4: Queue Numbers & Status
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 4');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Queue Numbers & Status');
-
-    // Step 3 of 4: Queue Display Screen
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 3 of 4');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Queue Display Screen');
-
-    // Step 4 of 4: Monitoring the Queue
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 4 of 4');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Monitoring the Queue');
+    // Fast-forward to Step 12
+    for (let i = 1; i < 12; i++) {
+      await page.getByTestId('walkthrough-btn-next').click();
+    }
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 12 of 12');
 
     // Verify it finishes cleanly and DOES NOT auto-navigate to another station
     await page.getByTestId('walkthrough-btn-finish').click();

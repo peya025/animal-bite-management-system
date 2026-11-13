@@ -247,10 +247,14 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
       const GAP = 14;
 
       if (!el || !document.body.contains(el) || !isElementVisible(el)) {
-        setTargetRect(null);
-        setTooltipCoords({
-          top: Math.max(MARGIN, (vh - cardH) / 2),
-          left: Math.max(MARGIN, (vw - cardW) / 2),
+        setTargetRect((prev) => (prev === null ? null : null));
+        const centeredTop = Math.max(MARGIN, Math.round((vh - cardH) / 2));
+        const centeredLeft = Math.max(MARGIN, Math.round((vw - cardW) / 2));
+        setTooltipCoords((prev) => {
+          if (Math.abs(prev.top - centeredTop) < 1 && Math.abs(prev.left - centeredLeft) < 1) {
+            return prev;
+          }
+          return { top: centeredTop, left: centeredLeft };
         });
         return;
       }

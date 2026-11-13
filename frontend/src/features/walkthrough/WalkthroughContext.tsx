@@ -8,7 +8,6 @@ import { walkthroughStyles } from './Walkthrough.styles';
 import WalkthroughOverlay from './WalkthroughOverlay';
 import WalkthroughWelcomeModal from './WalkthroughWelcomeModal';
 import WalkthroughCompletionModal from './WalkthroughCompletionModal';
-import { availablePatientActions, expandPatientSteps } from './patientRegistrationWalkthroughSteps';
 import { getDashboardModuleInfoForRole } from './dashboardWalkthroughSteps';
 
 const noop = () => {};
@@ -31,13 +30,10 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
   const [reachedRoute, setReachedRoute] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [stepReady, setStepReady] = useState(true);
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
 
-  const baseModule = modules.find(module => module.id === activeModuleId);
-  const tabActions = activeModuleId ? progress[activeModuleId]?.tabActions : undefined;
-  const activeModule = useMemo(() => baseModule ? { ...baseModule, steps: expandPatientSteps(baseModule.steps, tabActions) } : undefined, [baseModule, tabActions]);
+  const activeModule = useMemo(() => modules.find(module => module.id === activeModuleId), [modules, activeModuleId]);
   const currentStep = activeModule?.steps[currentStepIndex] || null;
 
   const dashboardModule = useMemo(() => modules.find(m => m.id === ROUTES.DASHBOARD || m.route === ROUTES.DASHBOARD), [modules]);
@@ -117,25 +113,25 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const matchesCurrent = location.pathname === stepRoute;
     setReachedRoute(matchesCurrent);
-    saveProgress(id, { status: 'in_progress', step: index, tabActions: saved?.tabActions });
+    saveProgress(id, { status: 'in_progress', step: index });
     if (!matchesCurrent) navigate(stepRoute);
   }, [modules, progress, saveProgress, location.pathname, navigate]);
 
   const skipGuide = useCallback(() => {
     if (activeModuleId) {
-      saveProgress(activeModuleId, { status: 'skipped', step: currentStepIndex, tabActions });
+      saveProgress(activeModuleId, { status: 'skipped', step: currentStepIndex });
       if (user?.id) {
         localStorage.setItem(`abtc_walkthrough_status_${user.id}`, 'skipped');
         localStorage.setItem(`abtc_walkthrough_status_admin_${user.id}`, 'skipped');
       }
     }
     setActiveModuleId(null);
-  }, [activeModuleId, currentStepIndex, saveProgress, tabActions, user?.id]);
+  }, [activeModuleId, currentStepIndex, saveProgress, user?.id]);
 
   const finishGuide = useCallback(() => {
     if (activeModuleId) {
       const isDashboard = activeModuleId === ROUTES.DASHBOARD;
-      saveProgress(activeModuleId, { status: 'completed', step: activeModule?.steps.length || 0, tabActions });
+      saveProgress(activeModuleId, { status: 'completed', step: activeModule?.steps.length || 0 });
       if (user?.id) {
         localStorage.setItem(`abtc_walkthrough_status_${user.id}`, 'completed');
         localStorage.setItem(`abtc_walkthrough_status_admin_${user.id}`, 'completed');
@@ -145,7 +141,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setIsCompletionModalOpen(true);
       }
     }
-  }, [activeModuleId, activeModule, saveProgress, tabActions, user?.id]);
+  }, [activeModuleId, activeModule, saveProgress, user?.id]);
 
   const goToStep = useCallback((index: number) => {
     if (!activeModule || index < 0 || index >= activeModule.steps.length) return;
@@ -155,8 +151,8 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setReachedRoute(false);
       navigate(targetStep.route);
     }
-    saveProgress(activeModule.id, { status: 'in_progress', step: index, tabActions });
-  }, [activeModule, saveProgress, tabActions, location.pathname, navigate]);
+    saveProgress(activeModule.id, { status: 'in_progress', step: index });
+  }, [activeModule, saveProgress, location.pathname, navigate]);
 
   const nextStep = useCallback(() => {
     if (!activeModule) return;
@@ -190,26 +186,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
         tab.click();
       }
     }
-    if (currentStep.tabKey && !currentStep.actionStep && activeModuleId) {
-      setStepReady(false);
-      const timer = window.setTimeout(() => {
-        const discovered = availablePatientActions(currentStep);
-        if (discovered.length) {
-          setProgress(prev => {
-            const currentTabActions = prev[activeModuleId]?.tabActions || {};
-            const nextTabActions = { ...currentTabActions, [currentStep.id]: discovered };
-            const nextProg = { ...prev, [activeModuleId]: { ...prev[activeModuleId], status: 'in_progress' as const, step: currentStepIndex, tabActions: nextTabActions } };
-            if (storageKey) localStorage.setItem(storageKey, JSON.stringify(nextProg));
-            return nextProg;
-          });
-        }
-        setStepReady(true);
-      }, 50);
-      return () => window.clearTimeout(timer);
-    } else {
-      setStepReady(true);
-    }
-  }, [currentStep, activeModule, location.pathname, navigate, reachedRoute, skipGuide, activeModuleId, storageKey, currentStepIndex]);
+  }, [currentStep, activeModule, location.pathname, navigate, reachedRoute, skipGuide]);
 
   const value = useMemo<WalkthroughContextType>(() => ({
     isActive: !!activeModule, isWelcomeModalOpen, currentStepIndex, currentStep,
@@ -243,7 +220,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
       />
 
       {/* Active Walkthrough Step Spotlight & Tooltip Overlay */}
-      {activeModule && currentStep && stepReady && (
+      {activeModule && currentStep && (
         <WalkthroughOverlay
           key={`${activeModule.id}-${currentStep.id}`}
           step={currentStep}

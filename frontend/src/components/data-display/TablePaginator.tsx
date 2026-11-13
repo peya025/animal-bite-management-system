@@ -71,6 +71,13 @@ export default function TablePaginator({
           Rows
         </Typography>
         <Select
+          id="table-paginator-rows-select"
+          name="rowsPerPage"
+          inputProps={{
+            id: 'table-paginator-rows-select',
+            name: 'rowsPerPage',
+            'aria-label': 'Rows per page',
+          }}
           value={rowsPerPage}
           onChange={(e) => {
             onRowsPerPageChange(Number(e.target.value));

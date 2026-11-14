@@ -8,9 +8,9 @@ export const walkthroughStyles = `
   width: 100vw;
   height: 100vh;
   z-index: ${WALKTHROUGH_Z_INDEX};
-  background: rgba(15, 23, 42, 0.42);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   pointer-events: auto;
   transition: opacity 0.25s ease;
 }
@@ -63,6 +63,12 @@ export const walkthroughStyles = `
   box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(16, 185, 129, 0.12);
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   animation: walkthroughCardFadeIn 0.2s ease;
+}
+
+.walkthrough-tooltip-card.walkthrough-tooltip-card--center {
+  width: 380px;
+  max-width: min(380px, calc(100vw - 32px));
+  box-shadow: 0 24px 50px -10px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(16, 185, 129, 0.25);
 }
 
 @keyframes walkthroughCardFadeIn {
@@ -245,6 +251,86 @@ export const walkthroughStyles = `
 .walkthrough-btn-primary:hover {
   background: #047857;
   color: #ffffff;
+}
+
+.walkthrough-btn-restart-inline {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid #10b981;
+  color: #059669;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 6px;
+}
+
+.walkthrough-btn-restart-inline:hover {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #059669;
+}
+
+.guide-card-btn-resume {
+  background: #059669 !important;
+  color: #ffffff !important;
+  border: 1px solid #059669 !important;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.guide-card-btn-resume:hover {
+  background: #047857 !important;
+  border-color: #047857 !important;
+}
+
+.guide-card-btn-restart {
+  background: #effaf6 !important;
+  color: #087b59 !important;
+  border: 1px solid #15956f !important;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.guide-card-btn-restart:hover {
+  background: #dcf5ea !important;
+}
+
+.guide-card-btn-start {
+  background: #effaf6 !important;
+  color: #087b59 !important;
+  border: 1px solid #15956f !important;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.guide-card-btn-start:hover {
+  background: #dcf5ea !important;
+}
+
+/* ── Quick Action Walkthrough Menu ── */
+.guide-quick-menu {
+  overflow: hidden !important;
+  font-family: 'Poppins', sans-serif !important;
+}
+
+.guide-quick-menu .MuiList-root {
+  overflow: hidden !important;
+  padding: 8px !important;
+}
+
+.guide-quick-menu .MuiMenuItem-root {
+  font-family: inherit !important;
 }
 
 /* ── Header Restart Button ── */

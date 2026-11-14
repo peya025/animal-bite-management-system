@@ -1,4 +1,4 @@
-export type WalkthroughPlacement = 'top' | 'bottom' | 'left' | 'right' | 'auto';
+export type WalkthroughPlacement = 'top' | 'bottom' | 'left' | 'right' | 'center' | 'auto';
 
 export type WalkthroughModule =
   | 'Dashboard'

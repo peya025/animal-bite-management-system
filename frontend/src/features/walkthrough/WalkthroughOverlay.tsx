@@ -10,6 +10,7 @@ interface WalkthroughOverlayProps {
   onNext: () => void;
   onPrev: () => void;
   onSkip: () => void;
+  onRestart?: () => void;
   onFinish?: () => void;
 }
 
@@ -98,6 +99,7 @@ function queryPrioritySelector(selectorList?: string): HTMLElement | null {
 }
 
 function scrollElementIntoOptimalView(el: HTMLElement, placement: WalkthroughPlacement): void {
+  if (placement === 'center') return;
   const vh = window.innerHeight;
   const pageContent = document.querySelector<HTMLElement>('.page-content');
   const sidebarNav = document.querySelector<HTMLElement>('.sidebar-nav');
@@ -216,6 +218,7 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
   onNext,
   onPrev,
   onSkip,
+  onRestart,
   onFinish,
 }) => {
   const handleFinish = onFinish ?? onSkip;
@@ -229,6 +232,7 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
   const isFirstStep = currentStepIndex === 0;
   const isLastStep = currentStepIndex === totalSteps - 1;
   const isRouteReady = location.pathname === step.route;
+  const isCenteredModal = isFirstStep || step.placement === 'center';
 
   const setActiveElement = useCallback((el: HTMLElement | null, isFallback = false) => {
     activeElementRef.current = el;
@@ -241,7 +245,9 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
       const vh = window.innerHeight;
       const cardEl = cardRef.current;
       const cardRect = cardEl ? cardEl.getBoundingClientRect() : null;
-      const cardW = cardRect && cardRect.width > 0 ? cardRect.width : Math.min(360, vw - 32);
+      const isCentered = isFirstStep || step.placement === 'center';
+      const defaultCardW = isCentered ? Math.min(380, vw - 32) : Math.min(360, vw - 32);
+      const cardW = cardRect && cardRect.width > 0 ? cardRect.width : defaultCardW;
       const cardH = cardRect && cardRect.height > 0 ? cardRect.height : 182;
       const MARGIN = 16;
       const GAP = 14;
@@ -333,8 +339,8 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
 
       let chosen: TooltipCoords | null = null;
 
-      if (isFirstStep) {
-        // Center the Step 1 walkthrough modal directly in the viewport
+      if (isFirstStep || step.placement === 'center') {
+        // Center the walkthrough modal directly in the viewport
         const top = Math.max(MARGIN, Math.round((vh - cardH) / 2));
         const left = Math.max(MARGIN, Math.round((vw - cardW) / 2));
         chosen = { top, left };
@@ -426,8 +432,8 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
       return;
     }
 
-    // Reset scroll position to top when starting at the first step
-    if (currentStepIndex === 0) {
+    // Reset scroll position to top when starting at the first step or centered modal
+    if (currentStepIndex === 0 || step.placement === 'center') {
       window.scrollTo({ top: 0, behavior: 'auto' });
       const pageContent = document.querySelector<HTMLElement>('.page-content');
       if (pageContent) pageContent.scrollTop = 0;
@@ -593,7 +599,7 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
 
   return (
     <div data-testid="walkthrough-overlay" role="dialog" aria-modal="true" aria-label={step.title}>
-      {isFirstStep ? (
+      {isCenteredModal ? (
         <div
           className="walkthrough-backdrop-blur"
           data-testid="walkthrough-backdrop-blur"
@@ -628,7 +634,7 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
         </svg>
       )}
 
-      {!isFirstStep && targetRect && (
+      {!isCenteredModal && targetRect && (
         <div
           className="walkthrough-spotlight-glow"
           data-testid="walkthrough-spotlight"
@@ -643,7 +649,7 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
 
       <div
         ref={cardRef}
-        className="walkthrough-tooltip-card"
+        className={`walkthrough-tooltip-card ${isCenteredModal ? 'walkthrough-tooltip-card--center' : ''}`}
         data-testid="walkthrough-tooltip"
         style={{
           top: `${tooltipCoords.top}px`,
@@ -706,6 +712,17 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
             >
               Skip Tour
             </button>
+            {onRestart && currentStepIndex > 0 && (
+              <button
+                type="button"
+                className="walkthrough-btn walkthrough-btn-restart-inline"
+                onClick={onRestart}
+                data-testid="walkthrough-btn-restart"
+                title="Restart this guide from Step 1"
+              >
+                Restart
+              </button>
+            )}
           </div>
 
           <div className="walkthrough-footer-right">

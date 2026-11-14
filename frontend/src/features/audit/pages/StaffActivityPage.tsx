@@ -118,7 +118,7 @@ export default function StaffActivityPage() {
   return (
     <div style={{ width: '100%', margin: 0, padding: 0 }}>
       {/* Minimalist Dashboard Header */}
-      <div className="sd-dash-header">
+      <div className="sd-dash-header" data-walkthrough="staff-activity-header">
         <div>
           <Typography
             component="h1"
@@ -148,7 +148,7 @@ export default function StaffActivityPage() {
       </div>
 
       {/* KPI Summary Cards */}
-      <div className="db-kpi-grid">
+      <div className="db-kpi-grid" data-walkthrough="staff-activity-kpi-cards">
         <div className="db-kpi-card">
           <div className="db-kpi-header">
             <span className="db-kpi-label">Actions Today</span>
@@ -216,6 +216,7 @@ export default function StaffActivityPage() {
 
       {/* Filters Card */}
       <div
+        data-walkthrough="staff-activity-filters"
         style={{
           background: 'var(--card-bg-solid, #ffffff)',
           borderRadius: '14px',
@@ -310,6 +311,7 @@ export default function StaffActivityPage() {
 
       {/* Activity Table Card */}
       <div
+        data-walkthrough="staff-activity-table"
         style={{
           background: 'var(--card-bg-solid, #ffffff)',
           borderRadius: '14px',
@@ -438,7 +440,7 @@ export default function StaffActivityPage() {
               </div>
 
               {/* ── Pagination bar ── */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border, #f0f7f2)', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div data-walkthrough="staff-activity-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border, #f0f7f2)', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {/* Result count */}
                 <span style={{ fontSize: '0.8125rem', color: '#77877d' }}>
                   Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, logs.length)} of {logs.length} entries

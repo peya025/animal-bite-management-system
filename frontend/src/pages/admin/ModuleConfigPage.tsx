@@ -575,6 +575,7 @@ export default function ModuleConfigPage() {
     <div style={{ width: '100%', margin: 0, padding: 0, maxWidth: '1440px', boxSizing: 'border-box' }}>
       {/* ── Page Header ── */}
       <div
+        data-walkthrough="module-config-header"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -622,6 +623,7 @@ export default function ModuleConfigPage() {
 
             {savedBaseline && (
               <span
+                data-walkthrough="module-config-revision-badge"
                 style={{
                   background: '#f1f5f9',
                   color: '#475569',
@@ -674,6 +676,7 @@ export default function ModuleConfigPage() {
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <button
             type="button"
+            data-walkthrough="module-config-history-btn"
             onClick={openHistory}
             style={{
               background: '#ffffff',
@@ -832,6 +835,7 @@ export default function ModuleConfigPage() {
         <>
           {/* ── Station Modules Row: Registration → Triage → Treatment ── */}
           <div
+            data-walkthrough="module-config-stations-row"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
@@ -948,6 +952,7 @@ export default function ModuleConfigPage() {
 
           {/* ── Active Patient Flow Diagram (Identifies Draft vs Saved State) ── */}
           <div
+            data-walkthrough="module-config-flow-diagram"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -1027,6 +1032,7 @@ export default function ModuleConfigPage() {
             {/* Group 1: Registration Form Sections */}
             {draft.stations.registration_module_enabled && (
               <div
+                data-walkthrough="module-config-registration-group"
                 style={{
                   background: '#ffffff',
                   borderRadius: '14px',
@@ -1073,6 +1079,7 @@ export default function ModuleConfigPage() {
             {/* Group 2: Triage Form Sections */}
             {draft.stations.triage_module_enabled && (
               <div
+                data-walkthrough="module-config-triage-group"
                 style={{
                   background: '#ffffff',
                   borderRadius: '14px',
@@ -1119,6 +1126,7 @@ export default function ModuleConfigPage() {
             {/* Group 3: Treatment Form Sections */}
             {draft.stations.treatment_module_enabled && (
               <div
+                data-walkthrough="module-config-treatment-group"
                 style={{
                   background: '#ffffff',
                   borderRadius: '14px',
@@ -1184,6 +1192,7 @@ export default function ModuleConfigPage() {
 
             <button
               type="button"
+              data-walkthrough="module-config-reset-btn"
               onClick={handleReset}
               disabled={saving || !hasChanges || !canEdit}
               style={{
@@ -1204,6 +1213,7 @@ export default function ModuleConfigPage() {
 
             <button
               type="button"
+              data-walkthrough="module-config-save-btn"
               onClick={() => handleSave()}
               disabled={saving || !hasChanges || !canEdit || Boolean(stationPolicyError)}
               style={{

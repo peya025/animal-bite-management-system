@@ -89,14 +89,20 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const module = modules.find(item => item.id === id);
     if (!module?.steps.length) return;
     const saved = progress[id];
-    let index = !restart && saved?.status === 'in_progress' && saved.step < module.steps.length ? saved.step : 0;
+    let index = 0;
 
-    // When starting or restarting a guide while already on a sub-route/station of the module:
-    if (restart || !saved || saved.status !== 'in_progress') {
-      const currentRouteIndex = module.steps.findIndex(step => step.route === location.pathname);
-      if (currentRouteIndex > 0) {
-        index = currentRouteIndex;
+    if (!restart) {
+      if (saved && typeof saved.step === 'number' && saved.step > 0 && saved.step < module.steps.length) {
+        index = saved.step;
+      } else {
+        const currentRouteIndex = module.steps.findIndex(step => step.route === location.pathname);
+        if (currentRouteIndex > 0) {
+          index = currentRouteIndex;
+        }
       }
+    } else {
+      // Explicit restart: start from beginning of module
+      index = 0;
     }
 
     const targetStep = module.steps[index];
@@ -119,10 +125,13 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const skipGuide = useCallback(() => {
     if (activeModuleId) {
-      saveProgress(activeModuleId, { status: 'skipped', step: currentStepIndex });
+      saveProgress(activeModuleId, {
+        status: currentStepIndex > 0 ? 'in_progress' : 'skipped',
+        step: currentStepIndex,
+      });
       if (user?.id) {
-        localStorage.setItem(`abtc_walkthrough_status_${user.id}`, 'skipped');
-        localStorage.setItem(`abtc_walkthrough_status_admin_${user.id}`, 'skipped');
+        localStorage.setItem(`abtc_walkthrough_status_${user.id}`, 'in_progress');
+        localStorage.setItem(`abtc_walkthrough_status_admin_${user.id}`, 'in_progress');
       }
     }
     setActiveModuleId(null);
@@ -194,9 +203,16 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     modules, activeModuleId, progress, startGuide, skipGuide, finishGuide,
     startWalkthrough: () => startGuide(ROUTES.DASHBOARD, true), stopWalkthrough: skipGuide,
     nextStep, prevStep, goToStep, dismissWelcomeModal,
-    restartWalkthrough: () => startGuide(ROUTES.DASHBOARD, true),
-  }), [activeModule, isWelcomeModalOpen, currentStepIndex, currentStep, user?.role, modules, activeModuleId, progress,
-    startGuide, skipGuide, finishGuide, nextStep, prevStep, goToStep, dismissWelcomeModal]);
+    restartWalkthrough: () => {
+      if (activeModuleId) {
+        startGuide(activeModuleId, true);
+      } else {
+        const currentMod = modules.find(m => m.route === location.pathname || m.steps.some(s => s.route === location.pathname));
+        startGuide(currentMod?.id || ROUTES.DASHBOARD, true);
+      }
+    },
+  }), [activeModuleId, activeModule, isWelcomeModalOpen, currentStepIndex, currentStep, user?.role, modules, progress,
+    startGuide, skipGuide, finishGuide, nextStep, prevStep, goToStep, dismissWelcomeModal, location.pathname]);
 
   const roleLabel = user?.role === 'admin' ? 'Administrator'
     : user?.role === 'registration' ? 'Registration Staff'
@@ -230,6 +246,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
           onNext={nextStep}
           onPrev={prevStep}
           onSkip={skipGuide}
+          onRestart={() => startGuide(activeModule.id, true)}
           onFinish={finishGuide}
         />
       )}

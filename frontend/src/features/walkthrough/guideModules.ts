@@ -209,8 +209,8 @@ export function getGuideModules(role?: string): GuideModule[] {
         id: 'clinic-setup',
         name: 'Clinic Setup',
         route: ROUTES.CLINIC_SETUP.INFO,
-        description: 'Configure clinic information, operating schedules, clinical module forms, and staff rosters.',
-        steps: getClinicSetupSteps(ROUTES.CLINIC_SETUP.INFO),
+        description: 'Configure clinic branding, facility accreditation, operating schedules, FAQs, and patient app resources.',
+        steps: getClinicSetupSteps(),
       };
     }
 

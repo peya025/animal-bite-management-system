@@ -242,7 +242,7 @@ export default function PredefinedTemplatesPage() {
   };
 
   return <Box sx={{ px: { xs: 1, sm: 3 }, pb: 5, maxWidth: 1320, mx: 'auto' }}>
-    <Box sx={{ mb: 2.5 }}>
+    <Box data-walkthrough="templates-header" sx={{ mb: 2.5 }}>
       <Typography component="h1" sx={{ fontSize: 24, fontWeight: 700 }}>Predefined Templates</Typography>
       <Typography variant="caption" color="text.secondary">
         <Box component={RouterLink} to={ROUTES.DASHBOARD} sx={{ color: 'primary.main', textDecoration: 'none' }}>Dashboard</Box>
@@ -250,7 +250,7 @@ export default function PredefinedTemplatesPage() {
       </Typography>
     </Box>
 
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5, mb: 2 }}>
+    <Box data-walkthrough="templates-presets-grid" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5, mb: 2 }}>
       {(['public', 'private'] as const).map(key => {
         const item = workflows[key];
         const active = key === preset;
@@ -272,7 +272,7 @@ export default function PredefinedTemplatesPage() {
       })}
     </Box>
 
-    <Paper component="section" aria-labelledby="workflow-title" elevation={0} sx={{ ...panelSx, p: { xs: 1.75, sm: 2.5 } }}>
+    <Paper data-walkthrough="templates-workflow-preview" component="section" aria-labelledby="workflow-title" elevation={0} sx={{ ...panelSx, p: { xs: 1.75, sm: 2.5 } }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
         <Box>
           <Typography id="workflow-title" component="h2" sx={{ fontSize: 17, fontWeight: 700 }}>{workflow.title} workflow</Typography>
@@ -338,7 +338,7 @@ export default function PredefinedTemplatesPage() {
     </Paper>
 
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1.2fr) minmax(0, 1fr)' }, gap: 2, mt: 2, alignItems: 'start' }}>
-      <Paper component="section" aria-labelledby="staff-preview-title" elevation={0} sx={{ ...panelSx, p: { xs: 1.75, sm: 2 } }}>
+      <Paper data-walkthrough="templates-staff-coverage" component="section" aria-labelledby="staff-preview-title" elevation={0} sx={{ ...panelSx, p: { xs: 1.75, sm: 2 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
           <Box>
             <Typography id="staff-preview-title" component="h2" sx={{ fontSize: 16, fontWeight: 700 }}>Staff coverage</Typography>
@@ -386,7 +386,7 @@ export default function PredefinedTemplatesPage() {
         </Box>
       </Paper>
 
-      <Paper component="section" aria-labelledby="sections-preview-title" elevation={0} sx={{ ...panelSx, p: { xs: 1.75, sm: 2 } }}>
+      <Paper data-walkthrough="templates-fields-config" component="section" aria-labelledby="sections-preview-title" elevation={0} sx={{ ...panelSx, p: { xs: 1.75, sm: 2 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
           <Box>
             <Typography id="sections-preview-title" component="h2" sx={{ fontSize: 16, fontWeight: 700 }}>Fields in this template</Typography>
@@ -464,7 +464,14 @@ export default function PredefinedTemplatesPage() {
         <Typography sx={{ fontSize: 14, fontWeight: 700 }}>Preview choice</Typography>
         <Typography variant="body2" color="text.secondary">{workflow.title} · {coverageMode === 'shared' ? 'One admin desk' : 'Separate desks'} · Optional: {optionalSectionsSummary} · No live changes</Typography>
       </Box>
-      <Button variant="contained" color="success" startIcon={<SaveOutlined />} disabled={Boolean(appliedInPreview && !previewHasChanges)} onClick={() => setConfirmApplyOpen(true)}>
+      <Button
+        data-walkthrough="templates-save-preview-btn"
+        variant="contained"
+        color="success"
+        startIcon={<SaveOutlined />}
+        disabled={Boolean(appliedInPreview && !previewHasChanges)}
+        onClick={() => setConfirmApplyOpen(true)}
+      >
         {appliedInPreview && !previewHasChanges ? 'Saved in preview' : 'Save & apply preview'}
       </Button>
     </Box>

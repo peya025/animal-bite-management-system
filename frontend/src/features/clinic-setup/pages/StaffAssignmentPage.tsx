@@ -420,7 +420,7 @@ export default function StaffAssignmentPage() {
   return (
     <div style={styles.container}>
       {/* Header */}
-      <div style={styles.header}>
+      <div data-walkthrough="staff-assignment-header" style={styles.header}>
         <div>
           <Typography
             component="h1"
@@ -452,6 +452,7 @@ export default function StaffAssignmentPage() {
       {/* Coverage Alert */}
       {(station1Staff.length === 0 || station2Staff.length === 0) && (
         <Alert
+          data-walkthrough="staff-assignment-coverage-alert"
           severity="warning"
           sx={{
             mb: 2,
@@ -475,6 +476,7 @@ export default function StaffAssignmentPage() {
 
       {/* Stats Cards */}
       <Box
+        data-walkthrough="staff-assignment-kpi-cards"
         sx={{
           display: 'grid',
           gridTemplateColumns: {
@@ -586,7 +588,7 @@ export default function StaffAssignmentPage() {
       </Box>
 
       {/* Search Input */}
-      <div style={styles.searchContainer}>
+      <div data-walkthrough="staff-assignment-search" style={styles.searchContainer}>
         <svg
           width="16"
           height="16"
@@ -614,7 +616,7 @@ export default function StaffAssignmentPage() {
       </div>
 
       {/* Table Container */}
-      <div style={styles.tableContainer}>
+      <div data-walkthrough="staff-assignment-table" style={styles.tableContainer}>
         <table style={styles.table}>
           <thead>
             <tr>
@@ -634,7 +636,7 @@ export default function StaffAssignmentPage() {
                 </td>
               </tr>
             ) : (
-              filteredStaff.map(member => {
+              filteredStaff.map((member, index) => {
                 const currentDesk = stationAssignments[member.id] || getInitialStationDesk(member);
                 const currentConfig = STATION_OPTIONS.find(o => o.value === currentDesk) || STATION_OPTIONS[0];
                 const roleInfo = getProfessionalRoleInfo(member);
@@ -740,6 +742,7 @@ export default function StaffAssignmentPage() {
                     {/* Change Workstation Dropdown */}
                     <td style={styles.td}>
                       <select
+                        data-walkthrough={index === 0 ? "staff-assignment-select" : undefined}
                         value={currentDesk}
                         onChange={e => handleStationChange(member.id, e.target.value as StationDesk)}
                         disabled={saving === member.id || !isUserActive}

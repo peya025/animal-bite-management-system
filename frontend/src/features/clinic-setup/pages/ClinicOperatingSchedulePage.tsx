@@ -361,7 +361,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
   return (
     <Box sx={{ px: { xs: 1, sm: 3 }, py: { xs: 2, md: 4 }, width: '100%', boxSizing: 'border-box' }}>
       {/* Header */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
+      <Box data-walkthrough="schedule-header" sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography
             component="h1"
@@ -391,6 +391,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
           </div>
         </Box>
         <Button
+          data-walkthrough="schedule-sync-btn"
           variant="outlined"
           size="small"
           startIcon={<SyncIcon />}
@@ -412,6 +413,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
       {/* Tabs */}
       <Paper sx={{ mb: 3, borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: 'none' }}>
         <Tabs
+          data-walkthrough="schedule-tabs-nav"
           value={activeTab}
           onChange={(_, v) => setActiveTab(v)}
           textColor="primary"
@@ -430,20 +432,21 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
             },
           }}
         >
-          <Tab icon={<CalendarIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Weekly Operating Pattern" />
+          <Tab data-walkthrough="schedule-tab-weekly" icon={<CalendarIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Weekly Operating Pattern" />
           <Tab
+            data-walkthrough="schedule-tab-exceptions"
             icon={<ExceptionIcon sx={{ fontSize: 18 }} />}
             iconPosition="start"
             label={`Calendar Exceptions & Holidays (${exceptions.length})`}
           />
-          <Tab icon={<PolicyIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Regimen Drift & Emergency Policies" />
+          <Tab data-walkthrough="schedule-tab-policies" icon={<PolicyIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Regimen Drift & Emergency Policies" />
         </Tabs>
 
         {/* TAB 0: Weekly Operating Pattern */}
         {activeTab === 0 && (
           <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
             {/* Presets Toolbar */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+            <Box data-walkthrough="schedule-presets-toolbar" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: 14, color: '#374151' }}>
                 Weekly Operating Days & Hours
               </Typography>
@@ -461,7 +464,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
             </Box>
 
             {/* Schedule List */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Box data-walkthrough="schedule-weekly-days-list" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               {schedules.map((item) => {
                 const dayName = DAY_NAMES[item.day_of_week] || `Day ${item.day_of_week}`;
 
@@ -539,6 +542,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
 
             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
               <Button
+                data-walkthrough="schedule-save-weekly-btn"
                 variant="contained"
                 startIcon={<SaveIcon />}
                 disabled={saving}
@@ -560,11 +564,12 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
         {/* TAB 1: Calendar Exceptions & Holidays */}
         {activeTab === 1 && (
           <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
+            <Box data-walkthrough="schedule-overrides-header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: 14, color: '#374151' }}>
                 Holidays & Special Date Overrides
               </Typography>
               <Button
+                data-walkthrough="schedule-add-override-btn"
                 variant="contained"
                 size="small"
                 startIcon={<AddIcon />}
@@ -575,17 +580,18 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
               </Button>
             </Box>
 
-            {exceptions.length === 0 ? (
-              <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', bgcolor: '#f9fafb', borderRadius: '10px' }}>
-                <ExceptionIcon sx={{ fontSize: 40, color: '#9ca3af', mb: 1 }} />
-                <Typography sx={{ fontWeight: 600, color: '#374151' }}>No Calendar Overrides Configured</Typography>
-                <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
-                  Add specific dates for national holidays, weather emergencies, or special weekend vaccination sessions.
-                </Typography>
-              </Paper>
-            ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                {exceptions.map((exc) => (
+            <Box data-walkthrough="schedule-overrides-list">
+              {exceptions.length === 0 ? (
+                <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', bgcolor: '#f9fafb', borderRadius: '10px' }}>
+                  <ExceptionIcon sx={{ fontSize: 40, color: '#9ca3af', mb: 1 }} />
+                  <Typography sx={{ fontWeight: 600, color: '#374151' }}>No Calendar Overrides Configured</Typography>
+                  <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
+                    Add specific dates for national holidays, weather emergencies, or special weekend vaccination sessions.
+                  </Typography>
+                </Paper>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  {exceptions.map((exc) => (
                   <Paper
                     key={exc.id}
                     variant="outlined"
@@ -638,6 +644,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
                 ))}
               </Box>
             )}
+            </Box>
           </Box>
         )}
 
@@ -645,174 +652,184 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
         {activeTab === 2 && (
           <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
             {/* Drift Policy Section */}
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 14, color: '#111827', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <PolicyIcon sx={{ color: '#277a4b', fontSize: 20 }} />
-              PEP Regimen Date Drift Policy (When Ideal Date Falls on Closed Day)
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#6b7280', mb: 2 }}>
-              Doctor-ordered PEP follow-up dates (such as Day 3 and Day 7) that fall on clinic closures will automatically resolve based on this policy.
-            </Typography>
+            <Box data-walkthrough="schedule-drift-policy-section">
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 14, color: '#111827', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <PolicyIcon sx={{ color: '#277a4b', fontSize: 20 }} />
+                PEP Regimen Date Drift Policy (When Ideal Date Falls on Closed Day)
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#6b7280', mb: 2 }}>
+                Doctor-ordered PEP follow-up dates (such as Day 3 and Day 7) that fall on clinic closures will automatically resolve based on this policy.
+              </Typography>
 
-            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: '10px', mb: 3 }}>
-              <FormControl component="fieldset">
-                <RadioGroup
-                  value={policies.schedule_drift_policy}
-                  onChange={(e) => setPolicies({ ...policies, schedule_drift_policy: e.target.value as any })}
-                >
-                  <FormControlLabel
-                    value="forward_only"
-                    control={<Radio color="success" />}
-                    label={
-                      <Box>
-                        <Typography sx={{ fontWeight: 600, fontSize: 14 }}>
-                          Forward Only (Next Open Clinic Day) — <Box component="span" sx={{ color: '#277a4b', fontWeight: 700 }}>Recommended for Rabies PEP</Box>
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12 }}>
-                          Never moves vaccination earlier than the clinical incubation window. Moves Sunday Day-3 to Monday.
-                        </Typography>
-                      </Box>
-                    }
-                    sx={{ mb: 1.5 }}
-                  />
-                  <FormControlLabel
-                    value="nearest"
-                    control={<Radio color="success" />}
-                    label={
-                      <Box>
-                        <Typography sx={{ fontWeight: 600, fontSize: 14 }}>Nearest Open Day (Forward or Backward)</Typography>
-                        <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12 }}>
-                          Resolves to the closest bookable operating day.
-                        </Typography>
-                      </Box>
-                    }
-                    sx={{ mb: 1.5 }}
-                  />
-                  <FormControlLabel
-                    value="backward_within_N_days"
-                    control={<Radio color="success" />}
-                    label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                        <Typography sx={{ fontWeight: 600, fontSize: 14 }}>Backward within</Typography>
-                        <Select
-                          size="small"
-                          value={policies.backward_max_days}
-                          onChange={(e) => setPolicies({ ...policies, backward_max_days: Number(e.target.value) })}
-                          sx={{ height: 32, width: 70 }}
-                        >
-                          <MenuItem value={1}>1</MenuItem>
-                          <MenuItem value={2}>2</MenuItem>
-                          <MenuItem value={3}>3</MenuItem>
-                        </Select>
-                        <Typography sx={{ fontWeight: 600, fontSize: 14 }}>day(s), then Forward</Typography>
-                      </Box>
-                    }
-                  />
-                </RadioGroup>
-              </FormControl>
-            </Paper>
+              <Paper variant="outlined" sx={{ p: 2.5, borderRadius: '10px', mb: 3 }}>
+                <FormControl component="fieldset">
+                  <RadioGroup
+                    value={policies.schedule_drift_policy}
+                    onChange={(e) => setPolicies({ ...policies, schedule_drift_policy: e.target.value as any })}
+                  >
+                    <FormControlLabel
+                      data-walkthrough="schedule-drift-forward-only"
+                      value="forward_only"
+                      control={<Radio color="success" />}
+                      label={
+                        <Box>
+                          <Typography sx={{ fontWeight: 600, fontSize: 14 }}>
+                            Forward Only (Next Open Clinic Day) — <Box component="span" sx={{ color: '#277a4b', fontWeight: 700 }}>Recommended for Rabies PEP</Box>
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12 }}>
+                            Never moves vaccination earlier than the clinical incubation window. Moves Sunday Day-3 to Monday.
+                          </Typography>
+                        </Box>
+                      }
+                      sx={{ mb: 1.5 }}
+                    />
+                    <FormControlLabel
+                      data-walkthrough="schedule-drift-nearest"
+                      value="nearest"
+                      control={<Radio color="success" />}
+                      label={
+                        <Box>
+                          <Typography sx={{ fontWeight: 600, fontSize: 14 }}>Nearest Open Day (Forward or Backward)</Typography>
+                          <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12 }}>
+                            Resolves to the closest bookable operating day.
+                          </Typography>
+                        </Box>
+                      }
+                      sx={{ mb: 1.5 }}
+                    />
+                    <FormControlLabel
+                      data-walkthrough="schedule-drift-backward-window"
+                      value="backward_within_N_days"
+                      control={<Radio color="success" />}
+                      label={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                          <Typography sx={{ fontWeight: 600, fontSize: 14 }}>Backward within</Typography>
+                          <Select
+                            size="small"
+                            value={policies.backward_max_days}
+                            onChange={(e) => setPolicies({ ...policies, backward_max_days: Number(e.target.value) })}
+                            sx={{ height: 32, width: 70 }}
+                          >
+                            <MenuItem value={1}>1</MenuItem>
+                            <MenuItem value={2}>2</MenuItem>
+                            <MenuItem value={3}>3</MenuItem>
+                          </Select>
+                          <Typography sx={{ fontWeight: 600, fontSize: 14 }}>day(s), then Forward</Typography>
+                        </Box>
+                      }
+                    />
+                  </RadioGroup>
+                </FormControl>
+              </Paper>
+            </Box>
 
             {/* Emergency Day-0 Exposure Policy */}
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 14, color: '#111827', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <WarningIcon sx={{ color: '#d97706', fontSize: 20 }} />
-              Urgent Day-0 Exposure Policy (Initial Bite Treatment on Closed Days)
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#6b7280', mb: 2 }}>
-              Day 0 rabies exposure is an emergency. Specify how walk-ins or mobile bookings are handled when the clinic is closed.
-            </Typography>
+            <Box data-walkthrough="schedule-emergency-policy-section">
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 14, color: '#111827', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <WarningIcon sx={{ color: '#d97706', fontSize: 20 }} />
+                Urgent Day-0 Exposure Policy (Initial Bite Treatment on Closed Days)
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#6b7280', mb: 2 }}>
+                Day 0 rabies exposure is an emergency. Specify how walk-ins or mobile bookings are handled when the clinic is closed.
+              </Typography>
 
-            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: '10px', mb: 3 }}>
-              <FormControl component="fieldset" fullWidth>
-                <RadioGroup
-                  value={policies.urgent_access_policy}
-                  onChange={(e) => setPolicies({ ...policies, urgent_access_policy: e.target.value as any })}
-                >
-                  <FormControlLabel
-                    value="walk_ins_accepted_outside_hours"
-                    control={<Radio color="success" />}
-                    label={
-                      <Box>
-                        <Typography sx={{ fontWeight: 600, fontSize: 14 }}>
-                          Emergency Walk-ins Accepted 24/7 (via ER Triage Counter)
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12 }}>
-                          Patients with fresh bite exposure can proceed directly to the Emergency Room / Triage area anytime.
-                        </Typography>
-                      </Box>
-                    }
-                    sx={{ mb: 1.5 }}
-                  />
-                  <FormControlLabel
-                    value="refer_to_alternate_facility"
-                    control={<Radio color="success" />}
-                    label={
-                      <Box>
-                        <Typography sx={{ fontWeight: 600, fontSize: 14 }}>
-                          Refer to Alternate Emergency ABTC Facility
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12 }}>
-                          Mobile app and online booking will display emergency referral directions and contact numbers.
-                        </Typography>
-                      </Box>
-                    }
-                  />
-                </RadioGroup>
-              </FormControl>
+              <Paper variant="outlined" sx={{ p: 2.5, borderRadius: '10px', mb: 3 }}>
+                <FormControl component="fieldset" fullWidth>
+                  <RadioGroup
+                    value={policies.urgent_access_policy}
+                    onChange={(e) => setPolicies({ ...policies, urgent_access_policy: e.target.value as any })}
+                  >
+                    <FormControlLabel
+                      data-walkthrough="schedule-emergency-er-walkins"
+                      value="walk_ins_accepted_outside_hours"
+                      control={<Radio color="success" />}
+                      label={
+                        <Box>
+                          <Typography sx={{ fontWeight: 600, fontSize: 14 }}>
+                            Emergency Walk-ins Accepted 24/7 (via ER Triage Counter)
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12 }}>
+                            Patients with fresh bite exposure can proceed directly to the Emergency Room / Triage area anytime.
+                          </Typography>
+                        </Box>
+                      }
+                      sx={{ mb: 1.5 }}
+                    />
+                    <FormControlLabel
+                      data-walkthrough="schedule-emergency-referral"
+                      value="refer_to_alternate_facility"
+                      control={<Radio color="success" />}
+                      label={
+                        <Box>
+                          <Typography sx={{ fontWeight: 600, fontSize: 14 }}>
+                            Refer to Alternate Emergency ABTC Facility
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12 }}>
+                            Mobile app and online booking will display emergency referral directions and contact numbers.
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </RadioGroup>
+                </FormControl>
 
-              {policies.urgent_access_policy === 'refer_to_alternate_facility' && (
-                <Box sx={{ mt: 2.5, pt: 2, borderTop: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#374151', textTransform: 'uppercase' }}>
-                    Emergency Referral Facility Details
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, md: 6 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Facility Name"
-                        value={policies.urgent_referral_facility_name}
-                        onChange={(e) => setPolicies({ ...policies, urgent_referral_facility_name: e.target.value })}
-                        placeholder="e.g. Northern Mindanao Medical Center ABTC"
-                      />
+                {policies.urgent_access_policy === 'refer_to_alternate_facility' && (
+                  <Box sx={{ mt: 2.5, pt: 2, borderTop: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: '#374151', textTransform: 'uppercase' }}>
+                      Emergency Referral Facility Details
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Facility Name"
+                          value={policies.urgent_referral_facility_name}
+                          onChange={(e) => setPolicies({ ...policies, urgent_referral_facility_name: e.target.value })}
+                          placeholder="e.g. Northern Mindanao Medical Center ABTC"
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Emergency Contact Number"
+                          value={policies.urgent_referral_facility_contact}
+                          onChange={(e) => setPolicies({ ...policies, urgent_referral_facility_contact: e.target.value })}
+                          placeholder="e.g. (088) 856-4147 / 911"
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Facility Address"
+                          value={policies.urgent_referral_facility_address}
+                          onChange={(e) => setPolicies({ ...policies, urgent_referral_facility_address: e.target.value })}
+                          placeholder="e.g. Capitol Compound, Cagayan de Oro City"
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12 }}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          size="small"
+                          label="Patient Instructions (Shown on Mobile App)"
+                          value={policies.urgent_referral_instructions}
+                          onChange={(e) => setPolicies({ ...policies, urgent_referral_instructions: e.target.value })}
+                          placeholder="e.g. Wash wound immediately with soap and water for 15 minutes. Proceed directly to the ER."
+                        />
+                      </Grid>
                     </Grid>
-                    <Grid size={{ xs: 12, md: 6 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Emergency Contact Number"
-                        value={policies.urgent_referral_facility_contact}
-                        onChange={(e) => setPolicies({ ...policies, urgent_referral_facility_contact: e.target.value })}
-                        placeholder="e.g. (088) 856-4147 / 911"
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Facility Address"
-                        value={policies.urgent_referral_facility_address}
-                        onChange={(e) => setPolicies({ ...policies, urgent_referral_facility_address: e.target.value })}
-                        placeholder="e.g. Capitol Compound, Cagayan de Oro City"
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        size="small"
-                        label="Patient Instructions (Shown on Mobile App)"
-                        value={policies.urgent_referral_instructions}
-                        onChange={(e) => setPolicies({ ...policies, urgent_referral_instructions: e.target.value })}
-                        placeholder="e.g. Wash wound immediately with soap and water for 15 minutes. Proceed directly to the ER."
-                      />
-                    </Grid>
-                  </Grid>
-                </Box>
-              )}
-            </Paper>
+                  </Box>
+                )}
+              </Paper>
+            </Box>
 
             <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button
+                data-walkthrough="schedule-save-policies-btn"
                 variant="contained"
                 startIcon={<SaveIcon />}
                 disabled={saving}

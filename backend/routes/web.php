@@ -12,6 +12,7 @@ Route::prefix('print/reports')->group(function () {
     Route::get('/exposure-registry', [PrintController::class, 'exposureRegistry']);
     Route::get('/monthly', [PrintController::class, 'monthlyReport']);
     Route::get('/cohort', [PrintController::class, 'cohortReport']);
+    Route::get('/bite-summary', [PrintController::class, 'biteSummaryMeetingPack']);
 });
 
 // Fallback storage route in case symlink (storage:link) is missing or unsupported on local OS

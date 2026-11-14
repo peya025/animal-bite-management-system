@@ -20,6 +20,12 @@ class CheckRole
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
+        if (!$user instanceof \App\Models\User) {
+            return response()->json([
+                'message' => 'Unauthorized. This action requires ' . implode(' or ', $roles) . ' role.',
+            ], 403);
+        }
+
         $userDirectRole = $user->role;
         $userAssignedRoles = $user->relationLoaded('roles') ? $user->roles->pluck('slug')->toArray() : $user->roles()->pluck('slug')->toArray();
         $allUserRoles = array_filter(array_unique(array_merge([$userDirectRole], $userAssignedRoles)));

@@ -154,8 +154,10 @@ class Form2PlaceOfExposureTest extends TestCase
         $locations = $summaryResponse->json('locations') ?? [];
         $this->assertNotEmpty($locations);
 
-        $baluarteGroup = collect($locations)->firstWhere('location', 'Baluarte, Tagoloan');
-        $this->assertNotNull($baluarteGroup, 'Expected Baluarte, Tagoloan group in Bite Cases Summary');
+        $baluarteGroup = collect($locations)->firstWhere('location', 'Baluarte');
+        $this->assertNotNull($baluarteGroup, 'Expected Baluarte group in Bite Cases Summary');
+        $this->assertSame('Baluarte', $baluarteGroup['normalized_barangay']);
+        $this->assertSame('Tagoloan', $baluarteGroup['municipality']);
         $this->assertEquals(1, $baluarteGroup['total_cases']);
 
         $unknownGroup = collect($locations)->firstWhere('location', 'Unknown');
@@ -209,13 +211,15 @@ class Form2PlaceOfExposureTest extends TestCase
         $this->queue->refresh();
         $this->assertSame('completed', $this->queue->status);
 
-        // 3. Location summary includes the transferred_out case under Casinglot, Tagoloan
+        // 3. Location summary includes the transferred_out case under normalized barangay Casinglot
         $summaryResponse = $this->getJson('/api/cases/location-summary');
         $summaryResponse->assertOk();
 
         $locations = $summaryResponse->json('locations') ?? [];
-        $casinglotGroup = collect($locations)->firstWhere('location', 'Casinglot, Tagoloan');
-        $this->assertNotNull($casinglotGroup, 'Expected Casinglot, Tagoloan in summary');
+        $casinglotGroup = collect($locations)->firstWhere('location', 'Casinglot');
+        $this->assertNotNull($casinglotGroup, 'Expected Casinglot in summary');
+        $this->assertSame('Casinglot', $casinglotGroup['normalized_barangay']);
+        $this->assertSame('Tagoloan', $casinglotGroup['municipality']);
         $this->assertEquals(1, $casinglotGroup['total_cases']);
 
         // 4. Map data includes transferred_out case

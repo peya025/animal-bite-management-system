@@ -468,6 +468,7 @@ class PatientService
                     'bite_date'             => !empty($rawInput['reg_date_of_consultation'])
                         ? Carbon::parse($rawInput['reg_date_of_consultation'])->toDateString()
                         : Carbon::now('Asia/Manila')->toDateString(),
+                    ...(BiteIncident::supportsProvisionalBiteDateColumn() ? ['bite_date_is_provisional' => true] : []),
                     'bite_place'            => null,
                     'site_washed'           => null,
                     'exposure_type'         => 'unassessed',

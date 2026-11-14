@@ -2,8 +2,12 @@
 
 namespace App\Models;
 
+use App\Services\Reporting\EpisodeReportingStateResolver;
+use App\Services\Reporting\TreatmentOutcomeResolver;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Schema;
 
 class BiteIncident extends Model
 {
@@ -27,6 +31,7 @@ class BiteIncident extends Model
         'rig_decision_reason',
         'case_number',
         'bite_date',
+        'bite_date_is_provisional',
         'bite_place',
         'site_washed',
         'exposure_type',
@@ -59,6 +64,7 @@ class BiteIncident extends Model
 
     protected $casts = [
         'bite_date' => 'date:Y-m-d',
+        'bite_date_is_provisional' => 'boolean',
         'site_washed' => 'boolean',
         'animal_captured' => 'boolean',
         'animal_available' => 'boolean',
@@ -85,101 +91,49 @@ class BiteIncident extends Model
             || $this->status === 'awaiting_assessment';
     }
 
+    /**
+     * Determine whether bite_date holds an unverified placeholder rather than a confirmed exposure date.
+     */
+    public function hasProvisionalBiteDate(): bool
+    {
+        if ($this->bite_date === null || (bool) ($this->bite_date_is_provisional ?? false) === true) {
+            return true;
+        }
+
+        if (
+            $this->episode_type === 'pending_assessment'
+            && $this->status === 'awaiting_assessment'
+            && stripos((string) ($this->remarks ?? ''), 'exposure details await') !== false
+        ) {
+            $hasIntake = $this->relationLoaded('intake')
+                ? (bool) $this->intake
+                : $this->intake()->exists();
+
+            return !$hasIntake;
+        }
+
+        return false;
+    }
+
     public function isTransferredOut(): bool
     {
         return $this->status === 'transferred_out' || !empty($this->transferred_to_facility);
     }
 
     /**
+     * Resolve the 6-dimension episode reporting state and stage visibility summary.
+     */
+    public function resolveReportingState(CarbonInterface|string|null $cutoff = null): array
+    {
+        return app(EpisodeReportingStateResolver::class)->resolve($this, $cutoff);
+    }
+
+    /**
      * Dynamically resolve the clinical episode status for Bite Cases Summary and tracking.
      */
-    public function resolveStatus(): string
+    public function resolveStatus(CarbonInterface|string|null $cutoff = null): string
     {
-        // 1. Transferred Out / Referred
-        if ($this->isTransferredOut()) {
-            return 'transferred_out';
-        }
-        if ($this->relationLoaded('treatmentRecords') && $this->treatmentRecords->contains(function ($r) {
-            return $r->outcome === 'Transferred/Referred'
-                || (!empty($r->referred_to) && \App\Models\TreatmentRecord::isExternalReferralDestination($r->referred_to))
-                || (!empty($r->actions_taken) && str_contains(strtolower($r->actions_taken), 'transferred/referred'));
-        })) {
-            return 'transferred_out';
-        }
-
-        // 2. Awaiting Assessment
-        if ($this->isAwaitingAssessment()) {
-            return 'awaiting_assessment';
-        }
-
-        $records = $this->relationLoaded('treatmentRecords') ? $this->treatmentRecords : $this->treatmentRecords()->get();
-
-        $consultationRecord = $records->first(function ($r) {
-            return $r->dose_number === null
-                && $r->status === 'completed'
-                && (!empty($r->nature_of_visit) || !empty($r->diagnosis) || !empty($r->chief_complaints));
-        });
-
-        if (empty($this->confirmed_at) && !$consultationRecord) {
-            return 'awaiting_assessment';
-        }
-
-        // Check if any dose or nurse prophylaxis was administered
-        $hasReceivedDose = $records->contains(function ($r) {
-            return $r->dose_number !== null
-                && ($r->treatment_date || $r->administered_at || in_array($r->status, ['administered', 'completed'], true));
-        });
-        $hasReceivedProphylaxis = $records->contains(function ($r) {
-            return (!empty($r->medication_given) || in_array((int) $r->dose_number, [200, 201, 300, 400, 401], true))
-                && $r->status === 'completed';
-        });
-
-        // 3. Completed – No PEP Required (Category I)
-        if ($this->status === 'completed_no_pep') {
-            return 'completed_no_pep';
-        }
-        $category = $this->exposure_category ?? $this->bite_category;
-        $severity = strtolower(trim((string) ($this->severity ?? '')));
-        $isCategory1 = in_array($category, ['I', 'Category I', '1'], true)
-            || in_array($severity, ['minor', 'category i', 'i'], true);
-
-        $patient = $this->relationLoaded('patient') ? $this->patient : $this->patient()->first();
-        if ($isCategory1) {
-            if ($patient && $patient->is_category1_no_treatment) {
-                return 'completed_no_pep';
-            }
-            $plan = $this->relationLoaded('treatmentPlan') ? $this->treatmentPlan : $this->treatmentPlan()->first();
-            $isPlanNoVaccine = $plan && in_array($plan->plan_type, ['no_vaccine', 'none'], true);
-            if ($consultationRecord && ($isPlanNoVaccine || $this->status === 'completed') && !$hasReceivedDose && !$hasReceivedProphylaxis) {
-                $pOrders = is_array($consultationRecord->prophylaxis_orders) ? $consultationRecord->prophylaxis_orders : [];
-                $tetCat = strtolower(trim((string) ($pOrders['tetanus_category'] ?? '')));
-                $hasTetanus = in_array($tetCat, ['ats', 'tt', 'ats_tt'], true) && (
-                    (!empty($pOrders['tetanus_vaccine']) && $pOrders['tetanus_vaccine'] !== 'none') ||
-                    (!empty($pOrders['tetanus_passive']) && $pOrders['tetanus_passive'] !== 'none')
-                );
-                $hasRig = !empty($pOrders['rig']) && $pOrders['rig'] !== 'none';
-                if (!$hasTetanus && !$hasRig) {
-                    return 'completed_no_pep';
-                }
-            }
-        }
-
-        // 4. Awaiting Treatment
-        if ($consultationRecord && !$hasReceivedDose && !$hasReceivedProphylaxis && $this->status !== 'completed' && $this->status !== 'cancelled') {
-            return 'awaiting_treatment';
-        }
-
-        // 5. Completed
-        if ($this->status === 'completed') {
-            return 'completed';
-        }
-
-        // 6. Active
-        if ($this->status === 'active' || $hasReceivedDose || $hasReceivedProphylaxis) {
-            return 'active';
-        }
-
-        return $this->status ?: 'active';
+        return $this->resolveReportingState($cutoff)['resolved_status'];
     }
 
     public function externalProofReviewer()
@@ -316,6 +270,9 @@ class BiteIncident extends Model
         if (in_array($sev, ['moderate', 'category ii', 'ii', '2'], true)) {
             return 'II';
         }
+        if ($this->isAwaitingAssessment() && ($sev === '' || $sev === 'unassessed')) {
+            return 'Unassessed';
+        }
         // Legacy clinic-entered intakes may already contain a category. New
         // mobile submissions cannot set this field.
         if ($this->relationLoaded('intake') && $this->intake && !empty($this->intake->bite_category)) {
@@ -335,22 +292,31 @@ class BiteIncident extends Model
         return $this->bite_place ?? ($this->relationLoaded('intake') ? $this->intake?->bite_place : null);
     }
 
+    public function getAdministeredRigTypeAttribute(): ?string
+    {
+        return app(TreatmentOutcomeResolver::class)->resolveRigEvidence($this)['administered_rig_type'];
+    }
+
+    public function getIndicatedRigTypeAttribute(): ?string
+    {
+        return app(TreatmentOutcomeResolver::class)->resolveRigEvidence($this)['indicated_rig_type'];
+    }
+
     public function getRigTypeAttribute(): ?string
     {
-        if ($this->relationLoaded('intake') && $this->intake && !empty($this->intake->rig_type)) {
-            return (string) $this->intake->rig_type;
+        return $this->administered_rig_type;
+    }
+
+    public static function supportsProvisionalBiteDateColumn(): bool
+    {
+        try {
+            $instance = new static();
+
+            return Schema::connection($instance->getConnectionName())
+                ->hasColumn($instance->getTable(), 'bite_date_is_provisional');
+        } catch (\Throwable) {
+            return false;
         }
-        if ($this->relationLoaded('treatmentRecords')) {
-            $hasHrig = $this->treatmentRecords->contains(fn($r) => strtoupper((string) ($r->medication_given ?? '')) === 'HRIG');
-            if ($hasHrig) return 'HRIG';
-            $hasErig = $this->treatmentRecords->contains(fn($r) => strtoupper((string) ($r->medication_given ?? '')) === 'ERIG');
-            if ($hasErig) return 'ERIG';
-        }
-        if (!empty($this->rig_decision_reason)) {
-            if (stripos($this->rig_decision_reason, 'hrig') !== false) return 'HRIG';
-            if (stripos($this->rig_decision_reason, 'erig') !== false) return 'ERIG';
-        }
-        return null;
     }
 
     /**

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
@@ -532,6 +534,27 @@ class Patient extends Model
             return $this->attributes['age'] ?? 0;
         }
         return $this->date_of_birth->age;
+    }
+
+    /**
+     * Calculate patient age as of a reference date, returning null if unknown.
+     */
+    public function ageAtDate(CarbonInterface|string|null $referenceDate = null): ?int
+    {
+        if ($this->date_of_birth) {
+            $ref = $referenceDate ? Carbon::parse($referenceDate)->endOfDay() : Carbon::now();
+            if ($this->date_of_birth->gt($ref)) {
+                return 0;
+            }
+
+            return (int) $this->date_of_birth->diffInYears($ref);
+        }
+
+        if (isset($this->attributes['age']) && $this->attributes['age'] !== null && $this->attributes['age'] !== '') {
+            return (int) $this->attributes['age'];
+        }
+
+        return null;
     }
 
     /**

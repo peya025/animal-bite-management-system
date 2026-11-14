@@ -228,3 +228,118 @@ table tr[role="button"]:focus {
     page-break-inside: avoid;
   }
 }
+
+/* ========================================
+   DOH Redesign: Tabs & Responsive Tables
+   ======================================== */
+
+.bc-tablist {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 4px;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
+}
+
+.bc-tab-btn {
+  flex: 0 0 auto;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--bc-text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.bc-tab-btn:hover {
+  background-color: var(--bc-surface-3);
+  color: var(--bc-text);
+}
+
+.bc-tab-btn[aria-selected="true"] {
+  color: var(--bc-text);
+  background-color: var(--bc-surface);
+  font-weight: 700;
+}
+
+.bc-tab-btn[aria-selected="true"]::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  border-top: 3px solid var(--bc-green-strong);
+}
+
+.bc-table-scroll-region {
+  overflow: auto;
+  max-width: 100%;
+  max-height: min(560px, 75vh);
+  container-type: inline-size;
+  border-radius: 8px;
+}
+
+.bc-table-scroll-region:focus-visible {
+  outline: 2px solid var(--bc-focus-ring);
+  outline-offset: var(--bc-focus-ring-offset);
+}
+
+.bc-table-scroll-region table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.bc-table-caption {
+  caption-side: top;
+  text-align: left;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  color: var(--bc-text-secondary);
+  background-color: var(--bc-surface-2);
+  border-bottom: 1px solid var(--bc-border);
+}
+
+.bc-table-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bc-table-sort-btn:hover {
+  color: var(--bc-green-strong);
+}
+
+.bc-table-sort-btn:focus-visible {
+  outline: 2px solid var(--bc-focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.bc-table-scroll-region thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: var(--bc-surface-2);
+  border-bottom: 1px solid var(--bc-border);
+}
+
+.bc-table-scroll-region th[scope="row"] {
+  font-weight: 700;
+  text-align: left;
+}

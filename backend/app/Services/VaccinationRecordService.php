@@ -195,6 +195,10 @@ class VaccinationRecordService
                 'animal_type_others'        => $animalType === 'other' ? ($animalTypeOther ?: null) : null,
             ], fn($v) => $v !== null && $v !== '');
 
+            if (!empty($assessmentUpdates['bite_date']) && BiteIncident::supportsProvisionalBiteDateColumn()) {
+                $assessmentUpdates['bite_date_is_provisional'] = false;
+            }
+
             if ($assessmentUpdates) {
                 $treatmentIncident->update($assessmentUpdates);
                 $treatmentIncident->loadMissing('intake');

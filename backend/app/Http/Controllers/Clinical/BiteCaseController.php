@@ -188,10 +188,13 @@ class BiteCaseController extends Controller
         $validated = $request->validate([
             'from' => 'nullable|date',
             'to' => 'nullable|date|after_or_equal:from',
-            'severity' => 'nullable|in:I,II,III',
+            'cutoff' => 'nullable|date',
+            'severity' => 'nullable|in:ALL,all,I,II,III,Unassessed,unassessed,not_yet_assessed,assessed_category_missing',
             'status' => 'nullable|string|max:50',
             'animal' => 'nullable|string|max:100',
             'search' => 'nullable|string|max:255',
+            'aggregate_only' => 'nullable|boolean',
+            'privacy_mode' => 'nullable|in:aggregate_only,internal_aggregate',
         ]);
 
         $summary = $this->biteCaseService->getLocationRiskSummary($request->user()->clinic_id, $validated);

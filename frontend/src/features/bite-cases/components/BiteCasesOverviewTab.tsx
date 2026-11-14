@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -17,10 +18,13 @@ import {
   ExpandLessOutlined,
   ExpandMoreOutlined,
   FileDownloadOutlined,
+  LocationOnOutlined,
+  MapOutlined,
 } from '@mui/icons-material';
 import type { DescriptiveFinding, DohSummary, LocationSummary } from '../types/biteCasesSummary.types';
 import { formatPct } from '../types/biteCasesSummary.types';
 import { BC_BORDER, HorizontalDistBar, SemanticChip } from './BiteCasesSharedUi';
+import { ROUTES } from '../../../shared/config/routes';
 
 interface BiteCasesOverviewTabProps {
   doh?: DohSummary;
@@ -58,12 +62,16 @@ function Section({
   title,
   hint,
   action,
+  icon,
   children,
+  sx,
 }: {
   title: string;
   hint?: string;
   action?: ReactNode;
+  icon?: ReactNode;
   children: ReactNode;
+  sx?: object;
 }) {
   return (
     <Paper
@@ -78,13 +86,17 @@ function Section({
         display: 'flex',
         flexDirection: 'column',
         minWidth: 0,
+        ...sx,
       }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1.5 }}>
         <Box sx={{ minWidth: 0 }}>
-          <Typography component="h3" sx={{ fontSize: 14.5, fontWeight: 700, color: 'var(--bc-text)' }}>
-            {title}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            {icon}
+            <Typography component="h3" sx={{ fontSize: 14.5, fontWeight: 700, color: 'var(--bc-text)' }}>
+              {title}
+            </Typography>
+          </Box>
           {hint && (
             <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', mt: 0.25 }}>{hint}</Typography>
           )}
@@ -229,6 +241,7 @@ export function BiteCasesOverviewTab({
   onDrillDownFilter,
   onExportEpisodesCsv,
 }: BiteCasesOverviewTabProps) {
+  const navigate = useNavigate();
   const [showReportingTable, setShowReportingTable] = useState(false);
 
   const catI = doh?.categories.I ?? 0;
@@ -241,8 +254,18 @@ export function BiteCasesOverviewTab({
   const decisionPendingCount =
     (doh?.form_2_decision_pending_count ?? 0) + (doh?.pep_and_biologics.decision_missing ?? 0);
 
-  const topBarangays = [...locations].sort((a, b) => b.total_cases - a.total_cases).slice(0, TOP_BARANGAYS);
+  const isUnrecordedLoc = (loc: LocationSummary) => {
+    const raw = (loc.normalized_barangay || loc.location || '').trim().toLowerCase();
+    return raw === 'unknown' || raw === 'not recorded' || raw === 'unrecorded' || raw === '';
+  };
+
+  const namedBarangays = [...locations].filter((l) => !isUnrecordedLoc(l)).sort((a, b) => b.total_cases - a.total_cases);
+  const unrecordedBarangays = [...locations].filter(isUnrecordedLoc);
+  const topNamed = namedBarangays.slice(0, unrecordedBarangays.length > 0 ? TOP_BARANGAYS - 1 : TOP_BARANGAYS);
+  const topBarangays = [...topNamed, ...unrecordedBarangays];
   const maxBarangayCases = Math.max(1, ...topBarangays.map((l) => l.total_cases));
+  const primaryHotspot = namedBarangays.length > 0 && namedBarangays[0].total_cases > 0 ? namedBarangays[0] : null;
+  const primaryName = primaryHotspot ? (primaryHotspot.normalized_barangay || primaryHotspot.location) : null;
 
   const hasNotes = (limitations?.length ?? 0) > 0 || (insights?.length ?? 0) > 0;
 
@@ -382,21 +405,92 @@ export function BiteCasesOverviewTab({
       {/* ── 2. Where cases occur + exposure category ── */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '3fr 2fr' }, gap: 2 }}>
         <Section
-          title="Leading barangays"
-          hint={`Top ${Math.min(TOP_BARANGAYS, locations.length)} of ${locations.length} places by recorded cases. Select a barangay to view its cases.`}
+          title="Place of incident (Barangay exposure)"
+          hint={`Top ${Math.min(TOP_BARANGAYS, locations.length)} of ${locations.length} recorded places. Select any barangay to filter cases.`}
+          icon={<LocationOnOutlined sx={{ fontSize: 20, color: '#0f766e' }} />}
+          action={
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<MapOutlined aria-hidden="true" />}
+              onClick={() => navigate(ROUTES.BITE_CASES.MAP)}
+              sx={{
+                textTransform: 'none',
+                fontSize: 12,
+                fontWeight: 700,
+                borderRadius: '8px',
+                borderColor: '#0f766e',
+                color: '#0f766e',
+                '&:hover': { borderColor: '#0d655e', bgcolor: 'rgba(15, 118, 110, 0.04)' },
+              }}
+            >
+              View on Bite Map
+            </Button>
+          }
+          sx={{
+            borderLeft: '4px solid #0f766e',
+            boxShadow: '0 2px 10px 0 rgba(15, 118, 110, 0.08)',
+          }}
         >
+          {primaryName && primaryHotspot && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 1,
+                px: 1.5,
+                py: 0.9,
+                mb: 1.25,
+                borderRadius: '8px',
+                bgcolor: 'rgba(15, 118, 110, 0.08)',
+                border: '1px solid rgba(15, 118, 110, 0.25)',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box
+                  sx={{
+                    px: 0.85,
+                    py: 0.25,
+                    borderRadius: '4px',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    bgcolor: '#0f766e',
+                    color: '#ffffff',
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Leading Hotspot
+                </Box>
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'var(--bc-text)' }}>
+                  {primaryName}
+                </Typography>
+              </Box>
+              <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#0f766e' }}>
+                {primaryHotspot.total_cases} case{primaryHotspot.total_cases === 1 ? '' : 's'} ({formatPct(primaryHotspot.total_cases, totalRecorded)} of total)
+              </Typography>
+            </Box>
+          )}
+
           {topBarangays.length === 0 ? (
             <Typography sx={{ fontSize: 13, color: 'var(--bc-text-secondary)' }}>
               No place of exposure matches the current filters.
             </Typography>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {topBarangays.map((loc) => {
-                const name = loc.normalized_barangay || loc.location;
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+              {topBarangays.map((loc, idx) => {
+                const isUnrecorded = isUnrecordedLoc(loc);
+                const rawName = loc.normalized_barangay || loc.location;
+                const displayName = isUnrecorded ? 'Place not recorded' : rawName;
+                const searchTarget = isUnrecorded ? 'not recorded' : rawName;
+                const rank = idx + 1;
                 const suppressed = Boolean(loc.is_small_cell_suppressed);
                 const total = loc.total_cases;
                 const notAssessed = Math.max(0, total - loc.cat_1 - loc.cat_2 - loc.cat_3);
                 const barWidth = suppressed ? 100 : (total / maxBarangayCases) * 100;
+                const pct = formatPct(total, totalRecorded);
                 const segments = [
                   { key: 'III', value: loc.cat_3, color: C.catIII },
                   { key: 'II', value: loc.cat_2, color: C.catII },
@@ -410,39 +504,75 @@ export function BiteCasesOverviewTab({
                     arrow
                     placement="top"
                     title={
-                      suppressed
-                        ? 'Fewer than 5 cases — hidden in conference mode'
-                        : `Category III: ${loc.cat_3} · Category II: ${loc.cat_2} · Category I: ${loc.cat_1} · Not assessed: ${notAssessed}`
+                      isUnrecorded
+                        ? 'Place of incident was not recorded during Form 1 intake'
+                        : suppressed
+                          ? 'Fewer than 5 cases — hidden in conference mode'
+                          : `Category III: ${loc.cat_3} · Category II: ${loc.cat_2} · Category I: ${loc.cat_1} · Not assessed: ${notAssessed}`
                     }
                   >
                     <Box
                       component="button"
                       type="button"
-                      onClick={() => onDrillDownFilter({ search: name })}
-                      aria-label={`${name}: ${suppressed ? 'fewer than 5' : total} cases. View cases`}
+                      onClick={() => onDrillDownFilter({ search: searchTarget })}
+                      aria-label={`${displayName}: ${suppressed ? 'fewer than 5' : total} cases. View cases`}
                       sx={{
                         display: 'grid',
-                        gridTemplateColumns: { xs: '110px 1fr 40px', sm: '150px 1fr 48px' },
+                        gridTemplateColumns: { xs: '28px 120px 1fr 64px 18px', sm: '32px 160px 1fr 76px 18px' },
                         alignItems: 'center',
                         gap: 1.25,
                         width: '100%',
-                        px: 1,
+                        px: 1.25,
                         py: 0.9,
-                        border: 0,
-                        borderRadius: '8px',
-                        background: 'transparent',
+                        border: '1px solid transparent',
+                        borderRadius: '10px',
+                        background: isUnrecorded ? 'rgba(148, 163, 184, 0.05)' : 'transparent',
                         textAlign: 'left',
                         font: 'inherit',
                         cursor: 'pointer',
-                        transition: 'background-color 0.15s ease',
-                        '&:hover': { bgcolor: 'var(--bc-surface-3)' },
+                        transition: 'all 0.15s ease',
+                        '&:hover': {
+                          bgcolor: 'var(--bc-surface-3)',
+                          borderColor: 'var(--bc-border)',
+                          transform: 'translateX(2px)',
+                        },
                         '&:focus-visible': { outline: '2px solid var(--bc-focus-ring)', outlineOffset: '1px' },
                       }}
                     >
-                      <Typography noWrap sx={{ fontSize: 13, fontWeight: 600, color: 'var(--bc-text)' }}>
-                        {name}
+                      {/* Rank badge */}
+                      <Box
+                        sx={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: isUnrecorded ? 10 : 11.5,
+                          fontWeight: 800,
+                          bgcolor: isUnrecorded ? 'var(--bc-surface-3)' : rank === 1 ? '#fee2e2' : 'var(--bc-surface-3)',
+                          color: isUnrecorded ? 'var(--bc-text-secondary)' : rank === 1 ? '#b91c1c' : 'var(--bc-text-secondary)',
+                          border: !isUnrecorded && rank === 1 ? '1px solid #fecaca' : '1px solid var(--bc-border)',
+                        }}
+                      >
+                        {isUnrecorded ? '—' : rank}
+                      </Box>
+
+                      {/* Barangay Name */}
+                      <Typography
+                        noWrap
+                        sx={{
+                          fontSize: 13.5,
+                          fontWeight: isUnrecorded ? 600 : 700,
+                          color: isUnrecorded ? 'var(--bc-text-secondary)' : 'var(--bc-text)',
+                          fontStyle: isUnrecorded ? 'italic' : 'normal',
+                        }}
+                      >
+                        {displayName}
                       </Typography>
-                      <Box sx={{ height: 10, borderRadius: 5, bgcolor: 'var(--bc-track)', overflow: 'hidden' }}>
+
+                      {/* Thicker eye-catching segmented bar */}
+                      <Box sx={{ height: 14, borderRadius: 7, bgcolor: 'var(--bc-track)', overflow: 'hidden' }}>
                         <Box sx={{ width: `${barWidth}%`, height: '100%', display: 'flex' }}>
                           {suppressed ? (
                             <Box sx={{ flex: 1, bgcolor: C.pending }} />
@@ -455,9 +585,21 @@ export function BiteCasesOverviewTab({
                           )}
                         </Box>
                       </Box>
-                      <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'var(--bc-text)', textAlign: 'right' }}>
-                        {suppressed ? '<5' : total}
-                      </Typography>
+
+                      {/* Total cases & percentage */}
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: 'var(--bc-text)', lineHeight: 1.1 }}>
+                          {suppressed ? '<5' : total}
+                        </Typography>
+                        {!suppressed && (
+                          <Typography sx={{ fontSize: 10.5, fontWeight: 600, color: 'var(--bc-text-secondary)', lineHeight: 1.1 }}>
+                            {pct}
+                          </Typography>
+                        )}
+                      </Box>
+
+                      {/* Drill-down chevron */}
+                      <ChevronRightOutlined aria-hidden="true" sx={{ fontSize: 16, color: 'var(--bc-text-secondary)' }} />
                     </Box>
                   </Tooltip>
                 );
@@ -467,7 +609,7 @@ export function BiteCasesOverviewTab({
           <Box sx={{ mt: 'auto', pt: 1.5 }}>
             <Legend
               items={[
-                { label: 'Category III', color: C.catIII },
+                { label: 'Category III (High risk)', color: C.catIII },
                 { label: 'Category II', color: C.catII },
                 { label: 'Category I', color: C.catI },
                 { label: 'Not assessed', color: C.pending },

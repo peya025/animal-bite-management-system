@@ -224,14 +224,21 @@ class BiteCaseService
 
         if (!empty($filters['search'])) {
             $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('case_number', 'like', "%{$search}%")
-                  ->orWhere('bite_place', 'like', "%{$search}%")
-                  ->orWhereHas('patient', function ($pq) use ($search) {
-                      $pq->where('first_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('patient_number', 'like', "%{$search}%");
-                  });
+            $isUnrecorded = in_array(strtolower(trim($search)), ['unknown', 'not recorded', 'unrecorded', 'place not recorded'], true);
+            $query->where(function ($q) use ($search, $isUnrecorded) {
+                if ($isUnrecorded) {
+                    $q->whereNull('bite_place')
+                      ->orWhere('bite_place', '')
+                      ->orWhere('bite_place', 'like', '%unknown%');
+                } else {
+                    $q->where('case_number', 'like', "%{$search}%")
+                      ->orWhere('bite_place', 'like', "%{$search}%")
+                      ->orWhereHas('patient', function ($pq) use ($search) {
+                          $pq->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('patient_number', 'like', "%{$search}%");
+                      });
+                }
             });
         }
 
@@ -1108,10 +1115,17 @@ class BiteCaseService
             $query->whereDate('bite_date', '<=', $to->toDateString());
         }
         if ($searchFilter !== null && $searchFilter !== '') {
-            $query->where(function ($q) use ($searchFilter) {
-                $q->where('case_number', 'like', "%{$searchFilter}%")
-                    ->orWhere('bite_place', 'like', "%{$searchFilter}%")
-                    ->orWhereHas('patient', fn ($patient) => $patient->searchName($searchFilter));
+            $isUnrecorded = in_array(strtolower(trim($searchFilter)), ['unknown', 'not recorded', 'unrecorded', 'place not recorded'], true);
+            $query->where(function ($q) use ($searchFilter, $isUnrecorded) {
+                if ($isUnrecorded) {
+                    $q->whereNull('bite_place')
+                        ->orWhere('bite_place', '')
+                        ->orWhere('bite_place', 'like', '%unknown%');
+                } else {
+                    $q->where('case_number', 'like', "%{$searchFilter}%")
+                        ->orWhere('bite_place', 'like', "%{$searchFilter}%")
+                        ->orWhereHas('patient', fn ($patient) => $patient->searchName($searchFilter));
+                }
             });
         }
 

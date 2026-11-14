@@ -15,6 +15,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   Typography,
 } from '@mui/material';
@@ -27,7 +28,7 @@ import {
   PetsOutlined,
   VisibilityOutlined,
 } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { BITE_CASE_STATUS_LABELS } from '../utils/biteCaseUtils';
 import type { CaseSummary, PrivacyMode } from '../types/biteCasesSummary.types';
 import { BC_BORDER, DohStatLine, SemanticChip } from './BiteCasesSharedUi';
@@ -50,6 +51,17 @@ export function BiteCasesEpisodesTab({
   onExportCasesCsv,
 }: BiteCasesEpisodesTabProps) {
   const [selectedCase, setSelectedCase] = useState<CaseSummary | null>(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+
+  useEffect(() => {
+    setPage(0);
+  }, [cases.length]);
+
+  const displayedCases = useMemo(() => {
+    if (cases.length <= rowsPerPage) return cases;
+    return cases.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
+  }, [cases, page, rowsPerPage]);
 
   if (privacyMode === 'aggregate_only') {
     return (
@@ -148,7 +160,7 @@ export function BiteCasesEpisodesTab({
                   </TableCell>
                 </TableRow>
               ) : (
-                cases.map((c) => {
+                displayedCases.map((c) => {
                   const doseProgress =
                     c.required_doses_count && c.required_doses_count > 0
                       ? ` (${c.completed_doses_count ?? 0}/${c.required_doses_count} doses)`
@@ -169,7 +181,15 @@ export function BiteCasesEpisodesTab({
                       <TableCell sx={{ minWidth: 145 }}>
                         <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>{c.bite_date || 'Unknown'}</Typography>
                         <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)' }}>
-                          {c.normalized_barangay || c.location}
+                          {c.normalized_barangay && c.normalized_barangay.toLowerCase() !== 'unknown'
+                            ? c.normalized_barangay
+                            : c.location && c.location.toLowerCase() !== 'unknown'
+                              ? c.location
+                              : (
+                                <Box component="span" sx={{ color: 'var(--bc-amber-strong)', fontWeight: 600, fontStyle: 'italic' }}>
+                                  Place not recorded
+                                </Box>
+                              )}
                         </Typography>
                       </TableCell>
                       <TableCell sx={{ minWidth: 110 }}>
@@ -270,6 +290,22 @@ export function BiteCasesEpisodesTab({
             </TableBody>
           </Table>
         </TableContainer>
+
+        {cases.length > 10 && (
+          <TablePagination
+            component="div"
+            count={cases.length}
+            page={page}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            sx={{ borderTop: BC_BORDER }}
+          />
+        )}
       </Paper>
 
       {/* Episode Inspection Modal (BCS-05.3) */}

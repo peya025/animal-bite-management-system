@@ -107,8 +107,6 @@ function KpiCard({
   value,
   subtext,
   accent,
-  active,
-  onClick,
   badgeText,
   icon,
 }: {
@@ -116,40 +114,23 @@ function KpiCard({
   value: string | number;
   subtext: string;
   accent: string;
-  active?: boolean;
-  onClick?: () => void;
   badgeText?: string;
   icon?: React.ReactNode;
 }) {
   return (
     <Paper
       elevation={0}
-      component="button"
-      type="button"
-      onClick={onClick}
-      aria-pressed={active || false}
       sx={{
         p: 2,
         textAlign: 'left',
         borderRadius: '16px',
-        border: active ? `2px solid ${accent}` : '1px solid #e2e8f0',
-        bgcolor: active ? 'rgba(16, 185, 129, 0.03)' : 'var(--bc-surface)',
-        cursor: onClick ? 'pointer' : 'default',
+        border: '1px solid #e2e8f0',
+        bgcolor: 'var(--bc-surface)',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
         gap: 0.75,
-        boxShadow: active ? '0 4px 14px 0 rgba(16, 185, 129, 0.12)' : 'var(--bc-card-shadow)',
-        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-        '&:hover': onClick ? {
-          borderColor: accent,
-          transform: 'translateY(-2px)',
-          boxShadow: 'var(--bc-card-shadow-hover)',
-        } : undefined,
-        '&:focus-visible': {
-          outline: '2px solid var(--bc-focus-ring)',
-          outlineOffset: '2px',
-        },
+        boxShadow: 'var(--bc-card-shadow)',
       }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
@@ -341,6 +322,7 @@ export default function BiteCaseRiskDashboard() {
   }, [severityParam]);
 
   const [data, setData] = useState<DashboardData | null>(null);
+  const [baselineData, setBaselineData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedLocationForBreakdown, setSelectedLocationForBreakdown] = useState<LocationSummary | null>(null);
@@ -395,7 +377,7 @@ export default function BiteCaseRiskDashboard() {
   };
 
   const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, currentTab: ViewTab) => {
-    const order: ViewTab[] = ['summary', 'treatment', 'risk', 'cases'];
+    const order: ViewTab[] = ['summary', 'treatment', 'cases'];
     const idx = order.indexOf(currentTab);
     let next: ViewTab | null = null;
     if (event.key === 'ArrowRight') next = order[(idx + 1) % order.length];
@@ -463,6 +445,9 @@ export default function BiteCaseRiskDashboard() {
           const response = await api.get<DashboardData>('/cases/location-summary', { params: query });
           if (!active) return;
           setData(response.data);
+          if (!filters.search && !filters.severity && !filters.status && !filters.animal) {
+            setBaselineData(response.data);
+          }
         }
         setError('');
       } catch {
@@ -716,29 +701,34 @@ export default function BiteCaseRiskDashboard() {
     selectTab('cases');
   };
 
-  const summary = data?.summary;
-  const totalRecorded = doh?.pep_and_biologics.recorded_exposures ?? summary?.total_cases ?? 0;
-  const finalizedCount = doh?.pep_and_biologics.finalized_assessments ?? 0;
+  const hasSecondaryFilters = Boolean(filters.search || filters.severity || filters.status || filters.animal);
+  // When secondary drill-down filters (search, severity, status, animal) are active, keep the baseline cohort figures for headline KPI cards so the clinic's true total never vanishes to 0!
+  const activeBaseline = hasSecondaryFilters && baselineData ? baselineData : data;
+  const activeDoh = activeBaseline?.doh_summary ?? doh;
+  const activeSummary = activeBaseline?.summary ?? data?.summary;
+
+  const totalRecorded = activeDoh?.pep_and_biologics.recorded_exposures ?? activeSummary?.total_cases ?? 0;
+  const finalizedCount = activeDoh?.pep_and_biologics.finalized_assessments ?? 0;
   const awaitingAssessmentCount =
-    doh?.pep_and_biologics.awaiting_assessment ?? summary?.awaiting_assessment ?? 0;
+    activeDoh?.pep_and_biologics.awaiting_assessment ?? activeSummary?.awaiting_assessment ?? 0;
   const pepPrescribedCount =
-    doh?.pep_and_biologics.pep_prescribed ?? summary?.pep_prescribed ?? 0;
-  const givenPepCount = doh?.pep_and_biologics.given_pep ?? 0;
-  const newCoursePrescribedCount = doh?.pep_and_biologics.new_course_prescribed ?? pepPrescribedCount;
+    activeDoh?.pep_and_biologics.pep_prescribed ?? activeSummary?.pep_prescribed ?? 0;
+  const givenPepCount = activeDoh?.pep_and_biologics.given_pep ?? 0;
+  const newCoursePrescribedCount = activeDoh?.pep_and_biologics.new_course_prescribed ?? pepPrescribedCount;
   const noAdminCount =
-    doh?.pep_and_biologics.no_administration_recorded ?? summary?.no_administration_recorded ?? 0;
-  const completedMatureTotal = doh?.completion_and_outcomes.completed_total ?? summary?.completed ?? 0;
-  const maturedCoursesTotal = doh?.completion_and_outcomes.matured_courses ?? 0;
-  const givenRigCount = doh?.pep_and_biologics.given_rig ?? 0;
-  const transferredCount = doh?.completion_and_outcomes.transferred_referred ?? 0;
-  const explicitNoPepCount = doh?.pep_and_biologics.explicit_no_pep ?? 0;
+    activeDoh?.pep_and_biologics.no_administration_recorded ?? activeSummary?.no_administration_recorded ?? 0;
+  const completedMatureTotal = activeDoh?.completion_and_outcomes.completed_total ?? activeSummary?.completed ?? 0;
+  const maturedCoursesTotal = activeDoh?.completion_and_outcomes.matured_courses ?? 0;
+  const givenRigCount = activeDoh?.pep_and_biologics.given_rig ?? 0;
+  const transferredCount = activeDoh?.completion_and_outcomes.transferred_referred ?? 0;
+  const explicitNoPepCount = activeDoh?.pep_and_biologics.explicit_no_pep ?? 0;
   const overdueEpisodesCount =
-    doh?.completion_and_outcomes.overdue_episodes ?? summary?.overdue_episodes ?? summary?.overdue_doses ?? 0;
-  const overduePatientsCount = summary?.overdue_patients ?? overdueEpisodesCount;
-  const overdueCoursesCount = summary?.overdue_courses ?? overdueEpisodesCount;
+    activeDoh?.completion_and_outcomes.overdue_episodes ?? activeSummary?.overdue_episodes ?? activeSummary?.overdue_doses ?? 0;
+  const overduePatientsCount = activeSummary?.overdue_patients ?? overdueEpisodesCount;
+  const overdueCoursesCount = activeSummary?.overdue_courses ?? overdueEpisodesCount;
   const outstandingDoseSlotsCount =
-    doh?.completion_and_outcomes.outstanding_dose_slots ?? summary?.outstanding_dose_slots ?? overdueEpisodesCount;
-  const unknownDateCount = summary?.unknown_exposure_date_count ?? 0;
+    activeDoh?.completion_and_outcomes.outstanding_dose_slots ?? activeSummary?.outstanding_dose_slots ?? overdueEpisodesCount;
+  const unknownDateCount = activeSummary?.unknown_exposure_date_count ?? 0;
   const isPartialPeriod = Boolean(doh?.scope?.is_partial_period ?? activeDateRange.isPartialPeriod);
   const cutoffLabel = data?.cutoff || filters.cutoff || 'Today';
   const periodSummaryText =
@@ -915,9 +905,7 @@ export default function BiteCaseRiskDashboard() {
                   : `${finalizedCount} assessed`
               }
               accent="#10b981"
-              active={filters.status === '' && filters.severity === ''}
               subtext={`Form 1 · ${awaitingAssessmentCount} awaiting assessment`}
-              onClick={() => handleDrillDownFilter({ status: '', severity: '' })}
             />
             <KpiCard
               title="Category III Exposures"
@@ -925,9 +913,7 @@ export default function BiteCaseRiskDashboard() {
               icon={<WarningAmberOutlined sx={{ fontSize: 18 }} />}
               badgeText={`${formatPct(doh?.categories.III ?? 0, finalizedCount)} of assessed`}
               accent="#dc2626"
-              active={filters.severity === 'III'}
               subtext={`Form 2 · ${givenRigCount} verified RIG given`}
-              onClick={() => handleDrillDownFilter({ severity: filters.severity === 'III' ? '' : 'III' })}
             />
             <KpiCard
               title="PEP Started"
@@ -935,11 +921,7 @@ export default function BiteCaseRiskDashboard() {
               icon={<VaccinesOutlined sx={{ fontSize: 18 }} />}
               badgeText={`${formatPct(givenPepCount, newCoursePrescribedCount)} started`}
               accent="#2563eb"
-              active={filters.status === 'treatment_recorded'}
               subtext={`Form 3 · ${pepPrescribedCount} prescribed courses`}
-              onClick={() =>
-                handleDrillDownFilter({ status: filters.status === 'treatment_recorded' ? '' : 'treatment_recorded' })
-              }
             />
             <KpiCard
               title="PEP Completion"
@@ -947,9 +929,7 @@ export default function BiteCaseRiskDashboard() {
               icon={<VerifiedOutlined sx={{ fontSize: 18 }} />}
               badgeText={formatPct(completedMatureTotal, maturedCoursesTotal)}
               accent="#059669"
-              active={filters.status === 'completed'}
               subtext={`Mature cohort · ${doh?.completion_and_outcomes.immature_courses ?? 0} active in window`}
-              onClick={() => handleDrillDownFilter({ status: filters.status === 'completed' ? '' : 'completed' })}
             />
           </Box>
         )}
@@ -987,7 +967,6 @@ export default function BiteCaseRiskDashboard() {
             {[
               { id: 'summary' as ViewTab, label: 'Overview' },
               { id: 'treatment' as ViewTab, label: 'Treatment & Follow-up' },
-              { id: 'risk' as ViewTab, label: `Planning & Actions (${locations.length})` },
               {
                 id: 'cases' as ViewTab,
                 label: `Episode Drill-Down (${privacyMode === 'aggregate_only' ? 'Hidden' : cases.length})`,
@@ -1182,6 +1161,72 @@ export default function BiteCaseRiskDashboard() {
             />
           </Box>
         </Collapse>
+
+        {/* Visible Active Filters Strip (makes active filters transparent, readable, and dismissible) */}
+        {(Boolean(filters.severity) || Boolean(filters.status) || Boolean(filters.animal) || Boolean(filters.search)) && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              flexWrap: 'wrap',
+              pt: 1,
+              mt: 1,
+              borderTop: '1px dashed var(--bc-border)',
+            }}
+          >
+            <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+              Active filter:
+            </Typography>
+            {filters.severity && (
+              <Chip
+                size="small"
+                label={
+                  filters.severity === 'not_yet_assessed'
+                    ? 'Severity: Not Yet Assessed'
+                    : filters.severity === 'assessed_category_missing'
+                      ? 'Severity: Category Missing'
+                      : filters.severity === 'unassessed'
+                        ? 'Severity: Unassessed / Pending'
+                        : `Category ${filters.severity}`
+                }
+                onDelete={() => updateFilter('severity', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.status && (
+              <Chip
+                size="small"
+                label={`Status: ${filters.status.replace(/_/g, ' ')}`}
+                onDelete={() => updateFilter('status', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.animal && (
+              <Chip
+                size="small"
+                label={`Animal: ${filters.animal.toUpperCase()}`}
+                onDelete={() => updateFilter('animal', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.search && (
+              <Chip
+                size="small"
+                label={`Search: “${filters.search}”`}
+                onDelete={() => updateFilter('search', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            <Button
+              size="small"
+              onClick={clearFilters}
+              sx={{ textTransform: 'none', fontSize: 12, fontWeight: 600, p: 0, minWidth: 'auto', color: 'var(--bc-amber-strong)' }}
+            >
+              Clear filter
+            </Button>
+          </Box>
+        )}
       </Paper>
 
       {/* Main Content Area by Active Tab */}
@@ -1234,43 +1279,6 @@ export default function BiteCaseRiskDashboard() {
               overdueCoursesCount={overdueCoursesCount}
               outstandingDoseSlotsCount={outstandingDoseSlotsCount}
               onDrillDownFilter={handleDrillDownFilter}
-            />
-          </div>
-        )}
-
-        {tab === 'risk' && (
-          <div role="tabpanel" aria-labelledby="tab-risk" tabIndex={0}>
-            <BiteCasesPlanningTab
-              doh={doh}
-              sortedLocations={sortedLocations}
-              loading={loading}
-              hasData={Boolean(data)}
-              maxCasesAcrossLocations={maxCasesAcrossLocations}
-              totalRecorded={totalRecorded}
-              finalizedCount={finalizedCount}
-              noAdminCount={noAdminCount}
-              overdueEpisodesCount={overdueEpisodesCount}
-              outstandingDoseSlotsCount={outstandingDoseSlotsCount}
-              sortKey={sortKey}
-              sortOrder={sortOrder}
-              optionalColumns={optionalColumns}
-              onSort={handleSort}
-              onToggleOptionalColumn={toggleOptionalColumn}
-              onExportLocationsCsv={() => exportLocationsToCsv(sortedLocations, 'bite-cases-barangay-summary.csv')}
-              onOpenLocationBreakdown={(loc) => setSelectedLocationForBreakdown(loc)}
-              onDrillDownFilter={handleDrillDownFilter}
-              insights={data?.insights}
-              snapshots={snapshots}
-              activeSnapshot={data?.snapshot ?? null}
-              snapshotBusy={snapshotBusy}
-              onSelectSnapshot={(id) => setActiveSnapshotId(id)}
-              onSaveSnapshot={handleSaveSnapshot}
-              onFinalizeSnapshot={handleFinalizeSnapshot}
-              actions={actions}
-              actionBusy={actionBusy}
-              onCreateAction={handleCreateAction}
-              onUpdateActionStatus={handleUpdateActionStatus}
-              planningProjections={data?.planning_projections ?? doh?.planning_projections}
             />
           </div>
         )}

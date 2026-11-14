@@ -211,15 +211,126 @@ function StageArrow() {
   );
 }
 
-function Legend({ items }: { items: { label: string; color: string }[] }) {
+function LegendDot({ color, label }: { color: string; label: string }) {
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-      {items.map((item) => (
-        <Box key={item.label} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 8, height: 8, borderRadius: '2px', bgcolor: item.color }} />
-          <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)' }}>{item.label}</Typography>
-        </Box>
-      ))}
+    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6 }}>
+      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
+      <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)', fontWeight: 500 }}>{label}</Typography>
+    </Box>
+  );
+}
+
+function CategoryRow({
+  label,
+  count,
+  total,
+  color,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  total: number;
+  color: string;
+  onClick?: () => void;
+}) {
+  const pct = formatPct(count, total);
+  return (
+    <Box
+      component={onClick ? 'button' : 'div'}
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      aria-label={`${label}: ${count} cases (${pct})`}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%',
+        py: 0.9,
+        px: 1,
+        borderRadius: '8px',
+        border: 0,
+        background: 'transparent',
+        cursor: onClick ? 'pointer' : 'default',
+        textAlign: 'left',
+        font: 'inherit',
+        transition: 'all 0.15s ease',
+        '&:hover': onClick ? { bgcolor: 'var(--bc-surface-2)' } : undefined,
+        '&:focus-visible': { outline: '2px solid var(--bc-focus-ring)', outlineOffset: '1px' },
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+        <Box sx={{ width: 8, height: 8, borderRadius: '2px', bgcolor: color, flexShrink: 0 }} />
+        <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--bc-text)' }}>{label}</Typography>
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'var(--bc-text)', minWidth: 20, textAlign: 'right' }}>
+          {count}
+        </Typography>
+        <Typography sx={{ fontSize: 12, fontWeight: 500, color: 'var(--bc-text-secondary)', minWidth: 44, textAlign: 'right' }}>
+          {pct}
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+function ProfileMetricRow({
+  label,
+  count,
+  total,
+  color = '#0f766e',
+  onClick,
+}: {
+  label: string;
+  count: number;
+  total: number;
+  color?: string;
+  onClick?: () => void;
+}) {
+  const pct = total > 0 ? (count / total) * 100 : 0;
+  const formattedPct = formatPct(count, total);
+  return (
+    <Box
+      component={onClick ? 'button' : 'div'}
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      aria-label={`${label}: ${count} cases (${formattedPct})`}
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '90px 1fr 64px', sm: '100px 1fr 70px' },
+        alignItems: 'center',
+        gap: 1.25,
+        width: '100%',
+        py: 0.75,
+        px: 1,
+        borderRadius: '8px',
+        border: 0,
+        background: 'transparent',
+        cursor: onClick ? 'pointer' : 'default',
+        textAlign: 'left',
+        font: 'inherit',
+        transition: 'all 0.15s ease',
+        '&:hover': onClick ? { bgcolor: 'var(--bc-surface-2)' } : undefined,
+        '&:focus-visible': { outline: '2px solid var(--bc-focus-ring)', outlineOffset: '1px' },
+      }}
+    >
+      <Typography noWrap sx={{ fontSize: 13, fontWeight: 600, color: 'var(--bc-text)' }}>
+        {label}
+      </Typography>
+      <Box sx={{ height: 8, borderRadius: 4, bgcolor: 'var(--bc-track)', overflow: 'hidden' }}>
+        <Box
+          sx={{
+            width: `${pct}%`,
+            height: '100%',
+            borderRadius: 4,
+            bgcolor: color,
+            transition: 'width 0.25s ease',
+          }}
+        />
+      </Box>
+      <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: 'var(--bc-text)', textAlign: 'right', whiteSpace: 'nowrap' }}>
+        {count} <Typography component="span" sx={{ fontSize: 11.5, fontWeight: 500, color: 'var(--bc-text-secondary)' }}>· {formattedPct}</Typography>
+      </Typography>
     </Box>
   );
 }
@@ -243,6 +354,7 @@ export function BiteCasesOverviewTab({
 }: BiteCasesOverviewTabProps) {
   const navigate = useNavigate();
   const [showReportingTable, setShowReportingTable] = useState(false);
+  const [showAllPlaces, setShowAllPlaces] = useState(false);
 
   const catI = doh?.categories.I ?? 0;
   const catII = doh?.categories.II ?? 0;
@@ -261,11 +373,9 @@ export function BiteCasesOverviewTab({
 
   const namedBarangays = [...locations].filter((l) => !isUnrecordedLoc(l)).sort((a, b) => b.total_cases - a.total_cases);
   const unrecordedBarangays = [...locations].filter(isUnrecordedLoc);
-  const topNamed = namedBarangays.slice(0, unrecordedBarangays.length > 0 ? TOP_BARANGAYS - 1 : TOP_BARANGAYS);
-  const topBarangays = [...topNamed, ...unrecordedBarangays];
-  const maxBarangayCases = Math.max(1, ...topBarangays.map((l) => l.total_cases));
-  const primaryHotspot = namedBarangays.length > 0 && namedBarangays[0].total_cases > 0 ? namedBarangays[0] : null;
-  const primaryName = primaryHotspot ? (primaryHotspot.normalized_barangay || primaryHotspot.location) : null;
+  const unrecordedCount = unrecordedBarangays.reduce((sum, l) => sum + l.total_cases, 0);
+  const displayedNamedBarangays = showAllPlaces ? namedBarangays : namedBarangays.slice(0, 4);
+  const maxNamedCases = Math.max(1, ...namedBarangays.map((l) => l.total_cases));
 
   const hasNotes = (limitations?.length ?? 0) > 0 || (insights?.length ?? 0) > 0;
 
@@ -402,94 +512,116 @@ export function BiteCasesOverviewTab({
         </Typography>
       </Section>
 
-      {/* ── 2. Where cases occur + exposure category ── */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '3fr 2fr' }, gap: 2 }}>
+      {/* ── 2. Exposure category & Place of incident ── */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '4fr 7fr' }, gap: 2 }}>
+        {/* Exposure Category Card */}
+        <Section title="Exposure category" hint="Select a category to view its cases.">
+          {/* Top Multi-Segmented Proportional Bar */}
+          <Box
+            sx={{
+              width: '100%',
+              height: 12,
+              borderRadius: '6px',
+              bgcolor: 'var(--bc-track)',
+              overflow: 'hidden',
+              display: 'flex',
+              mb: 1.75,
+            }}
+          >
+            {totalRecorded > 0 ? (
+              <>
+                {catIII > 0 && <Box sx={{ width: `${(catIII / totalRecorded) * 100}%`, height: '100%', bgcolor: C.catIII }} />}
+                {catII > 0 && <Box sx={{ width: `${(catII / totalRecorded) * 100}%`, height: '100%', bgcolor: C.catII }} />}
+                {catI > 0 && <Box sx={{ width: `${(catI / totalRecorded) * 100}%`, height: '100%', bgcolor: C.catI }} />}
+                {notYetAssessed > 0 && <Box sx={{ width: `${(notYetAssessed / totalRecorded) * 100}%`, height: '100%', bgcolor: C.pending }} />}
+                {catMissing > 0 && <Box sx={{ width: `${(catMissing / totalRecorded) * 100}%`, height: '100%', bgcolor: '#cbd5e1' }} />}
+              </>
+            ) : (
+              <Box sx={{ width: '100%', height: '100%', bgcolor: C.pending }} />
+            )}
+          </Box>
+
+          {/* Category List */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+            <CategoryRow
+              label="Category III"
+              count={catIII}
+              total={totalRecorded}
+              color={C.catIII}
+              onClick={() => onDrillDownFilter({ severity: 'III', status: '' })}
+            />
+            <CategoryRow
+              label="Category II"
+              count={catII}
+              total={totalRecorded}
+              color={C.catII}
+              onClick={() => onDrillDownFilter({ severity: 'II', status: '' })}
+            />
+            <CategoryRow
+              label="Category I"
+              count={catI}
+              total={totalRecorded}
+              color={C.catI}
+              onClick={() => onDrillDownFilter({ severity: 'I', status: '' })}
+            />
+            <CategoryRow
+              label="Not yet assessed"
+              count={notYetAssessed}
+              total={totalRecorded}
+              color={C.pending}
+              onClick={() => onDrillDownFilter({ severity: 'not_yet_assessed', status: '' })}
+            />
+            {catMissing > 0 && (
+              <CategoryRow
+                label="Assessed, category not recorded"
+                count={catMissing}
+                total={totalRecorded}
+                color={C.pending}
+                onClick={() => onDrillDownFilter({ severity: 'assessed_category_missing', status: '' })}
+              />
+            )}
+          </Box>
+        </Section>
+
+        {/* Place of Incident Card */}
         <Section
-          title="Place of incident (Barangay exposure)"
-          hint={`Top ${Math.min(TOP_BARANGAYS, locations.length)} of ${locations.length} recorded places. Select any barangay to filter cases.`}
-          icon={<LocationOnOutlined sx={{ fontSize: 20, color: '#0f766e' }} />}
+          title="Place of incident"
+          hint="Cases per barangay, split by exposure category. Select a row to filter."
           action={
             <Button
               size="small"
               variant="outlined"
-              startIcon={<MapOutlined aria-hidden="true" />}
               onClick={() => navigate(ROUTES.BITE_CASES.MAP)}
               sx={{
                 textTransform: 'none',
                 fontSize: 12,
-                fontWeight: 700,
+                fontWeight: 600,
                 borderRadius: '8px',
                 borderColor: '#0f766e',
                 color: '#0f766e',
+                px: 1.5,
+                py: 0.4,
                 '&:hover': { borderColor: '#0d655e', bgcolor: 'rgba(15, 118, 110, 0.04)' },
               }}
             >
               View on Bite Map
             </Button>
           }
-          sx={{
-            borderLeft: '4px solid #0f766e',
-            boxShadow: '0 2px 10px 0 rgba(15, 118, 110, 0.08)',
-          }}
         >
-          {primaryName && primaryHotspot && (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 1,
-                px: 1.5,
-                py: 0.9,
-                mb: 1.25,
-                borderRadius: '8px',
-                bgcolor: 'rgba(15, 118, 110, 0.08)',
-                border: '1px solid rgba(15, 118, 110, 0.25)',
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box
-                  sx={{
-                    px: 0.85,
-                    py: 0.25,
-                    borderRadius: '4px',
-                    fontSize: 11,
-                    fontWeight: 800,
-                    bgcolor: '#0f766e',
-                    color: '#ffffff',
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Leading Hotspot
-                </Box>
-                <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'var(--bc-text)' }}>
-                  {primaryName}
-                </Typography>
-              </Box>
-              <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#0f766e' }}>
-                {primaryHotspot.total_cases} case{primaryHotspot.total_cases === 1 ? '' : 's'} ({formatPct(primaryHotspot.total_cases, totalRecorded)} of total)
-              </Typography>
-            </Box>
-          )}
-
-          {topBarangays.length === 0 ? (
-            <Typography sx={{ fontSize: 13, color: 'var(--bc-text-secondary)' }}>
+          {displayedNamedBarangays.length === 0 ? (
+            <Typography sx={{ fontSize: 13, color: 'var(--bc-text-secondary)', py: 2 }}>
               No place of exposure matches the current filters.
             </Typography>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-              {topBarangays.map((loc, idx) => {
-                const isUnrecorded = isUnrecordedLoc(loc);
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {displayedNamedBarangays.map((loc, idx) => {
                 const rawName = loc.normalized_barangay || loc.location;
-                const displayName = isUnrecorded ? 'Place not recorded' : rawName;
-                const searchTarget = isUnrecorded ? 'not recorded' : rawName;
                 const rank = idx + 1;
-                const suppressed = Boolean(loc.is_small_cell_suppressed);
+                const isHotspot = idx === 0 && loc.total_cases > 0;
                 const total = loc.total_cases;
+                const suppressed = Boolean(loc.is_small_cell_suppressed);
                 const notAssessed = Math.max(0, total - loc.cat_1 - loc.cat_2 - loc.cat_3);
-                const barWidth = suppressed ? 100 : (total / maxBarangayCases) * 100;
+                const barWidth = suppressed ? 100 : (total / maxNamedCases) * 100;
                 const pct = formatPct(total, totalRecorded);
                 const segments = [
                   { key: 'III', value: loc.cat_3, color: C.catIII },
@@ -504,75 +636,68 @@ export function BiteCasesOverviewTab({
                     arrow
                     placement="top"
                     title={
-                      isUnrecorded
-                        ? 'Place of incident was not recorded during Form 1 intake'
-                        : suppressed
-                          ? 'Fewer than 5 cases — hidden in conference mode'
-                          : `Category III: ${loc.cat_3} · Category II: ${loc.cat_2} · Category I: ${loc.cat_1} · Not assessed: ${notAssessed}`
+                      suppressed
+                        ? 'Fewer than 5 cases — hidden in conference mode'
+                        : `Category III: ${loc.cat_3} · Category II: ${loc.cat_2} · Category I: ${loc.cat_1} · Not assessed: ${notAssessed}`
                     }
                   >
                     <Box
                       component="button"
                       type="button"
-                      onClick={() => onDrillDownFilter({ search: searchTarget })}
-                      aria-label={`${displayName}: ${suppressed ? 'fewer than 5' : total} cases. View cases`}
+                      onClick={() => onDrillDownFilter({ search: rawName })}
+                      aria-label={`${rawName}: ${suppressed ? 'fewer than 5' : total} cases. View cases`}
                       sx={{
                         display: 'grid',
-                        gridTemplateColumns: { xs: '28px 120px 1fr 64px 18px', sm: '32px 160px 1fr 76px 18px' },
+                        gridTemplateColumns: { xs: '20px 110px 1fr 64px', sm: '22px 140px 1fr 76px' },
                         alignItems: 'center',
                         gap: 1.25,
                         width: '100%',
-                        px: 1.25,
-                        py: 0.9,
-                        border: '1px solid transparent',
-                        borderRadius: '10px',
-                        background: isUnrecorded ? 'rgba(148, 163, 184, 0.05)' : 'transparent',
+                        px: 1,
+                        py: 0.85,
+                        border: 0,
+                        borderRadius: '8px',
+                        background: 'transparent',
                         textAlign: 'left',
                         font: 'inherit',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
                         '&:hover': {
-                          bgcolor: 'var(--bc-surface-3)',
-                          borderColor: 'var(--bc-border)',
-                          transform: 'translateX(2px)',
+                          bgcolor: 'var(--bc-surface-2)',
                         },
                         '&:focus-visible': { outline: '2px solid var(--bc-focus-ring)', outlineOffset: '1px' },
                       }}
                     >
-                      {/* Rank badge */}
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: isUnrecorded ? 10 : 11.5,
-                          fontWeight: 800,
-                          bgcolor: isUnrecorded ? 'var(--bc-surface-3)' : rank === 1 ? '#fee2e2' : 'var(--bc-surface-3)',
-                          color: isUnrecorded ? 'var(--bc-text-secondary)' : rank === 1 ? '#b91c1c' : 'var(--bc-text-secondary)',
-                          border: !isUnrecorded && rank === 1 ? '1px solid #fecaca' : '1px solid var(--bc-border)',
-                        }}
-                      >
-                        {isUnrecorded ? '—' : rank}
-                      </Box>
-
-                      {/* Barangay Name */}
-                      <Typography
-                        noWrap
-                        sx={{
-                          fontSize: 13.5,
-                          fontWeight: isUnrecorded ? 600 : 700,
-                          color: isUnrecorded ? 'var(--bc-text-secondary)' : 'var(--bc-text)',
-                          fontStyle: isUnrecorded ? 'italic' : 'normal',
-                        }}
-                      >
-                        {displayName}
+                      {/* Rank Number */}
+                      <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--bc-text-secondary)' }}>
+                        {rank}
                       </Typography>
 
-                      {/* Thicker eye-catching segmented bar */}
-                      <Box sx={{ height: 14, borderRadius: 7, bgcolor: 'var(--bc-track)', overflow: 'hidden' }}>
+                      {/* Barangay Name + Hotspot tag */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                        <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 700, color: 'var(--bc-text)' }}>
+                          {rawName}
+                        </Typography>
+                        {isHotspot && (
+                          <Box
+                            sx={{
+                              px: 0.8,
+                              py: 0.1,
+                              borderRadius: '10px',
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                              bgcolor: '#0f766e',
+                              color: '#ffffff',
+                              letterSpacing: '0.02em',
+                              flexShrink: 0,
+                            }}
+                          >
+                            Hotspot
+                          </Box>
+                        )}
+                      </Box>
+
+                      {/* Segmented Category Mix Bar */}
+                      <Box sx={{ height: 10, borderRadius: 5, bgcolor: 'var(--bc-track)', overflow: 'hidden' }}>
                         <Box sx={{ width: `${barWidth}%`, height: '100%', display: 'flex' }}>
                           {suppressed ? (
                             <Box sx={{ flex: 1, bgcolor: C.pending }} />
@@ -586,137 +711,201 @@ export function BiteCasesOverviewTab({
                         </Box>
                       </Box>
 
-                      {/* Total cases & percentage */}
-                      <Box sx={{ textAlign: 'right' }}>
-                        <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: 'var(--bc-text)', lineHeight: 1.1 }}>
-                          {suppressed ? '<5' : total}
-                        </Typography>
+                      {/* Stat */}
+                      <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: 'var(--bc-text)', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {suppressed ? '<5' : total}{' '}
                         {!suppressed && (
-                          <Typography sx={{ fontSize: 10.5, fontWeight: 600, color: 'var(--bc-text-secondary)', lineHeight: 1.1 }}>
-                            {pct}
+                          <Typography component="span" sx={{ fontSize: 11.5, fontWeight: 500, color: 'var(--bc-text-secondary)' }}>
+                            · {pct}
                           </Typography>
                         )}
-                      </Box>
-
-                      {/* Drill-down chevron */}
-                      <ChevronRightOutlined aria-hidden="true" sx={{ fontSize: 16, color: 'var(--bc-text-secondary)' }} />
+                      </Typography>
                     </Box>
                   </Tooltip>
                 );
               })}
             </Box>
           )}
-          <Box sx={{ mt: 'auto', pt: 1.5 }}>
-            <Legend
-              items={[
-                { label: 'Category III (High risk)', color: C.catIII },
-                { label: 'Category II', color: C.catII },
-                { label: 'Category I', color: C.catI },
-                { label: 'Not assessed', color: C.pending },
-              ]}
+
+          {/* Legend and Show all places link */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mt: 1.5, px: 1 }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.75 }}>
+              <LegendDot color={C.catIII} label="Cat III" />
+              <LegendDot color={C.catII} label="Cat II" />
+              <LegendDot color={C.catI} label="Cat I" />
+              <LegendDot color={C.pending} label="Not assessed" />
+            </Box>
+            {namedBarangays.length > 4 && (
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => setShowAllPlaces(!showAllPlaces)}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#0f766e',
+                  p: 0,
+                  minWidth: 'auto',
+                  '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
+                }}
+              >
+                {showAllPlaces ? 'Show top 4' : 'Show all places'}
+              </Button>
+            )}
+          </Box>
+
+          {/* Unrecorded Notice Banner */}
+          {unrecordedCount > 0 && (
+            <Box
+              sx={{
+                mt: 2,
+                p: 1.5,
+                borderRadius: '10px',
+                bgcolor: 'rgba(254, 243, 199, 0.45)',
+                border: '1px solid #fde68a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 1.5,
+              }}
+            >
+              <Typography sx={{ fontSize: 13, fontWeight: 500, color: '#92400e' }}>
+                <strong style={{ fontWeight: 700 }}>{unrecordedCount} case{unrecordedCount === 1 ? '' : 's'} ({formatPct(unrecordedCount, totalRecorded)})</strong> have no place recorded, so they are not on the map.
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => onDrillDownFilter({ search: 'not recorded' })}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  bgcolor: '#ffffff',
+                  borderColor: '#d1d5db',
+                  color: '#374151',
+                  borderRadius: '8px',
+                  px: 1.75,
+                  py: 0.4,
+                  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.04)',
+                  '&:hover': { bgcolor: '#f9fafb', borderColor: '#9ca3af' },
+                }}
+              >
+                Review records
+              </Button>
+            </Box>
+          )}
+        </Section>
+      </Box>
+
+      {/* ── 3. Biting animal, Age group, and Sex ── */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+        {/* Card 1: Biting animal */}
+        <Section title="Biting animal">
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+            <ProfileMetricRow
+              label="Cat"
+              count={doh?.animals.cat ?? 0}
+              total={totalRecorded}
+              color="#0f766e"
+              onClick={() => onDrillDownFilter({ animal: 'cat' })}
             />
+            <ProfileMetricRow
+              label="Dog"
+              count={doh?.animals.dog ?? 0}
+              total={totalRecorded}
+              color="#0f766e"
+              onClick={() => onDrillDownFilter({ animal: 'dog' })}
+            />
+            {(doh?.animals.other ?? 0) > 0 && (
+              <ProfileMetricRow
+                label="Other animal"
+                count={doh?.animals.other ?? 0}
+                total={totalRecorded}
+                color="#0f766e"
+                onClick={() => onDrillDownFilter({ animal: 'other' })}
+              />
+            )}
+            <ProfileMetricRow
+              label="Not recorded"
+              count={doh?.animals.unknown ?? 0}
+              total={totalRecorded}
+              color="#94a3b8"
+              onClick={() => onDrillDownFilter({ animal: 'unknown' })}
+            />
+          </Box>
+          <Box sx={{ mt: 'auto', pt: 2, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.6 }}>
+            <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)' }}>
+              Ownership: {doh?.animals.owned ?? 0} owned · {doh?.animals.stray ?? 0} stray ·
+            </Typography>
+            <Box
+              component="span"
+              sx={{
+                px: 0.8,
+                py: 0.15,
+                borderRadius: '6px',
+                bgcolor: '#fffbeb',
+                border: '1px solid #fde68a',
+                color: '#92400e',
+                fontSize: 11.5,
+                fontWeight: 600,
+              }}
+            >
+              {doh?.animals.animal_status_unknown ?? Math.max(0, totalRecorded - (doh?.animals.owned ?? 0) - (doh?.animals.stray ?? 0))} not recorded
+            </Box>
           </Box>
         </Section>
 
-        <Section title="Exposure category" hint="Select a category to view its cases.">
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <HorizontalDistBar
-              label="Category III"
-              count={catIII}
+        {/* Card 2: Age group */}
+        <Section title="Age group">
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+            <ProfileMetricRow
+              label="15 and above"
+              count={doh?.demographics.age_15_above ?? 0}
               total={totalRecorded}
-              color={C.catIII}
-              onClick={() => onDrillDownFilter({ severity: 'III', status: '' })}
+              color="#0f766e"
             />
-            <HorizontalDistBar
-              label="Category II"
-              count={catII}
+            <ProfileMetricRow
+              label="Under 15"
+              count={doh?.demographics.age_below_15 ?? 0}
               total={totalRecorded}
-              color={C.catII}
-              onClick={() => onDrillDownFilter({ severity: 'II', status: '' })}
+              color="#0f766e"
             />
-            <HorizontalDistBar
-              label="Category I"
-              count={catI}
-              total={totalRecorded}
-              color={C.catI}
-              onClick={() => onDrillDownFilter({ severity: 'I', status: '' })}
-            />
-            <HorizontalDistBar
-              label="Not yet assessed"
-              count={notYetAssessed}
-              total={totalRecorded}
-              color={C.pending}
-              onClick={() => onDrillDownFilter({ severity: 'not_yet_assessed', status: '' })}
-            />
-            {catMissing > 0 && (
-              <HorizontalDistBar
-                label="Assessed, category not recorded"
-                count={catMissing}
+            {(doh?.demographics.age_unknown ?? 0) > 0 && (
+              <ProfileMetricRow
+                label="Not recorded"
+                count={doh?.demographics.age_unknown ?? 0}
                 total={totalRecorded}
-                color={C.pending}
-                onClick={() => onDrillDownFilter({ severity: 'assessed_category_missing', status: '' })}
+                color="#94a3b8"
               />
             )}
           </Box>
         </Section>
-      </Box>
 
-      {/* ── 3. Animal and patient profile ── */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-        <Section title="Biting animal" hint="Select an animal to view its cases.">
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <HorizontalDistBar
-              label="Dog"
-              count={doh?.animals.dog ?? 0}
+        {/* Card 3: Sex */}
+        <Section title="Sex">
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+            <ProfileMetricRow
+              label="Female"
+              count={doh?.demographics.female ?? 0}
               total={totalRecorded}
-              color={C.neutral}
-              onClick={() => onDrillDownFilter({ animal: 'dog' })}
+              color="#0f766e"
             />
-            <HorizontalDistBar
-              label="Cat"
-              count={doh?.animals.cat ?? 0}
+            <ProfileMetricRow
+              label="Male"
+              count={doh?.demographics.male ?? 0}
               total={totalRecorded}
-              color={C.neutral}
-              onClick={() => onDrillDownFilter({ animal: 'cat' })}
+              color="#0f766e"
             />
-            <HorizontalDistBar
-              label="Other animal"
-              count={doh?.animals.other ?? 0}
-              total={totalRecorded}
-              color={C.neutral}
-              onClick={() => onDrillDownFilter({ animal: 'other' })}
-            />
-            <HorizontalDistBar
-              label="Not recorded"
-              count={doh?.animals.unknown ?? 0}
-              total={totalRecorded}
-              color={C.pending}
-              onClick={() => onDrillDownFilter({ animal: 'unknown' })}
-            />
-          </Box>
-          <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', mt: 'auto', pt: 1.25 }}>
-            Ownership: {doh?.animals.stray ?? 0} stray · {doh?.animals.owned ?? 0} owned · {doh?.animals.animal_status_unknown ?? 0} not recorded
-          </Typography>
-        </Section>
-
-        <Section title="Patient profile">
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 2, rowGap: 1 }}>
-            <Box>
-              <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'var(--bc-text-secondary)', mb: 0.25, px: 0.75 }}>
-                Age group
-              </Typography>
-              <HorizontalDistBar label="Under 15" count={doh?.demographics.age_below_15 ?? 0} total={totalRecorded} color={C.neutral} />
-              <HorizontalDistBar label="15 and above" count={doh?.demographics.age_15_above ?? 0} total={totalRecorded} color={C.neutral} />
-              <HorizontalDistBar label="Not recorded" count={doh?.demographics.age_unknown ?? 0} total={totalRecorded} color={C.pending} />
-            </Box>
-            <Box>
-              <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'var(--bc-text-secondary)', mb: 0.25, px: 0.75 }}>
-                Sex
-              </Typography>
-              <HorizontalDistBar label="Male" count={doh?.demographics.male ?? 0} total={totalRecorded} color={C.neutral} />
-              <HorizontalDistBar label="Female" count={doh?.demographics.female ?? 0} total={totalRecorded} color={C.neutral} />
-              <HorizontalDistBar label="Not recorded" count={doh?.demographics.unknown_sex ?? 0} total={totalRecorded} color={C.pending} />
-            </Box>
+            {(doh?.demographics.unknown_sex ?? 0) > 0 && (
+              <ProfileMetricRow
+                label="Not recorded"
+                count={doh?.demographics.unknown_sex ?? 0}
+                total={totalRecorded}
+                color="#94a3b8"
+              />
+            )}
           </Box>
         </Section>
       </Box>

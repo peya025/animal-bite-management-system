@@ -358,9 +358,9 @@ const INITIAL_FORM_DATA: TreatmentFormData = {
   body_part_affected_text: '',
   animal_type: '',
   animal_type_other: '',
-  animal_status: 'unknown',
-  animal_available: 'unknown',
-  animal_condition: 'unknown',
+  animal_status: '',
+  animal_available: '',
+  animal_condition: '',
   past_history_bite: '',
   past_bite_dates: '',
   pep_completed: '',
@@ -679,15 +679,18 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             ? 'other'
             : prev.animal_type,
         animal_type_other: animalOther || (animal && !FORM3_ANIMAL_SPECIES_OPTIONS.some((option) => option.value === animal.toLowerCase()) ? animal : ''),
-        animal_status: (bite?.animal_status || intake?.animal_ownership || intake?.animal_status || prev.animal_status || 'unknown') as any,
+        animal_status: (() => {
+          const raw = bite?.animal_status || intake?.animal_ownership || intake?.animal_status || prev.animal_status || '';
+          return ['owned', 'stray', 'unknown'].includes(raw) ? raw : '';
+        })() as any,
         animal_available: (bite?.animal_available != null
           ? (bite.animal_available ? 'yes' : 'no')
           : (intake?.animal_available != null
             ? (intake.animal_available ? 'yes' : 'no')
-            : (prev.animal_available || 'unknown'))) as any,
+            : (bite?.animal_available_answered || intake?.animal_available_answered ? 'unknown' : (prev.animal_available || '')))) as any,
         animal_condition: (bite?.animal_observation_status
           ? (bite.animal_observation_status === 'apparently_healthy' ? 'healthy' : (bite.animal_observation_status === 'dead' ? 'died' : bite.animal_observation_status))
-          : (intake?.animal_condition_reported === 'apparently_healthy' ? 'healthy' : (intake?.animal_condition_reported === 'dead' ? 'died' : (bite?.animal_condition_reported || intake?.animal_condition_reported || prev.animal_condition || 'unknown')))) as any,
+          : (intake?.animal_condition_reported === 'apparently_healthy' ? 'healthy' : (intake?.animal_condition_reported === 'dead' ? 'died' : (bite?.animal_condition_reported || intake?.animal_condition_reported || prev.animal_condition || '')))) as any,
         past_history_bite: card
           ? (card.past_bite_history ? 'yes' : 'no')
           : (['yes', 'no', 'unsure'].includes(intake?.past_bite_history) ? intake.past_bite_history : prev.past_history_bite),
@@ -1144,7 +1147,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       if (!Object.values(formData.body_part_affected).some(Boolean) && !formData.body_part_affected_text.trim()) {
         newFieldErrors.body_part_affected = 'Please select an option.';
       }
- else if (formData.animal_type === 'other' && !formData.animal_type_other.trim()) {
+      if (formData.animal_type === 'other' && !formData.animal_type_other.trim()) {
         newFieldErrors.animal_type_other = 'This field is required.';
       }
     }
@@ -1330,11 +1333,11 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           key => formData.body_part_affected[key as keyof typeof formData.body_part_affected]
         ),
         body_part_detail: formData.body_part_affected_text || null,
-        animal_type: undefined,
-        animal_type_other: undefined,
-        animal_status: undefined,
-        animal_available: undefined,
-        animal_condition: undefined,
+        animal_type: formData.animal_type || null,
+        animal_type_other: formData.animal_type === 'other' ? (formData.animal_type_other || null) : null,
+        animal_status: formData.animal_status || null,
+        animal_available: formData.animal_available || null,
+        animal_condition: formData.animal_condition || null,
         doses: effectiveFilledDoses.map(d => ({
           period: d.period,
           route: d.route || null,
@@ -1713,6 +1716,162 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             </span>
           )}
         </div>
+
+        {/* Animal Section */}
+        <section style={{ margin: '24px 0 0 0' }} aria-label="Animal">
+          <h3
+            style={{
+              fontSize: 15,
+              fontWeight: 700,
+              color: 'var(--text, #111827)',
+              margin: '0 0 16px 0',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            Animal
+          </h3>
+          <div
+            className="fm-grid fm-grid--2"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: '16px 20px',
+            }}
+          >
+            <div id="field-animal_type">
+              <SegmentedControl
+                label="Species"
+                options={[
+                  { value: 'dog', label: 'Dog' },
+                  { value: 'cat', label: 'Cat' },
+                  { value: 'other', label: 'Other' },
+                ]}
+                value={formData.animal_type || ''}
+                disabled={clinicalAssessmentLocked}
+                error={fieldErrors.animal_type}
+                onChange={(val) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    animal_type: val,
+                    animal_type_other: val !== 'other' ? '' : prev.animal_type_other,
+                  }));
+                  setFieldErrors(fe => {
+                    const next = { ...fe };
+                    delete next.animal_type;
+                    if (val !== 'other') delete next.animal_type_other;
+                    return next;
+                  });
+                }}
+              />
+              {formData.animal_type === 'other' && (
+                <div id="field-animal_type_other" style={{ marginTop: 8 }}>
+                  <input
+                    type="text"
+                    aria-label="Other species"
+                    placeholder="Specify other animal"
+                    value={formData.animal_type_other || ''}
+                    disabled={clinicalAssessmentLocked}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData(prev => ({ ...prev, animal_type_other: val }));
+                      if (val.trim()) {
+                        setFieldErrors(fe => {
+                          const next = { ...fe };
+                          delete next.animal_type_other;
+                          return next;
+                        });
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: 10,
+                      font: 'inherit',
+                      border: fieldErrors.animal_type_other ? '1.5px solid #ef4444' : '1px solid var(--border-color, #d1d5db)',
+                      borderRadius: BORDER_RADIUS,
+                      fontSize: 13,
+                      backgroundColor: isFormLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+                      color: 'var(--input-text, #111827)',
+                      boxSizing: 'border-box',
+                      outline: 'none',
+                    }}
+                  />
+                  {fieldErrors.animal_type_other && (
+                    <span style={{ color: '#ef4444', fontSize: 12, fontWeight: 500, marginTop: 4, display: 'block' }}>
+                      {fieldErrors.animal_type_other}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div id="field-animal_status">
+              <SegmentedControl
+                label="Ownership"
+                options={[
+                  { value: 'owned', label: 'Owned' },
+                  { value: 'stray', label: 'Stray' },
+                  { value: 'unknown', label: 'Unknown' },
+                ]}
+                value={formData.animal_status || ''}
+                disabled={clinicalAssessmentLocked}
+                error={fieldErrors.animal_status}
+                onChange={(val) => {
+                  setFormData(prev => ({ ...prev, animal_status: val as any }));
+                  setFieldErrors(fe => {
+                    const next = { ...fe };
+                    delete next.animal_status;
+                    return next;
+                  });
+                }}
+              />
+            </div>
+
+            <div id="field-animal_available">
+              <SegmentedControl
+                label="Available for 14-day observation"
+                options={[
+                  { value: 'yes', label: 'Yes' },
+                  { value: 'no', label: 'No' },
+                  { value: 'unknown', label: 'Unknown' },
+                ]}
+                value={formData.animal_available || ''}
+                disabled={clinicalAssessmentLocked}
+                error={fieldErrors.animal_available}
+                onChange={(val) => {
+                  setFormData(prev => ({ ...prev, animal_available: val as any }));
+                  setFieldErrors(fe => {
+                    const next = { ...fe };
+                    delete next.animal_available;
+                    return next;
+                  });
+                }}
+              />
+            </div>
+
+            <div id="field-animal_condition">
+              <SegmentedControl
+                label="Condition"
+                options={[
+                  { value: 'healthy', label: 'Healthy' },
+                  { value: 'sick', label: 'Sick' },
+                  { value: 'died', label: 'Dead' },
+                  { value: 'unknown', label: 'Unknown' },
+                ]}
+                value={formData.animal_condition || ''}
+                disabled={clinicalAssessmentLocked}
+                error={fieldErrors.animal_condition}
+                onChange={(val) => {
+                  setFormData(prev => ({ ...prev, animal_condition: val as any }));
+                  setFieldErrors(fe => {
+                    const next = { ...fe };
+                    delete next.animal_condition;
+                    return next;
+                  });
+                }}
+              />
+            </div>
+          </div>
+        </section>
       </FormSection>
 
       {/* 3. HISTORY */}

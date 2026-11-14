@@ -496,29 +496,6 @@ function Form1TabView({
   const civilStatusRaw = firstNonEmpty(details.civil_status, patient.civil_status);
   const spouseRaw = firstNonEmpty(details.spouse_name, patient.spouse_name);
 
-  // Animal fields strictly from the selected incident
-  const animalSpecies = (() => {
-    const type = String(incident.animal_type || '').toLowerCase();
-    if (type === 'other' && incident.animal_type_others) {
-      return `Other (${incident.animal_type_others})`;
-    }
-    return ANIMAL_TYPE_LABELS[type] || asDisplayValue(incident.animal_type);
-  })();
-
-  const animalOwnership = asOption(incident.animal_status, ANIMAL_STATUS_LABELS);
-  const animalAvailable = (() => {
-    if (incident.animal_available === true) return 'Yes';
-    if (incident.animal_available === false) return 'No';
-    if (incident.animal_available === null || incident.animal_available === undefined) {
-      return incident.animal_available_answered ? 'Unknown' : '—';
-    }
-    return asDisplayValue(incident.animal_available);
-  })();
-  const animalCondition = asOption(
-    firstNonEmpty(incident.animal_observation_status, incident.animal_condition),
-    ANIMAL_OBSERVATION_LABELS
-  );
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
       {/* Header Banner */}
@@ -597,16 +574,6 @@ function Form1TabView({
           <ReadOnlyField label="Indigenous Tribe" value={asDisplayValue(indigenous?.extra_value)} />
           <ReadOnlyField label="Other Membership" value={asDisplayValue(other?.membership_label)} />
           <ReadOnlyField label="Other Membership ID" value={asDisplayValue(other?.membership_id_no)} />
-        </Box>
-      </ReadOnlySection>
-
-      {/* Animal field: Positioned in its correct Form 1 position, above Section III */}
-      <ReadOnlySection title="Animal Information" subtitle="Recorded during initial patient registration">
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2 }}>
-          <ReadOnlyField label="Species" value={animalSpecies} />
-          <ReadOnlyField label="Ownership" value={animalOwnership} />
-          <ReadOnlyField label="Available for 14-day observation" value={animalAvailable} />
-          <ReadOnlyField label="Condition" value={animalCondition} />
         </Box>
       </ReadOnlySection>
 
@@ -982,6 +949,30 @@ function Form3TabView({
     (r) => r.dose_number === null && (r.medication_given || r.dose_iu || r.tt_status)
   );
 
+  const animalSpecies = (() => {
+    const type = String(firstNonEmpty(treatmentCard?.animal_type, incident.animal_type) || '').toLowerCase();
+    const other = firstNonEmpty(treatmentCard?.animal_type_others, incident.animal_type_others);
+    if (type === 'other' && other) {
+      return `Other (${other})`;
+    }
+    return ANIMAL_TYPE_LABELS[type] || asDisplayValue(firstNonEmpty(treatmentCard?.animal_type, incident.animal_type));
+  })();
+
+  const animalOwnership = asOption(firstNonEmpty(treatmentCard?.animal_status, incident.animal_status), ANIMAL_STATUS_LABELS);
+  const animalAvailable = (() => {
+    const avail = firstNonEmpty(treatmentCard?.animal_available, incident.animal_available);
+    if (avail === true || avail === 'yes' || avail === 1) return 'Yes';
+    if (avail === false || avail === 'no' || avail === 0) return 'No';
+    if (avail === null || avail === undefined) {
+      return (incident.animal_available_answered || treatmentCard?.animal_available_answered) ? 'Unknown' : '—';
+    }
+    return asDisplayValue(avail);
+  })();
+  const animalCondition = asOption(
+    firstNonEmpty(treatmentCard?.animal_observation_status, incident.animal_observation_status, treatmentCard?.animal_condition, incident.animal_condition),
+    ANIMAL_OBSERVATION_LABELS
+  );
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
       {/* Header Banner */}
@@ -1010,10 +1001,6 @@ function Form3TabView({
             value={`Category ${category}`}
             badge={`Category ${category}`}
             badgeTone={categoryTone}
-          />
-          <ReadOnlyField
-            label="Animal Type"
-            value={asOption(firstNonEmpty(treatmentCard?.animal_type, incident.animal_type), ANIMAL_TYPE_LABELS)}
           />
           <ReadOnlyField
             label="Past Bite History"
@@ -1049,6 +1036,19 @@ function Form3TabView({
             value={asDisplayValue(firstNonEmpty(treatmentCard?.body_part_affected_text, incident.bite_place))}
             fullWidth
           />
+        </Box>
+
+        {/* Animal Section */}
+        <Box sx={{ mt: 2.5, pt: 2, borderTop: '1px dashed var(--border-glow, #e5e7eb)' }}>
+          <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'var(--text-h, #374151)', mb: 1.5, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+            Animal
+          </Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2 }}>
+            <ReadOnlyField label="Species" value={animalSpecies} />
+            <ReadOnlyField label="Ownership" value={animalOwnership} />
+            <ReadOnlyField label="Available for 14-day observation" value={animalAvailable} />
+            <ReadOnlyField label="Condition" value={animalCondition} />
+          </Box>
         </Box>
       </ReadOnlySection>
 

@@ -184,6 +184,36 @@ class VaccinationRecordService
                 $animalType = 'other';
             }
 
+            $animalStatus = isset($validated['animal_status']) && $validated['animal_status'] !== ''
+                ? strtolower(trim((string) $validated['animal_status']))
+                : null;
+            if ($animalStatus && !in_array($animalStatus, ['owned', 'stray', 'unknown'], true)) {
+                $animalStatus = 'unknown';
+            }
+
+            $animalAvailable = null;
+            $animalAvailableAnswered = false;
+            if (isset($validated['animal_available']) && $validated['animal_available'] !== '') {
+                $animalAvailableAnswered = true;
+                $rawAvail = strtolower(trim((string) $validated['animal_available']));
+                $animalAvailable = match ($rawAvail) {
+                    'yes', 'true', '1' => true,
+                    'no', 'false', '0' => false,
+                    default => null,
+                };
+            }
+
+            $animalObservationStatus = null;
+            if (isset($validated['animal_condition']) && $validated['animal_condition'] !== '') {
+                $rawCond = strtolower(trim((string) $validated['animal_condition']));
+                $animalObservationStatus = match ($rawCond) {
+                    'apparently_healthy', 'healthy' => 'healthy',
+                    'dead', 'died' => 'died',
+                    'sick' => 'sick',
+                    default => 'unknown',
+                };
+            }
+
             $assessmentUpdates = array_filter([
                 'bite_date'                 => $validated['date_of_exposure'] ?? null,
                 'bite_place'                => $validated['place_of_exposure'] ?? null,
@@ -193,19 +223,41 @@ class VaccinationRecordService
                 'site_number'               => $validated['body_part_detail'] ?? null,
                 'animal_type'               => $animalType ?: null,
                 'animal_type_others'        => $animalType === 'other' ? ($animalTypeOther ?: null) : null,
+                'animal_status'             => $animalStatus ?: null,
+                'animal_observation_status' => $animalObservationStatus ?: null,
             ], fn($v) => $v !== null && $v !== '');
 
+<<<<<<< HEAD
             if (!empty($assessmentUpdates['bite_date']) && BiteIncident::supportsProvisionalBiteDateColumn()) {
                 $assessmentUpdates['bite_date_is_provisional'] = false;
+=======
+            if ($animalAvailableAnswered) {
+                $assessmentUpdates['animal_available'] = $animalAvailable;
+                $assessmentUpdates['animal_available_answered'] = true;
+>>>>>>> 62e719fde35625a53d611a6a887bbe507d542491
             }
 
             if ($assessmentUpdates) {
                 $treatmentIncident->update($assessmentUpdates);
                 $treatmentIncident->loadMissing('intake');
-                $treatmentIncident->intake?->update([
+                $intakeUpdates = [
                     'clinically_reviewed_by' => $userId,
                     'clinically_reviewed_at' => now(),
-                ]);
+                ];
+                if (isset($assessmentUpdates['animal_type'])) {
+                    $intakeUpdates['animal_type'] = $assessmentUpdates['animal_type'];
+                    $intakeUpdates['animal_type_others'] = $assessmentUpdates['animal_type_others'] ?? null;
+                }
+                if (isset($assessmentUpdates['animal_status'])) {
+                    $intakeUpdates['animal_status'] = $assessmentUpdates['animal_status'];
+                }
+                if ($animalAvailableAnswered) {
+                    $intakeUpdates['animal_available'] = $animalAvailable;
+                }
+                if ($animalObservationStatus) {
+                    $intakeUpdates['animal_condition_reported'] = $animalObservationStatus;
+                }
+                $treatmentIncident->intake?->update($intakeUpdates);
                 $treatmentIncident->refresh();
             }
 

@@ -380,7 +380,7 @@ export default function AdminReportsPage({ initialTab }: { initialTab?: 'summary
   const selectedColumns = records ? Object.keys(records.records.columns) : [];
   const recordIsCurrent = records?.meta.title === ({ surveillance: 'Bite Surveillance', pep: 'PEP Treatment Outcomes', followup: 'Overdue Doses & Follow-up', awaiting: 'Awaiting First Dose', referrals: 'Referrals & Transfers' } as Record<Report, string>)[report];
 
-  return <Box sx={{ px: { xs: 1, sm: 3 }, pb: 4 }}>
+  return <Box sx={{ px: { xs: 1, sm: 3 }, pb: 24 }}>
     <Box sx={{ mb: 3 }}>
       <Typography component="h1" sx={{ fontSize: 24, fontWeight: 700, color: 'text.primary' }}>Reports &amp; Analytics</Typography>
       <Typography variant="caption" color="text.secondary">
@@ -466,7 +466,12 @@ export default function AdminReportsPage({ initialTab }: { initialTab?: 'summary
         data-tour="admin-reports-action-cards"
         sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 2fr) minmax(270px, 1fr)' }, gap: 2 }}
       >
-        <Paper elevation={0} sx={{ ...panelSx, p: 2.5 }}>
+        <Paper
+          data-walkthrough="admin-reports-overdue-card"
+          data-tour="admin-reports-overdue-card"
+          elevation={0}
+          sx={{ ...panelSx, p: 2.5 }}
+        >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 1, flexWrap: 'wrap', mb: 2 }}>
             <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700 }}>Overdue dose follow-up</Typography>
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
@@ -484,7 +489,12 @@ export default function AdminReportsPage({ initialTab }: { initialTab?: 'summary
             </Table>
           </TableContainer> : !followupError && <Typography variant="body2" color="text.secondary">No overdue prescribed doses currently recorded for this category.</Typography>}
         </Paper>
-        <Paper elevation={0} sx={{ ...panelSx, p: 2.5 }}>
+        <Paper
+          data-walkthrough="admin-reports-vaccine-stock-card"
+          data-tour="admin-reports-vaccine-stock-card"
+          elevation={0}
+          sx={{ ...panelSx, p: 2.5 }}
+        >
           <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, mb: 2 }}>Vaccine stock</Typography>
           {inventoryError && <Alert severity="warning" sx={{ mb: 2 }}>{inventoryError}</Alert>}
           {inventory ? <Stack spacing={1.3} sx={{ mb: 2 }}>

@@ -37,6 +37,17 @@ export const walkthroughStyles = `
   animation: walkthroughPulse 2s infinite ease-in-out;
 }
 
+.walkthrough-tabs-illuminated {
+  position: fixed;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1.5px solid rgba(16, 185, 129, 0.55);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+  pointer-events: none;
+  z-index: ${WALKTHROUGH_Z_INDEX + 1};
+  transition: all 0.2s ease;
+}
+
 @keyframes walkthroughPulse {
   0%, 100% {
     box-shadow: 0 0 14px rgba(16, 185, 129, 0.4);
@@ -59,7 +70,7 @@ export const walkthroughStyles = `
   color: var(--text-h, #0f172a);
   border: 1px solid var(--border-glow, rgba(16, 185, 129, 0.35));
   border-radius: 16px;
-  padding: 16px 18px;
+  padding: 12px 16px;
   box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(16, 185, 129, 0.12);
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   animation: walkthroughCardFadeIn 0.2s ease;
@@ -86,7 +97,7 @@ export const walkthroughStyles = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .walkthrough-step-badge {
@@ -102,7 +113,7 @@ export const walkthroughStyles = `
   border: 1px solid #a7f3d0;
 }
 
-.walkthrough-progress { display: flex; gap: 3px; height: 5px; margin: 2px 0 15px; }
+.walkthrough-progress { display: flex; gap: 3px; height: 5px; margin: 2px 0 10px; }
 .walkthrough-progress span { display: block; flex: 1; height: 100%; border-radius: 8px; background: #edf0ef; transition: background .22s ease; }
 .walkthrough-progress span.done { background: #12b981; }
 .walkthrough-step-count { font-size: 11px; color: #6b7280; margin-left: auto; margin-right: 10px; }
@@ -168,17 +179,17 @@ export const walkthroughStyles = `
 }
 
 .walkthrough-title {
-  margin: 0 0 6px 0;
-  font-size: 16px;
+  margin: 0 0 5px 0;
+  font-size: 15.5px;
   font-weight: 700;
   line-height: 1.3;
   color: var(--text-h, #0f172a);
 }
 
 .walkthrough-content {
-  margin: 0 0 16px 0;
-  font-size: 13px;
-  line-height: 1.55;
+  margin: 0 0 10px 0;
+  font-size: 12.5px;
+  line-height: 1.5;
   color: var(--text-secondary, #475569);
   font-weight: 400;
 }
@@ -188,7 +199,7 @@ export const walkthroughStyles = `
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid var(--border-subtle, #f1f5f9);
 }
 

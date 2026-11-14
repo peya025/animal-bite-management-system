@@ -1641,6 +1641,8 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
 
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
           <Button
+            data-walkthrough={isDoctor ? 'doctor-reports-print-btn' : 'nurse-reports-print-btn'}
+            data-tour={isDoctor ? 'doctor-reports-print-btn' : 'nurse-reports-print-btn'}
             variant="contained"
             startIcon={<PrintOutlined />}
             onClick={handleOpenPrint}
@@ -1664,6 +1666,8 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
 
       {/* ── Section Tabs ───────────────────────────────────────── */}
       <Tabs
+        data-walkthrough={isDoctor ? 'doctor-reports-tabs' : 'nurse-reports-tabs'}
+        data-tour={isDoctor ? 'doctor-reports-tabs' : 'nurse-reports-tabs'}
         value={activeTab}
         onChange={handleTabChange}
         variant="scrollable"
@@ -1690,10 +1694,32 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
           },
         }}
       >
-        <Tab value="summary" label="Summary & Overview" />
-        <Tab value="cases" label="Bite Cases" />
-        <Tab value="patients" label="Patients" />
-        {!isDoctor && <Tab value="inventory" label="Vaccine Inventory & Wastage" />}
+        <Tab
+          value="summary"
+          label="Summary & Overview"
+          data-walkthrough={isDoctor ? 'doctor-reports-tab-summary' : 'nurse-reports-tab-summary'}
+          data-tour={isDoctor ? 'doctor-reports-tab-summary' : 'nurse-reports-tab-summary'}
+        />
+        <Tab
+          value="cases"
+          label="Bite Cases"
+          data-walkthrough={isDoctor ? 'doctor-reports-tab-cases' : 'nurse-reports-tab-cases'}
+          data-tour={isDoctor ? 'doctor-reports-tab-cases' : 'nurse-reports-tab-cases'}
+        />
+        <Tab
+          value="patients"
+          label="Patients"
+          data-walkthrough={isDoctor ? 'doctor-reports-tab-patients' : 'nurse-reports-tab-patients'}
+          data-tour={isDoctor ? 'doctor-reports-tab-patients' : 'nurse-reports-tab-patients'}
+        />
+        {!isDoctor && (
+          <Tab
+            value="inventory"
+            label="Vaccine Inventory & Wastage"
+            data-walkthrough="nurse-reports-tab-inventory"
+            data-tour="nurse-reports-tab-inventory"
+          />
+        )}
       </Tabs>
 
       {/* ── Contextual Filter Bar ───────────────────────────────── */}
@@ -1708,7 +1734,11 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
       >
           {/* Summary Tab Filters */}
           {activeTab === 'summary' && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Box
+              data-walkthrough={isDoctor ? 'doctor-reports-summary-filters' : 'nurse-reports-summary-filters'}
+              data-tour={isDoctor ? 'doctor-reports-summary-filters' : 'nurse-reports-summary-filters'}
+              sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}
+            >
               {/* Row 1: Period, Category, Municipality, Barangay, Date range, Apply */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
                 <TextField
@@ -1863,7 +1893,11 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
 
           {/* Bite Cases Tab Filters */}
           {activeTab === 'cases' && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Box
+              data-walkthrough={isDoctor ? 'doctor-reports-cases-filters' : 'nurse-reports-cases-filters'}
+              data-tour={isDoctor ? 'doctor-reports-cases-filters' : 'nurse-reports-cases-filters'}
+              sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}
+            >
               <TextField
                 select
                 size="small"
@@ -2046,7 +2080,11 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
           {/* Patients Tab Filters */}
 
           {activeTab === 'patients' && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Box
+              data-walkthrough={isDoctor ? 'doctor-reports-patients-filters' : 'nurse-reports-patients-filters'}
+              data-tour={isDoctor ? 'doctor-reports-patients-filters' : 'nurse-reports-patients-filters'}
+              sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}
+            >
               <TextField
                 select
                 size="small"
@@ -2156,7 +2194,11 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
 
           {/* Inventory Tab Filters */}
           {!isDoctor && activeTab === 'inventory' && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Box
+              data-walkthrough="nurse-reports-inventory-filters"
+              data-tour="nurse-reports-inventory-filters"
+              sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}
+            >
               <TextField
                 select
                 size="small"
@@ -2305,6 +2347,8 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
             </Box>
           ) : (
             <Box
+              data-walkthrough={isDoctor ? 'doctor-reports-kpi-cards' : 'nurse-reports-kpi-cards'}
+              data-tour={isDoctor ? 'doctor-reports-kpi-cards' : 'nurse-reports-kpi-cards'}
               sx={{
                 display: 'grid',
                 gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)', lg: 'repeat(6, 1fr)' },
@@ -2364,7 +2408,11 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
           )}
 
           {/* Category Breakdown Cards */}
-          <Box sx={{ mb: 3 }}>
+          <Box
+            data-walkthrough={isDoctor ? 'doctor-reports-category-cards' : 'nurse-reports-category-cards'}
+            data-tour={isDoctor ? 'doctor-reports-category-cards' : 'nurse-reports-category-cards'}
+            sx={{ mb: 3 }}
+          >
             <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, fontFamily: POPPINS, mb: 1.5, color: 'text.primary' }}>
               Bite Case Categories (Period Breakdown)
             </Typography>
@@ -2401,7 +2449,12 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
 
           {/* Card Drilldown / Inspection Table */}
           {cardData && (
-            <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2, sm: 2.5 }, mb: 3, borderColor: '#10b981' }}>
+            <Paper
+              data-walkthrough={isDoctor ? 'doctor-reports-drilldown-table' : 'nurse-reports-drilldown-table'}
+              data-tour={isDoctor ? 'doctor-reports-drilldown-table' : 'nurse-reports-drilldown-table'}
+              elevation={0}
+              sx={{ ...panelSx, p: { xs: 2, sm: 2.5 }, mb: 3, borderColor: '#10b981' }}
+            >
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Box>
                   <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, fontFamily: POPPINS }}>
@@ -2500,7 +2553,12 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
 
           {/* Category Dropdown Inspection Table */}
           {!cardData && summaryCatFilter !== 'ALL' && (
-            <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2, sm: 2.5 }, mb: 3, borderColor: '#10b981' }}>
+            <Paper
+              data-walkthrough={isDoctor ? 'doctor-reports-drilldown-table' : 'nurse-reports-drilldown-table'}
+              data-tour={isDoctor ? 'doctor-reports-drilldown-table' : 'nurse-reports-drilldown-table'}
+              elevation={0}
+              sx={{ ...panelSx, p: { xs: 2, sm: 2.5 }, mb: 3, borderColor: '#10b981' }}
+            >
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Box>
                   <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, fontFamily: POPPINS }}>
@@ -2566,7 +2624,12 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
       {/* ── TAB 2: BITE CASES ─────────────────────────────────── */}
       {/* ══════════════════════════════════════════════════════════ */}
       {activeTab === 'cases' && (
-        <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2, sm: 2.5 } }}>
+        <Paper
+          data-walkthrough={isDoctor ? 'doctor-reports-cases-table' : 'nurse-reports-cases-table'}
+          data-tour={isDoctor ? 'doctor-reports-cases-table' : 'nurse-reports-cases-table'}
+          elevation={0}
+          sx={{ ...panelSx, p: { xs: 2, sm: 2.5 } }}
+        >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
             <Box>
               <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, fontFamily: POPPINS }}>
@@ -2663,7 +2726,12 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
       {/* ── TAB 3: PATIENTS ───────────────────────────────────── */}
       {/* ══════════════════════════════════════════════════════════ */}
       {activeTab === 'patients' && (
-        <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2, sm: 2.5 } }}>
+        <Paper
+          data-walkthrough={isDoctor ? 'doctor-reports-patients-table' : 'nurse-reports-patients-table'}
+          data-tour={isDoctor ? 'doctor-reports-patients-table' : 'nurse-reports-patients-table'}
+          elevation={0}
+          sx={{ ...panelSx, p: { xs: 2, sm: 2.5 } }}
+        >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
             <Box>
               <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, fontFamily: POPPINS }}>
@@ -2755,6 +2823,8 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
         <>
           {/* Stock Metrics Overview */}
           <Box
+            data-walkthrough="nurse-reports-inventory-kpis"
+            data-tour="nurse-reports-inventory-kpis"
             sx={{
               display: 'grid',
               gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(5, 1fr)' },
@@ -2864,7 +2934,12 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
           </Box>
 
           {/* Detailed Batch Utilization Table */}
-          <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2, sm: 2.5 } }}>
+          <Paper
+            data-walkthrough="nurse-reports-inventory-table"
+            data-tour="nurse-reports-inventory-table"
+            elevation={0}
+            sx={{ ...panelSx, p: { xs: 2, sm: 2.5 } }}
+          >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
               <Box>
                 <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, fontFamily: POPPINS }}>

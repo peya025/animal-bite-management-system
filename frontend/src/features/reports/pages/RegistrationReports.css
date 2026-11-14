@@ -48,6 +48,15 @@
 .rr-grid { display: grid; gap: 16px; }
 .rr-grid-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .rr-grid-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.rr-overview-kpi-group,
+.rr-surveillance-charts-section,
+.rr-pep-table-section,
+.rr-surveillance-table-section,
+.rr-clinic-summary-table-section {
+  display: block;
+  width: 100%;
+}
 .rr-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .rr-filter-row .MuiTextField-root { min-width: 155px; flex: 1 1 155px; }
 .rr-note, .rr-definitions { color: var(--rr-muted); font-size: 12px; line-height: 1.6; }

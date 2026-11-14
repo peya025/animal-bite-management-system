@@ -98,9 +98,10 @@ function queryPrioritySelector(selectorList?: string): HTMLElement | null {
   return null;
 }
 
-function scrollElementIntoOptimalView(el: HTMLElement, placement: WalkthroughPlacement): void {
-  if (placement === 'center') return;
+function scrollElementIntoOptimalView(el: HTMLElement, placement: WalkthroughPlacement): boolean {
+  if (placement === 'center') return true;
   const vh = window.innerHeight;
+  const vw = window.innerWidth;
   const pageContent = document.querySelector<HTMLElement>('.page-content');
   const sidebarNav = document.querySelector<HTMLElement>('.sidebar-nav');
 
@@ -113,7 +114,7 @@ function scrollElementIntoOptimalView(el: HTMLElement, placement: WalkthroughPla
         sidebarNav.scrollTop + (elRect.top - navRect.top) - Math.max(16, (navRect.height - elRect.height) / 2);
       sidebarNav.scrollTop = Math.max(0, targetScroll);
     }
-    return;
+    return true;
   }
 
   // If element is inside .page-content (the main scrollable workspace)
@@ -122,85 +123,54 @@ function scrollElementIntoOptimalView(el: HTMLElement, placement: WalkthroughPla
     const elRect = el.getBoundingClientRect();
     const topHeaderBottom = Math.max(containerRect.top, 68);
     const maxScrollTop = Math.max(0, pageContent.scrollHeight - pageContent.clientHeight);
-    const maxPossibleTop = elRect.top + pageContent.scrollTop; // elRect.top when scrollTop === 0
-    const minPossibleTop = elRect.top - (maxScrollTop - pageContent.scrollTop); // elRect.top when scrollTop === maxScrollTop
 
-    // Case 1: Medium/Large container (>= 180px tall) with 'left' or 'right' placement
-    if (elRect.height >= 180 && (placement === 'left' || placement === 'right')) {
+    const MODAL_HEIGHT = 230;
+    const SAFE_GAP = 16;
+    const MARGIN = 16;
+    const MODAL_WIDTH = 340;
+
+    // Check if space is available beside the element (left or right)
+    const fitsRight = vw - elRect.right >= MODAL_WIDTH + SAFE_GAP + MARGIN;
+    const fitsLeft = elRect.left >= MODAL_WIDTH + SAFE_GAP + MARGIN;
+    const fitsBeside = fitsRight || fitsLeft;
+    const usableHeight = (vh - MARGIN) - topHeaderBottom;
+
+    // Case 1: Beside placement (element fits horizontally beside the modal)
+    if (fitsBeside && elRect.height < usableHeight) {
       if (elRect.top < topHeaderBottom + 12 || elRect.bottom > vh - 12) {
-        const desiredTop = topHeaderBottom + 20;
-        const delta = elRect.top - desiredTop;
+        const idealTop = topHeaderBottom + Math.max(16, (usableHeight - elRect.height) / 2);
+        const delta = elRect.top - idealTop;
         if (Math.abs(delta) > 8) {
           pageContent.scrollTop = Math.max(0, Math.min(maxScrollTop, pageContent.scrollTop + delta));
         }
       }
-      return;
+      return maxScrollTop > 0 || pageContent.scrollTop > 0;
     }
 
-    // Case 2: Medium/Large container (>= 180px tall) with 'top' tooltip placement
-    if (elRect.height >= 180 && placement === 'top') {
-      const desiredTopForAboveTooltip = Math.max(296, topHeaderBottom + 225);
-      // Check if scrolling up can actually push elRect.top down to desiredTopForAboveTooltip
-      if (maxPossibleTop >= desiredTopForAboveTooltip - 16) {
-        const delta = elRect.top - desiredTopForAboveTooltip;
-        if (Math.abs(delta) > 6) {
-          pageContent.scrollTop = Math.max(0, Math.min(maxScrollTop, pageContent.scrollTop + delta));
-        }
-      } else {
-        // Container is near the top of the document and cannot be pushed down far enough for 'top' tooltip;
-        // scroll it up near topHeaderBottom so the tooltip fits cleanly BELOW it instead.
-        const desiredTopForBelowTooltip = topHeaderBottom + 14;
-        const delta = elRect.top - desiredTopForBelowTooltip;
-        if (Math.abs(delta) > 6) {
-          pageContent.scrollTop = Math.max(0, Math.min(maxScrollTop, pageContent.scrollTop + delta));
-        }
+    // Case 2: Full width or large elements with placement 'bottom':
+    // Position element near sticky header so modal has maximum clearance below it!
+    if (placement === 'bottom') {
+      const minElTop = topHeaderBottom + 8;
+      const maxElBottom = (vh - MARGIN) - MODAL_HEIGHT - SAFE_GAP;
+      let desiredTop = minElTop;
+      if (minElTop + elRect.height > maxElBottom && maxElBottom - elRect.height >= topHeaderBottom) {
+        desiredTop = Math.max(topHeaderBottom, maxElBottom - elRect.height);
       }
-      return;
+      const delta = elRect.top - desiredTop;
+      if (Math.abs(delta) > 6) {
+        pageContent.scrollTop = Math.max(0, Math.min(maxScrollTop, pageContent.scrollTop + delta));
+      }
+      return maxScrollTop > 0 || pageContent.scrollTop > 0;
     }
 
-    // Case 3: Medium/Large container (>= 180px tall) with 'bottom' placement
-    if (elRect.height >= 180 && placement === 'bottom') {
-      // If it already fits at current scroll with room for tooltip below, keep it steady
-      if (elRect.top >= topHeaderBottom + 10 && elRect.bottom + 280 <= vh) {
-        return;
-      }
-      const desiredTopForBelowTooltip = topHeaderBottom + 14;
-      const projectedBottom = desiredTopForBelowTooltip + elRect.height;
-      if (minPossibleTop <= desiredTopForBelowTooltip + 16 && projectedBottom + 280 <= vh) {
-        const delta = elRect.top - desiredTopForBelowTooltip;
-        if (Math.abs(delta) > 6) {
-          pageContent.scrollTop = Math.max(0, Math.min(maxScrollTop, pageContent.scrollTop + delta));
-        }
-      } else {
-        // Too tall or too close to bottom of document for 'bottom' tooltip; position for 'top' tooltip
-        const desiredTopForAboveTooltip = Math.max(topHeaderBottom + 285, Math.round(vh * 0.4));
-        const delta = elRect.top - desiredTopForAboveTooltip;
-        if (Math.abs(delta) > 6) {
-          pageContent.scrollTop = Math.max(0, Math.min(maxScrollTop, pageContent.scrollTop + delta));
-        }
-      }
-      return;
-    }
-
-    // Case 4: Standard element (buttons, tabs, filter bars, rows)
-    const topReserve = placement === 'top' ? 270 : 24;
-    const bottomReserve = placement === 'bottom' ? 285 : 32;
-    const safeTop = topHeaderBottom + topReserve;
-    const safeBottom = vh - bottomReserve;
-
-    if (elRect.top < safeTop || elRect.bottom > safeBottom) {
-      let idealTop: number;
-      if (safeTop <= safeBottom - elRect.height) {
-        idealTop = safeTop + (safeBottom - safeTop - elRect.height) / 2;
-      } else if (placement === 'top') {
-        idealTop = topHeaderBottom + 265;
-      } else {
-        idealTop = topHeaderBottom + 16;
-      }
-      const delta = elRect.top - idealTop;
+    // Case 3: Elements with placement 'top' (e.g. tables, records, lower modules):
+    // Position top of element so there is generous clearance for the modal above it!
+    const desiredTop = topHeaderBottom + MODAL_HEIGHT + SAFE_GAP + 14;
+    const delta = elRect.top - desiredTop;
+    if (Math.abs(delta) > 6) {
       pageContent.scrollTop = Math.max(0, Math.min(maxScrollTop, pageContent.scrollTop + delta));
     }
-    return;
+    return maxScrollTop > 0 || pageContent.scrollTop > 0;
   }
 
   // Fallback for document/window scrolling
@@ -208,6 +178,7 @@ function scrollElementIntoOptimalView(el: HTMLElement, placement: WalkthroughPla
   if (elRect.top < 84 || elRect.bottom > vh - 84) {
     el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
   }
+  return true;
 }
 
 export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
@@ -228,6 +199,11 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
   const cardRef = useRef<HTMLDivElement | null>(null);
   const activeElementRef = useRef<HTMLElement | null>(null);
   const isFallbackRef = useRef<boolean>(false);
+  const stepScrolledRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    stepScrolledRef.current = null;
+  }, [step.id]);
 
   const isFirstStep = currentStepIndex === 0;
   const isLastStep = currentStepIndex === totalSteps - 1;
@@ -250,7 +226,7 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
       const cardW = cardRect && cardRect.width > 0 ? cardRect.width : defaultCardW;
       const cardH = cardRect && cardRect.height > 0 ? cardRect.height : 182;
       const MARGIN = 16;
-      const GAP = 14;
+      const SAFE_GAP = 16;
 
       if (!el || !document.body.contains(el) || !isElementVisible(el)) {
         setTargetRect((prev) => (prev === null ? null : null));
@@ -280,12 +256,133 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
       const rawRight = rawRect.right + pad;
       const rawBottom = rawRect.bottom + pad;
 
+      // True, immutable target spotlight boundaries - NEVER crop or truncate
       const sTop = Math.max(minSpotlightTop, Math.min(vh - 16, rawTop));
       const sLeft = Math.max(6, Math.min(vw - 16, rawLeft));
       const sRight = Math.max(sLeft + 16, Math.min(vw - 6, rawRight));
       const sBottom = Math.max(sTop + 16, Math.min(vh - 10, rawBottom));
-      const sWidth = sRight - sLeft;
       const sHeight = sBottom - sTop;
+      const sWidth = sRight - sLeft;
+
+      // Keep tooltip below fixed top app header when inside the main content area
+      const minTooltipTop = isInsidePageContent ? Math.max(pageContent ? pageContent.getBoundingClientRect().top : 68, 70) : MARGIN;
+
+      // Determine horizontal alignment for top/bottom placements
+      const preferredHorizontalLeft =
+        sWidth > 520
+          ? sLeft + Math.min(48, Math.max(0, (sWidth - cardW) * 0.2))
+          : sLeft + sWidth / 2 - cardW / 2;
+      const clampedHorizontalLeft = Math.max(MARGIN, Math.min(vw - cardW - MARGIN, preferredHorizontalLeft));
+
+      const preferredVerticalTop =
+        sHeight > 360
+          ? sTop + 24
+          : sTop + sHeight / 2 - cardH / 2;
+      const clampedVerticalTop = Math.max(minTooltipTop, Math.min(vh - cardH - MARGIN, preferredVerticalTop));
+
+      // Helper to strictly ensure the modal never overlaps the highlighted spotlight bounding box (12-20px spacing)
+      const overlapsSpotlight = (top: number, left: number): boolean => {
+        const mTop = top;
+        const mBottom = top + cardH;
+        const mLeft = left;
+        const mRight = left + cardW;
+        return !(
+          mRight <= sLeft - SAFE_GAP ||
+          mLeft >= sRight + SAFE_GAP ||
+          mBottom <= sTop - SAFE_GAP ||
+          mTop >= sBottom + SAFE_GAP
+        );
+      };
+
+      let chosen: TooltipCoords | null = null;
+
+      if (isFirstStep || step.placement === 'center') {
+        // Center the walkthrough modal directly in the viewport
+        const top = Math.max(MARGIN, Math.round((vh - cardH) / 2));
+        const left = Math.max(MARGIN, Math.round((vw - cardW) / 2));
+        chosen = { top, left };
+      } else {
+        // Automatic positioning logic:
+        // 1. Place the modal beside the highlighted feature when space is available.
+        // 2. If there is insufficient space beside, position it above or below.
+        // 3. Maintain at least 12–20px spacing.
+        const fitsRight = sRight + SAFE_GAP + cardW <= vw - MARGIN;
+        const fitsLeft = sLeft - SAFE_GAP - cardW >= MARGIN;
+
+        const besideCandidates: WalkthroughPlacement[] =
+          step.placement === 'left' ? ['left', 'right'] : ['right', 'left'];
+
+        for (const p of besideCandidates) {
+          if (p === 'right' && fitsRight) {
+            const left = sRight + SAFE_GAP;
+            const top = clampedVerticalTop;
+            if (!overlapsSpotlight(top, left)) {
+              chosen = { top, left };
+              break;
+            }
+          } else if (p === 'left' && fitsLeft) {
+            const left = sLeft - cardW - SAFE_GAP;
+            const top = clampedVerticalTop;
+            if (!overlapsSpotlight(top, left)) {
+              chosen = { top, left };
+              break;
+            }
+          }
+        }
+
+        // If insufficient space beside, position above or below
+        if (!chosen) {
+          if (step.placement === 'bottom') {
+            // Step requested bottom: place strictly below the spotlight
+            const top = sBottom + SAFE_GAP;
+            chosen = { top, left: clampedHorizontalLeft };
+
+            // If modal extends below the viewport bottom, scroll pageContent down so it fits
+            if (pageContent && top + cardH > vh - MARGIN) {
+              const overflow = (top + cardH) - (vh - MARGIN);
+              const maxScroll = Math.max(0, pageContent.scrollHeight - pageContent.clientHeight);
+              if (overflow > 4 && pageContent.scrollTop < maxScroll) {
+                pageContent.scrollTop = Math.min(maxScroll, pageContent.scrollTop + overflow + 12);
+              }
+            }
+          } else if (step.placement === 'top') {
+            // Step requested top: place strictly above the spotlight
+            const top = sTop - cardH - SAFE_GAP;
+            chosen = { top, left: clampedHorizontalLeft };
+
+            // If modal extends above minTooltipTop, scroll pageContent up so it fits
+            if (pageContent && top < minTooltipTop && pageContent.scrollTop > 0) {
+              const underflow = minTooltipTop - top;
+              if (underflow > 4) {
+                pageContent.scrollTop = Math.max(0, pageContent.scrollTop - underflow - 12);
+              }
+            }
+          } else {
+            // Auto / fallback vertical: choose whichever side has more space, but NEVER overlap the spotlight!
+            const spaceAbove = sTop - minTooltipTop;
+            const spaceBelow = vh - sBottom - MARGIN;
+
+            if (spaceAbove >= cardH + SAFE_GAP) {
+              chosen = { top: sTop - cardH - SAFE_GAP, left: clampedHorizontalLeft };
+            } else if (spaceBelow >= cardH + SAFE_GAP) {
+              chosen = { top: sBottom + SAFE_GAP, left: clampedHorizontalLeft };
+            } else if (spaceBelow >= spaceAbove) {
+              chosen = { top: sBottom + SAFE_GAP, left: clampedHorizontalLeft };
+            } else {
+              chosen = { top: sTop - cardH - SAFE_GAP, left: clampedHorizontalLeft };
+            }
+          }
+        }
+      }
+
+      // Final strict non-overlap enforcement: under NO circumstance can chosen overlap the spotlight
+      if (chosen && !isCenteredModal && overlapsSpotlight(chosen.top, chosen.left)) {
+        if (step.placement === 'top') {
+          chosen.top = sTop - cardH - SAFE_GAP;
+        } else {
+          chosen.top = sBottom + SAFE_GAP;
+        }
+      }
 
       setTargetRect((prev) => {
         if (
@@ -300,117 +397,7 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
         return { top: sTop, left: sLeft, width: sWidth, height: sHeight };
       });
 
-      // Determine horizontal alignment for top/bottom placements
-      const preferredHorizontalLeft =
-        sWidth > 520
-          ? sLeft + Math.min(48, Math.max(0, (sWidth - cardW) * 0.2))
-          : sLeft + sWidth / 2 - cardW / 2;
-      const clampedHorizontalLeft = Math.max(MARGIN, Math.min(vw - cardW - MARGIN, preferredHorizontalLeft));
-
-      const preferredVerticalTop =
-        sHeight > 360
-          ? sTop + 24
-          : sTop + sHeight / 2 - cardH / 2;
-      // Keep tooltip below the 68px top header when inside the main content area
-      const minTooltipTop = isInsidePageContent || sRight >= 60 ? 74 : MARGIN;
-      const clampedVerticalTop = Math.max(minTooltipTop, Math.min(vh - cardH - MARGIN, preferredVerticalTop));
-
-      // Helper to strictly ensure the modal never overlaps the highlighted spotlight bounding box
-      const overlapsSpotlight = (top: number, left: number): boolean => {
-        const mTop = top;
-        const mBottom = top + cardH;
-        const mLeft = left;
-        const mRight = left + cardW;
-        return !(
-          mRight <= sLeft ||
-          mLeft >= sRight ||
-          mBottom <= sTop ||
-          mTop >= sBottom
-        );
-      };
-
-      const candidates: WalkthroughPlacement[] = [
-        step.placement,
-        step.placement === 'bottom' ? 'top' : 'bottom',
-        step.placement === 'right' ? 'left' : 'right',
-        step.placement === 'left' ? 'right' : 'left',
-      ];
-      const uniqueCandidates = Array.from(new Set(candidates));
-
-      let chosen: TooltipCoords | null = null;
-
-      if (isFirstStep || step.placement === 'center') {
-        // Center the walkthrough modal directly in the viewport
-        const top = Math.max(MARGIN, Math.round((vh - cardH) / 2));
-        const left = Math.max(MARGIN, Math.round((vw - cardW) / 2));
-        chosen = { top, left };
-      } else {
-        for (const p of uniqueCandidates) {
-          if (p === 'bottom') {
-            const top = sBottom + GAP;
-            if (top + cardH <= vh - MARGIN && !overlapsSpotlight(top, clampedHorizontalLeft)) {
-              chosen = { top, left: clampedHorizontalLeft };
-              break;
-            }
-          } else if (p === 'top') {
-            const top = sTop - cardH - GAP;
-            if (top >= minTooltipTop && !overlapsSpotlight(top, clampedHorizontalLeft)) {
-              chosen = { top, left: clampedHorizontalLeft };
-              break;
-            }
-          } else if (p === 'right') {
-            const left = sRight + GAP;
-            if (left + cardW <= vw - MARGIN && !overlapsSpotlight(clampedVerticalTop, left)) {
-              chosen = { top: clampedVerticalTop, left };
-              break;
-            }
-          } else if (p === 'left') {
-            const left = sLeft - cardW - GAP;
-            if (left >= MARGIN && !overlapsSpotlight(clampedVerticalTop, left)) {
-              chosen = { top: clampedVerticalTop, left };
-              break;
-            }
-          }
-        }
-
-        if (!chosen) {
-          // If strict candidate placement didn't fit inside viewport bounds,
-          // choose a non-overlapping position so it NEVER enters the highlighted box
-          if (sRight + GAP + cardW <= vw - MARGIN) {
-            chosen = {
-              top: clampedVerticalTop,
-              left: sRight + GAP,
-            };
-          } else if (sLeft - cardW - GAP >= MARGIN) {
-            chosen = {
-              top: clampedVerticalTop,
-              left: sLeft - cardW - GAP,
-            };
-          } else {
-            const spaceAbove = sTop - minTooltipTop;
-            const spaceBelow = vh - MARGIN - sBottom;
-
-            if (spaceBelow >= spaceAbove) {
-              // Position strictly below sBottom, strictly clamped within viewport boundaries
-              chosen = {
-                top: Math.max(minTooltipTop, Math.min(vh - cardH - MARGIN, sBottom + GAP)),
-                left: clampedHorizontalLeft,
-              };
-            } else {
-              // Position strictly above sTop, strictly clamped within viewport boundaries
-              chosen = {
-                top: Math.max(minTooltipTop, Math.min(vh - cardH - MARGIN, sTop - cardH - GAP)),
-                left: clampedHorizontalLeft,
-              };
-            }
-          }
-        }
-      }
-
-      // Guarantee 100% that tooltip card stays completely within viewport boundaries
-      if (chosen) {
-        const maxTop = Math.max(minTooltipTop, vh - cardH - MARGIN);
-        chosen.top = Math.max(minTooltipTop, Math.min(maxTop, chosen.top));
+      if (chosen && !isCenteredModal) {
         chosen.left = Math.max(MARGIN, Math.min(vw - cardW - MARGIN, chosen.left));
       }
 
@@ -447,11 +434,20 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
     const tryResolve = () => {
       if (cancelled) return;
 
-      // If step targets an element inside a tab, trigger activateSelector first if not yet active
+      // If step targets an element inside a tab or subtab, trigger activateSelector first if not yet active
       if (step.activateSelector) {
-        const tabEl = document.querySelector<HTMLElement>(step.activateSelector);
-        if (tabEl && !tabEl.classList.contains('sd-dash-tab--active') && !tabEl.classList.contains('pm-tab-btn--active') && tabEl.getAttribute('aria-selected') !== 'true') {
-          tabEl.click();
+        const selectors = step.activateSelector.split(',').map((s) => s.trim()).filter(Boolean);
+        for (const selector of selectors) {
+          const tabEl = document.querySelector<HTMLElement>(selector);
+          if (
+            tabEl &&
+            !tabEl.classList.contains('sd-dash-tab--active') &&
+            !tabEl.classList.contains('pm-tab-btn--active') &&
+            !tabEl.classList.contains('MuiButton-contained') &&
+            tabEl.getAttribute('aria-selected') !== 'true'
+          ) {
+            tabEl.click();
+          }
         }
       }
 
@@ -463,8 +459,9 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
       if (primaryEl) {
         const wasDifferent = activeElementRef.current !== primaryEl || isFallbackRef.current;
         setActiveElement(primaryEl, false);
-        if (wasDifferent) {
-          scrollElementIntoOptimalView(primaryEl, step.placement);
+        if (wasDifferent || stepScrolledRef.current !== step.id) {
+          const didScroll = scrollElementIntoOptimalView(primaryEl, step.placement);
+          if (didScroll) stepScrolledRef.current = step.id;
         }
         computeLayoutFromElement(primaryEl);
         return;
@@ -513,10 +510,11 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
     const syncPosition = () => {
       const primaryEl = queryPrioritySelector(step.targetSelector);
       if (primaryEl) {
-        const shouldScroll = activeElementRef.current !== primaryEl;
+        const isElementNew = activeElementRef.current !== primaryEl;
         setActiveElement(primaryEl, false);
-        if (shouldScroll) {
-          scrollElementIntoOptimalView(primaryEl, step.placement);
+        if (isElementNew || stepScrolledRef.current !== step.id) {
+          const didScroll = scrollElementIntoOptimalView(primaryEl, step.placement);
+          if (didScroll) stepScrolledRef.current = step.id;
         }
       } else if (!activeElementRef.current || !document.body.contains(activeElementRef.current)) {
         const isPageLoading = Boolean(
@@ -544,6 +542,7 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
       const pageContent = document.querySelector('.page-content');
       if (pageContent) resizeObserver.observe(pageContent);
       if (activeElementRef.current) resizeObserver.observe(activeElementRef.current);
+      if (cardRef.current) resizeObserver.observe(cardRef.current);
     }
 
     const intervalId = setInterval(syncPosition, 120);
@@ -594,6 +593,7 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
       if (target && target instanceof HTMLElement) {
         target.click();
       }
+      return;
     }
   };
 

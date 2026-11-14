@@ -469,14 +469,29 @@ class TagoloanTreatmentCardService
             'handling_ingestion_raw_meat' => 'other',
             default => null,
         };
-        $incident->update(array_filter([
+        $incidentUpdates = array_filter([
             'bite_date' => $validated['date_of_exposure'] ?? null,
             'bite_place' => $validated['place_of_exposure'] ?? null,
             'exposure_mode' => $validated['mode_of_exposure'] ?? null,
             'exposure_type' => $exposureType,
             'body_part_exposed' => $validated['body_part_exposed'] ?? null,
             'site_number' => $validated['body_part_detail'] ?? null,
-        ], fn ($value) => $value !== null && $value !== ''));
+            'animal_type' => $validated['animal_type'] ?? null,
+            'animal_type_others' => ($validated['animal_type'] ?? null) === 'other' ? ($validated['animal_type_others'] ?? null) : null,
+            'animal_status' => $validated['animal_status'] ?? null,
+            'animal_observation_status' => isset($validated['animal_condition']) ? match ($validated['animal_condition']) { 'apparently_healthy', 'healthy' => 'healthy', 'dead', 'died' => 'died', 'sick' => 'sick', default => 'unknown' } : null,
+        ], fn ($value) => $value !== null && $value !== '');
+
+        if (isset($validated['animal_available']) && $validated['animal_available'] !== '') {
+            $incidentUpdates['animal_available_answered'] = true;
+            $incidentUpdates['animal_available'] = match (strtolower((string) $validated['animal_available'])) {
+                'yes', 'true', '1' => true,
+                'no', 'false', '0' => false,
+                default => null,
+            };
+        }
+
+        $incident->update($incidentUpdates);
 
         $incident->loadMissing('intake');
         $incident->intake?->update([

@@ -1,4 +1,3 @@
-import AnimalSection from './AddPatientModal/AnimalSection';
 import { useState, useEffect } from 'react';
 import FormModal from '../../../components/forms/FormModal';
 import { formatPhilHealthNumber, formatPWDNumber } from '../../../shared/utils';
@@ -300,9 +299,6 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
           <p className="registration-intro">Update patient details below. Click <strong>Save Changes</strong> to apply updates.</p>
           {error && <div className="registration-error">{error}</div>}
           <PatientInfoSection data={enrolment} onChange={handleFieldChange} />
-          {enrolment.animal_bite_id && (
-            <AnimalSection data={enrolment} onChange={handleFieldChange} />
-          )}
           <AddressSection loc={loc} />
           <ContactSection data={enrolment} onChange={handleFieldChange} />
           <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />

@@ -1,4 +1,3 @@
-import AnimalSection from '../AnimalSection';
 import OnlineReferralPhoto from '../../OnlineReferralPhoto';
 import React, { useState, useEffect, useContext } from 'react';
 import { FormField } from './FormField';
@@ -482,8 +481,6 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
           </>
         )}
       </div>
-
-      <AnimalSection data={data} onChange={onDirectChange} />
 
       {/* SECTION III: Consultation Details & Vitals */}
       {isSectionEnabled('triage_section_enabled') && (

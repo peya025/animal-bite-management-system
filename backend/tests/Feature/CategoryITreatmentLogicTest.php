@@ -812,4 +812,70 @@ class CategoryITreatmentLogicTest extends TestCase
         $this->assertSame('full_pep', $plan->plan_type);
         $this->assertSame('approved', $plan->status);
     }
+
+    public function test_form3_vaccination_record_saves_and_updates_animal_information(): void
+    {
+        $this->incident->update([
+            'severity' => 'moderate',
+            'exposure_category' => 'II',
+            'animal_type' => 'dog',
+            'animal_status' => 'owned',
+            'animal_available' => true,
+            'animal_observation_status' => 'healthy',
+        ]);
+
+        Sanctum::actingAs($this->doctor);
+        $this->postJson('/api/treatment-records', [
+            'patient_id' => $this->patient->patient_id,
+            'bite_id' => $this->incident->bite_id,
+            'queue_id' => $this->queue->queue_id,
+            'exposure_category' => 'II',
+            'nature_of_visit' => 'new_consultation',
+            'consultation_types' => ['general'],
+            'chief_complaints' => 'Minor scratch with bleeding',
+            'consultation_date' => '2026-10-26',
+            'prescribed_vaccine_type' => 'Speeda',
+            'treatment_plan' => 'full_pep',
+        ])->assertCreated();
+
+        Sanctum::actingAs($this->nurse);
+        $beforeIncidentCount = BiteIncident::count();
+
+        $saveVacRes = $this->postJson('/api/vaccination-records', [
+            'patient_id' => $this->patient->patient_id,
+            'bite_id' => $this->incident->bite_id,
+            'animal_type' => 'cat',
+            'animal_status' => 'stray',
+            'animal_available' => 'no',
+            'animal_condition' => 'sick',
+            'doses' => [
+                [
+                    'period' => 'Day 0',
+                    'route' => 'ID',
+                    'date' => '2026-10-26',
+                    'vaccine_type' => 'Speeda',
+                    'inventory_units_used' => 1,
+                ],
+            ],
+        ]);
+        $saveVacRes->assertCreated();
+
+        // No duplicate bite incident created
+        $this->assertSame($beforeIncidentCount, BiteIncident::count());
+
+        // Incident updated with nurse-verified Form 3 animal fields
+        $this->incident->refresh();
+        $this->assertSame('cat', $this->incident->animal_type);
+        $this->assertSame('stray', $this->incident->animal_status);
+        $this->assertFalse($this->incident->animal_available);
+        $this->assertTrue($this->incident->animal_available_answered);
+        $this->assertSame('sick', $this->incident->animal_observation_status);
+
+        // Map details endpoint returns updated animal info
+        $mapRes = $this->getJson('/api/cases/' . $this->incident->bite_id . '/map-details');
+        $mapRes->assertOk();
+        $mapRes->assertJsonPath('incident.animal_type', 'cat');
+        $mapRes->assertJsonPath('incident.animal_status', 'stray');
+        $mapRes->assertJsonPath('incident.animal_observation_status', 'sick');
+    }
 }

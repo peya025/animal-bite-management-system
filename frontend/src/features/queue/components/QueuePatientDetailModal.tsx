@@ -1349,14 +1349,6 @@ export function Form1InlineView({ entry, readOnly: _readOnly }: { entry: Form1En
   return (
     <Box sx={{ bgcolor: 'var(--card-bg-solid, #ffffff)', borderRadius: 2, border: '1px solid var(--border-glow, #e5e7eb)', overflow: 'hidden' }}>
       {/* 1. Basic Information */}
-      <Form1Section title="Animal">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <Form1Field label="Species" value={asDisplayValue(animalIncident.animal_type)} capitalize />
-          <Form1Field label="Ownership" value={asDisplayValue(animalIncident.animal_status)} capitalize />
-          <Form1Field label="Available for 14-day observation" value={animalIncident.animal_available == null ? (animalIncident.animal_available_answered ? 'Unknown' : '—') : animalIncident.animal_available ? 'Yes' : 'No'} />
-          <Form1Field label="Condition" value={asDisplayValue(animalIncident.animal_observation_status)} capitalize />
-        </div>
-      </Form1Section>
       <Form1Section title="1. Basic Information">
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 2 }}>
           <Form1Field label="Last Name" value={asDisplayValue(patient.last_name)} />

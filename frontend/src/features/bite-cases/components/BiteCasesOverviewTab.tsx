@@ -1,8 +1,7 @@
+import { useState, type ReactNode } from 'react';
 import {
-  Alert,
   Box,
   Button,
-  Chip,
   Paper,
   Table,
   TableBody,
@@ -10,21 +9,18 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import {
+  ChevronRightOutlined,
+  ExpandLessOutlined,
+  ExpandMoreOutlined,
   FileDownloadOutlined,
-  InfoOutlined,
-  OpenInNewOutlined,
 } from '@mui/icons-material';
-import type { DohSummary, LocationSummary, DescriptiveFinding } from '../types/biteCasesSummary.types';
+import type { DescriptiveFinding, DohSummary, LocationSummary } from '../types/biteCasesSummary.types';
 import { formatPct } from '../types/biteCasesSummary.types';
-import {
-  BC_BORDER,
-  DohStatLine,
-  HorizontalDistBar,
-  SemanticChip,
-} from './BiteCasesSharedUi';
+import { BC_BORDER, HorizontalDistBar, SemanticChip } from './BiteCasesSharedUi';
 
 interface BiteCasesOverviewTabProps {
   doh?: DohSummary;
@@ -37,13 +33,186 @@ interface BiteCasesOverviewTabProps {
   pepPrescribedCount: number;
   givenPepCount: number;
   noAdminCount: number;
-  givenRigCount: number;
-  completedMatureTotal: number;
-  overdueEpisodesCount: number;
+  givenRigCount?: number;
+  completedMatureTotal?: number;
+  overdueEpisodesCount?: number;
   onDrillDownToStage: (stageKey: string) => void;
   onDrillDownFilter: (next: { status?: string; severity?: string; animal?: string; search?: string }) => void;
   onExportEpisodesCsv: () => void;
 }
+
+/* One colour per meaning, reused everywhere on the Overview. */
+const C = {
+  catI: '#059669',
+  catII: '#d97706',
+  catIII: '#dc2626',
+  pending: '#94a3b8',
+  neutral: '#0f766e',
+};
+
+const TOP_BARANGAYS = 5;
+
+/* ── Layout primitives ─────────────────────────────────────────── */
+
+function Section({
+  title,
+  hint,
+  action,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Paper
+      elevation={0}
+      component="section"
+      aria-label={title}
+      sx={{
+        border: BC_BORDER,
+        borderRadius: '14px',
+        p: { xs: 1.75, md: 2 },
+        bgcolor: 'var(--bc-surface)',
+        display: 'flex',
+        flexDirection: 'column',
+        minWidth: 0,
+      }}
+    >
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1.5 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography component="h3" sx={{ fontSize: 14.5, fontWeight: 700, color: 'var(--bc-text)' }}>
+            {title}
+          </Typography>
+          {hint && (
+            <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', mt: 0.25 }}>{hint}</Typography>
+          )}
+        </Box>
+        {action}
+      </Box>
+      {children}
+    </Paper>
+  );
+}
+
+/** A single status row inside a pipeline stage. Clickable only when it leads somewhere. */
+function StageRow({
+  label,
+  count,
+  tone,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  tone: 'positive' | 'attention' | 'neutral';
+  onClick?: () => void;
+}) {
+  const color = tone === 'positive' ? 'var(--bc-green-strong)' : tone === 'attention' ? 'var(--bc-amber-strong)' : 'var(--bc-text-2)';
+  const interactive = Boolean(onClick) && count > 0;
+
+  return (
+    <Box
+      component={interactive ? 'button' : 'div'}
+      type={interactive ? 'button' : undefined}
+      onClick={interactive ? onClick : undefined}
+      aria-label={interactive ? `${label}: ${count}. View cases` : undefined}
+      sx={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 1,
+        px: 1,
+        py: 0.75,
+        border: 0,
+        borderRadius: '8px',
+        background: 'transparent',
+        textAlign: 'left',
+        font: 'inherit',
+        cursor: interactive ? 'pointer' : 'default',
+        transition: 'background-color 0.15s ease',
+        '&:hover': interactive ? { bgcolor: 'var(--bc-surface-3)' } : undefined,
+        '&:focus-visible': { outline: '2px solid var(--bc-focus-ring)', outlineOffset: '1px' },
+      }}
+    >
+      <Typography sx={{ fontSize: 13, color: 'var(--bc-text-2)' }}>{label}</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+        <Typography sx={{ fontSize: 14, fontWeight: 700, color: count > 0 ? color : 'var(--bc-text-secondary)' }}>
+          {count}
+        </Typography>
+        {interactive ? (
+          <ChevronRightOutlined aria-hidden="true" sx={{ fontSize: 16, color: 'var(--bc-text-secondary)' }} />
+        ) : (
+          <Box sx={{ width: 16 }} />
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+function Stage({
+  step,
+  title,
+  value,
+  valueLabel,
+  children,
+}: {
+  step: string;
+  title: string;
+  value: number;
+  valueLabel: string;
+  children: ReactNode;
+}) {
+  return (
+    <Box
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        border: BC_BORDER,
+        borderRadius: '12px',
+        p: 1.5,
+        bgcolor: 'var(--bc-surface-2)',
+      }}
+    >
+      <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        {step}
+      </Typography>
+      <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'var(--bc-text)', mt: 0.25 }}>{title}</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mt: 1, mb: 0.75, px: 1 }}>
+        <Typography sx={{ fontSize: 26, fontWeight: 800, color: 'var(--bc-text)', lineHeight: 1 }}>{value}</Typography>
+        <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>{valueLabel}</Typography>
+      </Box>
+      <Box sx={{ borderTop: BC_BORDER, pt: 0.5 }}>{children}</Box>
+    </Box>
+  );
+}
+
+function StageArrow() {
+  return (
+    <Box
+      aria-hidden="true"
+      sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', color: 'var(--bc-border-strong)' }}
+    >
+      <ChevronRightOutlined />
+    </Box>
+  );
+}
+
+function Legend({ items }: { items: { label: string; color: string }[] }) {
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+      {items.map((item) => (
+        <Box key={item.label} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{ width: 8, height: 8, borderRadius: '2px', bgcolor: item.color }} />
+          <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)' }}>{item.label}</Typography>
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+/* ── Overview ─────────────────────────────────────────────────── */
 
 export function BiteCasesOverviewTab({
   doh,
@@ -56,369 +225,405 @@ export function BiteCasesOverviewTab({
   pepPrescribedCount,
   givenPepCount,
   noAdminCount,
-  givenRigCount,
-  completedMatureTotal,
-  overdueEpisodesCount,
   onDrillDownToStage,
   onDrillDownFilter,
   onExportEpisodesCsv,
 }: BiteCasesOverviewTabProps) {
+  const [showReportingTable, setShowReportingTable] = useState(false);
+
   const catI = doh?.categories.I ?? 0;
   const catII = doh?.categories.II ?? 0;
   const catIII = doh?.categories.III ?? 0;
   const notYetAssessed = doh?.categories.not_yet_assessed ?? awaitingAssessmentCount;
   const catMissing = doh?.categories.assessed_category_missing ?? 0;
-  const prioritizedBarangays = [...locations]
-    .sort((a, b) => b.total_cases - a.total_cases)
-    .slice(0, 6);
-  const maxLocCases = Math.max(1, ...prioritizedBarangays.map((l) => l.total_cases));
-  const priorRecDelta = doh?.period_comparison?.indicators?.recorded_episodes;
+  const explicitNoPepCount = doh?.pep_and_biologics.explicit_no_pep ?? 0;
+  const transferredCount = doh?.completion_and_outcomes.transferred_referred ?? 0;
+  const decisionPendingCount =
+    (doh?.form_2_decision_pending_count ?? 0) + (doh?.pep_and_biologics.decision_missing ?? 0);
+
+  const topBarangays = [...locations].sort((a, b) => b.total_cases - a.total_cases).slice(0, TOP_BARANGAYS);
+  const maxBarangayCases = Math.max(1, ...topBarangays.map((l) => l.total_cases));
+
+  const hasNotes = (limitations?.length ?? 0) > 0 || (insights?.length ?? 0) > 0;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
-      {/* Executive 3-Item Findings Summary (BCS-05.2) */}
-      <Paper elevation={0} sx={{ border: BC_BORDER, borderRadius: '10px', p: 1.75, bgcolor: 'var(--bc-surface-2)' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.9 }}>
-          <InfoOutlined aria-hidden="true" sx={{ fontSize: 18, color: 'var(--bc-green-strong)' }} />
-          <Typography sx={{ fontSize: 14, fontWeight: 800, color: 'var(--bc-text)' }}>
-            Executive Meeting Findings Summary
-          </Typography>
-        </Box>
-        <Box
-          component="ul"
-          sx={{
-            m: 0,
-            pl: 2.25,
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', lg: 'repeat(3, 1fr)' },
-            gap: 1.25,
-            '& li': { fontSize: 12.5, color: 'var(--bc-text-2)', lineHeight: 1.45 },
-          }}
-        >
-          <li>
-            <strong>Exposure &amp; Assessment Progress:</strong> Of{' '}
-            <strong>{totalRecorded}</strong> recorded exposure episodes,{' '}
-            <strong>{finalizedCount}</strong> ({formatPct(finalizedCount, totalRecorded)}) had a
-            finalized doctor assessment and <strong>{awaitingAssessmentCount}</strong> were awaiting
-            assessment
-            {priorRecDelta
-              ? ` (${priorRecDelta.delta >= 0 ? '+' : ''}${priorRecDelta.delta} vs prior period ${doh?.period_comparison?.prior_period_start} to ${doh?.period_comparison?.prior_period_end}).`
-              : '.'}
-          </li>
-          <li>
-            <strong>PEP Prescription vs. Administration:</strong> Of{' '}
-            <strong>{pepPrescribedCount}</strong> episodes prescribed PEP,{' '}
-            <strong>{givenPepCount}</strong> had recorded vaccine initiation and{' '}
-            <strong>{noAdminCount}</strong> had <em>no administration recorded</em> as of the
-            reporting cutoff (may reflect external care or pending documentation).
-          </li>
-          <li>
-            <strong>Severity, RIG &amp; Mature Completion:</strong>{' '}
-            <strong>{catIII}</strong> Category III exposures ({formatPct(catIII, finalizedCount)} of
-            assessed) with <strong>{givenRigCount}</strong> verified RIG administrations,{' '}
-            <strong>{completedMatureTotal}</strong> mature completed PEP courses (of{' '}
-            <strong>{doh?.completion_and_outcomes.matured_courses ?? 0}</strong> mature cohort courses),
-            and <strong>{overdueEpisodesCount}</strong> overdue episode(s).
-          </li>
-        </Box>
-      </Paper>
-
-      {/* Section A: 5-Stage Incomplete Journey Matrix */}
-      <Paper elevation={0} sx={{ border: BC_BORDER, borderRadius: '10px', p: 1.75 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mb: 1,
-            flexWrap: 'wrap',
-            gap: 1,
-          }}
-        >
-          <Box>
-            <Typography id="stage-matrix-heading" sx={{ fontSize: 14.5, fontWeight: 800, color: 'var(--bc-text)' }}>
-              Incomplete Patient Journey Reporting Matrix (Form 1 → Form 2 → Form 3)
-            </Typography>
-            <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)' }}>
-              Includes patients whose encounter stopped at Form 1 or Form 2 without treating missing stages as zero or treatment failure.
-            </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* ── 1. Clinical progression: Form 1 → Form 2 → Form 3 ── */}
+      <Section
+        title="Clinical progression"
+        hint={`Where the ${totalRecorded} recorded case${totalRecorded === 1 ? '' : 's'} are in the Form 1 → Form 2 → Form 3 process.`}
+        action={
+          <Box sx={{ display: 'flex', gap: 0.75, flexShrink: 0 }}>
+            <Button
+              size="small"
+              variant="text"
+              onClick={() => setShowReportingTable((v) => !v)}
+              endIcon={showReportingTable ? <ExpandLessOutlined /> : <ExpandMoreOutlined />}
+              aria-expanded={showReportingTable}
+              sx={{ textTransform: 'none', fontSize: 12.5, fontWeight: 600 }}
+            >
+              {showReportingTable ? 'Hide reporting table' : 'Reporting table'}
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<FileDownloadOutlined aria-hidden="true" />}
+              onClick={onExportEpisodesCsv}
+              data-walkthrough="bite-cases-export-csv"
+              data-tour="bite-cases-export-csv"
+              sx={{ textTransform: 'none', fontSize: 12.5, fontWeight: 600, borderRadius: '8px' }}
+            >
+              Export CSV
+            </Button>
           </Box>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<FileDownloadOutlined aria-hidden="true" />}
-            data-walkthrough="bite-cases-export-csv"
-            data-tour="bite-cases-export-csv"
-            onClick={onExportEpisodesCsv}
-            sx={{ textTransform: 'none', borderRadius: '8px', fontWeight: 600 }}
-          >
-            Export CSV
-          </Button>
+        }
+      >
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 1, alignItems: 'stretch' }}>
+          <Stage step="Form 1" title="Registration and exposure" value={totalRecorded} valueLabel="registered">
+            <StageRow
+              label="Awaiting assessment"
+              count={awaitingAssessmentCount}
+              tone="attention"
+              onClick={() => onDrillDownToStage('form_1_registration')}
+            />
+          </Stage>
+
+          <StageArrow />
+
+          <Stage step="Form 2" title="Doctor assessment" value={finalizedCount} valueLabel="assessed">
+            <StageRow label="PEP prescribed" count={pepPrescribedCount} tone="neutral" />
+            <StageRow
+              label="No PEP required"
+              count={explicitNoPepCount}
+              tone="positive"
+              onClick={() => onDrillDownToStage('form_2_no_pep')}
+            />
+            <StageRow
+              label="Transferred / referred"
+              count={transferredCount}
+              tone="neutral"
+              onClick={() => onDrillDownToStage('form_2_transferred')}
+            />
+            {decisionPendingCount > 0 && (
+              <StageRow
+                label="Decision not recorded"
+                count={decisionPendingCount}
+                tone="attention"
+                onClick={() => onDrillDownFilter({ status: 'unresolved_review' })}
+              />
+            )}
+          </Stage>
+
+          <StageArrow />
+
+          <Stage step="Form 3" title="Nurse treatment" value={pepPrescribedCount} valueLabel="prescribed PEP">
+            <StageRow
+              label="Treatment started"
+              count={givenPepCount}
+              tone="positive"
+              onClick={() => onDrillDownToStage('form_3_treatment_recorded')}
+            />
+            <StageRow
+              label="No administration recorded"
+              count={noAdminCount}
+              tone="attention"
+              onClick={() => onDrillDownToStage('form_2_pep_prescribed')}
+            />
+          </Stage>
         </Box>
 
-        <TableContainer
-          className="bc-table-scroll-region"
-          tabIndex={0}
-          role="region"
-          aria-labelledby="stage-matrix-caption"
-        >
-          <Table size="small" stickyHeader>
-            <caption id="stage-matrix-caption" className="bc-table-caption">
-              5-stage clinical progression matrix showing reportable fields, how missing information is displayed, and episode counts across Form 1, Form 2, and Form 3.
-            </caption>
-            <TableHead>
-              <TableRow>
-                <TableCell component="th" scope="col" sx={{ fontWeight: 700, fontSize: 12 }}>
-                  Patient’s Last Completed Stage
-                </TableCell>
-                <TableCell component="th" scope="col" sx={{ fontWeight: 700, fontSize: 12 }}>
-                  What Can Be Reported
-                </TableCell>
-                <TableCell component="th" scope="col" sx={{ fontWeight: 700, fontSize: 12 }}>
-                  How Missing Information Is Shown
-                </TableCell>
-                <TableCell component="th" scope="col" align="right" sx={{ fontWeight: 700, fontSize: 12 }}>
-                  Episodes
-                </TableCell>
-                <TableCell component="th" scope="col" align="right" sx={{ fontWeight: 700, fontSize: 12 }}>
-                  % of Recorded
-                </TableCell>
-                <TableCell component="th" scope="col" align="right" sx={{ fontWeight: 700, fontSize: 12 }}>
-                  Inspect
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(doh?.stage_matrix ?? []).map((row) => (
-                <TableRow key={row.stage_key} hover>
-                  <TableCell
-                    component="th"
-                    scope="row"
-                    sx={{ fontWeight: 700, fontSize: 12.5, color: 'var(--bc-text)', minWidth: 220 }}
-                  >
-                    {row.stage}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: 12.5, color: 'var(--bc-text-2)', minWidth: 210 }}>
-                    {row.what_can_be_reported}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: 12, minWidth: 240 }}>
-                    <SemanticChip label={row.missing_info_display} />
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 800, fontSize: 13.5 }}>
-                    {row.count}
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
-                    {formatPct(row.count, totalRecorded)}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Button
-                      size="small"
-                      endIcon={<OpenInNewOutlined aria-hidden="true" sx={{ fontSize: 14 }} />}
-                      onClick={() => onDrillDownToStage(row.stage_key)}
-                      disabled={row.count === 0}
-                      sx={{ textTransform: 'none', fontSize: 11.5, fontWeight: 600 }}
-                    >
-                      View
-                    </Button>
-                  </TableCell>
+        {showReportingTable && (
+          <TableContainer
+            className="bc-table-scroll-region"
+            tabIndex={0}
+            role="region"
+            aria-label="Reporting table by last completed stage"
+            sx={{ mt: 1.5, border: BC_BORDER }}
+          >
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Last completed stage</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>What can be reported</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>How missing information is shown</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12 }}>Cases</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12 }}>Share</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        {(doh?.form_2_decision_pending_count ?? 0) > 0 && (
-          <Alert severity="info" sx={{ mt: 1, py: 0.4, fontSize: 12 }}>
-            {doh?.form_2_decision_pending_count} episode(s) finished doctor assessment with category/location recorded, but PEP decision is still pending completion.
-          </Alert>
+              </TableHead>
+              <TableBody>
+                {(doh?.stage_matrix ?? []).map((row) => (
+                  <TableRow
+                    key={row.stage_key}
+                    hover={row.count > 0}
+                    onClick={row.count > 0 ? () => onDrillDownToStage(row.stage_key) : undefined}
+                    sx={{ cursor: row.count > 0 ? 'pointer' : 'default' }}
+                  >
+                    <TableCell sx={{ fontSize: 12.5, fontWeight: 600, minWidth: 180 }}>{row.stage}</TableCell>
+                    <TableCell sx={{ fontSize: 12.5, color: 'var(--bc-text-2)', minWidth: 180 }}>{row.what_can_be_reported}</TableCell>
+                    <TableCell sx={{ minWidth: 220 }}>
+                      <SemanticChip label={row.missing_info_display} />
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontSize: 13, fontWeight: 700 }}>{row.count}</TableCell>
+                    <TableCell align="right" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
+                      {formatPct(row.count, totalRecorded)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
 
-        <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)', mt: 1 }}>
-          Reporting rule: “No administration recorded” is used instead of “Patient did not receive treatment” because treatment may have occurred elsewhere or awaits documentation.
+        <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', mt: 1.25 }}>
+          “No administration recorded” means no nurse record exists yet. The patient may have been treated elsewhere.
         </Typography>
-      </Paper>
+      </Section>
 
-      {/* Section B: Two-Column Exposure Profiles & Leading Barangays Charts (BCS-05.2) */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' },
-          gap: 1.75,
-        }}
-      >
-        {/* Left Card: Exposure Category & Patient Demographics (Form 1) */}
-        <Paper elevation={0} sx={{ border: BC_BORDER, borderRadius: '10px', p: 1.75 }}>
-          <Typography sx={{ fontSize: 14, fontWeight: 800, color: 'var(--bc-text)', mb: 0.25 }}>
-            Form 1 Exposure Profile — Categories &amp; Demographics
-          </Typography>
-          <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', mb: 1.25 }}>
-            Click any category bar to inspect matching episodes. Unknown and unassessed episodes stay explicit.
-          </Typography>
+      {/* ── 2. Where cases occur + exposure category ── */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '3fr 2fr' }, gap: 2 }}>
+        <Section
+          title="Leading barangays"
+          hint={`Top ${Math.min(TOP_BARANGAYS, locations.length)} of ${locations.length} places by recorded cases. Select a barangay to view its cases.`}
+        >
+          {topBarangays.length === 0 ? (
+            <Typography sx={{ fontSize: 13, color: 'var(--bc-text-secondary)' }}>
+              No place of exposure matches the current filters.
+            </Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {topBarangays.map((loc) => {
+                const name = loc.normalized_barangay || loc.location;
+                const suppressed = Boolean(loc.is_small_cell_suppressed);
+                const total = loc.total_cases;
+                const notAssessed = Math.max(0, total - loc.cat_1 - loc.cat_2 - loc.cat_3);
+                const barWidth = suppressed ? 100 : (total / maxBarangayCases) * 100;
+                const segments = [
+                  { key: 'III', value: loc.cat_3, color: C.catIII },
+                  { key: 'II', value: loc.cat_2, color: C.catII },
+                  { key: 'I', value: loc.cat_1, color: C.catI },
+                  { key: 'NA', value: notAssessed, color: C.pending },
+                ];
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mb: 1.5 }}>
+                return (
+                  <Tooltip
+                    key={loc.location}
+                    arrow
+                    placement="top"
+                    title={
+                      suppressed
+                        ? 'Fewer than 5 cases — hidden in conference mode'
+                        : `Category III: ${loc.cat_3} · Category II: ${loc.cat_2} · Category I: ${loc.cat_1} · Not assessed: ${notAssessed}`
+                    }
+                  >
+                    <Box
+                      component="button"
+                      type="button"
+                      onClick={() => onDrillDownFilter({ search: name })}
+                      aria-label={`${name}: ${suppressed ? 'fewer than 5' : total} cases. View cases`}
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '110px 1fr 40px', sm: '150px 1fr 48px' },
+                        alignItems: 'center',
+                        gap: 1.25,
+                        width: '100%',
+                        px: 1,
+                        py: 0.9,
+                        border: 0,
+                        borderRadius: '8px',
+                        background: 'transparent',
+                        textAlign: 'left',
+                        font: 'inherit',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.15s ease',
+                        '&:hover': { bgcolor: 'var(--bc-surface-3)' },
+                        '&:focus-visible': { outline: '2px solid var(--bc-focus-ring)', outlineOffset: '1px' },
+                      }}
+                    >
+                      <Typography noWrap sx={{ fontSize: 13, fontWeight: 600, color: 'var(--bc-text)' }}>
+                        {name}
+                      </Typography>
+                      <Box sx={{ height: 10, borderRadius: 5, bgcolor: 'var(--bc-track)', overflow: 'hidden' }}>
+                        <Box sx={{ width: `${barWidth}%`, height: '100%', display: 'flex' }}>
+                          {suppressed ? (
+                            <Box sx={{ flex: 1, bgcolor: C.pending }} />
+                          ) : (
+                            segments.map((s) =>
+                              s.value > 0 ? (
+                                <Box key={s.key} sx={{ flex: s.value, bgcolor: s.color }} />
+                              ) : null
+                            )
+                          )}
+                        </Box>
+                      </Box>
+                      <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'var(--bc-text)', textAlign: 'right' }}>
+                        {suppressed ? '<5' : total}
+                      </Typography>
+                    </Box>
+                  </Tooltip>
+                );
+              })}
+            </Box>
+          )}
+          <Box sx={{ mt: 'auto', pt: 1.5 }}>
+            <Legend
+              items={[
+                { label: 'Category III', color: C.catIII },
+                { label: 'Category II', color: C.catII },
+                { label: 'Category I', color: C.catI },
+                { label: 'Not assessed', color: C.pending },
+              ]}
+            />
+          </Box>
+        </Section>
+
+        <Section title="Exposure category" hint="Select a category to view its cases.">
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <HorizontalDistBar
-              label="Category III (High Risk / Biologics Indicated)"
+              label="Category III"
               count={catIII}
               total={totalRecorded}
-              color="var(--bc-red)"
+              color={C.catIII}
               onClick={() => onDrillDownFilter({ severity: 'III', status: '' })}
             />
             <HorizontalDistBar
-              label="Category II (Moderate Risk)"
+              label="Category II"
               count={catII}
               total={totalRecorded}
-              color="var(--bc-amber)"
+              color={C.catII}
               onClick={() => onDrillDownFilter({ severity: 'II', status: '' })}
             />
             <HorizontalDistBar
-              label="Category I (Low Risk)"
+              label="Category I"
               count={catI}
               total={totalRecorded}
-              color="var(--bc-green)"
+              color={C.catI}
               onClick={() => onDrillDownFilter({ severity: 'I', status: '' })}
             />
             <HorizontalDistBar
-              label="Not Yet Assessed (Form 1 Only)"
+              label="Not yet assessed"
               count={notYetAssessed}
               total={totalRecorded}
-              color="var(--bc-focus-ring)"
+              color={C.pending}
               onClick={() => onDrillDownFilter({ severity: 'not_yet_assessed', status: '' })}
             />
             {catMissing > 0 && (
               <HorizontalDistBar
-                label="Assessed – Category Missing (Review Gap)"
+                label="Assessed, category not recorded"
                 count={catMissing}
                 total={totalRecorded}
-                color="var(--bc-border-strong)"
+                color={C.pending}
                 onClick={() => onDrillDownFilter({ severity: 'assessed_category_missing', status: '' })}
               />
             )}
           </Box>
+        </Section>
+      </Box>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, pt: 1, borderTop: BC_BORDER }}>
-            <Box>
-              <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', mb: 0.4 }}>
-                Sex Breakdown (Form 1)
-              </Typography>
-              <DohStatLine label="Male" value={doh?.demographics.male ?? 0} hint={formatPct(doh?.demographics.male ?? 0, totalRecorded)} />
-              <DohStatLine label="Female" value={doh?.demographics.female ?? 0} hint={formatPct(doh?.demographics.female ?? 0, totalRecorded)} />
-              <DohStatLine label="Sex Unknown / Unspecified" value={doh?.demographics.unknown_sex ?? 0} />
-            </Box>
-            <Box>
-              <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', mb: 0.4 }}>
-                Age Groups (Form 1)
-              </Typography>
-              <DohStatLine label="Children < 15 years" value={doh?.demographics.age_below_15 ?? 0} hint={formatPct(doh?.demographics.age_below_15 ?? 0, totalRecorded)} />
-              <DohStatLine label="Adults ≥ 15 years" value={doh?.demographics.age_15_above ?? 0} hint={formatPct(doh?.demographics.age_15_above ?? 0, totalRecorded)} />
-              <DohStatLine label="Age Unknown" value={doh?.demographics.age_unknown ?? 0} />
-            </Box>
-          </Box>
-        </Paper>
-
-        {/* Right Card: Biting Animal Profile & Leading Barangays */}
-        <Paper elevation={0} sx={{ border: BC_BORDER, borderRadius: '10px', p: 1.75 }}>
-          <Typography sx={{ fontSize: 14, fontWeight: 800, color: 'var(--bc-text)', mb: 0.25 }}>
-            Biting Animal Profile &amp; Leading Barangays
-          </Typography>
-          <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', mb: 1.25 }}>
-            Horizontal bars compare animal types (with Unknown kept explicit) and the top exposure barangays.
-          </Typography>
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.65, mb: 1.5 }}>
+      {/* ── 3. Animal and patient profile ── */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+        <Section title="Biting animal" hint="Select an animal to view its cases.">
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <HorizontalDistBar
-              label="Dog Exposures"
+              label="Dog"
               count={doh?.animals.dog ?? 0}
               total={totalRecorded}
-              color="var(--bc-green-strong)"
+              color={C.neutral}
               onClick={() => onDrillDownFilter({ animal: 'dog' })}
             />
             <HorizontalDistBar
-              label="Cat Exposures"
+              label="Cat"
               count={doh?.animals.cat ?? 0}
               total={totalRecorded}
-              color="#0284c7"
+              color={C.neutral}
               onClick={() => onDrillDownFilter({ animal: 'cat' })}
             />
             <HorizontalDistBar
-              label="Other Animal Exposures"
+              label="Other animal"
               count={doh?.animals.other ?? 0}
               total={totalRecorded}
-              color="var(--bc-amber)"
+              color={C.neutral}
               onClick={() => onDrillDownFilter({ animal: 'other' })}
             />
             <HorizontalDistBar
-              label="Animal Unknown / Unspecified"
+              label="Not recorded"
               count={doh?.animals.unknown ?? 0}
               total={totalRecorded}
-              color="var(--bc-border-strong)"
+              color={C.pending}
               onClick={() => onDrillDownFilter({ animal: 'unknown' })}
             />
           </Box>
+          <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', mt: 'auto', pt: 1.25 }}>
+            Ownership: {doh?.animals.stray ?? 0} stray · {doh?.animals.owned ?? 0} owned · {doh?.animals.animal_status_unknown ?? 0} not recorded
+          </Typography>
+        </Section>
 
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1.5 }}>
-            <Chip size="small" label={`Stray: ${doh?.animals.stray ?? 0}`} sx={{ fontSize: 11, fontWeight: 700 }} />
-            <Chip size="small" label={`Owned: ${doh?.animals.owned ?? 0}`} sx={{ fontSize: 11, fontWeight: 700 }} />
-            <Chip size="small" label={`Animal Status Unknown: ${doh?.animals.animal_status_unknown ?? 0}`} sx={{ fontSize: 11, fontWeight: 600 }} />
-          </Box>
-
-          <Box sx={{ pt: 1, borderTop: BC_BORDER }}>
-            <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', mb: 0.65 }}>
-              Leading Barangays by Recorded Exposures (Top {prioritizedBarangays.length})
-            </Typography>
-            {prioritizedBarangays.length === 0 ? (
-              <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)' }}>
-                No barangay exposure data matches the current filters.
+        <Section title="Patient profile">
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 2, rowGap: 1 }}>
+            <Box>
+              <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'var(--bc-text-secondary)', mb: 0.25, px: 0.75 }}>
+                Age group
               </Typography>
-            ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {prioritizedBarangays.map((loc) => (
-                  <HorizontalDistBar
-                    key={loc.location}
-                    label={loc.normalized_barangay || loc.location}
-                    subLabel={
-                      loc.is_small_cell_suppressed
-                        ? '<5 cases (Conference Cell Suppressed)'
-                        : `Cat III: ${loc.cat_3} • No Admin: ${loc.no_administration_recorded ?? 0}`
-                    }
-                    count={loc.is_small_cell_suppressed ? 1 : loc.total_cases}
-                    total={maxLocCases}
-                    color={loc.cat_3 > 0 ? 'var(--bc-red)' : 'var(--bc-green-strong)'}
-                    onClick={() => onDrillDownFilter({ search: loc.normalized_barangay || loc.location })}
-                  />
-                ))}
-              </Box>
-            )}
+              <HorizontalDistBar label="Under 15" count={doh?.demographics.age_below_15 ?? 0} total={totalRecorded} color={C.neutral} />
+              <HorizontalDistBar label="15 and above" count={doh?.demographics.age_15_above ?? 0} total={totalRecorded} color={C.neutral} />
+              <HorizontalDistBar label="Not recorded" count={doh?.demographics.age_unknown ?? 0} total={totalRecorded} color={C.pending} />
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'var(--bc-text-secondary)', mb: 0.25, px: 0.75 }}>
+                Sex
+              </Typography>
+              <HorizontalDistBar label="Male" count={doh?.demographics.male ?? 0} total={totalRecorded} color={C.neutral} />
+              <HorizontalDistBar label="Female" count={doh?.demographics.female ?? 0} total={totalRecorded} color={C.neutral} />
+              <HorizontalDistBar label="Not recorded" count={doh?.demographics.unknown_sex ?? 0} total={totalRecorded} color={C.pending} />
+            </Box>
           </Box>
-        </Paper>
+        </Section>
       </Box>
 
-      {/* Collapsible Data Limitations & Scope Notes */}
-      {limitations && limitations.length > 0 && (
-        <details className="bc-disclosure">
-          <summary>
-            <span>Report Scope &amp; Methodological Limitations ({limitations.length})</span>
-            <span style={{ fontSize: 12, color: 'var(--bc-text-secondary)', fontWeight: 600 }}>Click to expand</span>
-          </summary>
-          <div className="bc-disclosure-body">
-            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 12.5, lineHeight: 1.6, color: 'var(--bc-text-2)' }}>
-              {limitations.map((lim, idx) => (
-                <li key={idx}>{lim}</li>
-              ))}
-            </ul>
-            {insights && insights.length > 0 && (
-              <Box sx={{ mt: 1.5, pt: 1.25, borderTop: BC_BORDER }}>
-                <Typography sx={{ fontSize: 12, fontWeight: 800, color: 'var(--bc-text)', mb: 0.5 }}>
-                  Descriptive Review Findings ({insights.length})
-                </Typography>
-                {insights.map((ins) => (
-                  <Typography key={ins.finding_key} sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', mb: 0.4 }}>
-                    • <strong>{ins.title} ({ins.supporting_metric}):</strong> {ins.statement}
-                  </Typography>
-                ))}
-              </Box>
-            )}
-          </div>
-        </details>
+      {/* ── 4. Data notes (collapsed) ── */}
+      {hasNotes && (
+        <Paper elevation={0} sx={{ border: BC_BORDER, borderRadius: '14px', bgcolor: 'var(--bc-surface)' }}>
+          <Box
+            component="details"
+            sx={{
+              '& > summary': {
+                listStyle: 'none',
+                cursor: 'pointer',
+                px: 2,
+                py: 1.25,
+                fontSize: 13,
+                fontWeight: 600,
+                color: 'var(--bc-text-2)',
+                borderRadius: '14px',
+                '&::-webkit-details-marker': { display: 'none' },
+                '&:focus-visible': { outline: '2px solid var(--bc-focus-ring)', outlineOffset: '2px' },
+              },
+            }}
+          >
+            <summary>
+              About this data
+              {(limitations?.length ?? 0) > 0 ? ` · ${limitations?.length} limitation${limitations?.length === 1 ? '' : 's'}` : ''}
+              {(insights?.length ?? 0) > 0 ? ` · ${insights?.length} finding${insights?.length === 1 ? '' : 's'}` : ''}
+            </summary>
+            <Box sx={{ px: 2, pb: 1.75, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+              {(insights?.length ?? 0) > 0 && (
+                <Box component="ul" sx={{ m: 0, pl: 2.25, '& li': { fontSize: 12.5, color: 'var(--bc-text-2)', lineHeight: 1.55, mb: 0.5 } }}>
+                  {insights?.map((ins) => (
+                    <li key={ins.finding_key}>
+                      <strong>{ins.title}.</strong> {ins.statement}
+                    </li>
+                  ))}
+                </Box>
+              )}
+              {(limitations?.length ?? 0) > 0 && (
+                <Box component="ul" sx={{ m: 0, pl: 2.25, '& li': { fontSize: 12.5, color: 'var(--bc-text-secondary)', lineHeight: 1.55, mb: 0.5 } }}>
+                  {limitations?.map((lim, idx) => (
+                    <li key={idx}>{lim}</li>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          </Box>
+        </Paper>
       )}
     </Box>
   );

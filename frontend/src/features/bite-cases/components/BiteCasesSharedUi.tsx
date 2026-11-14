@@ -3,6 +3,7 @@
  */
 
 import { Box, Chip, Typography } from '@mui/material';
+import { ChevronRightOutlined } from '@mui/icons-material';
 
 export const BC_BORDER = '1px solid var(--bc-border)';
 
@@ -55,12 +56,13 @@ export function SemanticChip({ label }: { label: string }) {
       size="small"
       label={label}
       sx={{
-        height: 22,
-        fontSize: '0.72rem',
+        height: 24,
+        fontSize: '0.74rem',
         fontWeight: 600,
         color: tone.color,
         bgcolor: tone.bg,
         border: `1px solid ${tone.border}`,
+        borderRadius: '8px',
         '& .MuiChip-label': { px: 1 },
       }}
     />
@@ -82,24 +84,24 @@ export function DohStatLine({
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'baseline',
-        py: 0.55,
-        borderBottom: '1px dashed var(--bc-border)',
+        py: 0.7,
+        borderBottom: '1px solid var(--bc-border)',
         gap: 1.5,
       }}
     >
-      <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text-2)' }}>
+      <Typography sx={{ fontSize: 13, color: 'var(--bc-text-2)', fontWeight: 500 }}>
         {label}
         {hint ? (
           <Typography
             component="span"
-            sx={{ fontSize: 11, color: 'var(--bc-text-secondary)', ml: 0.6 }}
+            sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)', ml: 0.6 }}
           >
             ({hint})
           </Typography>
         ) : null}
       </Typography>
       <Typography
-        sx={{ fontSize: 13, fontWeight: 700, color: 'var(--bc-text)', whiteSpace: 'nowrap' }}
+        sx={{ fontSize: 13.5, fontWeight: 700, color: 'var(--bc-text)', whiteSpace: 'nowrap' }}
       >
         {value}
       </Typography>
@@ -134,9 +136,10 @@ export function HorizontalDistBar({
         textAlign: 'left',
         border: 0,
         background: 'transparent',
-        p: 0.5,
-        borderRadius: '6px',
+        p: 0.75,
+        borderRadius: '8px',
         cursor: onClick ? 'pointer' : 'default',
+        transition: 'background-color 0.15s ease',
         '&:hover': onClick ? { bgcolor: 'var(--bc-surface-2)' } : undefined,
         '&:focus-visible': {
           outline: '2px solid var(--bc-focus-ring)',
@@ -150,24 +153,33 @@ export function HorizontalDistBar({
           justifyContent: 'space-between',
           alignItems: 'baseline',
           gap: 1,
-          mb: 0.35,
+          mb: 0.45,
         }}
       >
-        <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: 'var(--bc-text-2)' }}>
+        <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--bc-text-2)' }}>
           {label}
           {subLabel ? (
             <Typography
               component="span"
-              sx={{ fontSize: 11, color: 'var(--bc-text-secondary)', ml: 0.75 }}
+              sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)', ml: 0.75 }}
             >
-              {subLabel}
+              ({subLabel})
             </Typography>
           ) : null}
         </Typography>
         <Typography
-          sx={{ fontSize: 12.5, fontWeight: 700, color: 'var(--bc-text)', whiteSpace: 'nowrap' }}
+          sx={{ fontSize: 13, fontWeight: 700, color: 'var(--bc-text)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center' }}
         >
-          {count} ({total > 0 ? `${pct.toFixed(1)}%` : '—'})
+          {count}
+          <Typography
+            component="span"
+            sx={{ fontSize: 11.5, fontWeight: 500, color: 'var(--bc-text-secondary)', ml: 0.5 }}
+          >
+            ({total > 0 ? `${pct.toFixed(1)}%` : '—'})
+          </Typography>
+          {onClick && (
+            <ChevronRightOutlined aria-hidden="true" sx={{ fontSize: 16, color: 'var(--bc-text-secondary)', ml: 0.25 }} />
+          )}
         </Typography>
       </Box>
       <Box
@@ -178,7 +190,7 @@ export function HorizontalDistBar({
         aria-label={`${label}: ${count} of ${total}`}
         sx={{
           width: '100%',
-          height: 8,
+          height: 7,
           borderRadius: 4,
           bgcolor: 'var(--bc-track)',
           overflow: 'hidden',
@@ -190,7 +202,7 @@ export function HorizontalDistBar({
             height: '100%',
             borderRadius: 4,
             bgcolor: color,
-            transition: 'width 0.2s ease',
+            transition: 'width 0.25s ease',
           }}
         />
       </Box>

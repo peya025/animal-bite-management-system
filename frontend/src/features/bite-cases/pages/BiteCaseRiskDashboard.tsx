@@ -32,9 +32,12 @@ import {
   FilterListOutlined,
   LockOutlined,
   MapOutlined,
+  MedicalServicesOutlined,
   PrintOutlined,
   SearchOutlined,
   SlideshowOutlined,
+  VaccinesOutlined,
+  VerifiedOutlined,
   WarningAmberOutlined,
 } from '@mui/icons-material';
 import api from '../../../services/api';
@@ -107,6 +110,7 @@ function KpiCard({
   active,
   onClick,
   badgeText,
+  icon,
 }: {
   title: string;
   value: string | number;
@@ -115,6 +119,7 @@ function KpiCard({
   active?: boolean;
   onClick?: () => void;
   badgeText?: string;
+  icon?: React.ReactNode;
 }) {
   return (
     <Paper
@@ -124,17 +129,23 @@ function KpiCard({
       onClick={onClick}
       aria-pressed={active || false}
       sx={{
-        p: 1.5,
+        p: 2,
         textAlign: 'left',
-        borderRadius: '10px',
-        border: active ? `2px solid ${accent}` : BC_BORDER,
-        bgcolor: 'var(--bc-surface)',
+        borderRadius: '16px',
+        border: active ? `2px solid ${accent}` : '1px solid #e2e8f0',
+        bgcolor: active ? 'rgba(16, 185, 129, 0.03)' : 'var(--bc-surface)',
         cursor: onClick ? 'pointer' : 'default',
         display: 'flex',
         flexDirection: 'column',
-        gap: 0.4,
-        transition: 'border-color 0.15s ease, transform 0.12s ease',
-        '&:hover': onClick ? { borderColor: accent, transform: 'translateY(-1px)' } : undefined,
+        justifyContent: 'space-between',
+        gap: 0.75,
+        boxShadow: active ? '0 4px 14px 0 rgba(16, 185, 129, 0.12)' : 'var(--bc-card-shadow)',
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': onClick ? {
+          borderColor: accent,
+          transform: 'translateY(-2px)',
+          boxShadow: 'var(--bc-card-shadow-hover)',
+        } : undefined,
         '&:focus-visible': {
           outline: '2px solid var(--bc-focus-ring)',
           outlineOffset: '2px',
@@ -148,34 +159,55 @@ function KpiCard({
             fontWeight: 700,
             color: 'var(--bc-text-secondary)',
             textTransform: 'uppercase',
-            letterSpacing: '0.03em',
+            letterSpacing: '0.04em',
           }}
         >
           {title}
+        </Typography>
+        {icon && (
+          <Box
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: '8px',
+              bgcolor: 'var(--bc-surface-2)',
+              color: accent,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {icon}
+          </Box>
+        )}
+      </Box>
+      <Box sx={{ my: 0.25 }}>
+        <Typography sx={{ fontSize: 26, fontWeight: 800, color: 'var(--bc-text)', lineHeight: 1.1, letterSpacing: '-0.02em' }}>
+          {value}
+        </Typography>
+      </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 0.5, mt: 'auto' }}>
+        <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)', lineHeight: 1.35 }}>
+          {subtext}
         </Typography>
         {badgeText && (
           <Typography
             component="span"
             sx={{
-              fontSize: 10.5,
+              fontSize: 11,
               fontWeight: 700,
-              px: 0.75,
-              py: 0.15,
+              px: 0.85,
+              py: 0.2,
               borderRadius: '6px',
               bgcolor: 'var(--bc-surface-3)',
               color: accent,
+              whiteSpace: 'nowrap',
             }}
           >
             {badgeText}
           </Typography>
         )}
       </Box>
-      <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--bc-text)', lineHeight: 1.15 }}>
-        {value}
-      </Typography>
-      <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)', lineHeight: 1.35 }}>
-        {subtext}
-      </Typography>
     </Paper>
   );
 }
@@ -772,7 +804,7 @@ export default function BiteCaseRiskDashboard() {
           </Box>
 
           <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)', mt: 0.35, fontWeight: 600 }}>
-            Period: <strong>{periodSummaryText}</strong> • Basis: Verified Exposure Date • Outcome Cutoff: <strong>{cutoffLabel}</strong> • <strong>{totalRecorded}</strong> Recorded Episodes
+            Period: <strong>{periodSummaryText}</strong> · Basis: Verified Exposure Date · Outcome Cutoff: <strong>{cutoffLabel}</strong> · <strong>{totalRecorded}</strong> Recorded Episodes
           </Typography>
         </Box>
 
@@ -874,45 +906,49 @@ export default function BiteCaseRiskDashboard() {
             }}
           >
             <KpiCard
-              title="1. Recorded Exposures (Form 1)"
+              title="Recorded Exposures"
               value={totalRecorded}
+              icon={<MedicalServicesOutlined sx={{ fontSize: 18 }} />}
               badgeText={
                 doh?.period_comparison?.indicators?.recorded_episodes
-                  ? `${doh.period_comparison.indicators.recorded_episodes.delta >= 0 ? '+' : ''}${doh.period_comparison.indicators.recorded_episodes.delta} vs prior (${doh.period_comparison.indicators.recorded_episodes.prior})`
-                  : `${finalizedCount} assessed · ${awaitingAssessmentCount} awaiting`
+                  ? `${doh.period_comparison.indicators.recorded_episodes.delta >= 0 ? '+' : ''}${doh.period_comparison.indicators.recorded_episodes.delta} vs prior`
+                  : `${finalizedCount} assessed`
               }
-              accent="var(--bc-focus-ring)"
+              accent="#10b981"
               active={filters.status === '' && filters.severity === ''}
-              subtext={`Assessed: ${finalizedCount} · Awaiting Form 2: ${awaitingAssessmentCount} · <15y: ${doh?.demographics.age_below_15 ?? 0}`}
+              subtext={`Form 1 · ${awaitingAssessmentCount} awaiting assessment`}
               onClick={() => handleDrillDownFilter({ status: '', severity: '' })}
             />
             <KpiCard
-              title="2. Category III Exposures (Form 2)"
+              title="Category III Exposures"
               value={doh?.categories.III ?? 0}
+              icon={<WarningAmberOutlined sx={{ fontSize: 18 }} />}
               badgeText={`${formatPct(doh?.categories.III ?? 0, finalizedCount)} of assessed`}
-              accent="var(--bc-red)"
+              accent="#dc2626"
               active={filters.severity === 'III'}
-              subtext={`Cat I: ${doh?.categories.I ?? 0} · Cat II: ${doh?.categories.II ?? 0} · Given RIG: ${givenRigCount}`}
+              subtext={`Form 2 · ${givenRigCount} verified RIG given`}
               onClick={() => handleDrillDownFilter({ severity: filters.severity === 'III' ? '' : 'III' })}
             />
             <KpiCard
-              title="3. PEP Started / Given PEP (Form 3)"
+              title="PEP Started"
               value={givenPepCount}
-              badgeText={`${formatPct(givenPepCount, newCoursePrescribedCount)} of ${newCoursePrescribedCount} prescribed`}
-              accent="var(--bc-green)"
+              icon={<VaccinesOutlined sx={{ fontSize: 18 }} />}
+              badgeText={`${formatPct(givenPepCount, newCoursePrescribedCount)} started`}
+              accent="#2563eb"
               active={filters.status === 'treatment_recorded'}
-              subtext={`Prescribed: ${pepPrescribedCount} · No admin recorded: ${noAdminCount}`}
+              subtext={`Form 3 · ${pepPrescribedCount} prescribed courses`}
               onClick={() =>
                 handleDrillDownFilter({ status: filters.status === 'treatment_recorded' ? '' : 'treatment_recorded' })
               }
             />
             <KpiCard
-              title={`4. PEP Completion (Mature Cohort)`}
+              title="PEP Completion"
               value={`${completedMatureTotal} / ${maturedCoursesTotal}`}
+              icon={<VerifiedOutlined sx={{ fontSize: 18 }} />}
               badgeText={formatPct(completedMatureTotal, maturedCoursesTotal)}
-              accent="var(--bc-green-strong)"
+              accent="#059669"
               active={filters.status === 'completed'}
-              subtext={`Mature @ ${cutoffLabel} · Active in window: ${doh?.completion_and_outcomes.immature_courses ?? 0}`}
+              subtext={`Mature cohort · ${doh?.completion_and_outcomes.immature_courses ?? 0} active in window`}
               onClick={() => handleDrillDownFilter({ status: filters.status === 'completed' ? '' : 'completed' })}
             />
           </Box>

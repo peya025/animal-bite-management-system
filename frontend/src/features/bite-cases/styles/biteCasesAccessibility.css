@@ -17,14 +17,17 @@
   --bc-text-secondary: #475569; /* Replaces --bc-muted, 4.5:1 on white */
   
   /* Borders */
-  --bc-border: #cbd5e1;
-  --bc-border-strong: #94a3b8;
+  --bc-border: #e2e8f0;
+  --bc-border-strong: #cbd5e1;
   
   /* Surfaces */
   --bc-surface: #ffffff;
   --bc-surface-2: #f8fafc;
   --bc-surface-3: #f1f5f9;
-  --bc-track: #e2e8f0;
+  --bc-track: #f1f5f9;
+  --bc-card-radius: 16px;
+  --bc-card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  --bc-card-shadow-hover: 0 10px 25px -5px rgba(0, 0, 0, 0.07), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
   
   /* ========================================
      Priority Colors - WCAG AA Compliant

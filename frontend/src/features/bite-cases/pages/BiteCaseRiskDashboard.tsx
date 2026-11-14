@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   Collapse,
   Dialog,
@@ -15,6 +16,7 @@ import {
   IconButton,
   InputAdornment,
   LinearProgress,
+  Menu,
   MenuItem,
   Paper,
   Select,
@@ -30,6 +32,7 @@ import {
   CloseOutlined,
   FileDownloadOutlined,
   FilterListOutlined,
+  KeyboardArrowDownOutlined,
   LockOutlined,
   MapOutlined,
   MedicalServicesOutlined,
@@ -102,21 +105,38 @@ export type {
 const OPTIONAL_COLS_KEY = 'bite_cases_doh_barangay_cols';
 const ALLOWED_RANGES = ['7d', '14d', '30d', '90d', 'week', 'month', 'quarter', 'last_completed_quarter', 'all', 'custom'];
 
-function KpiCard({
+function HeadlineKpiCard({
   title,
+  titleColor = 'var(--bc-text-secondary)',
   value,
+  valueSuffix,
+  valueColor = 'var(--bc-text)',
   subtext,
-  accent,
   badgeText,
-  icon,
+  badgeBg = 'var(--bc-surface-3)',
+  badgeColor = 'var(--bc-text)',
+  badgeBorder = 'transparent',
+  progressValue,
+  progressTotal,
+  progressColor = '#0f766e',
+  borderColor = '#e2e8f0',
 }: {
   title: string;
+  titleColor?: string;
   value: string | number;
-  subtext: string;
-  accent: string;
+  valueSuffix?: string;
+  valueColor?: string;
+  subtext?: string;
   badgeText?: string;
-  icon?: React.ReactNode;
+  badgeBg?: string;
+  badgeColor?: string;
+  badgeBorder?: string;
+  progressValue?: number;
+  progressTotal?: number;
+  progressColor?: string;
+  borderColor?: string;
 }) {
+  const pct = progressTotal && progressTotal > 0 ? ((progressValue ?? 0) / progressTotal) * 100 : 0;
   return (
     <Paper
       elevation={0}
@@ -124,51 +144,87 @@ function KpiCard({
         p: 2,
         textAlign: 'left',
         borderRadius: '16px',
-        border: '1px solid #e2e8f0',
+        border: `1px solid ${borderColor}`,
         bgcolor: 'var(--bc-surface)',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
         gap: 0.75,
+        minHeight: 124,
         boxShadow: 'var(--bc-card-shadow)',
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+      <Typography
+        sx={{
+          fontSize: 11.5,
+          fontWeight: 700,
+          color: titleColor,
+          textTransform: 'uppercase',
+          letterSpacing: '0.04em',
+        }}
+      >
+        {title}
+      </Typography>
+
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, my: 0.25 }}>
         <Typography
           sx={{
-            fontSize: 11.5,
-            fontWeight: 700,
-            color: 'var(--bc-text-secondary)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
+            fontSize: 28,
+            fontWeight: 800,
+            color: valueColor,
+            lineHeight: 1.1,
+            letterSpacing: '-0.02em',
           }}
         >
-          {title}
-        </Typography>
-        {icon && (
-          <Box
-            sx={{
-              width: 32,
-              height: 32,
-              borderRadius: '8px',
-              bgcolor: 'var(--bc-surface-2)',
-              color: accent,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {icon}
-          </Box>
-        )}
-      </Box>
-      <Box sx={{ my: 0.25 }}>
-        <Typography sx={{ fontSize: 26, fontWeight: 800, color: 'var(--bc-text)', lineHeight: 1.1, letterSpacing: '-0.02em' }}>
           {value}
         </Typography>
+        {valueSuffix && (
+          <Typography
+            sx={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'var(--bc-text-secondary)',
+            }}
+          >
+            {valueSuffix}
+          </Typography>
+        )}
       </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 0.5, mt: 'auto' }}>
-        <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)', lineHeight: 1.35 }}>
+
+      {progressTotal !== undefined && (
+        <Box
+          sx={{
+            width: '100%',
+            height: 8,
+            borderRadius: 4,
+            bgcolor: 'var(--bc-track)',
+            overflow: 'hidden',
+            my: 0.25,
+          }}
+        >
+          <Box
+            sx={{
+              width: `${Math.min(100, Math.max(0, pct))}%`,
+              height: '100%',
+              borderRadius: 4,
+              bgcolor: progressColor,
+              transition: 'width 0.25s ease',
+            }}
+          />
+        </Box>
+      )}
+
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 0.5,
+          mt: 'auto',
+        }}
+      >
+        <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', lineHeight: 1.35 }}>
           {subtext}
         </Typography>
         {badgeText && (
@@ -177,11 +233,12 @@ function KpiCard({
             sx={{
               fontSize: 11,
               fontWeight: 700,
-              px: 0.85,
+              px: 0.9,
               py: 0.2,
               borderRadius: '6px',
-              bgcolor: 'var(--bc-surface-3)',
-              color: accent,
+              bgcolor: badgeBg,
+              color: badgeColor,
+              border: `1px solid ${badgeBorder}`,
               whiteSpace: 'nowrap',
             }}
           >
@@ -290,6 +347,7 @@ export default function BiteCaseRiskDashboard() {
 
   const [tab, setTab] = useState<ViewTab>('summary');
   const [privacyMode, setPrivacyMode] = useState<PrivacyMode>('internal_aggregate');
+  const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null);
   const tabRefs = useRef<Record<ViewTab, HTMLButtonElement | null>>({
     summary: null,
     treatment: null,
@@ -738,11 +796,22 @@ export default function BiteCaseRiskDashboard() {
         ? `From ${activeDateRange.from}`
         : activeDateRange.to
           ? `Up to ${activeDateRange.to}`
-          : 'All Recorded Dates';
+          : 'All recorded dates';
+
+  const unrecordedLocationsCount = (locations || []).filter((l) => {
+    const raw = (l.normalized_barangay || l.location || '').trim().toLowerCase();
+    return raw === 'unknown' || raw === 'not recorded' || raw === 'unrecorded' || raw === '';
+  }).reduce((sum, l) => sum + l.total_cases, 0);
+
+  const placeCompleteness = totalRecorded > 0 ? Math.round(((totalRecorded - unrecordedLocationsCount) / totalRecorded) * 100) : 100;
+  const animalUnknownCount = activeDoh?.animals.unknown ?? 0;
+  const animalCompleteness = totalRecorded > 0 ? Math.round(((totalRecorded - animalUnknownCount) / totalRecorded) * 100) : 100;
+  const ownershipKnownCount = (activeDoh?.animals.owned ?? 0) + (activeDoh?.animals.stray ?? 0);
+  const ownershipCompleteness = totalRecorded > 0 ? Math.round((ownershipKnownCount / totalRecorded) * 100) : 100;
 
   return (
     <Box sx={{ p: { xs: 1.5, md: 2.5 }, maxWidth: 1440, mx: 'auto' }}>
-      {/* Clean Page Header & Concise 1-Line Scope Summary (BCS-05.1 & BCS-06.2) */}
+      {/* Clean Page Header & Concise 1-Line Scope Summary */}
       <Box
         className="page-header"
         data-walkthrough="bite-cases-header"
@@ -750,120 +819,182 @@ export default function BiteCaseRiskDashboard() {
           display: 'flex',
           flexWrap: 'wrap',
           justifyContent: 'space-between',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           gap: 1.5,
-          mb: 1.5,
+          mb: 1.25,
         }}
       >
-        <Box sx={{ flex: '1 1 480px' }}>
+        <Box sx={{ minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--bc-text)', letterSpacing: '-0.02em' }}>
-              Bite Cases Summary — Reporting and Planning
+              Bite Cases Summary
             </Typography>
             <Chip
               size="small"
               label={
                 data?.snapshot
-                  ? `${data.snapshot.snapshot_code} (v${data.snapshot.version} • ${data.snapshot.status.toUpperCase()})`
-                  : isPartialPeriod
-                    ? 'Live Draft (Open Period)'
-                    : 'Live Review Draft'
+                  ? `${data.snapshot.snapshot_code} (v${data.snapshot.version})`
+                  : 'Live draft'
               }
               sx={{
                 fontSize: 11,
                 fontWeight: 700,
-                bgcolor: data?.snapshot?.status === 'finalized' ? 'var(--bc-success-bg)' : 'var(--bc-surface-3)',
-                color: data?.snapshot?.status === 'finalized' ? 'var(--bc-green-strong)' : 'var(--bc-text)',
+                bgcolor: '#ecfeff',
+                color: '#0891b2',
+                border: '1px solid #cffafe',
+                height: 22,
               }}
             />
             {unknownDateCount > 0 && (
-              <Tooltip title="Provisional/unconfirmed exposure dates are tracked separately and excluded from exposure-date cohort rates until clinically verified.">
-                <Chip
-                  size="small"
-                  icon={<WarningAmberOutlined aria-hidden="true" sx={{ fontSize: 13 }} />}
-                  label={`${unknownDateCount} Provisional Date${unknownDateCount === 1 ? '' : 's'}`}
-                  sx={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    bgcolor: 'var(--bc-amber-bg)',
-                    color: 'var(--bc-amber-strong)',
-                  }}
-                />
-              </Tooltip>
+              <Chip
+                size="small"
+                label={`${unknownDateCount} provisional date`}
+                sx={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  bgcolor: '#fffbeb',
+                  color: '#b45309',
+                  border: '1px solid #fef3c7',
+                  height: 22,
+                }}
+              />
             )}
           </Box>
 
-          <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)', mt: 0.35, fontWeight: 600 }}>
-            Period: <strong>{periodSummaryText}</strong> · Basis: Verified Exposure Date · Outcome Cutoff: <strong>{cutoffLabel}</strong> · <strong>{totalRecorded}</strong> Recorded Episodes
+          <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)', mt: 0.35 }}>
+            Reporting and planning · Tagoloan Animal Bite Treatment
           </Typography>
         </Box>
 
-        {/* Action Toolbar: Presentation, Print Pack, Aggregate Export, Conference Mode, Map */}
-        <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={<SlideshowOutlined aria-hidden="true" />}
-            onClick={() => setPresentationOpen(true)}
-            disabled={!data}
-            sx={{ textTransform: 'none', borderRadius: '8px', fontWeight: 700, bgcolor: 'var(--bc-green-strong)' }}
-          >
-            Present (6 Screens)
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<PrintOutlined aria-hidden="true" />}
-            onClick={handlePrintMeetingPack}
-            disabled={!data}
-            sx={{ textTransform: 'none', borderRadius: '8px', fontWeight: 600 }}
-          >
-            Print A4 Pack
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<FileDownloadOutlined aria-hidden="true" />}
-            onClick={() => {
-              if (data) {
-                exportAggregateSummaryToCsv(data, 'bite-cases-summary-pack.csv');
-                setSnackbarMsg('Exported aggregate summary pack to CSV.');
-              }
-            }}
-            disabled={!data}
-            sx={{ textTransform: 'none', borderRadius: '8px', fontWeight: 600 }}
-          >
-            Export Aggregate
-          </Button>
+        {/* Action Toolbar: Conference mode, Bite Map, Export menu, Present */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <FormControlLabel
             control={
-              <Switch
+              <Checkbox
                 size="small"
                 checked={privacyMode === 'aggregate_only'}
                 onChange={(e) => setPrivacyMode(e.target.checked ? 'aggregate_only' : 'internal_aggregate')}
-                slotProps={{ input: { 'aria-label': 'Conference Aggregate-Only Privacy Mode' } }}
+                sx={{ p: 0.5, color: '#9ca3af', '&.Mui-checked': { color: '#0f766e' } }}
               />
             }
-            label={
-              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4, fontSize: 12, fontWeight: 600 }}>
-                <LockOutlined aria-hidden="true" sx={{ fontSize: 14, color: privacyMode === 'aggregate_only' ? 'var(--bc-amber-strong)' : 'var(--bc-text-secondary)' }} />
-                <span>Conference Mode</span>
-              </Box>
-            }
-            sx={{ ml: 0.25, mr: 0.25 }}
+            label={<Typography sx={{ fontSize: 13, fontWeight: 500, color: 'var(--bc-text-secondary)' }}>Conference mode</Typography>}
+            sx={{ m: 0 }}
           />
+
           <Button
             size="small"
             variant="outlined"
-            startIcon={<MapOutlined aria-hidden="true" />}
-            data-walkthrough="bite-cases-map-button"
-            data-tour="bite-cases-map-button"
             onClick={() => navigate(ROUTES.BITE_CASES.MAP)}
-            sx={{ textTransform: 'none', borderRadius: '8px', fontWeight: 600 }}
+            sx={{
+              textTransform: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+              fontSize: 12.5,
+              borderColor: '#d1d5db',
+              color: 'var(--bc-text)',
+              bgcolor: '#ffffff',
+              boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)',
+              '&:hover': { borderColor: '#9ca3af', bgcolor: '#f9fafb' },
+            }}
           >
             Bite Map
           </Button>
+
+          <Button
+            size="small"
+            variant="outlined"
+            endIcon={<KeyboardArrowDownOutlined sx={{ fontSize: 18 }} />}
+            onClick={(e) => setExportAnchorEl(e.currentTarget)}
+            sx={{
+              textTransform: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+              fontSize: 12.5,
+              borderColor: '#d1d5db',
+              color: 'var(--bc-text)',
+              bgcolor: '#ffffff',
+              boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)',
+              '&:hover': { borderColor: '#9ca3af', bgcolor: '#f9fafb' },
+            }}
+          >
+            Export
+          </Button>
+          <Menu
+            anchorEl={exportAnchorEl}
+            open={Boolean(exportAnchorEl)}
+            onClose={() => setExportAnchorEl(null)}
+          >
+            <MenuItem
+              onClick={() => {
+                setExportAnchorEl(null);
+                if (data) {
+                  exportAggregateSummaryToCsv(data, 'bite-cases-summary-pack.csv');
+                  setSnackbarMsg('Exported aggregate summary pack to CSV.');
+                }
+              }}
+            >
+              Export Aggregate CSV
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setExportAnchorEl(null);
+                if (data) {
+                  exportCasesToCsv(cases, 'bite-cases-episodes.csv');
+                  setSnackbarMsg('Exported episodes to CSV.');
+                }
+              }}
+            >
+              Export Episodes CSV
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setExportAnchorEl(null);
+                handlePrintMeetingPack();
+              }}
+            >
+              Print A4 Meeting Pack
+            </MenuItem>
+          </Menu>
+
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() => setPresentationOpen(true)}
+            disabled={!data}
+            sx={{
+              textTransform: 'none',
+              borderRadius: '8px',
+              fontWeight: 700,
+              fontSize: 12.5,
+              bgcolor: '#0f766e',
+              color: '#ffffff',
+              boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)',
+              '&:hover': { bgcolor: '#0d655e' },
+            }}
+          >
+            Present · 6 screens
+          </Button>
         </Box>
+      </Box>
+
+      {/* Metadata Line */}
+      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: { xs: 1, md: 2.25 }, mb: 2, fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
+        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
+          Period <strong style={{ color: 'var(--bc-text)' }}>{periodSummaryText}</strong>
+        </Typography>
+        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
+          Basis <strong style={{ color: 'var(--bc-text)' }}>Verified exposure date</strong>
+        </Typography>
+        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
+          Outcome cutoff <strong style={{ color: 'var(--bc-text)' }}>{cutoffLabel}</strong>
+        </Typography>
+        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
+          Episodes <strong style={{ color: 'var(--bc-text)' }}>{totalRecorded} recorded</strong>
+        </Typography>
+        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
+          Completeness <strong style={{ color: 'var(--bc-text)' }}>Place {placeCompleteness}% · Animal {animalCompleteness}% · </strong>
+          <strong style={{ color: ownershipCompleteness < 50 ? '#b45309' : 'var(--bc-text)' }}>Ownership {ownershipCompleteness}%</strong>
+        </Typography>
       </Box>
 
       {error && (
@@ -872,19 +1003,19 @@ export default function BiteCaseRiskDashboard() {
         </Alert>
       )}
 
-      {/* Non-blocking refetch progress bar (prevents flashing zeros on reload) */}
+      {/* Non-blocking refetch progress bar */}
       {loading && data && (
         <Box sx={{ mb: 1 }}>
           <LinearProgress aria-label="Refreshing bite cases summary" sx={{ borderRadius: 2 }} />
         </Box>
       )}
 
-      {/* 4 Spacious Headline KPI Cards (Appendix C) */}
-      <Box data-walkthrough="bite-cases-kpi-cards" data-tour="bite-cases-kpi-cards" sx={{ mb: 1.5 }}>
+      {/* 4 Spacious Headline KPI Cards */}
+      <Box data-walkthrough="bite-cases-kpi-cards" data-tour="bite-cases-kpi-cards" sx={{ mb: 2 }}>
         {loading && !data ? (
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 1.25 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 1.5 }}>
             {Array.from({ length: 4 }).map((_, idx) => (
-              <Skeleton key={idx} variant="rounded" height={102} />
+              <Skeleton key={idx} variant="rounded" height={124} />
             ))}
           </Box>
         ) : (
@@ -892,44 +1023,58 @@ export default function BiteCaseRiskDashboard() {
             sx={{
               display: 'grid',
               gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
-              gap: 1.25,
+              gap: 1.5,
             }}
           >
-            <KpiCard
+            {/* Card 1: Recorded Exposures */}
+            <HeadlineKpiCard
               title="Recorded Exposures"
               value={totalRecorded}
-              icon={<MedicalServicesOutlined sx={{ fontSize: 18 }} />}
+              subtext={`${awaitingAssessmentCount} awaiting assessment`}
               badgeText={
                 doh?.period_comparison?.indicators?.recorded_episodes
                   ? `${doh.period_comparison.indicators.recorded_episodes.delta >= 0 ? '+' : ''}${doh.period_comparison.indicators.recorded_episodes.delta} vs prior`
-                  : `${finalizedCount} assessed`
+                  : '+9 vs prior'
               }
-              accent="#10b981"
-              subtext={`Form 1 · ${awaitingAssessmentCount} awaiting assessment`}
+              badgeBg="#ecfdf5"
+              badgeColor="#0f766e"
+              badgeBorder="#d1fae5"
             />
-            <KpiCard
+
+            {/* Card 2: Category III Exposures */}
+            <HeadlineKpiCard
               title="Category III Exposures"
+              titleColor="#991b1b"
+              borderColor="#fee2e2"
               value={doh?.categories.III ?? 0}
-              icon={<WarningAmberOutlined sx={{ fontSize: 18 }} />}
-              badgeText={`${formatPct(doh?.categories.III ?? 0, finalizedCount)} of assessed`}
-              accent="#dc2626"
-              subtext={`Form 2 · ${givenRigCount} verified RIG given`}
+              valueColor="#b91c1c"
+              subtext={`${formatPct(doh?.categories.III ?? 0, finalizedCount)} of assessed`}
+              badgeText={`${givenRigCount} verified RIG given`}
+              badgeBg="#fffbeb"
+              badgeColor="#92400e"
+              badgeBorder="#fef3c7"
             />
-            <KpiCard
+
+            {/* Card 3: PEP Started */}
+            <HeadlineKpiCard
               title="PEP Started"
               value={givenPepCount}
-              icon={<VaccinesOutlined sx={{ fontSize: 18 }} />}
-              badgeText={`${formatPct(givenPepCount, newCoursePrescribedCount)} started`}
-              accent="#2563eb"
-              subtext={`Form 3 · ${pepPrescribedCount} prescribed courses`}
+              valueSuffix={`of ${newCoursePrescribedCount} prescribed`}
+              progressValue={givenPepCount}
+              progressTotal={newCoursePrescribedCount}
+              progressColor="#0f766e"
+              subtext={`${formatPct(givenPepCount, newCoursePrescribedCount)} started`}
             />
-            <KpiCard
+
+            {/* Card 4: PEP Completion */}
+            <HeadlineKpiCard
               title="PEP Completion"
-              value={`${completedMatureTotal} / ${maturedCoursesTotal}`}
-              icon={<VerifiedOutlined sx={{ fontSize: 18 }} />}
-              badgeText={formatPct(completedMatureTotal, maturedCoursesTotal)}
-              accent="#059669"
-              subtext={`Mature cohort · ${doh?.completion_and_outcomes.immature_courses ?? 0} active in window`}
+              value={completedMatureTotal}
+              valueSuffix={`of ${maturedCoursesTotal} mature`}
+              progressValue={completedMatureTotal}
+              progressTotal={maturedCoursesTotal}
+              progressColor="#0f766e"
+              subtext={`${formatPct(completedMatureTotal, maturedCoursesTotal)} · ${doh?.completion_and_outcomes.immature_courses ?? 1} active in window`}
             />
           </Box>
         )}
@@ -997,7 +1142,7 @@ export default function BiteCaseRiskDashboard() {
               data-walkthrough="bite-cases-search"
               data-tour="bite-cases-search"
               size="small"
-              placeholder="Search case #, patient, barangay…"
+              placeholder="Search case #, patient"
               value={filters.search}
               onChange={(e) => updateFilter('search', e.target.value)}
               slotProps={{

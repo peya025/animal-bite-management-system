@@ -14,6 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import {
+  ArrowForwardOutlined,
   ChevronRightOutlined,
   ExpandLessOutlined,
   ExpandMoreOutlined,
@@ -108,19 +109,16 @@ function Section({
   );
 }
 
-/** A single status row inside a pipeline stage. Clickable only when it leads somewhere. */
+/** A single status row inside a pipeline stage. */
 function StageRow({
   label,
   count,
-  tone,
   onClick,
 }: {
   label: string;
   count: number;
-  tone: 'positive' | 'attention' | 'neutral';
   onClick?: () => void;
 }) {
-  const color = tone === 'positive' ? 'var(--bc-green-strong)' : tone === 'attention' ? 'var(--bc-amber-strong)' : 'var(--bc-text-2)';
   const interactive = Boolean(onClick) && count > 0;
 
   return (
@@ -136,9 +134,9 @@ function StageRow({
         justifyContent: 'space-between',
         gap: 1,
         px: 1,
-        py: 0.75,
+        py: 0.65,
         border: 0,
-        borderRadius: '8px',
+        borderRadius: '6px',
         background: 'transparent',
         textAlign: 'left',
         font: 'inherit',
@@ -148,13 +146,64 @@ function StageRow({
         '&:focus-visible': { outline: '2px solid var(--bc-focus-ring)', outlineOffset: '1px' },
       }}
     >
-      <Typography sx={{ fontSize: 13, color: 'var(--bc-text-2)' }}>{label}</Typography>
+      <Typography sx={{ fontSize: 13, color: 'var(--bc-text-2)', fontWeight: 500 }}>{label}</Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-        <Typography sx={{ fontSize: 14, fontWeight: 700, color: count > 0 ? color : 'var(--bc-text-secondary)' }}>
+        <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'var(--bc-text)' }}>
           {count}
         </Typography>
         {interactive ? (
           <ChevronRightOutlined aria-hidden="true" sx={{ fontSize: 16, color: 'var(--bc-text-secondary)' }} />
+        ) : (
+          <Box sx={{ width: 16 }} />
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+/** Amber alert callout box for awaiting assessment or missing nurse administration */
+function StageAlertBox({
+  label,
+  count,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  onClick?: () => void;
+}) {
+  const interactive = Boolean(onClick) && count > 0;
+  return (
+    <Box
+      component={interactive ? 'button' : 'div'}
+      type={interactive ? 'button' : undefined}
+      onClick={interactive ? onClick : undefined}
+      aria-label={interactive ? `${label}: ${count}. View cases` : undefined}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%',
+        p: '9px 12px',
+        borderRadius: '8px',
+        bgcolor: '#fffbeb',
+        border: '1px solid #fef3c7',
+        cursor: interactive ? 'pointer' : 'default',
+        textAlign: 'left',
+        font: 'inherit',
+        transition: 'all 0.15s ease',
+        '&:hover': interactive ? { bgcolor: '#fef3c7' } : undefined,
+        '&:focus-visible': { outline: '2px solid #b45309', outlineOffset: '1px' },
+      }}
+    >
+      <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#92400e' }}>
+        {label}
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#92400e' }}>
+          {count}
+        </Typography>
+        {interactive ? (
+          <ChevronRightOutlined aria-hidden="true" sx={{ fontSize: 16, color: '#92400e' }} />
         ) : (
           <Box sx={{ width: 16 }} />
         )}
@@ -168,12 +217,14 @@ function Stage({
   title,
   value,
   valueLabel,
+  progressPct = 100,
   children,
 }: {
   step: string;
   title: string;
   value: number;
   valueLabel: string;
+  progressPct?: number;
   children: ReactNode;
 }) {
   return (
@@ -182,20 +233,37 @@ function Stage({
         flex: 1,
         minWidth: 0,
         border: BC_BORDER,
-        borderRadius: '12px',
-        p: 1.5,
+        borderRadius: '14px',
+        p: 2,
         bgcolor: 'var(--bc-surface-2)',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
-      <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+      <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
         {step}
       </Typography>
-      <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'var(--bc-text)', mt: 0.25 }}>{title}</Typography>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mt: 1, mb: 0.75, px: 1 }}>
-        <Typography sx={{ fontSize: 26, fontWeight: 800, color: 'var(--bc-text)', lineHeight: 1 }}>{value}</Typography>
-        <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>{valueLabel}</Typography>
+      <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'var(--bc-text)', mt: 0.25 }}>
+        {title}
+      </Typography>
+
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mt: 1.25, mb: 1 }}>
+        <Typography sx={{ fontSize: 28, fontWeight: 800, color: 'var(--bc-text)', lineHeight: 1 }}>
+          {value}
+        </Typography>
+        <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)', fontWeight: 600 }}>
+          {valueLabel}
+        </Typography>
       </Box>
-      <Box sx={{ borderTop: BC_BORDER, pt: 0.5 }}>{children}</Box>
+
+      {/* Progress Bar */}
+      <Box sx={{ width: '100%', height: 7, borderRadius: 4, bgcolor: 'var(--bc-track)', overflow: 'hidden', mb: 1.5 }}>
+        <Box sx={{ width: `${Math.min(100, Math.max(0, progressPct))}%`, height: '100%', borderRadius: 4, bgcolor: '#0f766e' }} />
+      </Box>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 'auto' }}>
+        {children}
+      </Box>
     </Box>
   );
 }
@@ -204,9 +272,9 @@ function StageArrow() {
   return (
     <Box
       aria-hidden="true"
-      sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', color: 'var(--bc-border-strong)' }}
+      sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', justifyContent: 'center', color: 'var(--bc-border-strong)', px: 0.25 }}
     >
-      <ChevronRightOutlined />
+      <ArrowForwardOutlined sx={{ fontSize: 18, color: 'var(--bc-text-secondary)' }} />
     </Box>
   );
 }
@@ -411,37 +479,45 @@ export function BiteCasesOverviewTab({
           </Box>
         }
       >
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 1, alignItems: 'stretch' }}>
-          <Stage step="Form 1" title="Registration and exposure" value={totalRecorded} valueLabel="registered">
-            <StageRow
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 1.25, alignItems: 'stretch' }}>
+          <Stage
+            step="Form 1"
+            title="Registration and exposure"
+            value={totalRecorded}
+            valueLabel="registered"
+            progressPct={100}
+          >
+            <StageAlertBox
               label="Awaiting assessment"
               count={awaitingAssessmentCount}
-              tone="attention"
               onClick={() => onDrillDownToStage('form_1_registration')}
             />
           </Stage>
 
           <StageArrow />
 
-          <Stage step="Form 2" title="Doctor assessment" value={finalizedCount} valueLabel="assessed">
-            <StageRow label="PEP prescribed" count={pepPrescribedCount} tone="neutral" />
+          <Stage
+            step="Form 2"
+            title="Doctor assessment"
+            value={finalizedCount}
+            valueLabel={`assessed · ${totalRecorded > 0 ? formatPct(finalizedCount, totalRecorded) : '0%'} of registered`}
+            progressPct={totalRecorded > 0 ? (finalizedCount / totalRecorded) * 100 : 0}
+          >
+            <StageRow label="PEP prescribed" count={pepPrescribedCount} />
             <StageRow
               label="No PEP required"
               count={explicitNoPepCount}
-              tone="positive"
               onClick={() => onDrillDownToStage('form_2_no_pep')}
             />
             <StageRow
               label="Transferred / referred"
               count={transferredCount}
-              tone="neutral"
               onClick={() => onDrillDownToStage('form_2_transferred')}
             />
             {decisionPendingCount > 0 && (
               <StageRow
                 label="Decision not recorded"
                 count={decisionPendingCount}
-                tone="attention"
                 onClick={() => onDrillDownFilter({ status: 'unresolved_review' })}
               />
             )}
@@ -449,17 +525,21 @@ export function BiteCasesOverviewTab({
 
           <StageArrow />
 
-          <Stage step="Form 3" title="Nurse treatment" value={pepPrescribedCount} valueLabel="prescribed PEP">
+          <Stage
+            step="Form 3"
+            title="Nurse treatment"
+            value={pepPrescribedCount}
+            valueLabel={`prescribed PEP · ${totalRecorded > 0 ? formatPct(pepPrescribedCount, totalRecorded) : '0%'} of registered`}
+            progressPct={totalRecorded > 0 ? (pepPrescribedCount / totalRecorded) * 100 : 0}
+          >
             <StageRow
               label="Treatment started"
               count={givenPepCount}
-              tone="positive"
               onClick={() => onDrillDownToStage('form_3_treatment_recorded')}
             />
-            <StageRow
+            <StageAlertBox
               label="No administration recorded"
               count={noAdminCount}
-              tone="attention"
               onClick={() => onDrillDownToStage('form_2_pep_prescribed')}
             />
           </Stage>
@@ -507,8 +587,8 @@ export function BiteCasesOverviewTab({
           </TableContainer>
         )}
 
-        <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', mt: 1.25 }}>
-          “No administration recorded” means no nurse record exists yet. The patient may have been treated elsewhere.
+        <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', mt: 1.5 }}>
+          Amber rows need follow-up. “No administration recorded” means no nurse record exists yet. The patient may have been treated elsewhere.
         </Typography>
       </Section>
 

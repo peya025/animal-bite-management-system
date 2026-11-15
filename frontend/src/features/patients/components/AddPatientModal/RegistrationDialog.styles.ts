@@ -4,7 +4,7 @@ import { styled } from '@mui/material/styles';
 export const RegistrationDialog = styled('div')({
   '--registration-error-color': '#b91c1c',
   '[data-theme="dark"] &': { '--registration-error-color': '#fca5a5' },
-  '&& [role="dialog"]': { padding: '16px', overscrollBehavior: 'contain' },
+  '&& [role="dialog"]': { padding: '16px', overscrollBehavior: 'contain', zIndex: 1400 },
   '&& .registration-form': { margin: 0 },
   '&& .registration-intro': { margin: '0 0 24px', fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary, #475569)' },
   '&& .registration-intro strong': { color: 'var(--text-h, #111827)' },

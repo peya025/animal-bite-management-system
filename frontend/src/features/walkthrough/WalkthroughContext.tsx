@@ -59,7 +59,13 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // First-time visit to /dashboard shows the Welcome Modal
   useEffect(() => {
     if (!user?.id) return;
-    const isDashboard = location.pathname === ROUTES.DASHBOARD || location.pathname === '/' || location.pathname.includes('/walkthrough.html');
+    const isLandingOrPublic = location.pathname === '/' || location.pathname === ROUTES.HOME || location.pathname === ROUTES.LOGIN;
+    if (isLandingOrPublic) {
+      setIsWelcomeModalOpen(false);
+      return;
+    }
+
+    const isDashboard = location.pathname === ROUTES.DASHBOARD || location.pathname === `${ROUTES.DASHBOARD}/` || location.pathname.includes('/walkthrough.html');
     if (!isDashboard) {
       setIsWelcomeModalOpen(false);
       return;
@@ -219,13 +225,15 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     : user?.role === 'treatment' ? 'Treatment Nurse'
     : user?.role === 'triage' ? 'Triage Doctor' : '';
 
+  const isLandingOrPublic = location.pathname === '/' || location.pathname === ROUTES.HOME || location.pathname === ROUTES.LOGIN;
+
   return (
     <WalkthroughContext.Provider value={value}>
       {children}
 
       {/* First-time Welcome Modal */}
       <WalkthroughWelcomeModal
-        open={isWelcomeModalOpen}
+        open={isWelcomeModalOpen && !isLandingOrPublic}
         roleName={getDashboardModuleInfoForRole(user?.role).name}
         totalSteps={dashboardModule?.steps.length || 0}
         onStart={() => {
@@ -236,7 +244,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
       />
 
       {/* Active Walkthrough Step Spotlight & Tooltip Overlay */}
-      {activeModule && currentStep && (
+      {activeModule && currentStep && !isLandingOrPublic && (
         <WalkthroughOverlay
           key={`${activeModule.id}-${currentStep.id}`}
           step={currentStep}
@@ -253,7 +261,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       {/* Completion Modal */}
       <WalkthroughCompletionModal
-        open={isCompletionModalOpen}
+        open={isCompletionModalOpen && !isLandingOrPublic}
         onFinish={() => setIsCompletionModalOpen(false)}
       />
     </WalkthroughContext.Provider>

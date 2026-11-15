@@ -14,7 +14,9 @@ docs/tasks/
 ├── 03-controller-refactoring/  # Multi-developer controller refactoring architecture
 ├── 04-clinical-and-workflows/  # Clinical domain logic, PEP resolution, and workflow plans
 ├── 05-mobile-app-tasks/        # Mobile-specific implementation plans & architecture
-└── 06-deployment-and-audits/   # Deployment runbooks, pre-release checklists, and audits
+├── 06-deployment-and-audits/   # Deployment runbooks, pre-release checklists, and audits
+├── 07-mobile-push-alerts-fcm/  # Firebase Cloud Messaging background push alerts
+└── 08-google-sign-in-sso/      # Google OAuth 2.0 Single Sign-On integration
 ```
 
 ---
@@ -73,3 +75,11 @@ Deployment runbooks, pre-release checklists, and audits:
 * [`deployment_readiness_remediation_tasks.md`](./06-deployment-and-audits/deployment_readiness_remediation_tasks.md): Pre-launch remediation checklist.
 * [`pre_deployment_system_change_audit.md`](./06-deployment-and-audits/pre_deployment_system_change_audit.md): Pre-deployment system change audit log.
 * [`railway_vercel_mobile_deployment_checklist.md`](./06-deployment-and-audits/railway_vercel_mobile_deployment_checklist.md): Step-by-step deployment runbook for web, backend, and mobile.
+
+### 7. [07-mobile-push-alerts-fcm](./07-mobile-push-alerts-fcm/)
+Firebase Cloud Messaging (FCM) push notification integration:
+* [`PLAN.md`](./07-mobile-push-alerts-fcm/PLAN.md): End-to-end plan for background lock screen push alerts, device token registration, and notification events.
+
+### 8. [08-google-sign-in-sso](./08-google-sign-in-sso/)
+Google OAuth 2.0 Single Sign-On (SSO) credentials and configuration:
+* [`PLAN.md`](./08-google-sign-in-sso/PLAN.md): Complete setup guide for Google Cloud Console Client IDs (Web & Android), SHA-1 signing keys, `.env` settings, and role verification.

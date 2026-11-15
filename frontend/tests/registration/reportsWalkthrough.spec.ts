@@ -45,13 +45,18 @@ test.describe('Role-Based Reports & Analytics Interactive Walkthrough Audit & Ve
 
   test('2. Registration Staff Reports Walkthrough only covers registration features and excludes admin-only features', () => {
     const steps = getRegistrationReportsSteps();
-    expect(steps.length).toBeGreaterThanOrEqual(10);
+    expect(steps.length).toBeGreaterThanOrEqual(15);
 
     const ids = steps.map(s => s.id);
     expect(ids).toContain('reg-reports-overview');
     expect(ids).toContain('reg-reports-tabs');
-    expect(ids).toContain('reg-reports-summary-cards');
-    expect(ids).toContain('reg-reports-surveillance-charts');
+    expect(ids).toContain('reg-reports-kpi-completion');
+    expect(ids).toContain('reg-reports-kpi-priorities');
+    expect(ids).toContain('reg-reports-kpi-delay');
+    expect(ids).toContain('reg-reports-kpi-followup');
+    expect(ids).toContain('reg-reports-surveillance-filters');
+    expect(ids).toContain('reg-reports-chart-categories');
+    expect(ids).toContain('reg-reports-chart-demographics');
     expect(ids).toContain('reg-reports-demographics');
     expect(ids).toContain('reg-reports-pep-outcomes');
     expect(ids).toContain('reg-reports-pep-overdue');
@@ -187,6 +192,59 @@ test.describe('Role-Based Reports & Analytics Interactive Walkthrough Audit & Ve
       expect(step).toBeDefined();
       expect(step?.placement).toBe('top'); // Places modal above so whole table scrolls into view below
       expect(step?.targetSelector).toContain(tableId);
+    }
+  });
+
+  test('8. Registration Walkthrough separates all summary KPI cards and surveillance charts into individual feature steps without grouped container overlap', () => {
+    const steps = getRegistrationReportsSteps();
+
+    // 1. All 4 KPI summary cards are separated into individual steps
+    const completionKpi = steps.find(s => s.id === 'reg-reports-kpi-completion');
+    const prioritiesKpi = steps.find(s => s.id === 'reg-reports-kpi-priorities');
+    const delayKpi = steps.find(s => s.id === 'reg-reports-kpi-delay');
+    const followupKpi = steps.find(s => s.id === 'reg-reports-kpi-followup');
+
+    expect(completionKpi).toBeDefined();
+    expect(prioritiesKpi).toBeDefined();
+    expect(delayKpi).toBeDefined();
+    expect(followupKpi).toBeDefined();
+
+    expect(completionKpi?.targetSelector).toContain('reg-reports-kpi-completion');
+    expect(prioritiesKpi?.targetSelector).toContain('reg-reports-kpi-priorities');
+    expect(delayKpi?.targetSelector).toContain('reg-reports-kpi-delay');
+    expect(followupKpi?.targetSelector).toContain('reg-reports-kpi-followup');
+
+    // 2. Surveillance filters and charts: Age & Day of week in one step, Row 2 (Barangays & Animals) in one step
+    const filtersStep = steps.find(s => s.id === 'reg-reports-surveillance-filters');
+    const categoryChart = steps.find(s => s.id === 'reg-reports-chart-categories');
+    const demographicsChart = steps.find(s => s.id === 'reg-reports-chart-demographics');
+    const row2Demographics = steps.find(s => s.id === 'reg-reports-demographics');
+
+    expect(filtersStep).toBeDefined();
+    expect(categoryChart).toBeDefined();
+    expect(demographicsChart).toBeDefined();
+    expect(row2Demographics).toBeDefined();
+
+    expect(demographicsChart?.targetSelector).toContain('reg-reports-chart-demographics');
+    expect(row2Demographics?.targetSelector).toContain('reg-reports-demographics');
+
+    expect(categoryChart?.placement).toBe('top');
+    expect(demographicsChart?.placement).toBe('top');
+    expect(row2Demographics?.placement).toBe('top');
+
+    // 3. Tables have top placement for clearance
+    const tableStepIds = [
+      'reg-reports-pep-outcomes',
+      'reg-reports-pep-overdue',
+      'reg-reports-pep-awaiting',
+      'reg-reports-surveillance-incidents',
+      'reg-reports-surveillance-referrals',
+      'reg-reports-clinic-summary',
+    ];
+    for (const tableId of tableStepIds) {
+      const step = steps.find(s => s.id === tableId);
+      expect(step).toBeDefined();
+      expect(step?.placement).toBe('top');
     }
   });
 });

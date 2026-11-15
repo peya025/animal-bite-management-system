@@ -284,46 +284,126 @@ export function getRegistrationReportsSteps(route: string = ROUTES.REPORTS.LIST)
       route,
       title: 'Registration Reports Navigation Tabs',
       content:
-        'Switch between four registration reporting sections: Overview (priority actions & charts), PEP & Follow-up (outcomes & overdue queues), Bite Surveillance (incident logs & transfers), and Clinic Summary.',
+        'Switch between four registration reporting sections: Overview (priority KPIs & charts), PEP & Follow-up (patient outcomes & overdue queues), Bite Surveillance (incident logs & transfers), and Clinic Summary.',
       targetSelector:
         '[data-walkthrough="reports-tabs"], [data-tour="reports-category-tabs"], .MuiTabs-root',
       fallbackSelector: 'main.page-content',
       placement: 'bottom',
     },
 
-    // Step 3: Overview - Priority Actions & High-level KPIs
+    // Step 3: Overview - PEP Vaccine-Course Completion Card
     {
-      id: 'reg-reports-summary-cards',
+      id: 'reg-reports-kpi-completion',
       module: 'Reports & Analytics',
       section: 'Overview',
       route,
       activateSelector: '[data-walkthrough="reg-reports-tab-overview"]',
-      title: 'Priority Follow-up Actions & High-level KPIs',
+      title: 'PEP Course Completion KPI',
       content:
-        'Immediate priority alerts and high-level KPIs: review patients with overdue doses or awaiting initial Day 0 doses with direct action buttons, alongside overall PEP vaccine-course completion rates and average time to first dose.',
+        'High-level clinical outcome metric: monitors the percentage and exact count of bite patients who completed their full prescribed post-exposure prophylaxis course among eligible cases.',
       targetSelector:
-        '[data-walkthrough="reg-reports-overview-kpis"], [data-walkthrough="reports-summary-cards"], .rr-overview-top-section',
+        '[data-walkthrough="reg-reports-kpi-completion"]',
       fallbackSelector: 'main.page-content',
       placement: 'bottom',
     },
 
-    // Step 4: Overview - Bite Surveillance Analytics & Temporal Trends
+    // Step 4: Overview - Follow-up Priorities Today Card
     {
-      id: 'reg-reports-surveillance-charts',
+      id: 'reg-reports-kpi-priorities',
       module: 'Reports & Analytics',
       section: 'Overview',
       route,
       activateSelector: '[data-walkthrough="reg-reports-tab-overview"]',
-      title: 'Surveillance Analytics & Temporal Trends',
+      title: 'Follow-up Priorities Today',
       content:
-        'Interactive visual epidemiology charts: filter surveillance cohorts by custom date period and exposure category, and track monthly bite incident trends, patient age brackets, and incident distribution across days of the week.',
+        'Immediate priority alert tracking bite patients who urgently require contact: view counts for overdue prescribed doses (Day 3, 7, etc.) and patients awaiting their initial Day 0 dose.',
       targetSelector:
-        '[data-walkthrough="reg-reports-surveillance-charts"], [data-walkthrough="reports-charts"], .rr-surveillance-row-1',
+        '[data-walkthrough="reg-reports-kpi-priorities"]',
       fallbackSelector: 'main.page-content',
       placement: 'bottom',
     },
 
-    // Step 5: Overview - Demographic Distribution & Animal Characteristics
+    // Step 5: Overview - Average Time to First Dose Card
+    {
+      id: 'reg-reports-kpi-delay',
+      module: 'Reports & Analytics',
+      section: 'Overview',
+      route,
+      activateSelector: '[data-walkthrough="reg-reports-tab-overview"]',
+      title: 'Average Time to First Dose (D0)',
+      content:
+        'Timeliness quality indicator: measures elapsed days from animal bite exposure to the administration of the initial vaccination dose, including the median and range.',
+      targetSelector:
+        '[data-walkthrough="reg-reports-kpi-delay"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'top',
+    },
+
+    // Step 6: Overview - Patients Needing Follow-up Card
+    {
+      id: 'reg-reports-kpi-followup',
+      module: 'Reports & Analytics',
+      section: 'Overview',
+      route,
+      activateSelector: '[data-walkthrough="reg-reports-tab-overview"]',
+      title: 'Patients Needing Follow-up',
+      content:
+        'Real-time count of patients with overdue doses who require proactive outreach or SMS reminders to prevent treatment dropout and ensure rabies immunity.',
+      targetSelector:
+        '[data-walkthrough="reg-reports-kpi-followup"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'top',
+    },
+
+    // Step 7: Overview - Surveillance Period & Category Filters
+    {
+      id: 'reg-reports-surveillance-filters',
+      module: 'Reports & Analytics',
+      section: 'Overview',
+      route,
+      activateSelector: '[data-walkthrough="reg-reports-tab-overview"]',
+      title: 'Surveillance Period & Category Filters',
+      content:
+        'Filter surveillance cohorts by time period (Today, This week, This month, This year, or Custom date range) and bite severity Category (All, Category I, II, or III). Click "Apply" to recalculate.',
+      targetSelector:
+        '[data-walkthrough="reg-reports-surveillance-filters"], .rr-filters-unified, [data-walkthrough="reports-filters"], .rr-filters',
+      fallbackSelector: 'main.page-content',
+      placement: 'top',
+    },
+
+    // Step 8: Overview - Exposure Categories Over Time Chart
+    {
+      id: 'reg-reports-chart-categories',
+      module: 'Reports & Analytics',
+      section: 'Overview',
+      route,
+      activateSelector: '[data-walkthrough="reg-reports-tab-overview"]',
+      title: 'Exposure Categories Over Time Chart',
+      content:
+        'Visual epidemiology chart displaying monthly bite exposure trends stacked by Category I (scratch), Category II (minor bite/scratch), and Category III (severe transdermal bites/scratches).',
+      targetSelector:
+        '[data-walkthrough="reg-reports-chart-categories"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'top',
+    },
+
+    // Step 9: Overview - Patient Age Brackets & Weekly Patterns
+    {
+      id: 'reg-reports-chart-demographics',
+      module: 'Reports & Analytics',
+      section: 'Overview',
+      route,
+      activateSelector: '[data-walkthrough="reg-reports-tab-overview"]',
+      title: 'Patient Age Brackets & Weekly Bite Patterns',
+      content:
+        'Demographic and temporal surveillance: examine patient vulnerability across age brackets (children, adolescents, adults, seniors) alongside bite incident distribution across days of the week to detect peak exposure days.',
+      targetSelector:
+        '[data-walkthrough="reg-reports-chart-demographics"], .rr-demographics-pair',
+      fallbackSelector: 'main.page-content',
+      placement: 'top',
+    },
+
+    // Step 10: Overview - Barangay Hotspots & Animal Characteristics
     {
       id: 'reg-reports-demographics',
       module: 'Reports & Analytics',
@@ -332,14 +412,14 @@ export function getRegistrationReportsSteps(route: string = ROUTES.REPORTS.LIST)
       activateSelector: '[data-walkthrough="reg-reports-tab-overview"]',
       title: 'Barangay Hotspots & Animal Characteristics',
       content:
-        'Analyze local rabies exposure factors across Tagoloan: identify incident barangays with the highest bite counts, inspect biting animal species, animal ownership status (domestic vs stray), and 14-day observation outcomes.',
+        'Local rabies exposure factors across Tagoloan: identify incident barangays with the highest bite counts, inspect biting animal species, domestic vs stray animal ownership, and 14-day observation status.',
       targetSelector:
         '[data-walkthrough="reg-reports-demographics"], .rr-surveillance-row-2',
       fallbackSelector: 'main.page-content',
       placement: 'top',
     },
 
-    // Step 6: PEP & Follow-up - PEP Treatment Outcomes
+    // Step 11: PEP & Follow-up - PEP Treatment Outcomes
     {
       id: 'reg-reports-pep-outcomes',
       module: 'Reports & Analytics',
@@ -355,7 +435,7 @@ export function getRegistrationReportsSteps(route: string = ROUTES.REPORTS.LIST)
       placement: 'top',
     },
 
-    // Step 7: PEP & Follow-up - Overdue Patients Follow-up Queue
+    // Step 12: PEP & Follow-up - Overdue Patients Follow-up Queue
     {
       id: 'reg-reports-pep-overdue',
       module: 'Reports & Analytics',
@@ -371,7 +451,7 @@ export function getRegistrationReportsSteps(route: string = ROUTES.REPORTS.LIST)
       placement: 'top',
     },
 
-    // Step 8: PEP & Follow-up - Awaiting Day 0 (Initial Dose) Queue
+    // Step 13: PEP & Follow-up - Awaiting Day 0 (Initial Dose) Queue
     {
       id: 'reg-reports-pep-awaiting',
       module: 'Reports & Analytics',
@@ -387,7 +467,7 @@ export function getRegistrationReportsSteps(route: string = ROUTES.REPORTS.LIST)
       placement: 'top',
     },
 
-    // Step 9: Bite Surveillance - Incident Registry Logs
+    // Step 14: Bite Surveillance - Incident Registry Logs
     {
       id: 'reg-reports-surveillance-incidents',
       module: 'Reports & Analytics',
@@ -403,7 +483,7 @@ export function getRegistrationReportsSteps(route: string = ROUTES.REPORTS.LIST)
       placement: 'top',
     },
 
-    // Step 10: Bite Surveillance - Referrals & Transfers
+    // Step 15: Bite Surveillance - Referrals & Transfers
     {
       id: 'reg-reports-surveillance-referrals',
       module: 'Reports & Analytics',
@@ -419,7 +499,7 @@ export function getRegistrationReportsSteps(route: string = ROUTES.REPORTS.LIST)
       placement: 'top',
     },
 
-    // Step 11: Clinic Summary - Key Metrics Table
+    // Step 16: Clinic Summary - Key Metrics Table
     {
       id: 'reg-reports-clinic-summary',
       module: 'Reports & Analytics',
@@ -435,7 +515,7 @@ export function getRegistrationReportsSteps(route: string = ROUTES.REPORTS.LIST)
       placement: 'top',
     },
 
-    // Step 12: Export CSV & Print Official Reports
+    // Step 17: Export CSV & Print Official Reports
     {
       id: 'reg-reports-actions',
       module: 'Reports & Analytics',

@@ -66,10 +66,10 @@ const display = (value: string | number | null | undefined) => value === null ||
 const percent = (value: number | null) => value === null ? 'Not available' : `${value}%`;
 const escapeHtml = (value: unknown) => String(value ?? 'Not available').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]!));
 
-function Bars({ title, rows, note, limit }: { title: string; rows: Counts; note?: string; limit?: number }) {
+function Bars({ title, rows, note, limit, dataWalkthrough }: { title: string; rows: Counts; note?: string; limit?: number; dataWalkthrough?: string }) {
   const total = rows.reduce((sum, row) => sum + row.count, 0);
   const max = Math.max(1, ...rows.map(row => row.count));
-  return <Paper elevation={0} className="rr-panel">
+  return <Paper elevation={0} className="rr-panel" data-walkthrough={dataWalkthrough}>
     <Typography component="h2" className="rr-section-title">{title}</Typography>
     {total === 0 ? <p className="rr-empty">No records in this period.</p> : <ul className="rr-bars">
       {rows.slice(0, limit ?? rows.length).map(row => <li key={row.label}>
@@ -81,9 +81,9 @@ function Bars({ title, rows, note, limit }: { title: string; rows: Counts; note?
   </Paper>;
 }
 
-function CategoryTrend({ months }: { months: ReportData['months'] }) {
+function CategoryTrend({ months, dataWalkthrough }: { months: ReportData['months']; dataWalkthrough?: string }) {
   const max = Math.max(1, ...months.map(m => m.I + m.II + m.III));
-  return <Paper elevation={0} className="rr-panel">
+  return <Paper elevation={0} className="rr-panel" data-walkthrough={dataWalkthrough || "reg-reports-chart-categories"}>
     <Typography component="h2" className="rr-section-title">Exposure categories over time</Typography>
     <div className="rr-legend"><span><i className="rr-cat-I" />Category I</span><span><i className="rr-cat-II" />Category II</span><span><i className="rr-cat-III" />Category III</span></div>
     <div className="rr-chart" role="img" aria-label="Monthly incident counts by exposure category; exact values are in the table below.">
@@ -355,7 +355,7 @@ export default function RegistrationReportsPage() {
   ) => {
     const filterContent = (
       <>
-        <div className="rr-filter-row" data-walkthrough="reports-filters" data-tour="reports-filter-controls">
+        <div className="rr-filter-row" data-tour="reports-filter-controls">
           <TextField select size="small" label="Period" value={preset} onChange={event => { const next = event.target.value; setPreset(next); if (next !== 'custom') setDraft({ ...dateRange(next), category: draft.category }); }}>
             <MenuItem value="today">Today</MenuItem>
             <MenuItem value="week">This week</MenuItem>
@@ -375,7 +375,7 @@ export default function RegistrationReportsPage() {
         </div>
         {!valid && <p className="rr-error" role="alert">Enter a valid date range ending today or earlier.</p>}
         {showSummary && (
-          <p className="rr-note">Showing {filters.from} to {filters.to} · {filters.category === 'ALL' ? 'All categories' : `Category ${filters.category}`}{dirty ? ' · Filter changes not applied' : ''}</p>
+          <p className="rr-note" style={{ marginBottom: '4px' }}>Showing {filters.from} to {filters.to} · {filters.category === 'ALL' ? 'All categories' : `Category ${filters.category}`}{dirty ? ' · Filter changes not applied' : ''}</p>
         )}
         {extraSummary}
       </>
@@ -391,14 +391,14 @@ export default function RegistrationReportsPage() {
 
     if (standalone) {
       return (
-        <Paper elevation={0} className="rr-panel rr-filters" component="form" onSubmit={handleFilterSubmit}>
+        <Paper elevation={0} className="rr-panel rr-filters" data-walkthrough="reports-filters" component="form" onSubmit={handleFilterSubmit}>
           {filterContent}
         </Paper>
       );
     }
 
     return (
-      <Box component="form" className="rr-filters-unified" onSubmit={handleFilterSubmit}>
+      <Box component="form" className="rr-filters-unified" data-walkthrough="reg-reports-surveillance-filters" onSubmit={handleFilterSubmit}>
         {filterContent}
       </Box>
     );
@@ -669,14 +669,14 @@ export default function RegistrationReportsPage() {
 
           <div className="rr-overview-top-section" data-walkthrough="reports-summary-cards" data-tour="reports-summary-cards">
             {/* Row 1, Left: PEP vaccine-course completion */}
-            <Paper elevation={0} className="rr-panel rr-metric">
+            <Paper elevation={0} className="rr-panel rr-metric" data-walkthrough="reg-reports-kpi-completion">
               <h2>PEP vaccine-course completion</h2>
               <strong>{percent(stats.completion.rate)}</strong>
               <p>{stats.completion.completed} of {stats.completion.eligible} eligible courses completed</p>
             </Paper>
 
             {/* Row 1, Right: Follow-up priorities today */}
-            <Paper elevation={0} className="rr-panel rr-followup-priorities">
+            <Paper elevation={0} className="rr-panel rr-followup-priorities" data-walkthrough="reg-reports-kpi-priorities">
               <Typography component="h2" className="rr-section-title">Follow-up priorities today</Typography>
               <div className="rr-priorities-body">
                 <div className="rr-priority-stat">
@@ -697,14 +697,14 @@ export default function RegistrationReportsPage() {
             </Paper>
 
             {/* Row 2, Left: Average time to first dose */}
-            <Paper elevation={0} className="rr-panel rr-metric">
+            <Paper elevation={0} className="rr-panel rr-metric" data-walkthrough="reg-reports-kpi-delay">
               <h2>Average time to first dose</h2>
               <strong>{stats.delay.average === null ? 'Not available' : `${stats.delay.average} days`}</strong>
               <p>{stats.delay.samples ? `Median: ${stats.delay.median} · Range: ${stats.delay.min}–${stats.delay.max} days` : 'No valid D0 dates in the selected period'}</p>
             </Paper>
 
             {/* Row 2, Right: Patients needing follow-up */}
-            <Paper elevation={0} className="rr-panel rr-metric">
+            <Paper elevation={0} className="rr-panel rr-metric" data-walkthrough="reg-reports-kpi-followup">
               <h2>Patients needing follow-up</h2>
               <strong>{stats.overdue_patients}</strong>
               <p>{stats.overdue_doses} overdue doses · As of {data.period.as_of}</p>
@@ -714,7 +714,7 @@ export default function RegistrationReportsPage() {
 
         {/* Unified Bite Surveillance Analytics Card */}
         <Paper elevation={0} className="rr-panel rr-unified-surveillance-container">
-          <div className="rr-surveillance-charts-section" data-walkthrough="reg-reports-surveillance-charts">
+          <div className="rr-surveillance-charts-section">
             {/* Bite Surveillance Analytics header & summary */}
             <div className="rr-section-heading">
               <Typography component="h2" className="rr-group-title">Bite Surveillance Analytics</Typography>
@@ -732,18 +732,29 @@ export default function RegistrationReportsPage() {
 
             {/* Larger analytics charts with equal width and height */}
             <div className="rr-surveillance-row-1" data-walkthrough="reports-charts" data-tour="reports-charts">
-              <CategoryTrend months={data.months} />
-              <Bars title="Age at incident" rows={data.breakdowns.ages} />
-              <Bars title="Incident day of week" rows={data.breakdowns.weekdays} />
+              <CategoryTrend months={data.months} dataWalkthrough="reg-reports-chart-categories" />
+              <div
+                className="rr-demographics-pair"
+                data-walkthrough="reg-reports-chart-demographics"
+                style={{
+                  gridColumn: 'span 2',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: '16px',
+                }}
+              >
+                <Bars title="Age at incident" rows={data.breakdowns.ages} dataWalkthrough="reg-reports-chart-age" />
+                <Bars title="Incident day of week" rows={data.breakdowns.weekdays} dataWalkthrough="reg-reports-chart-weekdays" />
+              </div>
             </div>
           </div>
 
           {/* Smaller breakdown charts grouped together in a balanced row */}
           <div className="rr-surveillance-row-2" data-walkthrough="reg-reports-demographics">
-            <Bars title="Incident barangays" rows={data.breakdowns.barangays} limit={10} />
-            <Bars title="Animal type" rows={data.breakdowns.animals} />
-            <Bars title="Animal ownership" rows={data.breakdowns.ownership} />
-            <Bars title="Recorded animal observation status" rows={data.breakdowns.observation} />
+            <Bars title="Incident barangays" rows={data.breakdowns.barangays} limit={10} dataWalkthrough="reg-reports-chart-barangays" />
+            <Bars title="Animal type" rows={data.breakdowns.animals} dataWalkthrough="reg-reports-chart-animal-type" />
+            <Bars title="Animal ownership" rows={data.breakdowns.ownership} dataWalkthrough="reg-reports-chart-animal-ownership" />
+            <Bars title="Recorded animal observation status" rows={data.breakdowns.observation} dataWalkthrough="reg-reports-chart-animal-observation" />
           </div>
         </Paper>
       </>}

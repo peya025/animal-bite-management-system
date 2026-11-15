@@ -135,8 +135,8 @@ function scrollElementIntoOptimalView(el: HTMLElement, placement: WalkthroughPla
     const fitsBeside = fitsRight || fitsLeft;
     const usableHeight = (vh - MARGIN) - topHeaderBottom;
 
-    // Case 1: Beside placement (element fits horizontally beside the modal)
-    if (fitsBeside && elRect.height < usableHeight) {
+    // Case 1: Beside placement (explicitly requested 'left' or 'right')
+    if ((placement === 'left' || placement === 'right') && fitsBeside && elRect.height < usableHeight) {
       if (elRect.top < topHeaderBottom + 12 || elRect.bottom > vh - 12) {
         const idealTop = topHeaderBottom + Math.max(16, (usableHeight - elRect.height) / 2);
         const delta = elRect.top - idealTop;
@@ -147,7 +147,7 @@ function scrollElementIntoOptimalView(el: HTMLElement, placement: WalkthroughPla
       return maxScrollTop > 0 || pageContent.scrollTop > 0;
     }
 
-    // Case 2: Full width or large elements with placement 'bottom':
+    // Case 2: Elements with placement 'bottom':
     // Position element near sticky header so modal has maximum clearance below it!
     if (placement === 'bottom') {
       const minElTop = topHeaderBottom + 8;
@@ -302,82 +302,79 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
         const left = Math.max(MARGIN, Math.round((vw - cardW) / 2));
         chosen = { top, left };
       } else {
-        // Automatic positioning logic:
-        // 1. Place the modal beside the highlighted feature when space is available.
-        // 2. If there is insufficient space beside, position it above or below.
-        // 3. Maintain at least 12–20px spacing.
-        const fitsRight = sRight + SAFE_GAP + cardW <= vw - MARGIN;
-        const fitsLeft = sLeft - SAFE_GAP - cardW >= MARGIN;
+        const spaceAbove = sTop - minTooltipTop;
+        const spaceBelow = vh - sBottom - MARGIN;
+        const spaceRight = vw - sRight - MARGIN;
+        const spaceLeft = sLeft - MARGIN;
 
-        const besideCandidates: WalkthroughPlacement[] =
-          step.placement === 'left' ? ['left', 'right'] : ['right', 'left'];
+        const fitsRight = spaceRight >= cardW + SAFE_GAP;
+        const fitsLeft = spaceLeft >= cardW + SAFE_GAP;
+        const fitsBelow = spaceBelow >= cardH + SAFE_GAP;
+        const fitsAbove = spaceAbove >= cardH + SAFE_GAP;
 
-        for (const p of besideCandidates) {
-          if (p === 'right' && fitsRight) {
-            const left = sRight + SAFE_GAP;
-            const top = clampedVerticalTop;
-            if (!overlapsSpotlight(top, left)) {
-              chosen = { top, left };
-              break;
-            }
-          } else if (p === 'left' && fitsLeft) {
-            const left = sLeft - cardW - SAFE_GAP;
-            const top = clampedVerticalTop;
-            if (!overlapsSpotlight(top, left)) {
-              chosen = { top, left };
-              break;
-            }
-          }
+        // Dynamic placement selection prioritizing requested direction, with automatic fallback / flip
+        let chosenPlacement: 'bottom' | 'top' | 'right' | 'left' = 'bottom';
+
+        if (step.placement === 'right') {
+          if (fitsRight) chosenPlacement = 'right';
+          else if (fitsLeft) chosenPlacement = 'left';
+          else if (fitsBelow) chosenPlacement = 'bottom';
+          else if (fitsAbove) chosenPlacement = 'top';
+          else chosenPlacement = spaceBelow >= spaceAbove ? 'bottom' : 'top';
+        } else if (step.placement === 'left') {
+          if (fitsLeft) chosenPlacement = 'left';
+          else if (fitsRight) chosenPlacement = 'right';
+          else if (fitsBelow) chosenPlacement = 'bottom';
+          else if (fitsAbove) chosenPlacement = 'top';
+          else chosenPlacement = spaceBelow >= spaceAbove ? 'bottom' : 'top';
+        } else if (step.placement === 'top') {
+          if (fitsAbove) chosenPlacement = 'top';
+          else if (fitsBelow) chosenPlacement = 'bottom';
+          else if (fitsRight) chosenPlacement = 'right';
+          else if (fitsLeft) chosenPlacement = 'left';
+          else chosenPlacement = spaceAbove >= spaceBelow ? 'top' : 'bottom';
+        } else {
+          // Default or 'bottom'
+          if (fitsBelow) chosenPlacement = 'bottom';
+          else if (fitsAbove) chosenPlacement = 'top';
+          else if (fitsRight) chosenPlacement = 'right';
+          else if (fitsLeft) chosenPlacement = 'left';
+          else chosenPlacement = spaceBelow >= spaceAbove ? 'bottom' : 'top';
         }
 
-        // If insufficient space beside, position above or below
-        if (!chosen) {
-          if (step.placement === 'bottom') {
-            // Step requested bottom: place strictly below the spotlight
-            const top = sBottom + SAFE_GAP;
-            chosen = { top, left: clampedHorizontalLeft };
+        if (chosenPlacement === 'bottom') {
+          const top = sBottom + SAFE_GAP;
+          chosen = { top, left: clampedHorizontalLeft };
 
-            // If modal extends below the viewport bottom, scroll pageContent down so it fits
-            if (pageContent && top + cardH > vh - MARGIN) {
-              const overflow = (top + cardH) - (vh - MARGIN);
-              const maxScroll = Math.max(0, pageContent.scrollHeight - pageContent.clientHeight);
-              if (overflow > 4 && pageContent.scrollTop < maxScroll) {
-                pageContent.scrollTop = Math.min(maxScroll, pageContent.scrollTop + overflow + 12);
-              }
-            }
-          } else if (step.placement === 'top') {
-            // Step requested top: place strictly above the spotlight
-            const top = sTop - cardH - SAFE_GAP;
-            chosen = { top, left: clampedHorizontalLeft };
-
-            // If modal extends above minTooltipTop, scroll pageContent up so it fits
-            if (pageContent && top < minTooltipTop && pageContent.scrollTop > 0) {
-              const underflow = minTooltipTop - top;
-              if (underflow > 4) {
-                pageContent.scrollTop = Math.max(0, pageContent.scrollTop - underflow - 12);
-              }
-            }
-          } else {
-            // Auto / fallback vertical: choose whichever side has more space, but NEVER overlap the spotlight!
-            const spaceAbove = sTop - minTooltipTop;
-            const spaceBelow = vh - sBottom - MARGIN;
-
-            if (spaceAbove >= cardH + SAFE_GAP) {
-              chosen = { top: sTop - cardH - SAFE_GAP, left: clampedHorizontalLeft };
-            } else if (spaceBelow >= cardH + SAFE_GAP) {
-              chosen = { top: sBottom + SAFE_GAP, left: clampedHorizontalLeft };
-            } else if (spaceBelow >= spaceAbove) {
-              chosen = { top: sBottom + SAFE_GAP, left: clampedHorizontalLeft };
-            } else {
-              chosen = { top: sTop - cardH - SAFE_GAP, left: clampedHorizontalLeft };
+          // If modal extends below the viewport bottom, scroll pageContent down so it fits
+          if (pageContent && top + cardH > vh - MARGIN) {
+            const overflow = (top + cardH) - (vh - MARGIN);
+            const maxScroll = Math.max(0, pageContent.scrollHeight - pageContent.clientHeight);
+            if (overflow > 4 && pageContent.scrollTop < maxScroll) {
+              pageContent.scrollTop = Math.min(maxScroll, pageContent.scrollTop + overflow + 16);
             }
           }
+        } else if (chosenPlacement === 'top') {
+          const top = sTop - cardH - SAFE_GAP;
+          chosen = { top, left: clampedHorizontalLeft };
+
+          // If modal extends above minTooltipTop, scroll pageContent up so it fits
+          if (pageContent && top < minTooltipTop && pageContent.scrollTop > 0) {
+            const underflow = minTooltipTop - top;
+            if (underflow > 4) {
+              pageContent.scrollTop = Math.max(0, pageContent.scrollTop - underflow - 16);
+            }
+          }
+        } else if (chosenPlacement === 'right') {
+          chosen = { top: clampedVerticalTop, left: sRight + SAFE_GAP };
+        } else {
+          chosen = { top: clampedVerticalTop, left: sLeft - cardW - SAFE_GAP };
         }
       }
 
       // Final strict non-overlap enforcement: under NO circumstance can chosen overlap the spotlight
       if (chosen && !isCenteredModal && overlapsSpotlight(chosen.top, chosen.left)) {
-        if (step.placement === 'top') {
+        if (step.placement === 'top' || (sTop - minTooltipTop >= vh - sBottom - MARGIN)) {
           chosen.top = sTop - cardH - SAFE_GAP;
         } else {
           chosen.top = sBottom + SAFE_GAP;

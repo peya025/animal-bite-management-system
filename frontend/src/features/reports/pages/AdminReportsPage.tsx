@@ -505,7 +505,7 @@ export default function AdminReportsPage({ initialTab }: { initialTab?: 'summary
           <Button component={RouterLink} to={ROUTES.INVENTORY.LIST} variant="outlined" size="small" endIcon={<ArrowForward />}>Open inventory</Button>
         </Paper>
       </Box>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>Overdue means a prescribed dose is past its due date. Reminder status records a send attempt; it does not confirm patient contact or loss to follow-up.</Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 3, mb: 1 }}>Overdue means a prescribed dose is past its due date. Reminder status records a send attempt; it does not confirm patient contact or loss to follow-up.</Typography>
     </>}
 
     {section === 'trends' && <>

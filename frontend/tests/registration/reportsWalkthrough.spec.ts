@@ -81,8 +81,15 @@ test.describe('Role-Based Reports & Analytics Interactive Walkthrough Audit & Ve
     expect(ids).toContain('doctor-reports-overview');
     expect(ids).toContain('doctor-reports-tabs');
     expect(ids).toContain('doctor-reports-summary-filters');
-    expect(ids).toContain('doctor-reports-kpi-cards');
-    expect(ids).toContain('doctor-reports-category-cards');
+    expect(ids).toContain('doctor-reports-kpi-total-patients');
+    expect(ids).toContain('doctor-reports-kpi-total-cases');
+    expect(ids).toContain('doctor-reports-kpi-new-patients');
+    expect(ids).toContain('doctor-reports-kpi-new-cases');
+    expect(ids).toContain('doctor-reports-kpi-completed');
+    expect(ids).toContain('doctor-reports-kpi-ongoing');
+    expect(ids).toContain('doctor-reports-category-1');
+    expect(ids).toContain('doctor-reports-category-2');
+    expect(ids).toContain('doctor-reports-category-3');
     expect(ids).toContain('doctor-reports-cases-filters');
     expect(ids).toContain('doctor-reports-cases-table');
     expect(ids).toContain('doctor-reports-patients-filters');
@@ -103,19 +110,30 @@ test.describe('Role-Based Reports & Analytics Interactive Walkthrough Audit & Ve
 
   test('4. Treatment Nurse Reports Walkthrough covers clinical + inventory reports and excludes DOH submissions', () => {
     const steps = getTreatmentNurseReportsSteps();
-    expect(steps.length).toBeGreaterThanOrEqual(11);
+    expect(steps.length).toBeGreaterThanOrEqual(15);
 
     const ids = steps.map(s => s.id);
     expect(ids).toContain('nurse-reports-overview');
     expect(ids).toContain('nurse-reports-tabs');
     expect(ids).toContain('nurse-reports-summary-filters');
-    expect(ids).toContain('nurse-reports-kpi-cards');
-    expect(ids).toContain('nurse-reports-category-cards');
+    expect(ids).toContain('nurse-reports-kpi-total-patients');
+    expect(ids).toContain('nurse-reports-kpi-total-cases');
+    expect(ids).toContain('nurse-reports-kpi-new-patients');
+    expect(ids).toContain('nurse-reports-kpi-new-cases');
+    expect(ids).toContain('nurse-reports-kpi-completed');
+    expect(ids).toContain('nurse-reports-kpi-ongoing');
+    expect(ids).toContain('nurse-reports-category-1');
+    expect(ids).toContain('nurse-reports-category-2');
+    expect(ids).toContain('nurse-reports-category-3');
     expect(ids).toContain('nurse-reports-cases-filters');
     expect(ids).toContain('nurse-reports-cases-table');
     expect(ids).toContain('nurse-reports-patients-table');
     expect(ids).toContain('nurse-reports-inventory-filters');
-    expect(ids).toContain('nurse-reports-inventory-kpis');
+    expect(ids).toContain('nurse-reports-inv-active-batches');
+    expect(ids).toContain('nurse-reports-inv-total-stock');
+    expect(ids).toContain('nurse-reports-inv-expiring-soon');
+    expect(ids).toContain('nurse-reports-inv-depleted');
+    expect(ids).toContain('nurse-reports-inv-expired');
     expect(ids).toContain('nurse-reports-inventory-table');
     expect(ids).toContain('nurse-reports-print-action');
 

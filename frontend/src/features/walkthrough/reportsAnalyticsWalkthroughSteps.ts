@@ -577,42 +577,154 @@ export function getDoctorReportsSteps(route: string = ROUTES.REPORTS.LIST): Walk
       targetSelector:
         '[data-walkthrough="doctor-reports-summary-filters"], [data-tour="doctor-reports-summary-filters"]',
       fallbackSelector: 'main.page-content',
-      placement: 'bottom',
+      placement: 'top',
     },
 
-    // Step 4: Summary & Overview - Clinic Summary Metrics & Drilldown Cards
+    // Step 4: Summary & Overview - Total Patients Metric
     {
-      id: 'doctor-reports-kpi-cards',
+      id: 'doctor-reports-kpi-total-patients',
       module: 'Reports & Analytics',
       section: 'Summary & Overview',
       route,
       activateSelector: '[data-walkthrough="doctor-reports-tab-summary"]',
-      title: 'Clinic Summary Metrics & Drilldown Cards',
+      title: 'Total Patients Metric',
       content:
-        'Six clinical KPI cards display: Total Patients, Total Bite Cases, New Patients in Period, New Cases in Period, Completed Treatments, and On-going Treatments. Click any card to instantly open an audit drilldown table showing that group of patient or case records.',
+        'All-time volume of unique patient profiles registered in the animal bite clinic registry. Click this card anytime to open a filtered drilldown table showing individual patient records.',
       targetSelector:
-        '[data-walkthrough="doctor-reports-kpi-cards"], [data-tour="doctor-reports-kpi-cards"]',
+        '[data-walkthrough="doctor-reports-kpi-total-patients"], [data-tour="doctor-reports-kpi-total-patients"]',
       fallbackSelector: 'main.page-content',
       placement: 'bottom',
     },
 
-    // Step 5: Summary & Overview - Bite Exposure Categories Breakdown
+    // Step 5: Summary & Overview - Total Bite Cases Metric
     {
-      id: 'doctor-reports-category-cards',
+      id: 'doctor-reports-kpi-total-cases',
       module: 'Reports & Analytics',
       section: 'Summary & Overview',
       route,
       activateSelector: '[data-walkthrough="doctor-reports-tab-summary"]',
-      title: 'Bite Case Exposure Categories Breakdown',
+      title: 'Total Bite Cases Metric',
       content:
-        'Examine bite cases classified by WHO/DOH exposure severity: Category I (Minor - intact skin), Category II (Moderate - minor scratches without bleeding), and Category III (Severe - transdermal bites or mucous membrane exposure). Click any category to filter and inspect related incident records.',
+        'Cumulative animal bite incident episodes documented across all reporting periods. Click to display an audit table of all recorded bite incidents.',
       targetSelector:
-        '[data-walkthrough="doctor-reports-category-cards"], [data-tour="doctor-reports-category-cards"]',
+        '[data-walkthrough="doctor-reports-kpi-total-cases"], [data-tour="doctor-reports-kpi-total-cases"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 6: Summary & Overview - New Patients in Period Card
+    {
+      id: 'doctor-reports-kpi-new-patients',
+      module: 'Reports & Analytics',
+      section: 'Summary & Overview',
+      route,
+      activateSelector: '[data-walkthrough="doctor-reports-tab-summary"]',
+      title: 'New Patients in Period',
+      content:
+        'New patient intake volume registered within the active date filter. Useful for tracking weekly and monthly clinic admission volume. Click to view intake records.',
+      targetSelector:
+        '[data-walkthrough="doctor-reports-kpi-new-patients"], [data-tour="doctor-reports-kpi-new-patients"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 7: Summary & Overview - New Cases in Period Card
+    {
+      id: 'doctor-reports-kpi-new-cases',
+      module: 'Reports & Analytics',
+      section: 'Summary & Overview',
+      route,
+      activateSelector: '[data-walkthrough="doctor-reports-tab-summary"]',
+      title: 'New Bite Cases in Period',
+      content:
+        'New bite exposure incidents reported within the filtered period. Allows clinicians to detect sudden surges in animal bite episodes. Click to inspect incident details.',
+      targetSelector:
+        '[data-walkthrough="doctor-reports-kpi-new-cases"], [data-tour="doctor-reports-kpi-new-cases"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 8: Summary & Overview - Completed PEP Treatments Card
+    {
+      id: 'doctor-reports-kpi-completed',
+      module: 'Reports & Analytics',
+      section: 'Summary & Overview',
+      route,
+      activateSelector: '[data-walkthrough="doctor-reports-tab-summary"]',
+      title: 'Completed PEP Treatments',
+      content:
+        'Count of bite patients who completed their full prescribed anti-rabies vaccination regimen (Day 0 through Day 28/last scheduled dose). Click to inspect completed patient courses.',
+      targetSelector:
+        '[data-walkthrough="doctor-reports-kpi-completed"], [data-tour="doctor-reports-kpi-completed"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 9: Summary & Overview - On-going Treatments Caseload Card
+    {
+      id: 'doctor-reports-kpi-ongoing',
+      module: 'Reports & Analytics',
+      section: 'Summary & Overview',
+      route,
+      activateSelector: '[data-walkthrough="doctor-reports-tab-summary"]',
+      title: 'On-going Treatments Caseload',
+      content:
+        'Active clinical caseload of patients currently in the middle of their post-exposure prophylaxis schedule. Click to review active patients who require ongoing monitoring and follow-up.',
+      targetSelector:
+        '[data-walkthrough="doctor-reports-kpi-ongoing"], [data-tour="doctor-reports-kpi-ongoing"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 10: Summary & Overview - Category I Card
+    {
+      id: 'doctor-reports-category-1',
+      module: 'Reports & Analytics',
+      section: 'Summary & Overview',
+      route,
+      activateSelector: '[data-walkthrough="doctor-reports-tab-summary"]',
+      title: 'Category I: Minor Exposure',
+      content:
+        'WHO/DOH Category I exposures: touching or feeding animals, licks on intact skin (no lesion or exposure). Requires wound washing with soap and water; PEP vaccination is not indicated.',
+      targetSelector:
+        '[data-walkthrough="doctor-reports-category-1"], [data-tour="doctor-reports-category-1"]',
       fallbackSelector: 'main.page-content',
       placement: 'top',
     },
 
-    // Step 6: Bite Cases - Search & Clinical Filters
+    // Step 11: Summary & Overview - Category II Card
+    {
+      id: 'doctor-reports-category-2',
+      module: 'Reports & Analytics',
+      section: 'Summary & Overview',
+      route,
+      activateSelector: '[data-walkthrough="doctor-reports-tab-summary"]',
+      title: 'Category II: Moderate Exposure',
+      content:
+        'WHO/DOH Category II exposures: nibbling of uncovered skin, minor scratches or abrasions without bleeding. Immediate wound washing and a complete anti-rabies vaccine (PEP) course are required.',
+      targetSelector:
+        '[data-walkthrough="doctor-reports-category-2"], [data-tour="doctor-reports-category-2"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'top',
+    },
+
+    // Step 12: Summary & Overview - Category III Card
+    {
+      id: 'doctor-reports-category-3',
+      module: 'Reports & Analytics',
+      section: 'Summary & Overview',
+      route,
+      activateSelector: '[data-walkthrough="doctor-reports-tab-summary"]',
+      title: 'Category III: Severe Exposure',
+      content:
+        'WHO/DOH Category III exposures: single or multiple transdermal bites or scratches, licks on broken skin, or mucous membrane contamination. Requires immediate PEP vaccination plus Rabies Immune Globulin (RIG).',
+      targetSelector:
+        '[data-walkthrough="doctor-reports-category-3"], [data-tour="doctor-reports-category-3"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'top',
+    },
+
+    // Step 13: Bite Cases - Search & Clinical Filters
     {
       id: 'doctor-reports-cases-filters',
       module: 'Reports & Analytics',
@@ -625,10 +737,10 @@ export function getDoctorReportsSteps(route: string = ROUTES.REPORTS.LIST): Walk
       targetSelector:
         '[data-walkthrough="doctor-reports-cases-filters"], [data-tour="doctor-reports-cases-filters"]',
       fallbackSelector: 'main.page-content',
-      placement: 'bottom',
+      placement: 'top',
     },
 
-    // Step 7: Bite Cases - Incident Records Table & CSV Export
+    // Step 14: Bite Cases - Incident Records Table & CSV Export
     {
       id: 'doctor-reports-cases-table',
       module: 'Reports & Analytics',
@@ -644,7 +756,7 @@ export function getDoctorReportsSteps(route: string = ROUTES.REPORTS.LIST): Walk
       placement: 'top',
     },
 
-    // Step 8: Patients - Patient Registry Search & Date Filters
+    // Step 15: Patients - Patient Registry Search & Date Filters
     {
       id: 'doctor-reports-patients-filters',
       module: 'Reports & Analytics',
@@ -657,10 +769,10 @@ export function getDoctorReportsSteps(route: string = ROUTES.REPORTS.LIST): Walk
       targetSelector:
         '[data-walkthrough="doctor-reports-patients-filters"], [data-tour="doctor-reports-patients-filters"]',
       fallbackSelector: 'main.page-content',
-      placement: 'bottom',
+      placement: 'top',
     },
 
-    // Step 9: Patients - Registered Patients Registry Table & CSV Export
+    // Step 16: Patients - Registered Patients Registry Table & CSV Export
     {
       id: 'doctor-reports-patients-table',
       module: 'Reports & Analytics',
@@ -676,7 +788,7 @@ export function getDoctorReportsSteps(route: string = ROUTES.REPORTS.LIST): Walk
       placement: 'top',
     },
 
-    // Step 10: Top Header - Print Official Clinical Report
+    // Step 17: Top Header - Print Official Clinical Report
     {
       id: 'doctor-reports-print-action',
       module: 'Reports & Analytics',
@@ -738,42 +850,154 @@ export function getTreatmentNurseReportsSteps(route: string = ROUTES.REPORTS.LIS
       targetSelector:
         '[data-walkthrough="nurse-reports-summary-filters"], [data-tour="nurse-reports-summary-filters"]',
       fallbackSelector: 'main.page-content',
-      placement: 'bottom',
+      placement: 'top',
     },
 
-    // Step 4: Summary & Overview - Clinical Key Metrics & Interactive Cards
+    // Step 4: Summary & Overview - Total Patients Metric
     {
-      id: 'nurse-reports-kpi-cards',
+      id: 'nurse-reports-kpi-total-patients',
       module: 'Reports & Analytics',
       section: 'Summary & Overview',
       route,
       activateSelector: '[data-walkthrough="nurse-reports-tab-summary"]',
-      title: 'Clinical Key Metrics & Interactive Cards',
+      title: 'Total Patients Metric',
       content:
-        'Six KPI cards highlight: Total Patients, Total Bite Cases, New Patients, New Cases, Completed Courses, and Ongoing Treatments. Click any card to inspect the underlying patient or case records table.',
+        'Total registered bite patients in the clinic records. Click to open an audit drilldown table showing individual patient records.',
       targetSelector:
-        '[data-walkthrough="nurse-reports-kpi-cards"], [data-tour="nurse-reports-kpi-cards"]',
+        '[data-walkthrough="nurse-reports-kpi-total-patients"], [data-tour="nurse-reports-kpi-total-patients"]',
       fallbackSelector: 'main.page-content',
       placement: 'bottom',
     },
 
-    // Step 5: Summary & Overview - Bite Exposure Category Breakdown
+    // Step 5: Summary & Overview - Total Bite Cases Metric
     {
-      id: 'nurse-reports-category-cards',
+      id: 'nurse-reports-kpi-total-cases',
       module: 'Reports & Analytics',
       section: 'Summary & Overview',
       route,
       activateSelector: '[data-walkthrough="nurse-reports-tab-summary"]',
-      title: 'Bite Exposure Category Breakdown',
+      title: 'Total Bite Cases Metric',
       content:
-        'Breakdown of bite incidents by Category I (no exposure), Category II (minor scratch/nibble), and Category III (severe transdermal bites). Click any category to inspect related clinical cases.',
+        'Cumulative animal bite incidents registered in the clinic database. Click to review all recorded case records.',
       targetSelector:
-        '[data-walkthrough="nurse-reports-category-cards"], [data-tour="nurse-reports-category-cards"]',
+        '[data-walkthrough="nurse-reports-kpi-total-cases"], [data-tour="nurse-reports-kpi-total-cases"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 6: Summary & Overview - New Patients in Period
+    {
+      id: 'nurse-reports-kpi-new-patients',
+      module: 'Reports & Analytics',
+      section: 'Summary & Overview',
+      route,
+      activateSelector: '[data-walkthrough="nurse-reports-tab-summary"]',
+      title: 'New Patients in Period',
+      content:
+        'Number of newly registered patients during the selected reporting period. Click to open the patient intake drilldown.',
+      targetSelector:
+        '[data-walkthrough="nurse-reports-kpi-new-patients"], [data-tour="nurse-reports-kpi-new-patients"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 7: Summary & Overview - New Cases in Period
+    {
+      id: 'nurse-reports-kpi-new-cases',
+      module: 'Reports & Analytics',
+      section: 'Summary & Overview',
+      route,
+      activateSelector: '[data-walkthrough="nurse-reports-tab-summary"]',
+      title: 'New Bite Cases in Period',
+      content:
+        'Newly reported bite exposure incidents in the active period. Click to inspect incident case details.',
+      targetSelector:
+        '[data-walkthrough="nurse-reports-kpi-new-cases"], [data-tour="nurse-reports-kpi-new-cases"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 8: Summary & Overview - Completed PEP Courses
+    {
+      id: 'nurse-reports-kpi-completed',
+      module: 'Reports & Analytics',
+      section: 'Summary & Overview',
+      route,
+      activateSelector: '[data-walkthrough="nurse-reports-tab-summary"]',
+      title: 'Completed PEP Courses',
+      content:
+        'Patients who successfully finished their multi-dose post-exposure rabies prophylaxis series. Click to audit completed cases.',
+      targetSelector:
+        '[data-walkthrough="nurse-reports-kpi-completed"], [data-tour="nurse-reports-kpi-completed"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 9: Summary & Overview - On-going Treatments
+    {
+      id: 'nurse-reports-kpi-ongoing',
+      module: 'Reports & Analytics',
+      section: 'Summary & Overview',
+      route,
+      activateSelector: '[data-walkthrough="nurse-reports-tab-summary"]',
+      title: 'On-going Treatments Caseload',
+      content:
+        'Patients currently receiving ongoing vaccine doses on their scheduled appointment days. Click to monitor patients who need follow-up.',
+      targetSelector:
+        '[data-walkthrough="nurse-reports-kpi-ongoing"], [data-tour="nurse-reports-kpi-ongoing"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 10: Summary & Overview - Category I Card
+    {
+      id: 'nurse-reports-category-1',
+      module: 'Reports & Analytics',
+      section: 'Summary & Overview',
+      route,
+      activateSelector: '[data-walkthrough="nurse-reports-tab-summary"]',
+      title: 'Category I: Minor Exposure',
+      content:
+        'Category I exposures: touches or licks on intact skin (no lesion or exposure). Requires soap-and-water washing; no vaccine required. Click to inspect Category I incidents.',
+      targetSelector:
+        '[data-walkthrough="nurse-reports-category-1"], [data-tour="nurse-reports-category-1"]',
       fallbackSelector: 'main.page-content',
       placement: 'top',
     },
 
-    // Step 6: Bite Cases - Search & Status Filters
+    // Step 11: Summary & Overview - Category II Card
+    {
+      id: 'nurse-reports-category-2',
+      module: 'Reports & Analytics',
+      section: 'Summary & Overview',
+      route,
+      activateSelector: '[data-walkthrough="nurse-reports-tab-summary"]',
+      title: 'Category II: Moderate Exposure',
+      content:
+        'Category II exposures: minor scratches or abrasions without bleeding. Full anti-rabies vaccine course is required. Click to inspect Category II records.',
+      targetSelector:
+        '[data-walkthrough="nurse-reports-category-2"], [data-tour="nurse-reports-category-2"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'top',
+    },
+
+    // Step 12: Summary & Overview - Category III Card
+    {
+      id: 'nurse-reports-category-3',
+      module: 'Reports & Analytics',
+      section: 'Summary & Overview',
+      route,
+      activateSelector: '[data-walkthrough="nurse-reports-tab-summary"]',
+      title: 'Category III: Severe Exposure',
+      content:
+        'Category III exposures: transdermal bites, scratches, or mucous membrane contamination. Requires immediate PEP anti-rabies vaccine and RIG. Click to inspect Category III records.',
+      targetSelector:
+        '[data-walkthrough="nurse-reports-category-3"], [data-tour="nurse-reports-category-3"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'top',
+    },
+
+    // Step 13: Bite Cases - Search & Status Filters
     {
       id: 'nurse-reports-cases-filters',
       module: 'Reports & Analytics',
@@ -786,10 +1010,10 @@ export function getTreatmentNurseReportsSteps(route: string = ROUTES.REPORTS.LIS
       targetSelector:
         '[data-walkthrough="nurse-reports-cases-filters"], [data-tour="nurse-reports-cases-filters"]',
       fallbackSelector: 'main.page-content',
-      placement: 'bottom',
+      placement: 'top',
     },
 
-    // Step 7: Bite Cases - Detailed Incident Records Table & CSV Export
+    // Step 14: Bite Cases - Detailed Incident Records Table & CSV Export
     {
       id: 'nurse-reports-cases-table',
       module: 'Reports & Analytics',
@@ -805,7 +1029,7 @@ export function getTreatmentNurseReportsSteps(route: string = ROUTES.REPORTS.LIS
       placement: 'top',
     },
 
-    // Step 8: Patients - Registered Patients Registry & Lookup
+    // Step 15: Patients - Registered Patients Registry & Lookup
     {
       id: 'nurse-reports-patients-table',
       module: 'Reports & Analytics',
@@ -821,7 +1045,7 @@ export function getTreatmentNurseReportsSteps(route: string = ROUTES.REPORTS.LIS
       placement: 'top',
     },
 
-    // Step 9: Vaccine Inventory & Wastage - Stock Expiration & Category Filters
+    // Step 16: Vaccine Inventory & Wastage - Stock Expiration & Category Filters
     {
       id: 'nurse-reports-inventory-filters',
       module: 'Reports & Analytics',
@@ -834,26 +1058,90 @@ export function getTreatmentNurseReportsSteps(route: string = ROUTES.REPORTS.LIS
       targetSelector:
         '[data-walkthrough="nurse-reports-inventory-filters"], [data-tour="nurse-reports-inventory-filters"]',
       fallbackSelector: 'main.page-content',
-      placement: 'bottom',
+      placement: 'top',
     },
 
-    // Step 10: Vaccine Inventory & Wastage - Stock Status Cards
+    // Step 17: Vaccine Inventory & Wastage - Active Batches
     {
-      id: 'nurse-reports-inventory-kpis',
+      id: 'nurse-reports-inv-active-batches',
       module: 'Reports & Analytics',
       section: 'Vaccine Inventory & Wastage',
       route,
       activateSelector: '[data-walkthrough="nurse-reports-tab-inventory"]',
-      title: 'Vaccine Stock Status Cards',
+      title: 'Active Vaccine Batches',
       content:
-        'Five summary metrics track: Active Batches, Total Sealed Vials, Batches Expiring Soon (≤ 60 days), Depleted Batches, and Expired Batches in storage.',
+        'Count of currently active, non-expired vaccine lots available for clinical administration across the clinic.',
       targetSelector:
-        '[data-walkthrough="nurse-reports-inventory-kpis"], [data-tour="nurse-reports-inventory-kpis"]',
+        '[data-walkthrough="nurse-reports-inv-active-batches"], [data-tour="nurse-reports-inv-active-batches"]',
       fallbackSelector: 'main.page-content',
       placement: 'bottom',
     },
 
-    // Step 11: Vaccine Inventory & Wastage - Batch Utilization & Wastage Audit Log
+    // Step 18: Vaccine Inventory & Wastage - Total Sealed Vials
+    {
+      id: 'nurse-reports-inv-total-stock',
+      module: 'Reports & Analytics',
+      section: 'Vaccine Inventory & Wastage',
+      route,
+      activateSelector: '[data-walkthrough="nurse-reports-tab-inventory"]',
+      title: 'Total Sealed Vials in Storage',
+      content:
+        'Total sealed anti-rabies vaccine vials currently on hand in the cold chain refrigerator.',
+      targetSelector:
+        '[data-walkthrough="nurse-reports-inv-total-stock"], [data-tour="nurse-reports-inv-total-stock"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 19: Vaccine Inventory & Wastage - Expiring Batches Soon
+    {
+      id: 'nurse-reports-inv-expiring-soon',
+      module: 'Reports & Analytics',
+      section: 'Vaccine Inventory & Wastage',
+      route,
+      activateSelector: '[data-walkthrough="nurse-reports-tab-inventory"]',
+      title: 'Batches Expiring Soon (≤ 60 Days)',
+      content:
+        'Critical FIFO quality metric: monitors vaccine batches nearing expiration within 60 days to prioritize usage and prevent wastage.',
+      targetSelector:
+        '[data-walkthrough="nurse-reports-inv-expiring-soon"], [data-tour="nurse-reports-inv-expiring-soon"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 20: Vaccine Inventory & Wastage - Depleted Batches
+    {
+      id: 'nurse-reports-inv-depleted',
+      module: 'Reports & Analytics',
+      section: 'Vaccine Inventory & Wastage',
+      route,
+      activateSelector: '[data-walkthrough="nurse-reports-tab-inventory"]',
+      title: 'Depleted Vaccine Batches',
+      content:
+        'Historical record of completely consumed vaccine batch lots that have zero remaining doses.',
+      targetSelector:
+        '[data-walkthrough="nurse-reports-inv-depleted"], [data-tour="nurse-reports-inv-depleted"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 21: Vaccine Inventory & Wastage - Expired Batches
+    {
+      id: 'nurse-reports-inv-expired',
+      module: 'Reports & Analytics',
+      section: 'Vaccine Inventory & Wastage',
+      route,
+      activateSelector: '[data-walkthrough="nurse-reports-tab-inventory"]',
+      title: 'Expired Vaccine Batches',
+      content:
+        'Expired vaccine batch lots safely quarantined from patient use pending disposal or return protocol compliance.',
+      targetSelector:
+        '[data-walkthrough="nurse-reports-inv-expired"], [data-tour="nurse-reports-inv-expired"]',
+      fallbackSelector: 'main.page-content',
+      placement: 'bottom',
+    },
+
+    // Step 22: Vaccine Inventory & Wastage - Batch Utilization & Wastage Audit Log
     {
       id: 'nurse-reports-inventory-table',
       module: 'Reports & Analytics',
@@ -869,7 +1157,7 @@ export function getTreatmentNurseReportsSteps(route: string = ROUTES.REPORTS.LIS
       placement: 'top',
     },
 
-    // Step 12: Top Header - Print Official Report with Nurse Sign-off
+    // Step 23: Top Header - Print Official Report with Nurse Sign-off
     {
       id: 'nurse-reports-print-action',
       module: 'Reports & Analytics',

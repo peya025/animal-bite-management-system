@@ -339,6 +339,7 @@ function MetricCard({
   active,
   onClick,
   color = '#10b981',
+  dataWalkthrough,
 }: {
   label: string;
   value: string | number;
@@ -346,12 +347,15 @@ function MetricCard({
   active?: boolean;
   onClick?: () => void;
   color?: string;
+  dataWalkthrough?: string;
 }) {
   return (
     <Paper
       component={onClick ? 'button' : 'div'}
       onClick={onClick}
       elevation={0}
+      data-walkthrough={dataWalkthrough}
+      data-tour={dataWalkthrough}
       sx={{
         ...panelSx,
         display: 'flex',
@@ -474,12 +478,14 @@ function CategoryCard({
   desc,
   active,
   onClick,
+  dataWalkthrough,
 }: {
   cat: string;
   count?: number;
   desc: string;
   active?: boolean;
   onClick?: () => void;
+  dataWalkthrough?: string;
 }) {
   const catColor = cat.includes('III') ? '#ef4444' : cat.includes('II') ? '#f59e0b' : '#10b981';
 
@@ -488,6 +494,8 @@ function CategoryCard({
       component={onClick ? 'button' : 'div'}
       onClick={onClick}
       elevation={0}
+      data-walkthrough={dataWalkthrough}
+      data-tour={dataWalkthrough}
       sx={{
         ...panelSx,
         display: 'flex',
@@ -2347,8 +2355,6 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
             </Box>
           ) : (
             <Box
-              data-walkthrough={isDoctor ? 'doctor-reports-kpi-cards' : 'nurse-reports-kpi-cards'}
-              data-tour={isDoctor ? 'doctor-reports-kpi-cards' : 'nurse-reports-kpi-cards'}
               sx={{
                 display: 'grid',
                 gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)', lg: 'repeat(6, 1fr)' },
@@ -2363,6 +2369,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
                 active={selectedCard === 'total_patients'}
                 onClick={() => setSelectedCard(prev => (prev === 'total_patients' ? null : 'total_patients'))}
                 color="#6366f1"
+                dataWalkthrough={isDoctor ? 'doctor-reports-kpi-total-patients' : 'nurse-reports-kpi-total-patients'}
               />
               <MetricCard
                 label="Total Bite Cases"
@@ -2371,6 +2378,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
                 active={selectedCard === 'total_bite_cases'}
                 onClick={() => setSelectedCard(prev => (prev === 'total_bite_cases' ? null : 'total_bite_cases'))}
                 color="#f59e0b"
+                dataWalkthrough={isDoctor ? 'doctor-reports-kpi-total-cases' : 'nurse-reports-kpi-total-cases'}
               />
               <MetricCard
                 label="New Patients"
@@ -2379,6 +2387,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
                 active={selectedCard === 'new_patients'}
                 onClick={() => setSelectedCard(prev => (prev === 'new_patients' ? null : 'new_patients'))}
                 color="#10b981"
+                dataWalkthrough={isDoctor ? 'doctor-reports-kpi-new-patients' : 'nurse-reports-kpi-new-patients'}
               />
               <MetricCard
                 label="New Cases"
@@ -2387,6 +2396,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
                 active={selectedCard === 'new_cases'}
                 onClick={() => setSelectedCard(prev => (prev === 'new_cases' ? null : 'new_cases'))}
                 color="#f97316"
+                dataWalkthrough={isDoctor ? 'doctor-reports-kpi-new-cases' : 'nurse-reports-kpi-new-cases'}
               />
               <MetricCard
                 label="Completed"
@@ -2395,6 +2405,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
                 active={selectedCard === 'completed_cases'}
                 onClick={() => setSelectedCard(prev => (prev === 'completed_cases' ? null : 'completed_cases'))}
                 color="#22c55e"
+                dataWalkthrough={isDoctor ? 'doctor-reports-kpi-completed' : 'nurse-reports-kpi-completed'}
               />
               <MetricCard
                 label="On-going"
@@ -2403,16 +2414,13 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
                 active={selectedCard === 'ongoing_cases'}
                 onClick={() => setSelectedCard(prev => (prev === 'ongoing_cases' ? null : 'ongoing_cases'))}
                 color="#3b82f6"
+                dataWalkthrough={isDoctor ? 'doctor-reports-kpi-ongoing' : 'nurse-reports-kpi-ongoing'}
               />
             </Box>
           )}
 
           {/* Category Breakdown Cards */}
-          <Box
-            data-walkthrough={isDoctor ? 'doctor-reports-category-cards' : 'nurse-reports-category-cards'}
-            data-tour={isDoctor ? 'doctor-reports-category-cards' : 'nurse-reports-category-cards'}
-            sx={{ mb: 3 }}
-          >
+          <Box sx={{ mb: 3 }}>
             <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, fontFamily: POPPINS, mb: 1.5, color: 'text.primary' }}>
               Bite Case Categories (Period Breakdown)
             </Typography>
@@ -2429,6 +2437,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
                 desc="Minor — Licking of intact skin (no exposure)"
                 active={summaryCatFilter === 'Category I'}
                 onClick={() => setSummaryCatFilter(prev => (prev === 'Category I' ? 'ALL' : 'Category I'))}
+                dataWalkthrough={isDoctor ? 'doctor-reports-category-1' : 'nurse-reports-category-1'}
               />
               <CategoryCard
                 cat="Category II"
@@ -2436,6 +2445,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
                 desc="Moderate — Minor scratches or abrasions without bleeding"
                 active={summaryCatFilter === 'Category II'}
                 onClick={() => setSummaryCatFilter(prev => (prev === 'Category II' ? 'ALL' : 'Category II'))}
+                dataWalkthrough={isDoctor ? 'doctor-reports-category-2' : 'nurse-reports-category-2'}
               />
               <CategoryCard
                 cat="Category III"
@@ -2443,6 +2453,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
                 desc="Severe — Transdermal bites, scratches, or mucous contamination"
                 active={summaryCatFilter === 'Category III'}
                 onClick={() => setSummaryCatFilter(prev => (prev === 'Category III' ? 'ALL' : 'Category III'))}
+                dataWalkthrough={isDoctor ? 'doctor-reports-category-3' : 'nurse-reports-category-3'}
               />
             </Box>
           </Box>
@@ -2823,8 +2834,6 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
         <>
           {/* Stock Metrics Overview */}
           <Box
-            data-walkthrough="nurse-reports-inventory-kpis"
-            data-tour="nurse-reports-inventory-kpis"
             sx={{
               display: 'grid',
               gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(5, 1fr)' },
@@ -2832,7 +2841,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
               mb: 3,
             }}
           >
-            <Paper elevation={0} sx={{ ...panelSx, p: 2, textAlign: 'center' }}>
+            <Paper elevation={0} data-walkthrough="nurse-reports-inv-active-batches" data-tour="nurse-reports-inv-active-batches" sx={{ ...panelSx, p: 2, textAlign: 'center' }}>
               <Typography sx={{ fontSize: 26, fontWeight: 800, color: '#10b981', fontFamily: POPPINS, lineHeight: 1 }}>
                 {invDisplayStats.active_batches}
               </Typography>
@@ -2852,7 +2861,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
               </Typography>
             </Paper>
 
-            <Paper elevation={0} sx={{ ...panelSx, p: 2, textAlign: 'center' }}>
+            <Paper elevation={0} data-walkthrough="nurse-reports-inv-total-stock" data-tour="nurse-reports-inv-total-stock" sx={{ ...panelSx, p: 2, textAlign: 'center' }}>
               <Typography sx={{ fontSize: 26, fontWeight: 800, color: '#3b82f6', fontFamily: POPPINS, lineHeight: 1 }}>
                 {invDisplayStats.total_stock}
               </Typography>
@@ -2872,7 +2881,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
               </Typography>
             </Paper>
 
-            <Paper elevation={0} sx={{ ...panelSx, p: 2, textAlign: 'center' }}>
+            <Paper elevation={0} data-walkthrough="nurse-reports-inv-expiring-soon" data-tour="nurse-reports-inv-expiring-soon" sx={{ ...panelSx, p: 2, textAlign: 'center' }}>
               <Typography sx={{ fontSize: 26, fontWeight: 800, color: '#f59e0b', fontFamily: POPPINS, lineHeight: 1 }}>
                 {invDisplayStats.expiring_soon}
               </Typography>
@@ -2892,7 +2901,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
               </Typography>
             </Paper>
 
-            <Paper elevation={0} sx={{ ...panelSx, p: 2, textAlign: 'center' }}>
+            <Paper elevation={0} data-walkthrough="nurse-reports-inv-depleted" data-tour="nurse-reports-inv-depleted" sx={{ ...panelSx, p: 2, textAlign: 'center' }}>
               <Typography sx={{ fontSize: 26, fontWeight: 800, color: '#ef4444', fontFamily: POPPINS, lineHeight: 1 }}>
                 {invDisplayStats.depleted_batches}
               </Typography>
@@ -2912,7 +2921,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
               </Typography>
             </Paper>
 
-            <Paper elevation={0} sx={{ ...panelSx, p: 2, textAlign: 'center' }}>
+            <Paper elevation={0} data-walkthrough="nurse-reports-inv-expired" data-tour="nurse-reports-inv-expired" sx={{ ...panelSx, p: 2, textAlign: 'center' }}>
               <Typography sx={{ fontSize: 26, fontWeight: 800, color: '#6b7280', fontFamily: POPPINS, lineHeight: 1 }}>
                 {invDisplayStats.expired_batches}
               </Typography>

@@ -6,6 +6,10 @@ import {
   getTreatmentNurseReportsSteps,
   getReportsAnalyticsSteps,
 } from '../../src/features/walkthrough/reportsAnalyticsWalkthroughSteps';
+import {
+  getDashboardStepsForRole,
+  getDashboardModuleInfoForRole,
+} from '../../src/features/walkthrough/dashboardWalkthroughSteps';
 
 test.describe('Role-Based Reports & Analytics Interactive Walkthrough Audit & Verification', () => {
   test('1. Administrator Reports Walkthrough is comprehensive and covers all admin reporting features', () => {
@@ -264,5 +268,26 @@ test.describe('Role-Based Reports & Analytics Interactive Walkthrough Audit & Ve
       expect(step).toBeDefined();
       expect(step?.placement).toBe('top');
     }
+  });
+
+  test('9. All roles have customized 16-step Dashboard Tours and Welcome Tour metadata', () => {
+    const roles = ['admin', 'developer', 'registration', 'triage', 'doctor', 'treatment', 'nurse'];
+
+    for (const role of roles) {
+      const steps = getDashboardStepsForRole(role);
+      expect(steps.length).toBe(16);
+
+      const info = getDashboardModuleInfoForRole(role);
+      expect(info.name).toBeTruthy();
+      expect(info.name).toContain('Dashboard Tour');
+      expect(info.description).toBeTruthy();
+    }
+
+    expect(getDashboardModuleInfoForRole('admin').name).toBe('Administrator Dashboard Tour');
+    expect(getDashboardModuleInfoForRole('registration').name).toBe('Registration Staff Dashboard Tour');
+    expect(getDashboardModuleInfoForRole('triage').name).toBe('Triage Doctor Dashboard Tour');
+    expect(getDashboardModuleInfoForRole('doctor').name).toBe('Triage Doctor Dashboard Tour');
+    expect(getDashboardModuleInfoForRole('treatment').name).toBe('Treatment Nurse Dashboard Tour');
+    expect(getDashboardModuleInfoForRole('nurse').name).toBe('Treatment Nurse Dashboard Tour');
   });
 });

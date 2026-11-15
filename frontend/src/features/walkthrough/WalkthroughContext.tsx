@@ -8,7 +8,7 @@ import { walkthroughStyles } from './Walkthrough.styles';
 import WalkthroughOverlay from './WalkthroughOverlay';
 import WalkthroughWelcomeModal from './WalkthroughWelcomeModal';
 import WalkthroughCompletionModal from './WalkthroughCompletionModal';
-import { getDashboardModuleInfoForRole } from './dashboardWalkthroughSteps';
+import { getDashboardModuleInfoForRole, getDashboardStepsForRole } from './dashboardWalkthroughSteps';
 
 const noop = () => {};
 export const defaultWalkthroughContext: WalkthroughContextType = {
@@ -56,7 +56,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     catch { setProgress({}); }
   }, [storageKey]);
 
-  // First-time visit to /dashboard shows the Welcome Modal
+  // Welcome Modal pops up on login and on first-time visit to /dashboard
   useEffect(() => {
     if (!user?.id) return;
     const isLandingOrPublic = location.pathname === '/' || location.pathname === ROUTES.HOME || location.pathname === ROUTES.LOGIN;
@@ -68,6 +68,14 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const isDashboard = location.pathname === ROUTES.DASHBOARD || location.pathname === `${ROUTES.DASHBOARD}/` || location.pathname.includes('/walkthrough.html');
     if (!isDashboard) {
       setIsWelcomeModalOpen(false);
+      return;
+    }
+
+    // Always pop up welcome modal when user just logged in
+    const justLoggedIn = sessionStorage.getItem('abtc_show_welcome_on_login') === 'true';
+    if (justLoggedIn) {
+      sessionStorage.removeItem('abtc_show_welcome_on_login');
+      setIsWelcomeModalOpen(true);
       return;
     }
 
@@ -235,7 +243,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
       <WalkthroughWelcomeModal
         open={isWelcomeModalOpen && !isLandingOrPublic}
         roleName={getDashboardModuleInfoForRole(user?.role).name}
-        totalSteps={dashboardModule?.steps.length || 0}
+        totalSteps={dashboardModule?.steps.length || getDashboardStepsForRole(user?.role).length || 16}
         onStart={() => {
           setIsWelcomeModalOpen(false);
           startGuide(ROUTES.DASHBOARD, true);

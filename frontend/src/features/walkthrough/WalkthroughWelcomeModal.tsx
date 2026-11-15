@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface WalkthroughWelcomeModalProps {
   open: boolean;
@@ -15,7 +15,22 @@ export const WalkthroughWelcomeModal: React.FC<WalkthroughWelcomeModalProps> = (
   onStart,
   onDismiss,
 }) => {
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onDismiss();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onDismiss]);
+
   if (!open) return null;
+
+  const displayBadgeText = roleName
+    ? roleName.toLowerCase().includes('tour')
+      ? `${roleName} • ${totalSteps || 16} steps`
+      : `${roleName} Dashboard Tour • ${totalSteps || 16} steps`
+    : `Dashboard Tour • ${totalSteps || 16} steps`;
 
   return (
     <div
@@ -24,6 +39,9 @@ export const WalkthroughWelcomeModal: React.FC<WalkthroughWelcomeModalProps> = (
       role="dialog"
       aria-modal="true"
       aria-labelledby="walkthrough-welcome-heading"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onDismiss();
+      }}
     >
       <div className="walkthrough-welcome-card">
         {/* Close 'X' button */}
@@ -32,72 +50,117 @@ export const WalkthroughWelcomeModal: React.FC<WalkthroughWelcomeModalProps> = (
           className="walkthrough-modal-close-btn"
           data-testid="walkthrough-modal-close-btn"
           onClick={onDismiss}
-          title="Close"
+          title="Close guide"
           aria-label="Close"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
 
-        <div className="walkthrough-welcome-icon-wrap" aria-hidden="true">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-          </svg>
+        {/* System Animal Bite & Clinical Treatment Emblem (Vector SVG, No Emojis) */}
+        <div className="walkthrough-welcome-icon-outer" aria-hidden="true">
+          <div className="walkthrough-welcome-icon-glow" />
+          <div className="walkthrough-welcome-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              {/* 4 Paw Toes */}
+              <circle cx="6.5" cy="8" r="2.2" fill="#0d9488" />
+              <circle cx="10.2" cy="5" r="2.2" fill="#0d9488" />
+              <circle cx="13.8" cy="5" r="2.2" fill="#0d9488" />
+              <circle cx="17.5" cy="8" r="2.2" fill="#0d9488" />
+              {/* Main Paw Pad */}
+              <path
+                d="M12 9.8C8.5 9.8 5.5 12.4 5.5 15.8C5.5 18.8 8.2 21 12 21C15.8 21 18.5 18.8 18.5 15.8C18.5 12.4 15.5 9.8 12 9.8Z"
+                fill="#0d9488"
+              />
+              {/* Medical Cross inside Main Pad */}
+              <rect x="10.9" y="12.2" width="2.2" height="6.6" rx="0.6" fill="#ffffff" />
+              <rect x="8.7" y="14.4" width="6.6" height="2.2" rx="0.6" fill="#ffffff" />
+            </svg>
+          </div>
         </div>
 
-        {totalSteps ? (
-          <div
-            className="walkthrough-progress-indicator"
-            data-testid="walkthrough-progress-indicator"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '3px 12px',
-              borderRadius: '999px',
-              fontSize: '11.5px',
-              fontWeight: 600,
-              background: '#ecfdf5',
-              color: '#065f46',
-              border: '1px solid #a7f3d0',
-              marginBottom: '12px',
-            }}
-          >
-            <span>✨</span>
-            <span>{roleName ? `${roleName} • ` : ''}{totalSteps} steps</span>
-          </div>
-        ) : null}
+        {/* Role Pill Badge (Subtle dot indicator, No Emojis) */}
+        <div
+          className="walkthrough-welcome-badge walkthrough-progress-indicator"
+          data-testid="walkthrough-progress-indicator"
+        >
+          <span className="walkthrough-welcome-badge-dot" />
+          <span>{displayBadgeText}</span>
+        </div>
 
+        {/* Title */}
         <h2 id="walkthrough-welcome-heading" className="walkthrough-welcome-title">
           Explore Your Dashboard
         </h2>
 
+        {/* Subtitle */}
         <p className="walkthrough-welcome-text">
-          Welcome to your Dashboard! This guide will help you understand the important features, information, and tools available for your role. Let's explore your dashboard step by step.
+          Welcome to your clinical dashboard. This interactive guide will walk you through the essential tools, workflow queues, and patient surveillance features available for your role.
         </p>
 
+        {/* Professional Feature Highlights (Vector SVGs, No Emojis) */}
+        <div className="walkthrough-welcome-highlights" aria-hidden="true">
+          <div className="walkthrough-welcome-pill">
+            <span className="walkthrough-welcome-pill-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                <path d="M9 12h6M9 16h6" />
+              </svg>
+            </span>
+            <span className="walkthrough-welcome-pill-text">Real-time Records</span>
+          </div>
+
+          <div className="walkthrough-welcome-pill">
+            <span className="walkthrough-welcome-pill-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+            </span>
+            <span className="walkthrough-welcome-pill-text">Queue Workflows</span>
+          </div>
+
+          <div className="walkthrough-welcome-pill">
+            <span className="walkthrough-welcome-pill-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+              </svg>
+            </span>
+            <span className="walkthrough-welcome-pill-text">Quick Actions</span>
+          </div>
+        </div>
+
+        {/* Actions */}
         <div className="walkthrough-welcome-actions">
           <button
             type="button"
-            className="walkthrough-btn walkthrough-btn-back"
+            className="walkthrough-welcome-btn-skip"
             data-testid="walkthrough-dismiss-btn"
-            style={{ padding: '9px 20px', fontSize: '13px' }}
             onClick={onDismiss}
           >
             Skip Tour
           </button>
           <button
             type="button"
-            className="walkthrough-btn walkthrough-btn-primary"
+            className="walkthrough-welcome-btn-start"
             data-testid="walkthrough-start-btn"
-            style={{ padding: '9px 24px', fontSize: '13px' }}
             onClick={onStart}
-            autoFocus
           >
-            Start Tour
+            <span>Start Tour</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
+            </svg>
           </button>
+        </div>
+
+        {/* Professional Footer Reassurance (No Emojis) */}
+        <div className="walkthrough-welcome-footer-note">
+          <span>Interactive guided tour</span>
+          <span>•</span>
+          <span>Restart anytime via the top bar guide menu</span>
         </div>
       </div>
     </div>

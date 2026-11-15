@@ -22,10 +22,10 @@ declare global {
 
 /** Role → dashboard path mapping for Google SSO redirect */
 const ROLE_DASHBOARD: Record<string, string> = {
-  treatment:    '/nurse/patients',
-  triage:       '/queue',
-  doctor:       '/queue',
-  registration: '/patients',
+  treatment:    '/dashboard',
+  triage:       '/dashboard',
+  doctor:       '/dashboard',
+  registration: '/dashboard',
   admin:        '/dashboard',
   developer:    '/dashboard',
 };
@@ -37,44 +37,17 @@ function resolveLandingRoute(user: any): string {
   const hasIntake = roles.some((r: any) => r.slug === 'intake_nurse');
   const hasFollowUp = roles.some((r: any) => r.slug === 'follow_up_nurse');
 
-  // Solo / Dual-role Nurse: check active_station_mode preference
+  // Solo / Dual-role Nurse: preserve active_station_mode preference
   if (hasIntake && hasFollowUp) {
     const activeStation = localStorage.getItem('active_station_mode');
-    if (activeStation === 'follow_up') return '/nurse/patients';
-    return '/queue';
-  }
-
-  // Single-role Intake Nurse
-  if (hasIntake) {
+    if (!activeStation) localStorage.setItem('active_station_mode', 'intake');
+  } else if (hasIntake) {
     localStorage.setItem('active_station_mode', 'intake');
-    return '/queue';
-  }
-
-  // Single-role Follow-up Nurse
-  if (hasFollowUp) {
+  } else if (hasFollowUp) {
     localStorage.setItem('active_station_mode', 'follow_up');
-    return '/nurse/patients';
   }
 
-  // Doctor / Triage: Station 1: New & Day 0
-  const isDoctor =
-    user.role === 'triage' ||
-    user.role === 'doctor' ||
-    roles.some((r: any) => r.slug === 'doctor' || r.name === 'doctor' || r.slug === 'triage' || r.name === 'triage');
-  if (isDoctor) {
-    return '/queue';
-  }
-
-  // Roles with default_route from backend roles table
-  if (roles.length > 0 && roles[0].default_route) {
-    return roles[0].default_route;
-  }
-
-  // Legacy role fallbacks
-  if (user.role === 'triage' || user.role === 'doctor') return '/queue';
-  if (user.role === 'registration') return '/patients';
-  if (user.role === 'treatment') return '/queue';
-
+  // All roles land on Dashboard to view operational overview and role welcome walkthrough
   return '/dashboard';
 }
 
@@ -178,6 +151,7 @@ export default function Login() {
       localStorage.setItem('userData', JSON.stringify(data.user));
       localStorage.setItem('clinicData', JSON.stringify(data.user?.clinic ?? null));
       localStorage.setItem('lastActivityAt', String(Date.now()));
+      sessionStorage.setItem('abtc_show_welcome_on_login', 'true');
 
       const role = data.user?.role as string ?? 'admin';
       window.location.replace(resolveLandingRoute(data.user) || ROLE_DASHBOARD[role] || '/dashboard');
@@ -221,6 +195,7 @@ export default function Login() {
       // clinic is nested inside user in the backend response
       localStorage.setItem('clinicData', JSON.stringify(data.user?.clinic ?? null));
       localStorage.setItem('lastActivityAt', String(Date.now()));
+      sessionStorage.setItem('abtc_show_welcome_on_login', 'true');
       window.location.replace(resolveLandingRoute(data.user));
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
@@ -252,6 +227,7 @@ export default function Login() {
       localStorage.setItem('userData', JSON.stringify(data.user));
       localStorage.setItem('clinicData', JSON.stringify(data.user?.clinic ?? null));
       localStorage.setItem('lastActivityAt', String(Date.now()));
+      sessionStorage.setItem('abtc_show_welcome_on_login', 'true');
       window.location.replace(resolveLandingRoute(data.user));
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');

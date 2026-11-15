@@ -30,6 +30,16 @@ interface EncounterFeesViewProps {
   onRefresh?: () => void;
 }
 
+function formatCurrency(val: string | number | null | undefined, cents?: number | null | undefined): string {
+  if (val !== undefined && val !== null && val !== '' && !isNaN(Number(val))) {
+    return Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  if (cents !== undefined && cents !== null && !isNaN(Number(cents))) {
+    return (Number(cents) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return '0.00';
+}
+
 export default function EncounterFeesView({
   patientId,
   encounters = [],
@@ -74,7 +84,12 @@ export default function EncounterFeesView({
 
   const handleOpenSettle = () => {
     if (!fee) return;
-    setSettleAmount(fee.balance);
+    const initialBal =
+      fee.balance ||
+      (fee.balance_cents !== undefined && fee.balance_cents !== null
+        ? (fee.balance_cents / 100).toFixed(2)
+        : '0.00');
+    setSettleAmount(initialBal);
     setSettleMethod('cash');
     setSettleMethodDetails('');
     setSettleReference('');
@@ -86,14 +101,17 @@ export default function EncounterFeesView({
   const handleSubmitPayment = async () => {
     if (!fee) return;
     const amt = parseFloat(settleAmount);
-    const bal = parseFloat(fee.balance);
+    const bal =
+      fee.balance_cents !== undefined && fee.balance_cents !== null
+        ? fee.balance_cents / 100
+        : parseFloat(fee.balance || '0');
 
     if (isNaN(amt) || amt <= 0) {
       setPaymentError('Payment amount must be greater than zero.');
       return;
     }
     if (amt > bal) {
-      setPaymentError(`Payment amount cannot exceed the remaining balance of ₱${fee.balance}.`);
+      setPaymentError(`Payment amount cannot exceed the remaining balance of ₱${formatCurrency(fee.balance, fee.balance_cents)}.`);
       return;
     }
     if (settleMethod === 'other' && !settleMethodDetails.trim()) {
@@ -165,7 +183,15 @@ export default function EncounterFeesView({
   }
 
   const currentStatus = statusColorMap[fee.status] || statusColorMap.not_recorded;
-  const balanceNum = parseFloat(fee.balance || '0');
+  const balanceNum =
+    fee.balance_cents !== undefined && fee.balance_cents !== null
+      ? fee.balance_cents / 100
+      : parseFloat(fee.balance || '0');
+  const currentBalanceStr =
+    fee.balance ||
+    (fee.balance_cents !== undefined && fee.balance_cents !== null
+      ? (fee.balance_cents / 100).toFixed(2)
+      : '0.00');
 
   return (
     <Box sx={{ bgcolor: 'var(--card-bg-solid, #ffffff)', borderRadius: 2.5, border: '1px solid var(--border-glow, #e2e8f0)', overflow: 'hidden', mb: 3 }}>
@@ -219,7 +245,7 @@ export default function EncounterFeesView({
             Total Recorded Fee
           </Typography>
           <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#1e293b', fontFamily: 'monospace', mt: 0.5 }}>
-            ₱{fee.total}
+            ₱{formatCurrency(fee.total, fee.total_cents)}
           </Typography>
           {!fee.is_complete && (
             <Typography sx={{ fontSize: 10.5, color: '#b45309', fontStyle: 'italic', mt: 0.25 }}>
@@ -233,7 +259,7 @@ export default function EncounterFeesView({
             Total Paid
           </Typography>
           <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#15803d', fontFamily: 'monospace', mt: 0.5 }}>
-            ₱{fee.amount_paid}
+            ₱{formatCurrency(fee.amount_paid, fee.amount_paid_cents)}
           </Typography>
           <Typography sx={{ fontSize: 10.5, color: '#64748b', mt: 0.25 }}>
             {fee.payments.filter((p) => !p.is_voided).length} active receipt(s)
@@ -246,7 +272,7 @@ export default function EncounterFeesView({
               Remaining Balance
             </Typography>
             <Typography sx={{ fontSize: 18, fontWeight: 800, color: balanceNum > 0 ? '#b45309' : '#15803d', fontFamily: 'monospace', mt: 0.5 }}>
-              ₱{fee.balance}
+              ₱{formatCurrency(fee.balance, fee.balance_cents)}
             </Typography>
           </Box>
 
@@ -322,7 +348,9 @@ export default function EncounterFeesView({
                       </span>
                     </td>
                     <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>
-                      {item.amount !== null ? `₱${item.amount}` : '—'}
+                      {item.disposition === 'recorded'
+                        ? `₱${formatCurrency(item.amount, item.amount_cents)}`
+                        : '—'}
                     </td>
                     <td style={{ padding: '8px 12px', color: '#64748b' }}>
                       {item.reason || '—'}
@@ -368,7 +396,7 @@ export default function EncounterFeesView({
                       {new Date(pay.collected_at).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}
                     </td>
                     <td style={{ padding: '8px 12px', fontWeight: 700, fontFamily: 'monospace', color: pay.is_voided ? '#94a3b8' : '#15803d' }}>
-                      ₱{pay.amount}
+                      ₱{formatCurrency(pay.amount, pay.amount_cents)}
                     </td>
                     <td style={{ padding: '8px 12px' }}>
                       {pay.payment_method === 'cash' ? 'Cash' : `Other (${pay.payment_method_details || 'N/A'})`}
@@ -377,7 +405,7 @@ export default function EncounterFeesView({
                       {pay.reference_number || '—'}
                     </td>
                     <td style={{ padding: '8px 12px', color: '#475569' }}>
-                      {pay.recorded_by?.name || 'Staff'}
+                      {pay.recorded_by?.name || pay.recorded_by_name || 'Staff'}
                     </td>
                     <td style={{ padding: '8px 12px' }}>
                       {pay.is_voided ? (
@@ -434,9 +462,9 @@ export default function EncounterFeesView({
               <Typography sx={{ fontSize: 12, fontWeight: 600 }}>Amount Received (₱) *</Typography>
               <Typography
                 sx={{ fontSize: 11, color: '#059669', cursor: 'pointer', textDecoration: 'underline' }}
-                onClick={() => setSettleAmount(fee.balance)}
+                onClick={() => setSettleAmount(currentBalanceStr)}
               >
-                Pay Full (₱{fee.balance})
+                Pay Full (₱{formatCurrency(fee.balance, fee.balance_cents)})
               </Typography>
             </Box>
             <TextField
@@ -446,7 +474,7 @@ export default function EncounterFeesView({
               value={settleAmount}
               onChange={(e) => setSettleAmount(e.target.value)}
               placeholder="0.00"
-              slotProps={{ htmlInput: { min: 0.01, max: fee.balance, step: 0.01 } }}
+              slotProps={{ htmlInput: { min: 0.01, max: balanceNum > 0 ? balanceNum : undefined, step: 0.01 } }}
             />
           </Box>
 
@@ -530,7 +558,7 @@ export default function EncounterFeesView({
           {targetPayment && (
             <Typography sx={{ fontSize: 12.5, color: '#475569', mb: 2 }}>
               Are you sure you want to void the payment of{' '}
-              <strong>₱{targetPayment.amount}</strong> received on{' '}
+              <strong>₱{formatCurrency(targetPayment.amount, targetPayment.amount_cents)}</strong> received on{' '}
               {new Date(targetPayment.collected_at).toLocaleDateString()}? This action is audited and
               will restore the outstanding balance.
             </Typography>

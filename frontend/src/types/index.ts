@@ -441,7 +441,9 @@ export interface RegistrationFeePaymentData {
   voided_at: string | null;
   collected_at: string;
   recorded_by?: { id: number; name: string } | null;
+  recorded_by_name?: string;
   voided_by?: { id: number; name: string } | null;
+  voided_by_name?: string;
 }
 
 export interface RegistrationFeeData {

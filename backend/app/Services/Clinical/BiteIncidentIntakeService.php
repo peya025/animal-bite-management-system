@@ -92,6 +92,11 @@ class BiteIncidentIntakeService
                     ->first();
 
                 if ($queue) {
+                    $encounter = \App\Models\RegistrationEncounter::where('clinic_id', $clinicId)
+                        ->where('intake_id', $lockedIntake->intake_id)
+                        ->first();
+                    $fee = $encounter?->fee()->with(['items', 'payments'])->first();
+
                     return [
                         'status' => 200,
                         'data' => [
@@ -99,6 +104,8 @@ class BiteIncidentIntakeService
                             'already_checked_in' => true,
                             'incident' => BiteIncident::find($lockedIntake->bite_id),
                             'queue' => $queue->load(['patient', 'biteIncident']),
+                            'encounter_id' => $encounter?->id,
+                            'fee' => app(\App\Services\RegistrationFeeService::class)->formatFeeResponse($fee),
                         ],
                     ];
                 }
@@ -238,12 +245,35 @@ class BiteIncidentIntakeService
 
             $this->notificationService->notifyQueueEvent($queue->load('patient'), 'checked_in', $user);
 
+            $encounter = app(\App\Services\RegistrationFeeService::class)->getOrCreateEncounter(
+                $clinicId,
+                $lockedIntake->patient_id,
+                'intake_checkin',
+                $incident->bite_id,
+                $lockedIntake->intake_id,
+                $appointment->appointment_id,
+                $user->id
+            );
+
+            $feeRecord = null;
+            if (request()->has('registration_fee')) {
+                $parsedFee = app(\App\Services\RegistrationFeeService::class)->validateAndParsePayload(
+                    $clinicId,
+                    request()->input('registration_fee')
+                );
+                if ($parsedFee) {
+                    $feeRecord = app(\App\Services\RegistrationFeeService::class)->recordEncounterFee($encounter, $parsedFee, $user);
+                }
+            }
+
             return [
                 'status' => 201,
                 'data' => [
-                    'message' => 'Mobile bite intake checked in and sent to Doctor assessment.',
-                    'incident' => $incident,
-                    'queue' => $queue->load(['patient', 'biteIncident']),
+                    'message'      => 'Mobile bite intake checked in and sent to Doctor assessment.',
+                    'incident'     => $incident,
+                    'queue'        => $queue->load(['patient', 'biteIncident']),
+                    'encounter_id' => $encounter->id,
+                    'fee'          => app(\App\Services\RegistrationFeeService::class)->formatFeeResponse($feeRecord),
                 ],
             ];
         });

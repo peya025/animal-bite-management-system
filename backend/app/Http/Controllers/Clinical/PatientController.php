@@ -75,9 +75,20 @@ class PatientController extends Controller
             ], 409);
         }
 
+        $encounter = $patient->relationLoaded('registrationEncounter')
+            ? $patient->registrationEncounter
+            : $patient->latestRegistrationEncounter;
+        $feeData = null;
+        if ($encounter) {
+            $fee = $encounter->fee()->with(['items', 'payments'])->first();
+            $feeData = app(\App\Services\RegistrationFeeService::class)->formatFeeResponse($fee);
+        }
+
         return $this->json([
-            'message' => 'Patient registered successfully',
-            'patient' => $patient->load(['registeredBy', 'details', 'memberships']),
+            'message'      => 'Patient registered successfully',
+            'patient'      => $patient->load(['registeredBy', 'details', 'memberships']),
+            'encounter_id' => $encounter?->id,
+            'fee'          => $feeData,
         ], 201);
     }
 

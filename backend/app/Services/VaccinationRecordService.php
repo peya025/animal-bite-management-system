@@ -227,14 +227,13 @@ class VaccinationRecordService
                 'animal_observation_status' => $animalObservationStatus ?: null,
             ], fn($v) => $v !== null && $v !== '');
 
-<<<<<<< HEAD
             if (!empty($assessmentUpdates['bite_date']) && BiteIncident::supportsProvisionalBiteDateColumn()) {
                 $assessmentUpdates['bite_date_is_provisional'] = false;
-=======
+            }
+
             if ($animalAvailableAnswered) {
                 $assessmentUpdates['animal_available'] = $animalAvailable;
                 $assessmentUpdates['animal_available_answered'] = true;
->>>>>>> 62e719fde35625a53d611a6a887bbe507d542491
             }
 
             if ($assessmentUpdates) {

@@ -218,6 +218,11 @@ export interface FieldRules {
   medication_given: FieldRuleValue;
   adverse_reaction: FieldRuleValue;
   cost_recovery: FieldRuleValue;
+
+  // REGISTRATION FEES & PAYMENT (Independent items, default Hidden)
+  rig_fee: FieldRuleValue;
+  anti_rabies_fee: FieldRuleValue;
+  additional_fees: FieldRuleValue;
 }
 
 export type FieldRuleKey = keyof FieldRules;
@@ -331,6 +336,9 @@ export const DEFAULT_CANONICAL_FIELD_RULES: Readonly<FieldRules> = Object.freeze
   medication_given: 'optional',
   adverse_reaction: 'optional',
   cost_recovery: 'optional',
+  rig_fee: 'hidden',
+  anti_rabies_fee: 'hidden',
+  additional_fees: 'hidden',
 });
 
 export const DEFAULT_CANONICAL_SECTIONS: Readonly<ClinicModuleSections> = Object.freeze({
@@ -375,4 +383,93 @@ export interface PaginatedResponse<T> {
 export interface ApiError {
   message: string;
   errors?: Record<string, string[]>;
+}
+
+// Registration Fees & Payments Types
+export type FeeDisposition = 'recorded' | 'not_applicable' | 'pending_assessment';
+export type FeeStatus = 'not_recorded' | 'unpaid' | 'partially_paid' | 'paid' | 'waived' | 'no_fee';
+
+export interface RegistrationFeeItemInput {
+  fee_type?: 'rig' | 'anti_rabies' | 'additional';
+  label?: string;
+  disposition: FeeDisposition;
+  amount?: string | number | null;
+  reason?: string | null;
+}
+
+export interface RegistrationFeePaymentInput {
+  amount: string | number;
+  payment_method: 'cash' | 'other';
+  payment_method_details?: string | null;
+  reference_number?: string | null;
+  notes?: string | null;
+  idempotency_key?: string | null;
+}
+
+export interface RegistrationFeePayload {
+  rig_fee?: RegistrationFeeItemInput;
+  anti_rabies_fee?: RegistrationFeeItemInput;
+  additional_fees?: RegistrationFeeItemInput[];
+  no_additional_fees?: boolean;
+  record_payment?: boolean;
+  payment?: RegistrationFeePaymentInput;
+  notes?: string | null;
+}
+
+export interface RegistrationFeeItemData {
+  id: number;
+  registration_fee_id: number;
+  fee_type: 'rig' | 'anti_rabies' | 'additional';
+  label: string;
+  disposition: FeeDisposition;
+  amount: string | null;
+  amount_cents: number | null;
+  reason: string | null;
+}
+
+export interface RegistrationFeePaymentData {
+  id: number;
+  registration_fee_id: number;
+  amount: string;
+  amount_cents: number;
+  payment_method: 'cash' | 'other';
+  payment_method_details: string | null;
+  reference_number: string | null;
+  notes: string | null;
+  is_voided: boolean;
+  void_reason: string | null;
+  voided_at: string | null;
+  collected_at: string;
+  recorded_by?: { id: number; name: string } | null;
+  voided_by?: { id: number; name: string } | null;
+}
+
+export interface RegistrationFeeData {
+  id: number;
+  encounter_id: number;
+  status: FeeStatus;
+  total: string;
+  total_cents: number;
+  amount_paid: string;
+  amount_paid_cents: number;
+  balance: string;
+  balance_cents: number;
+  is_complete: boolean;
+  no_additional_fees: boolean;
+  notes: string | null;
+  items: RegistrationFeeItemData[];
+  payments: RegistrationFeePaymentData[];
+  created_at: string;
+}
+
+export interface RegistrationEncounterData {
+  id: number;
+  clinic_id: number;
+  patient_id: number;
+  encounter_type: 'new_patient' | 'new_exposure' | 'intake_checkin' | 'returning_checkin';
+  bite_id?: number | null;
+  appointment_id?: number | null;
+  intake_id?: number | null;
+  created_at: string;
+  fee?: RegistrationFeeData | null;
 }

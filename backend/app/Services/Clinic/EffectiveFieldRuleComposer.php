@@ -66,6 +66,13 @@ class EffectiveFieldRuleComposer
      */
     public function isFieldVisible(?int $clinicId, string $fieldKey): bool
     {
+        if (in_array($fieldKey, ['rig_fee', 'anti_rabies_fee', 'additional_fees'], true)) {
+            $config = $this->getConfig($clinicId);
+            if ($config && ! (bool) ($config->registration_module_enabled ?? true)) {
+                return false;
+            }
+        }
+
         return $this->getFieldRule($clinicId, $fieldKey) !== 'hidden';
     }
 
@@ -81,6 +88,15 @@ class EffectiveFieldRuleComposer
         // Essential locked clinical invariant
         if ($fieldKey === 'exposure_category') {
             return true;
+        }
+
+        // Registration-level fee gating (tied to registration module, not demographics)
+        if (in_array($fieldKey, ['rig_fee', 'anti_rabies_fee', 'additional_fees'], true)) {
+            $config = $this->getConfig($clinicId);
+            if ($config && ! (bool) ($config->registration_module_enabled ?? true)) {
+                return false;
+            }
+            return $this->getFieldRule($clinicId, $fieldKey) === 'required';
         }
 
         // Section gating

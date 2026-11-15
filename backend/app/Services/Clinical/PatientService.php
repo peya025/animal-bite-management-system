@@ -518,6 +518,28 @@ class PatientService
                 ]);
             }
 
+            // Record registration encounter and optional fee
+            $parsedFee = app(\App\Services\RegistrationFeeService::class)->validateAndParsePayload(
+                $clinicId,
+                $rawInput['registration_fee'] ?? null
+            );
+
+            $encounter = app(\App\Services\RegistrationFeeService::class)->getOrCreateEncounter(
+                $clinicId,
+                $patient->patient_id,
+                'new_patient',
+                $biteIncident?->bite_id ?? null,
+                null,
+                null,
+                $user->id
+            );
+
+            if ($parsedFee) {
+                app(\App\Services\RegistrationFeeService::class)->recordEncounterFee($encounter, $parsedFee, $user);
+            }
+
+            $patient->setRelation('registrationEncounter', $encounter);
+
             return $patient;
         });
 
@@ -567,6 +589,11 @@ class PatientService
                 },
                 'treatmentRecords' => function($query) {
                     $query->orderBy('dose_number')->orderBy('scheduled_date');
+                },
+                'registrationEncounters' => function ($query) use ($clinicId) {
+                    $query->where('clinic_id', $clinicId)
+                        ->with(['fee.items', 'fee.payments.recordedBy', 'fee.payments.voidedBy'])
+                        ->latest('id');
                 },
             ])
             ->findOrFail($id);
@@ -1063,6 +1090,18 @@ class PatientService
 
                 $this->notificationService->notifyQueueEvent($queue->load('patient'), 'checked_in', $user);
 
+                $encounter = app(\App\Services\RegistrationFeeService::class)->getOrCreateEncounter(
+                    $clinicId,
+                    $patient->patient_id,
+                    'returning_checkin',
+                    $biteIncident?->bite_id,
+                    null,
+                    $appointment?->appointment_id,
+                    $user->id
+                );
+
+                $fee = $encounter->fee()->with(['items', 'payments'])->first();
+
                 return [
                     'status' => 200,
                     'data' => [
@@ -1075,6 +1114,8 @@ class PatientService
                         'reassessment_vitals_record' => $reassessmentVitalsRecord,
                         'is_reassessment_checkin' => $isPendingTreatmentReassessment,
                         'is_pending_treatment_reassessment' => $isPendingTreatmentReassessment,
+                        'encounter_id' => $encounter->id,
+                        'fee' => app(\App\Services\RegistrationFeeService::class)->formatFeeResponse($fee),
                     ],
                 ];
             } finally {

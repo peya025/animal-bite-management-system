@@ -656,6 +656,16 @@ class Patient extends Model
         return $this->hasMany(BiteIncident::class, 'patient_id', 'patient_id');
     }
 
+    public function registrationEncounters()
+    {
+        return $this->hasMany(\App\Models\RegistrationEncounter::class, 'patient_id', 'patient_id');
+    }
+
+    public function latestRegistrationEncounter()
+    {
+        return $this->hasOne(\App\Models\RegistrationEncounter::class, 'patient_id', 'patient_id')->latestOfMany();
+    }
+
     public function biteIntakes()
     {
         return $this->hasMany(BiteIncidentIntake::class, 'patient_id', 'patient_id');

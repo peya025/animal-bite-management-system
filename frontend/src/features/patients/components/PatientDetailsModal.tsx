@@ -18,6 +18,8 @@ import { Icon } from '../../../shared/components/ui/Icon';
 import GeneralTreatmentForm from '../../consultations/components/GeneralTreatmentForm';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 import { RegistrationVitalsSection, type RegistrationVitalsFields } from './AddPatientModal/sections/RegistrationVitalsSection';
+import { RegistrationFeesSection } from './AddPatientModal/sections/RegistrationFeesSection';
+import EncounterFeesView from './EncounterFeesView';
 import OnlineReferralPhoto from './OnlineReferralPhoto';
 import { RegistrationDialog } from './AddPatientModal/RegistrationDialog.styles';
 import { RegistrationErrors } from './AddPatientModal/registrationAccessibility';
@@ -28,7 +30,7 @@ import PatientHistoryInlineView from './PatientHistoryInlineView';
 import api from '../../../shared/services/api';
 import { isValidFourDigitYearDate, sanitizeDateInput } from '../../../shared/utils/date';
 import { useAuth } from '../../../shared/contexts/AuthContext';
-import type { Patient } from '../types';
+import type { Patient, RegistrationFeePayload } from '../types';
 import { getMembershipByType, getPatientMemberships } from '../utils/memberships';
 
 interface PatientDetailsModalProps {
@@ -216,7 +218,19 @@ function Form1Field({ label, value }: { label: string; value: string }) {
 
 // ── Form 1 Inline View ────────────────────────────────────────────────────────
 
-function Form1InlineView({ patient: p, onEdit }: { patient: any; onEdit?: () => void }) {
+function Form1InlineView({
+  patient: p,
+  onEdit,
+  canManagePayments,
+  isAdmin,
+  onRefresh,
+}: {
+  patient: any;
+  onEdit?: () => void;
+  canManagePayments?: boolean;
+  isAdmin?: boolean;
+  onRefresh?: () => void;
+}) {
   const patient = toRecord(p);
   const details = toRecord(firstNonEmpty(patient.details));
   const memberships = getPatientMemberships(p);
@@ -389,6 +403,17 @@ function Form1InlineView({ patient: p, onEdit }: { patient: any; onEdit?: () => 
           </Form1Section>
         );
       })()}
+
+      {/* IV. Registration Fees & Payment History */}
+      <Box sx={{ mt: 3, px: 3, pb: 3 }}>
+        <EncounterFeesView
+          patientId={Number(patient.patient_id || patient.id || 0)}
+          encounters={p.registration_encounters || p.registrationEncounters || []}
+          canManagePayments={canManagePayments}
+          isAdmin={isAdmin}
+          onRefresh={onRefresh}
+        />
+      </Box>
     </Box>
   );
 }
@@ -420,6 +445,7 @@ export default function PatientDetailsModal({
     reg_weight: '',
     reg_attending_provider: '',
     reg_referred_by: '',
+    registration_fee: undefined as RegistrationFeePayload | undefined,
   });
 
   const [printing, setPrinting] = useState(false);
@@ -434,8 +460,19 @@ export default function PatientDetailsModal({
   const [showEditModal, setShowEditModal] = useState(false);
   const [showTreatmentCardModal, setShowTreatmentCardModal] = useState(false);
   const [selectedTreatmentIdForCard, setSelectedTreatmentIdForCard] = useState<number | null>(null);
+
+  const reloadPatientDetails = () => {
+    const patientId = (patient as any).patient_id || (patient as any).id;
+    if (!patientId) return;
+    api.get(`/patients/${patientId}`).then((pRes) => {
+      if (pRes?.data) {
+        setFullPatient(pRes.data);
+      }
+    }).catch(() => null);
+  };
+
   const [newExposureOpen, setNewExposureOpen] = useState(false);
-  const [newExposure, setNewExposure] = useState<RegistrationVitalsFields & { bite_date: string }>(getInitialNewExposure);
+  const [newExposure, setNewExposure] = useState<RegistrationVitalsFields & { bite_date: string; registration_fee?: RegistrationFeePayload }>(getInitialNewExposure);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [savingExposure, setSavingExposure] = useState(false);
   const [successData, setSuccessData] = useState<{
@@ -687,6 +724,7 @@ export default function PatientDetailsModal({
         reg_weight: newExposure.reg_weight,
         reg_attending_provider: newExposure.reg_attending_provider,
         reg_referred_by: newExposure.reg_referred_by,
+        registration_fee: newExposure.registration_fee || undefined,
       });
 
       setShowConfirmModal(false);
@@ -833,6 +871,7 @@ export default function PatientDetailsModal({
         reg_weight: newExposure.reg_weight,
         reg_attending_provider: newExposure.reg_attending_provider,
         reg_referred_by: newExposure.reg_referred_by,
+        registration_fee: newExposure.registration_fee || undefined,
       });
       setNewExposureOpen(false);
       setSuccessData({
@@ -936,7 +975,13 @@ export default function PatientDetailsModal({
         return (
           <Box sx={{ p: 3 }}>
             <ReadOnlyBanner />
-            <Form1InlineView patient={p} onEdit={readOnly ? undefined : () => setShowEditModal(true)} />
+            <Form1InlineView
+              patient={p}
+              onEdit={readOnly ? undefined : () => setShowEditModal(true)}
+              canManagePayments={['registration', 'admin', 'developer'].includes(userRole?.toLowerCase())}
+              isAdmin={['admin', 'developer'].includes(userRole?.toLowerCase())}
+              onRefresh={reloadPatientDetails}
+            />
           </Box>
         );
       case 'form2':
@@ -1291,6 +1336,11 @@ export default function PatientDetailsModal({
                   data={newExposure}
                   onChange={handleVitalsChange}
                   onDirectChange={handleVitalsDirectChange}
+                  errors={formErrors}
+                />
+                <RegistrationFeesSection
+                  data={newExposure.registration_fee}
+                  onChange={(fee) => setNewExposure((prev) => ({ ...prev, registration_fee: fee }))}
                   errors={formErrors}
                 />
               </div>

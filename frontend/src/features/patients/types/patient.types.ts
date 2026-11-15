@@ -1,4 +1,17 @@
 import { getManilaCurrentDateTime } from '../../../shared/utils';
+import type { RegistrationFeePayload } from '../../../types';
+
+export type {
+  FeeDisposition,
+  FeeStatus,
+  RegistrationFeeItemInput,
+  RegistrationFeePaymentInput,
+  RegistrationFeePayload,
+  RegistrationFeeItemData,
+  RegistrationFeePaymentData,
+  RegistrationFeeData,
+  RegistrationEncounterData,
+} from '../../../types';
 
 export interface PsgcItem {
   code: string;
@@ -99,6 +112,8 @@ export interface EnrolmentFormData {
   reg_weight: string;
   reg_attending_provider: string;
   reg_referred_by: string;      // full facility name string, same format as treatment_records.referred_by
+  // IV. Fees and Payment
+  registration_fee?: RegistrationFeePayload;
 }
 
 export const INITIAL_ENROLMENT_DATA: EnrolmentFormData = {

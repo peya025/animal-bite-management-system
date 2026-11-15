@@ -13,6 +13,7 @@ use App\Http\Controllers\Clinical\BiteCaseController;
 use App\Http\Controllers\Clinical\BiteIncidentIntakeController;
 use App\Http\Controllers\Clinical\BiteIntakeSchemaController;
 use App\Http\Controllers\Clinical\PatientController;
+use App\Http\Controllers\Clinical\RegistrationFeeController;
 use App\Http\Controllers\Clinical\TagoloanTreatmentCardController;
 use App\Http\Controllers\Clinical\TreatmentRecordController;
 use App\Http\Controllers\Inventory\VaccineInventoryController;
@@ -341,6 +342,18 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
 
         // Delete (admin only)
         Route::delete('/{id}', [PatientController::class, 'destroy'])->middleware('role:admin');
+    });
+
+    // Registration Fees & Payments (Staff & Admin)
+    Route::prefix('registration-fees')->group(function () {
+        Route::get('/{encounterId}', [RegistrationFeeController::class, 'show'])
+            ->middleware('role:admin,registration,triage,treatment,doctor,nurse,staff,developer');
+        Route::post('/{feeId}/payments', [RegistrationFeeController::class, 'recordPayment'])
+            ->middleware('role:admin,registration,developer');
+        Route::post('/{feeId}/payments/{paymentId}/void', [RegistrationFeeController::class, 'voidPayment'])
+            ->middleware('role:admin,developer');
+        Route::put('/{feeId}', [RegistrationFeeController::class, 'correctFee'])
+            ->middleware('role:admin,developer');
     });
 
     // Patient Portal Invitations & Account Linking (Staff endpoints)

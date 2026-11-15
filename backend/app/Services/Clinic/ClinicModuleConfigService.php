@@ -83,6 +83,11 @@ class ClinicModuleConfigService
             'medication_given'              => 'optional',
             'adverse_reaction'              => 'optional',
             'cost_recovery'                 => 'optional',
+
+            // 8. REGISTRATION FEES & PAYMENT (Independent items, default Hidden)
+            'rig_fee'                       => 'hidden',
+            'anti_rabies_fee'               => 'hidden',
+            'additional_fees'               => 'hidden',
         ];
     }
 
@@ -147,14 +152,26 @@ class ClinicModuleConfigService
 
     /**
      * Normalize field rules: fill in missing defaults, map legacy aliases,
-     * preserve valid explicit choices, and enforce locked rules.
+     * preserve valid explicit choices, preserve existing saved values for newly introduced keys
+     * if omitted by older client payloads, and enforce locked rules.
      *
      * @param array<string, mixed>|null $rules
+     * @param array<string, mixed>|null $fallbackRules
      * @return array<string, string>
      */
-    public function normalizeFieldRules(?array $rules): array
+    public function normalizeFieldRules(?array $rules, ?array $fallbackRules = null): array
     {
         $normalized = $this->getDefaultFieldRules();
+
+        // Preserve saved values for new fee keys if an older client payload omits them
+        $newFeeKeys = ['rig_fee', 'anti_rabies_fee', 'additional_fees'];
+        if (!empty($fallbackRules)) {
+            foreach ($newFeeKeys as $newKey) {
+                if (isset($fallbackRules[$newKey]) && in_array($fallbackRules[$newKey], ['required', 'optional', 'hidden'], true)) {
+                    $normalized[$newKey] = $fallbackRules[$newKey];
+                }
+            }
+        }
 
         if (empty($rules)) {
             return $normalized;
@@ -290,7 +307,7 @@ class ClinicModuleConfigService
             // 2. Normalize field rules
             $existingRules = $config->field_rules ?: $this->getDefaultFieldRules();
             $submittedRules = $data['field_rules'] ?? $existingRules;
-            $normalizedRules = $this->normalizeFieldRules($submittedRules);
+            $normalizedRules = $this->normalizeFieldRules($submittedRules, $existingRules);
 
             // 3. Calculate diff
             $diff = $this->calculateDiff($config, $data, $normalizedRules);

@@ -291,7 +291,7 @@ class MobilePatientAccountAuthCharacterizationTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson([
-                'message' => 'If an account with that email exists, password reset instructions have been sent.',
+                'message' => 'If an eligible account exists, password reset instructions will be emailed when the email service is available.',
             ]);
     }
 

@@ -393,16 +393,7 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
         DateUtils.dateOnly(_selectedBiteDate).isAfter(today) ||
         _exposureType == null ||
         _bodyPartGroup == null ||
-        (_isReferred &&
-            [
-              _referralFacility,
-              _referralSystolic,
-              _referralDiastolic,
-              _referralTemperature,
-              _referralHeight,
-              _referralWeight,
-              _referralProvider,
-            ].any((controller) => controller.text.trim().isEmpty));
+        (_isReferred && _referralFacility.text.trim().isEmpty);
     final invalidAnimal = _animalStatus == null;
     if (invalidIncident || invalidAnimal) {
       setState(() => _currentStep = invalidIncident ? 1 : 2);

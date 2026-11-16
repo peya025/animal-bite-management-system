@@ -7,6 +7,7 @@ use App\Models\BiteIncidentIntake;
 use App\Models\Patient;
 use App\Models\Queue;
 use App\Models\QueueHistory;
+use App\Models\TreatmentRecord;
 use App\Models\User;
 use App\Services\NotificationService;
 use Carbon\Carbon;
@@ -55,11 +56,11 @@ class BiteIncidentIntakeService
      *
      * @return array{status: int, data: array<string, mixed>}
      */
-    public function checkIn(BiteIncidentIntake $intake, User $user): array
+    public function checkIn(BiteIncidentIntake $intake, User $user, array $payload = []): array
     {
         $clinicId = $user->clinic_id;
 
-        return DB::transaction(function () use ($intake, $user, $clinicId) {
+        return DB::transaction(function () use ($intake, $user, $clinicId, $payload) {
             $lockedIntake = BiteIncidentIntake::where('clinic_id', $clinicId)
                 ->with('appointment')
                 ->lockForUpdate()
@@ -92,6 +93,11 @@ class BiteIncidentIntakeService
                     ->first();
 
                 if ($queue) {
+                    $encounter = \App\Models\RegistrationEncounter::where('clinic_id', $clinicId)
+                        ->where('intake_id', $lockedIntake->intake_id)
+                        ->first();
+                    $fee = $encounter?->fee()->with(['items', 'payments'])->first();
+
                     return [
                         'status' => 200,
                         'data' => [
@@ -99,6 +105,8 @@ class BiteIncidentIntakeService
                             'already_checked_in' => true,
                             'incident' => BiteIncident::find($lockedIntake->bite_id),
                             'queue' => $queue->load(['patient', 'biteIncident']),
+                            'encounter_id' => $encounter?->id,
+                            'fee' => app(\App\Services\RegistrationFeeService::class)->formatFeeResponse($fee),
                         ],
                     ];
                 }
@@ -185,6 +193,43 @@ class BiteIncidentIntakeService
                 'created_by' => $user->id,
             ]);
 
+            $consultationDate = !empty($payload['consultation_date'])
+                ? Carbon::parse($payload['consultation_date'])->toDateString()
+                : Carbon::now('Asia/Manila')->toDateString();
+
+            $consultationTime = !empty($payload['consultation_time'])
+                ? $payload['consultation_time']
+                : Carbon::now('Asia/Manila')->format('H:i');
+
+            $bp = $payload['blood_pressure'] ?? $lockedIntake->referral_blood_pressure;
+            $temp = $payload['temperature'] ?? $lockedIntake->referral_temperature;
+            $height = $payload['height'] ?? $lockedIntake->referral_height;
+            $weight = $payload['weight'] ?? $lockedIntake->referral_weight;
+            $attendingProvider = $payload['attending_provider'] ?? $lockedIntake->referral_provider_name ?? $user->name;
+            $referredBy = $payload['referred_by'] ?? $lockedIntake->referral_facility;
+
+            $modeOfTx = $payload['mode_of_transaction'] ?? ($lockedIntake->referral_facility ? 'referral' : 'walk-in');
+            $validMode = in_array($modeOfTx, ['walk-in', 'visited', 'referral', 'online'], true) ? $modeOfTx : ($lockedIntake->referral_facility ? 'referral' : 'walk-in');
+
+            $consultationRecord = TreatmentRecord::create([
+                'clinic_id'             => $clinicId,
+                'patient_id'            => $lockedIntake->patient_id,
+                'bite_id'               => $incident->bite_id,
+                'dose_number'           => null,
+                'status'                => 'scheduled',
+                'consultation_date'     => $consultationDate,
+                'treatment_date'        => $consultationDate,
+                'consultation_time'     => $consultationTime,
+                'blood_pressure'        => $bp,
+                'temperature'           => $temp,
+                'height'                => $height,
+                'weight'                => $weight,
+                'attending_provider'    => $attendingProvider,
+                'referred_by'           => $referredBy,
+                'mode_of_transaction'   => $validMode,
+                'administered_by'       => $user->id,
+            ]);
+
             $lastQueueNumber = DB::table('queues')
                 ->where('clinic_id', $clinicId)
                 ->where('queue_date', $todayDate)
@@ -238,12 +283,36 @@ class BiteIncidentIntakeService
 
             $this->notificationService->notifyQueueEvent($queue->load('patient'), 'checked_in', $user);
 
+            $encounter = app(\App\Services\RegistrationFeeService::class)->getOrCreateEncounter(
+                $clinicId,
+                $lockedIntake->patient_id,
+                'intake_checkin',
+                $incident->bite_id,
+                $lockedIntake->intake_id,
+                $appointment->appointment_id,
+                $user->id
+            );
+
+            $feeRecord = null;
+            if (request()->has('registration_fee')) {
+                $parsedFee = app(\App\Services\RegistrationFeeService::class)->validateAndParsePayload(
+                    $clinicId,
+                    request()->input('registration_fee')
+                );
+                if ($parsedFee) {
+                    $feeRecord = app(\App\Services\RegistrationFeeService::class)->recordEncounterFee($encounter, $parsedFee, $user);
+                }
+            }
+
             return [
                 'status' => 201,
                 'data' => [
-                    'message' => 'Mobile bite intake checked in and sent to Doctor assessment.',
-                    'incident' => $incident,
-                    'queue' => $queue->load(['patient', 'biteIncident']),
+                    'message'      => 'Mobile bite intake checked in and sent to Doctor assessment.',
+                    'incident'     => $incident,
+                    'queue'        => $queue->load(['patient', 'biteIncident']),
+                    'consultation_record' => $consultationRecord,
+                    'encounter_id' => $encounter->id,
+                    'fee'          => app(\App\Services\RegistrationFeeService::class)->formatFeeResponse($feeRecord),
                 ],
             ];
         });

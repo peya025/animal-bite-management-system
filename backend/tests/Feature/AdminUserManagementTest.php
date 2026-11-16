@@ -13,6 +13,7 @@ use Tests\TestCase;
 class AdminUserManagementTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\ConfiguresTestEmail;
 
     private function createClinic(): Clinic
     {
@@ -205,6 +206,7 @@ class AdminUserManagementTest extends TestCase
 
     public function test_admin_can_send_invitation_with_workstation_role(): void
     {
+        $this->configureTestEmail();
         $clinic = $this->createClinic();
         $admin = $this->createAdmin($clinic);
         $this->ensureRolesExist();

@@ -198,6 +198,26 @@ class BiteCaseService
 
             $this->notificationService->notifyQueueEvent($queue->load('patient'), 'registered', $user);
 
+            $parsedFee = app(\App\Services\RegistrationFeeService::class)->validateAndParsePayload(
+                $clinicId,
+                $rawInput['registration_fee'] ?? null
+            );
+
+            $encounter = app(\App\Services\RegistrationFeeService::class)->getOrCreateEncounter(
+                $clinicId,
+                $validated['patient_id'],
+                'new_exposure',
+                $incident->bite_id,
+                null,
+                null,
+                $user->id
+            );
+
+            $feeRecord = null;
+            if ($parsedFee) {
+                $feeRecord = app(\App\Services\RegistrationFeeService::class)->recordEncounterFee($encounter, $parsedFee, $user);
+            }
+
             return [
                 'status' => 201,
                 'data' => [
@@ -205,6 +225,8 @@ class BiteCaseService
                     'incident' => $incident,
                     'treatment_record' => $treatmentRecord,
                     'queue' => $queue->load(['patient', 'biteIncident']),
+                    'encounter_id' => $encounter->id,
+                    'fee' => app(\App\Services\RegistrationFeeService::class)->formatFeeResponse($feeRecord),
                 ],
             ];
         });

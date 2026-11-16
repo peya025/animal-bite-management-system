@@ -3,14 +3,16 @@
 namespace App\Services\Staff;
 
 use App\Mail\StaffInvitationMail;
+use App\Models\Clinic;
 use App\Models\Role;
 use App\Models\StaffInvitation;
 use App\Models\User;
 use App\Services\Messaging\InvitationDelivery;
+use App\Services\Messaging\SmtpEmailService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class StaffInvitationService
@@ -24,75 +26,105 @@ class StaffInvitationService
      */
     public function invite(User $admin, array $validated): array
     {
-        $email = $validated['email'];
+        return DB::transaction(function () use ($admin, $validated) {
+            Clinic::whereKey($admin->clinic_id)->lockForUpdate()->firstOrFail();
+            $email = trim($validated['email']);
 
-        // Check if user already exists with this email
-        if (User::where('email', $email)->exists()) {
-            throw ValidationException::withMessages([
-                'email' => ['A user with this email already exists.'],
-            ]);
-        }
+            // Check if user already exists with this email
+            if (User::where('email', $email)->exists()) {
+                throw ValidationException::withMessages([
+                    'email' => ['A user with this email already exists.'],
+                ]);
+            }
 
-        // Check for existing pending invitation
-        $existingInvitation = StaffInvitation::where('email', $email)
-            ->where('status', 'pending')
-            ->where('clinic_id', $admin->clinic_id)
-            ->first();
+            // Check for existing pending invitation
+            $existingInvitation = StaffInvitation::where('email', $email)
+                ->where('status', 'pending')
+                ->where('clinic_id', $admin->clinic_id)
+                ->first();
 
-        if ($existingInvitation && ! $existingInvitation->isExpired()) {
-            throw ValidationException::withMessages([
-                'email' => ['An invitation has already been sent to this email.'],
-            ]);
-        }
+            if ($existingInvitation && ! $existingInvitation->isExpired()) {
+                throw ValidationException::withMessages([
+                    'email' => ['An invitation has already been sent to this email.'],
+                ]);
+            }
 
-        $inputRole = $validated['workstation_role'] ?? $validated['role'] ?? 'registration';
+            $inputRole = $validated['workstation_role'] ?? $validated['role'] ?? 'registration';
 
-        // Map canonical/workstation role
-        $legacyRole = 'registration';
-        $workstationRole = $inputRole;
-
-        if (in_array($inputRole, ['intake_nurse', 'follow_up_nurse', 'solo_nurse', 'treatment'])) {
-            $legacyRole = 'treatment';
-            $workstationRole = ($inputRole === 'treatment') ? 'solo_nurse' : $inputRole;
-        } elseif (in_array($inputRole, ['doctor', 'triage'])) {
-            $legacyRole = 'triage';
-            $workstationRole = 'doctor';
-        } elseif (in_array($inputRole, ['receptionist', 'registration'])) {
+            // Map canonical/workstation role
             $legacyRole = 'registration';
-            $workstationRole = 'receptionist';
-        } elseif (in_array($inputRole, ['clinic_admin', 'admin'])) {
-            $legacyRole = 'admin';
-            $workstationRole = 'clinic_admin';
-        }
+            $workstationRole = $inputRole;
 
-        // Create invitation
-        $invitation = StaffInvitation::createInvitation([
-            'clinic_id' => $admin->clinic_id,
-            'invited_by' => $admin->id,
-            'email' => $email,
-            'role' => $legacyRole,
-            'workstation_role' => $workstationRole,
-        ]);
+            if (in_array($inputRole, ['intake_nurse', 'follow_up_nurse', 'solo_nurse', 'treatment'])) {
+                $legacyRole = 'treatment';
+                $workstationRole = ($inputRole === 'treatment') ? 'solo_nurse' : $inputRole;
+            } elseif (in_array($inputRole, ['doctor', 'triage'])) {
+                $legacyRole = 'triage';
+                $workstationRole = 'doctor';
+            } elseif (in_array($inputRole, ['receptionist', 'registration'])) {
+                $legacyRole = 'registration';
+                $workstationRole = 'receptionist';
+            } elseif (in_array($inputRole, ['clinic_admin', 'admin'])) {
+                $legacyRole = 'admin';
+                $workstationRole = 'clinic_admin';
+            }
 
-        // Send invitation email
-        try {
-            $emailSent = app(InvitationDelivery::class)->send(
-                (int) $invitation->clinic_id, $invitation->email, 'staff_invitation',
-                fn () => Mail::to($invitation->email)->send(new StaffInvitationMail($invitation))
-            );
-        } catch (\Exception $e) {
-            Log::error('Staff invitation delivery failed.', ['exception' => get_class($e)]);
-            $emailSent = false;
-        }
+            // Create invitation
+            $invitation = StaffInvitation::createInvitation([
+                'clinic_id' => $admin->clinic_id,
+                'invited_by' => $admin->id,
+                'email' => $email,
+                'role' => $legacyRole,
+                'workstation_role' => $workstationRole,
+            ]);
 
-        return [
-            'message' => $emailSent
-                ? 'Invitation sent successfully'
-                : 'Invitation created but email failed to send',
-            'invitation' => $invitation,
-            'email_sent' => $emailSent,
-            'invitation_link' => config('app.frontend_url').'/accept-invitation/'.$invitation->token,
-        ];
+            // Send invitation email
+            try {
+                $emailSent = app(InvitationDelivery::class)->send(
+                    (int) $invitation->clinic_id, $invitation->email, 'staff_invitation',
+                    fn () => app(SmtpEmailService::class)->send($invitation->email, new StaffInvitationMail($invitation))
+                );
+            } catch (\Exception $e) {
+                Log::error('Staff invitation delivery failed.', ['exception' => get_class($e)]);
+                $emailSent = false;
+            }
+
+            if (! $emailSent) {
+                $invitation->update(['status' => 'expired']);
+            }
+
+            return [
+                'message' => $emailSent
+                    ? 'Invitation email sent successfully to '.$email.'.'
+                    : 'Unable to send the invitation email. Please try again or contact the system administrator.',
+                'invitation' => $invitation,
+                'email_sent' => $emailSent,
+                'invitation_link' => config('app.frontend_url').'/accept-invitation/'.$invitation->token,
+            ];
+        });
+    }
+
+    public function resend(User $admin, int $id): array
+    {
+        return DB::transaction(function () use ($admin, $id) {
+            Clinic::whereKey($admin->clinic_id)->lockForUpdate()->firstOrFail();
+            $invitation = StaffInvitation::where('clinic_id', $admin->clinic_id)->lockForUpdate()->findOrFail($id);
+            if ($invitation->status === 'accepted' || User::where('email', $invitation->email)->exists()) {
+                throw ValidationException::withMessages(['email' => 'This invitation cannot be resent.']);
+            }
+            $candidate = clone $invitation;
+            $candidate->token = StaffInvitation::generateToken();
+            $candidate->expires_at = now()->addDays(7);
+            $sent = app(InvitationDelivery::class)->send((int) $invitation->clinic_id, $invitation->email, 'staff_invitation',
+                fn () => app(SmtpEmailService::class)->send($invitation->email, new StaffInvitationMail($candidate)));
+            if ($sent) {
+                $invitation->update(['token' => $candidate->token, 'expires_at' => $candidate->expires_at, 'status' => 'pending']);
+                StaffInvitation::where('email', $invitation->email)->where('id', '!=', $id)->where('status', 'pending')->update(['status' => 'expired']);
+            }
+
+            return ['email_sent' => $sent, 'invitation' => $invitation,
+                'message' => $sent ? 'Invitation email sent successfully to '.$invitation->email.'.' : 'Unable to send the invitation email. Please try again or contact the system administrator.'];
+        });
     }
 
     /**
@@ -113,7 +145,7 @@ class StaffInvitationService
      */
     public function validateToken(string $token): array
     {
-        $invitation = StaffInvitation::where('token', $token)->first();
+        $invitation = StaffInvitation::forToken($token)->first();
 
         if (! $invitation) {
             return [
@@ -156,81 +188,88 @@ class StaffInvitationService
      */
     public function accept(string $token, array $validated): array
     {
-        $invitation = StaffInvitation::where('token', $token)->first();
+        return DB::transaction(function () use ($token, $validated) {
+            $invitation = StaffInvitation::forToken($token)->lockForUpdate()->first();
 
-        if (! $invitation || ! $invitation->isValid()) {
-            return [
-                'status' => 400,
-                'data' => ['message' => 'Invalid or expired invitation'],
-            ];
-        }
-
-        // Create user
-        $user = User::create([
-            'clinic_id' => $invitation->clinic_id,
-            'name' => $validated['name'],
-            'email' => $invitation->email,
-            'password' => Hash::make($validated['password']),
-            'role' => $invitation->role,
-            'phone' => $validated['phone'] ?? null,
-            'signature_path' => null,
-            'professional_license_no' => $validated['professional_license_no'] ?? null,
-            'is_active' => true,
-        ]);
-
-        // Attach workstation roles to user_roles
-        $targetSlugs = [];
-        $wr = $invitation->workstation_role;
-        if ($wr === 'solo_nurse') {
-            $targetSlugs = ['intake_nurse', 'follow_up_nurse'];
-        } elseif ($wr) {
-            $targetSlugs = [$wr];
-        } elseif ($invitation->role === 'treatment') {
-            $targetSlugs = ['intake_nurse', 'follow_up_nurse'];
-        } elseif ($invitation->role === 'triage') {
-            $targetSlugs = ['doctor'];
-        } elseif ($invitation->role === 'registration') {
-            $targetSlugs = ['receptionist'];
-        } elseif ($invitation->role === 'admin') {
-            $targetSlugs = ['clinic_admin'];
-        }
-
-        if (! empty($targetSlugs)) {
-            $roleModels = Role::whereIn('slug', $targetSlugs)->get();
-            $syncData = [];
-            foreach ($roleModels as $rm) {
-                $syncData[$rm->id] = [
-                    'assigned_by' => $invitation->invited_by,
-                    'assigned_at' => now(),
+            if (! $invitation || ! $invitation->isValid()) {
+                return [
+                    'status' => 400,
+                    'data' => ['message' => 'Invalid or expired invitation'],
                 ];
             }
-            $user->roles()->sync($syncData);
-        }
 
-        // Mark invitation as accepted
-        $invitation->markAsAccepted();
+            if (User::where('email', $invitation->email)->exists()) {
+                return ['status' => 422, 'data' => ['message' => 'An account with this email already exists.']];
+            }
 
-        // Generate auth token for auto-login
-        $authToken = $user->createToken('auth_token')->plainTextToken;
-        $user->load(['clinic', 'roles']);
+            // Create user
+            $user = User::create([
+                'clinic_id' => $invitation->clinic_id,
+                'name' => $validated['name'],
+                'email' => $invitation->email,
+                'password' => Hash::make($validated['password']),
+                'role' => $invitation->role,
+                'phone' => $validated['phone'] ?? null,
+                'signature_path' => null,
+                'professional_license_no' => $validated['professional_license_no'] ?? null,
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ]);
 
-        return [
-            'status' => 201,
-            'data' => [
-                'message' => 'Account created successfully',
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $user->role,
-                    'phone' => $user->phone,
-                    'is_active' => $user->is_active,
-                    'clinic' => $user->clinic,
+            // Attach workstation roles to user_roles
+            $targetSlugs = [];
+            $wr = $invitation->workstation_role;
+            if ($wr === 'solo_nurse') {
+                $targetSlugs = ['intake_nurse', 'follow_up_nurse'];
+            } elseif ($wr) {
+                $targetSlugs = [$wr];
+            } elseif ($invitation->role === 'treatment') {
+                $targetSlugs = ['intake_nurse', 'follow_up_nurse'];
+            } elseif ($invitation->role === 'triage') {
+                $targetSlugs = ['doctor'];
+            } elseif ($invitation->role === 'registration') {
+                $targetSlugs = ['receptionist'];
+            } elseif ($invitation->role === 'admin') {
+                $targetSlugs = ['clinic_admin'];
+            }
+
+            if (! empty($targetSlugs)) {
+                $roleModels = Role::whereIn('slug', $targetSlugs)->get();
+                $syncData = [];
+                foreach ($roleModels as $rm) {
+                    $syncData[$rm->id] = [
+                        'assigned_by' => $invitation->invited_by,
+                        'assigned_at' => now(),
+                    ];
+                }
+                $user->roles()->sync($syncData);
+            }
+
+            // Mark invitation as accepted
+            $invitation->markAsAccepted();
+
+            // Generate auth token for auto-login
+            $authToken = $user->createToken('auth_token')->plainTextToken;
+            $user->load(['clinic', 'roles']);
+
+            return [
+                'status' => 201,
+                'data' => [
+                    'message' => 'Account created successfully',
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email,
+                        'role' => $user->role,
+                        'phone' => $user->phone,
+                        'is_active' => $user->is_active,
+                        'clinic' => $user->clinic,
+                    ],
+                    'token' => $authToken,
+                    'token_type' => 'Bearer',
                 ],
-                'token' => $authToken,
-                'token_type' => 'Bearer',
-            ],
-        ];
+            ];
+        });
     }
 
     /**

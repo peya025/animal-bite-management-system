@@ -814,7 +814,7 @@ select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
 .pm-search:focus-visible,
 .pm-entries-select:focus,
 .pm-entries-select:focus-visible {
-  outline: none !important;
+  outline: 2px solid transparent !important;
   border-color: #10b981 !important;
   box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1) !important;
 }
@@ -830,7 +830,7 @@ select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
 }
 
 .MuiOutlinedInput-root.Mui-focused {
-  outline: none !important;
+  outline: 2px solid transparent !important;
 }
 
 /* Material UI inner input element reset — prevent double highlights or inner box pills */
@@ -841,7 +841,7 @@ select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
-  outline: none !important;
+  outline: 2px solid transparent !important;
 }
 
 .MuiInputBase-input:focus,
@@ -853,7 +853,7 @@ select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
-  outline: none !important;
+  outline: 2px solid transparent !important;
 }
 
 .MuiInputLabel-root.Mui-focused:not(.Mui-error) {
@@ -901,7 +901,7 @@ select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
 [data-theme='dark'] .pm-search:focus,
 [data-theme='dark'] .pm-entries-select:focus,
 [data-theme='dark'] .sd-filter-select:focus {
-  outline: none !important;
+  outline: 2px solid transparent !important;
   border-color: #10b981 !important;
   box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25) !important;
 }
@@ -1138,7 +1138,7 @@ input[type='month']:focus,
 input[type='week']:focus {
   border-color: #10b981 !important;
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.22) !important;
-  outline: none !important;
+  outline: 2px solid transparent !important;
 }
 
 /* Calendar icon button (webkit) — light */
@@ -1190,7 +1190,7 @@ input[type='month']:hover::-webkit-calendar-picker-indicator {
 [data-theme='dark'] input[type='week']:focus {
   border-color: #10b981 !important;
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.28), 0 0 8px rgba(16, 185, 129, 0.15) !important;
-  outline: none !important;
+  outline: 2px solid transparent !important;
   background-color: #151f18 !important;
 }
 

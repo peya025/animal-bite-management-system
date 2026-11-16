@@ -428,10 +428,10 @@ class ClinicModuleConfigPerson1Test extends TestCase
         $this->assertEquals(201, $result['status']);
         $newClinicId = $result['payload']['clinic']->id;
 
-        // 2. Fetch created config and verify all 41 rules and sections are present immediately
+        // 2. Fetch created config and verify all 44 rules and sections are present immediately
         $config = ClinicModuleConfig::where('clinic_id', $newClinicId)->first();
         $this->assertNotNull($config);
-        $this->assertCount(41, $config->field_rules);
+        $this->assertCount(44, $config->field_rules);
         $this->assertTrue($config->triage_module_enabled);
         $this->assertTrue($config->registration_module_enabled);
         $this->assertTrue($config->treatment_module_enabled);
@@ -491,8 +491,8 @@ class ClinicModuleConfigPerson1Test extends TestCase
         $this->assertTrue($resolved->registration_module_enabled);
         $this->assertTrue($resolved->treatment_module_enabled);
 
-        // 3. Normalizes 6 rules to 41 rules, mapping legacy aliases
-        $this->assertCount(41, $resolved->field_rules);
+        // 3. Normalizes 6 rules to 44 rules, mapping legacy aliases
+        $this->assertCount(44, $resolved->field_rules);
         $this->assertEquals('required', $resolved->field_rules['wound_location']); // Mapped from bite_location
         $this->assertEquals('optional', $resolved->field_rules['site_washed']);    // Mapped from wound_washing
         $this->assertEquals('optional', $resolved->field_rules['philhealth_status']); // Mapped from philhealth_info
@@ -720,17 +720,16 @@ class ClinicModuleConfigPerson1Test extends TestCase
             'revision',
         ]));
 
-        // 2. Perform rollback of the latest migration
-        $exitCodeRollback = Artisan::call('migrate:rollback', ['--step' => 1]);
-        $this->assertEquals(0, $exitCodeRollback);
+        // Exercise this migration specifically; newer unrelated migrations may follow it.
+        $migration = require database_path('migrations/2026_11_11_100000_update_clinic_module_configs_add_stations_and_revision.php');
+        $migration->down();
 
         $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('clinic_module_configs', 'registration_module_enabled'));
         $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('clinic_module_configs', 'treatment_module_enabled'));
         $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('clinic_module_configs', 'revision'));
 
         // 3. Re-run migration forward
-        $exitCodeMigrate = Artisan::call('migrate');
-        $this->assertEquals(0, $exitCodeMigrate);
+        $migration->up();
 
         $this->assertTrue(\Illuminate\Support\Facades\Schema::hasColumns('clinic_module_configs', [
             'registration_module_enabled',

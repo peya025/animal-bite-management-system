@@ -231,6 +231,7 @@ export default function ModuleConfigPage() {
   const [expandedSections, setExpandedSections] = useState<string[]>([
     'patient_registration_enabled',
     'bite_intake_section_enabled',
+    'fees_and_payment',
   ]);
 
   // Conflict state (HTTP 409)
@@ -1072,6 +1073,7 @@ export default function ModuleConfigPage() {
                   {CANONICAL_SECTIONS.filter((s) => s.moduleKey === 'registration_module_enabled').map((section) =>
                     renderSectionCard(section)
                   )}
+                  {renderFeesAndPaymentCard()}
                 </div>
               </div>
             )}
@@ -1930,6 +1932,256 @@ export default function ModuleConfigPage() {
                 })}
               </div>
             )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Helper to render the Fees and Payment section card under Registration
+  function renderFeesAndPaymentCard() {
+    const isExpanded = expandedSections.includes('fees_and_payment');
+    const rigRule = draft.fieldRules.rig_fee ?? 'hidden';
+    const antiRabiesRule = draft.fieldRules.anti_rabies_fee ?? 'hidden';
+    const additionalRule = draft.fieldRules.additional_fees ?? 'hidden';
+
+    const allHidden = rigRule === 'hidden' && antiRabiesRule === 'hidden' && additionalRule === 'hidden';
+    const feeFields: FieldMeta[] = [
+      {
+        key: 'rig_fee',
+        label: 'RIG Fee',
+        description: 'Rabies Immune Globulin fee recorded at registration',
+      },
+      {
+        key: 'anti_rabies_fee',
+        label: 'Anti-Rabies Vaccine Fee',
+        description: 'Anti-rabies vaccine dose fee recorded at registration',
+      },
+      {
+        key: 'additional_fees',
+        label: 'Additional Fees',
+        description: 'Repeatable additional fee items (Anti-tetanus, ATS, other fees)',
+      },
+    ];
+
+    const hasAnyError = feeFields.some((f) => validationErrors[`field_rules.${f.key}`] !== undefined);
+
+    return (
+      <div
+        key="fees_and_payment"
+        data-walkthrough="module-config-fees-section"
+        style={{
+          border: `1.5px solid ${hasAnyError ? '#f87171' : !allHidden ? '#38bdf8' : '#e2e8f0'}`,
+          borderRadius: '12px',
+          overflow: 'hidden',
+          background: '#ffffff',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
+          display: 'flex',
+          flexDirection: 'column',
+          transition: 'all 0.2s',
+        }}
+      >
+        <div
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.875rem 1rem',
+            background: isExpanded ? '#f8fafc' : '#ffffff',
+            borderBottom: isExpanded ? '1px solid #f1f5f9' : 'none',
+            boxSizing: 'border-box',
+          }}
+        >
+          <button
+            type="button"
+            aria-expanded={isExpanded}
+            aria-controls="section-content-fees_and_payment"
+            onClick={() => toggleAccordion('fees_and_payment')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.625rem',
+              flex: 1,
+              minWidth: 0,
+              textAlign: 'left',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            <Icon
+              name="settings"
+              size={18}
+              color={!allHidden ? '#0284c7' : '#94a3b8'}
+            />
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  color: !allHidden ? '#1e293b' : '#64748b',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                Fees and Payment
+              </div>
+              <div
+                style={{
+                  fontSize: '0.7rem',
+                  color: '#64748b',
+                  marginTop: '0.15rem',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                Registration fee items (RIG, Anti-Rabies, Additional Fees)
+              </div>
+            </div>
+          </button>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              flexShrink: 0,
+              marginLeft: '0.75rem',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                color: allHidden ? '#94a3b8' : '#0284c7',
+                background: allHidden ? '#f1f5f9' : '#e0f2fe',
+                padding: '0.15rem 0.5rem',
+                borderRadius: '6px',
+                userSelect: 'none',
+              }}
+            >
+              {allHidden ? 'All Hidden (Section Hidden)' : 'Active at Registration'}
+            </span>
+
+            <button
+              type="button"
+              aria-label={isExpanded ? 'Collapse Fees and Payment' : 'Expand Fees and Payment'}
+              onClick={() => toggleAccordion('fees_and_payment')}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '0.2rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#94a3b8"
+                strokeWidth="2.5"
+                style={{
+                  transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s',
+                }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {isExpanded && (
+          <div
+            id="section-content-fees_and_payment"
+            style={{
+              padding: '0.75rem 1rem 1rem 1rem',
+              borderTop: '1px solid #f8fafc',
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {feeFields.map((field) => {
+                const currentRule = draft.fieldRules[field.key] ?? DEFAULT_CANONICAL_FIELD_RULES[field.key];
+                const fieldErrorKey = `field_rules.${field.key}`;
+                const hasFieldError = validationErrors[fieldErrorKey] !== undefined;
+
+                return (
+                  <div
+                    key={field.key}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.65rem 0.75rem',
+                      background: '#ffffff',
+                      borderRadius: '8px',
+                      border: `1px solid ${hasFieldError ? '#f87171' : '#f1f5f9'}`,
+                      flexWrap: 'wrap',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: '180px' }}>
+                      <div
+                        style={{
+                          fontSize: '0.8125rem',
+                          fontWeight: 600,
+                          color: '#1e293b',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <label htmlFor={`field-select-${field.key}`}>{field.label}</label>
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.1rem' }}>
+                        {field.description}
+                      </div>
+                      {hasFieldError && (
+                        <div style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '0.2rem' }}>
+                          {validationErrors[fieldErrorKey].join(', ')}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div>{getFieldRuleBadge(currentRule)}</div>
+
+                      <select
+                        id={`field-select-${field.key}`}
+                        aria-label={`Rule for ${field.label}`}
+                        disabled={!canEdit}
+                        value={currentRule}
+                        onChange={(e) =>
+                          handleFieldRuleChange(field.key, e.target.value as FieldRuleValue)
+                        }
+                        style={{
+                          background: '#ffffff',
+                          border: `1px solid ${hasFieldError ? '#ef4444' : '#cbd5e1'}`,
+                          borderRadius: '6px',
+                          padding: '0.35rem 0.5rem',
+                          fontSize: '0.8125rem',
+                          color: '#1e293b',
+                          cursor: canEdit ? 'pointer' : 'not-allowed',
+                          outline: 'none',
+                        }}
+                      >
+                        <option value="required">Required</option>
+                        <option value="optional">Optional</option>
+                        <option value="hidden">Hidden</option>
+                      </select>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

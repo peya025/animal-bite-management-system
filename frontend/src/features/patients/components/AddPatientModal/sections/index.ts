@@ -6,3 +6,4 @@ export * from './ContactSection';
 export * from './SocioeconomicSection';
 export * from './GovProgramsSection';
 export * from './RegistrationVitalsSection';
+export * from './RegistrationFeesSection';

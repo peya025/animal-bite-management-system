@@ -139,7 +139,7 @@ function InvitePatientModalContent({
   };
 
   const handleSendInvite = async () => {
-    if (!patient?.patient_id) return;
+    if (!patient?.patient_id || sending) return;
     setSending(true);
     setError('');
     setSuccessMsg('');

@@ -268,7 +268,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
         <div className="fm-grid" style={{ marginBottom: 14 }}>
           <FormField label="Mode of Transaction">
             <div className="fm-segmented-group">
-              {(['walk-in', 'visited', 'referral'] as const).map((mode) => {
+              {(['walk-in', 'online', 'visited', 'referral'] as const).map((mode) => {
                 const isSelected = (data.mode_of_transaction || 'walk-in') === mode;
                 return (
                   <label
@@ -297,7 +297,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
             {data.mode_of_transaction === 'referral' && <div style={{ marginTop: 8 }}>
               <div style={{ marginBottom: 10 }}>
                 <label className="fm-label" style={{ fontWeight: 600, fontSize: 13, display: 'block' }}>
-                  Referred by <span style={{ color: 'var(--registration-error-color, #dc2626)' }}>*</span>
+                  <span>Referred by</span> <span style={{ color: 'var(--registration-error-color, #dc2626)' }}>*</span>
                 </label>
                 <span className="registration-field-hint" style={{ display: 'block', marginTop: 2, fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
                   Select referring facility location from referral paper form, or enter facility name manually.
@@ -386,7 +386,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
             {/* Referred by (City/Municipality → Barangay → Facility) */}
             {data.mode_of_transaction === 'referral' && <div style={{ marginBottom: 14 }}>
               <label className="fm-label">
-                Referred by <span style={{ color: 'var(--registration-error-color, #dc2626)' }}>*</span>
+                <span>Referred by</span> <span style={{ color: 'var(--registration-error-color, #dc2626)' }}>*</span>
               </label>
               <div
                 className="fm-grid"

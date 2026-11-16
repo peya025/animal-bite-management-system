@@ -4,9 +4,9 @@ import { RegistrationAddressSection } from './RegistrationAddressSection';
 import { RegistrationErrors, advanceOnEnter, focusFirstError, registrationServerErrors } from './registrationAccessibility';
 import FormModal from '../../../../components/forms/FormModal';
 import { formatPhilHealthNumber, formatPWDNumber } from '../../../../shared/utils';
-import { isValidFourDigitYearDate, sanitizeDateInput } from '../../../../shared/utils/date';
+import { isValidFourDigitYearDate, sanitizeDateInput, getManilaDateString } from '../../../../shared/utils/date';
 import { PatientFormContent } from '../../styles/AddPatientModal.styles';
-import type { AddPatientModalProps, DuplicatePatientMatch, EnrolmentFormData } from '../../types';
+import type { AddPatientModalProps, DuplicatePatientMatch, EnrolmentFormData, RegistrationFeePayload } from '../../types';
 import { getInitialEnrolmentData } from '../../types';
 import { useAddressLocation } from '../../hooks';
 import { checkDuplicatePatients, createPatientRecord } from '../../services';
@@ -18,6 +18,7 @@ import {
   SocioeconomicSection,
   GovProgramsSection,
   RegistrationVitalsSection,
+  RegistrationFeesSection,
 } from './sections';
 import { useClinicModuleConfig } from '../../../../hooks/useClinicModuleConfig';
 
@@ -27,7 +28,7 @@ export default function AddPatientModal({
   onSelectExistingPatient,
   role,
 }: AddPatientModalProps) {
-  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
+  const { isFieldVisible, isFieldRequired, isSectionEnabled, getFieldRule, config } = useClinicModuleConfig();
   const draft = useFormDraft('add-patient');
 
   const [enrolment, setEnrolment] = useState<EnrolmentFormData>(() => {
@@ -38,10 +39,20 @@ export default function AddPatientModal({
     // Form reopened with draft: keep saved draft values,
     // but if consultation date/time were not previously set in draft, fill them with Manila current date/time.
     const fresh = getInitialEnrolmentData();
+    // Safety: NEVER replay a successful payment from a restored draft!
+    const restoredFee: RegistrationFeePayload | undefined = saved.registration_fee
+      ? {
+          ...saved.registration_fee,
+          record_payment: false,
+          payment: undefined,
+        }
+      : undefined;
+
     return {
       ...saved,
       reg_date_of_consultation: saved.reg_date_of_consultation || fresh.reg_date_of_consultation,
       reg_consultation_time: saved.reg_consultation_time || fresh.reg_consultation_time,
+      registration_fee: restoredFee,
     };
   });
   const [saving, setSaving]       = useState(false);
@@ -235,7 +246,7 @@ export default function AddPatientModal({
   const handleSubmit = async () => {
     if (savingRef.current) return;
     const newFieldErrors: Record<string, string> = {};
-    const today = new Date().toISOString().split('T')[0];
+    const today = getManilaDateString();
 
     if (!enrolment.last_name.trim()) {
       newFieldErrors.last_name = 'Last Name is required';
@@ -415,6 +426,78 @@ export default function AddPatientModal({
       }
     }
 
+    // Validate Registration Fees if enabled
+    const rigRule = config?.field_rules?.rig_fee ?? getFieldRule('rig_fee') ?? 'hidden';
+    const arRule = config?.field_rules?.anti_rabies_fee ?? getFieldRule('anti_rabies_fee') ?? 'hidden';
+    const addRule = config?.field_rules?.additional_fees ?? getFieldRule('additional_fees') ?? 'hidden';
+
+    const feeData = enrolment.registration_fee;
+
+    if (rigRule === 'required') {
+      const rig = feeData?.rig_fee;
+      if (!rig) {
+        newFieldErrors['registration_fee.rig_fee'] = 'RIG Fee is required.';
+      } else if (rig.disposition === 'recorded') {
+        const amt = String(rig.amount ?? '').trim();
+        if (amt === '' || isNaN(Number(amt)) || Number(amt) < 0) {
+          newFieldErrors['registration_fee.rig_fee'] = 'A valid RIG fee amount is required (enter 0.00 if free).';
+        }
+      } else if (!rig.reason || !rig.reason.trim()) {
+        newFieldErrors['registration_fee.rig_fee'] = 'A reason is required when RIG Fee is not a recorded amount.';
+      }
+    }
+
+    if (arRule === 'required') {
+      const ar = feeData?.anti_rabies_fee;
+      if (!ar) {
+        newFieldErrors['registration_fee.anti_rabies_fee'] = 'Anti-Rabies Vaccine Fee is required.';
+      } else if (ar.disposition === 'recorded') {
+        const amt = String(ar.amount ?? '').trim();
+        if (amt === '' || isNaN(Number(amt)) || Number(amt) < 0) {
+          newFieldErrors['registration_fee.anti_rabies_fee'] = 'A valid Anti-Rabies fee amount is required (enter 0.00 if free).';
+        }
+      } else if (!ar.reason || !ar.reason.trim()) {
+        newFieldErrors['registration_fee.anti_rabies_fee'] = 'A reason is required when Anti-Rabies Fee is not a recorded amount.';
+      }
+    }
+
+    if (addRule === 'required') {
+      const noAdd = Boolean(feeData?.no_additional_fees);
+      const rows = feeData?.additional_fees || [];
+      if (!noAdd && rows.length === 0) {
+        newFieldErrors['registration_fee.additional_fees'] = 'Additional Fees is required. Enter items or check "No additional fees".';
+      } else if (!noAdd) {
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row.label || !row.label.trim()) {
+            newFieldErrors['registration_fee.additional_fees'] = `Additional fee item #${i + 1} requires a description.`;
+            break;
+          }
+          if (row.disposition === 'recorded') {
+            const amt = String(row.amount ?? '').trim();
+            if (amt === '' || isNaN(Number(amt)) || Number(amt) < 0) {
+              newFieldErrors['registration_fee.additional_fees'] = `Additional fee item #${i + 1} requires a valid amount.`;
+              break;
+            }
+          } else if (!row.reason || !row.reason.trim()) {
+            newFieldErrors['registration_fee.additional_fees'] = `Additional fee item #${i + 1} requires a reason.`;
+            break;
+          }
+        }
+      }
+    }
+
+    if (feeData?.record_payment) {
+      const pay = feeData.payment;
+      const payAmt = Number(pay?.amount ?? 0);
+      if (!pay || !pay.amount || isNaN(payAmt) || payAmt <= 0) {
+        newFieldErrors['registration_fee.payment.amount'] = 'A positive payment amount is required when recording payment.';
+      }
+      if (pay?.payment_method === 'other' && (!pay.payment_method_details || !pay.payment_method_details.trim())) {
+        newFieldErrors['registration_fee.payment.payment_method_details'] = 'Payment method details are required when Other is selected.';
+      }
+    }
+
     focusErrorsRef.current = true;
     setFieldErrors(newFieldErrors);
 
@@ -441,11 +524,38 @@ export default function AddPatientModal({
     setSaving(true);
 
     try {
+      // Clean fee payload: omit hidden items; if all three hidden, omit fee completely
+      let cleanedFee: RegistrationFeePayload | undefined = undefined;
+      if (rigRule !== 'hidden' || arRule !== 'hidden' || addRule !== 'hidden') {
+        const rawFee = enrolment.registration_fee;
+        if (rawFee) {
+          cleanedFee = {
+            rig_fee: rigRule !== 'hidden' && rawFee.rig_fee?.disposition ? rawFee.rig_fee : undefined,
+            anti_rabies_fee: arRule !== 'hidden' && rawFee.anti_rabies_fee?.disposition ? rawFee.anti_rabies_fee : undefined,
+            additional_fees: addRule !== 'hidden' && !rawFee.no_additional_fees && rawFee.additional_fees?.length ? rawFee.additional_fees : undefined,
+            no_additional_fees: addRule !== 'hidden' ? Boolean(rawFee.no_additional_fees) : undefined,
+            record_payment: Boolean(rawFee.record_payment),
+            payment: rawFee.record_payment ? rawFee.payment : undefined,
+            notes: rawFee.notes || undefined,
+          };
+          if (
+            !cleanedFee.rig_fee &&
+            !cleanedFee.anti_rabies_fee &&
+            (!cleanedFee.additional_fees || cleanedFee.additional_fees.length === 0) &&
+            !cleanedFee.no_additional_fees &&
+            !cleanedFee.record_payment
+          ) {
+            cleanedFee = undefined;
+          }
+        }
+      }
+
       const submissionEnrolment: EnrolmentFormData = {
         ...enrolment,
         queue_priority_level: enrolment.queue_priority_group === 'normal' ? 'normal' : 'priority',
+        registration_fee: cleanedFee,
       };
-      await createPatientRecord(submissionEnrolment, {
+      const createdResult = await createPatientRecord(submissionEnrolment, {
         full: loc.full,
         munName: loc.munName,
         brgyName: loc.brgyName,
@@ -455,7 +565,8 @@ export default function AddPatientModal({
         forceCreate: confirmedDifferentPerson,
       });
       draft.clearDraft();
-      onSuccess();
+      const newPatient = createdResult?.patient || createdResult?.data || createdResult;
+      onSuccess(newPatient);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Failed to save patient record.';
       const causeResponse = (e as { cause?: { response?: { status?: number; data?: { code?: string; duplicates?: DuplicatePatientMatch[] } } } })?.cause?.response;
@@ -550,6 +661,11 @@ export default function AddPatientModal({
             data={enrolment}
             onChange={handleFieldChange}
             onDirectChange={(key, value) => handleDirectChange(key, value)}
+            errors={fieldErrors}
+          />
+          <RegistrationFeesSection
+            data={enrolment.registration_fee}
+            onChange={(updatedFee) => handleDirectChange('registration_fee', updatedFee)}
             errors={fieldErrors}
           />
         </form>

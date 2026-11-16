@@ -8,6 +8,7 @@ return [
     'queue_connection' => env('MESSAGING_QUEUE_CONNECTION', 'database'),
     'queue' => 'notifications',
     'sms_enabled' => env('SMS_ENABLED', false),
+    'appointment_events_enabled' => env('EMAIL_APPOINTMENT_EVENTS_ENABLED', true),
     'email_enabled' => env('EMAIL_ENABLED', false),
     'sms_provider' => env('SMS_PROVIDER', 'fake'),
     'test_mode' => env('MESSAGING_TEST_MODE', true),

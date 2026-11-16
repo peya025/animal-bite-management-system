@@ -27,6 +27,23 @@ class PatientProfileController extends Controller
     }
 
     /**
+     * Look up existing clinic chart before creating profile.
+     */
+    public function findExisting(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'patient_number' => ['nullable', 'string', 'max:50'],
+            'first_name'     => ['nullable', 'string', 'max:100'],
+            'last_name'      => ['nullable', 'string', 'max:100'],
+            'date_of_birth'  => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
+        $result = $this->profileService->findExistingPatient($validated);
+
+        return response()->json($result);
+    }
+
+    /**
      * Create a new patient profile and attach to the mobile account.
      */
     public function store(StoreMobilePatientRequest $request): JsonResponse

@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ProtectsInvitationToken;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PatientInvitation extends Model
 {
+    use ProtectsInvitationToken;
+
+    protected $hidden = ['encrypted_token', 'recipient_email'];
+
     use HasFactory;
 
     protected $fillable = [
@@ -15,6 +20,7 @@ class PatientInvitation extends Model
         'patient_id',
         'invited_by',
         'phone',
+        'recipient_email',
         'token',
         'status',
         'expires_at',
@@ -24,6 +30,7 @@ class PatientInvitation extends Model
     protected function casts(): array
     {
         return [
+            'recipient_email' => 'encrypted',
             'expires_at' => 'datetime',
             'accepted_at' => 'datetime',
         ];
@@ -51,7 +58,7 @@ class PatientInvitation extends Model
 
     public function isPending(): bool
     {
-        return $this->status === 'pending' && !$this->isExpired();
+        return $this->status === 'pending' && ! $this->isExpired();
     }
 
     public function scopePending($query)

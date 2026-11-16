@@ -599,26 +599,37 @@ class Patient extends Model
     /**
      * Generate unique patient number: P-2024-0001
      */
-    public static function generatePatientNumber($clinicId)
+    public static function generatePatientNumber($clinicId = null)
     {
         $year = date('Y');
         $prefix = "P-{$year}-";
 
-        // Get last patient number for this clinic and year
-        $lastPatient = static::where('clinic_id', $clinicId)
+        // Must include soft-deleted patients because patient_number has a table-wide unique constraint in MySQL
+        $existingNumbers = static::withTrashed()
             ->where('patient_number', 'like', "{$prefix}%")
-            ->orderBy('patient_id', 'desc')
-            ->first();
+            ->pluck('patient_number');
 
-        if ($lastPatient) {
-            // Extract number and increment
-            $lastNumber = (int) substr($lastPatient->patient_number, -4);
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
+        $maxNumber = 0;
+        foreach ($existingNumbers as $num) {
+            $digits = substr($num, strlen($prefix));
+            if (is_numeric($digits)) {
+                $val = (int) $digits;
+                if ($val > $maxNumber) {
+                    $maxNumber = $val;
+                }
+            }
         }
 
-        return sprintf('%s%04d', $prefix, $nextNumber);
+        $nextNumber = $maxNumber + 1;
+        $candidate = sprintf('%s%04d', $prefix, $nextNumber);
+
+        // Guard against any race condition or collision
+        while (static::withTrashed()->where('patient_number', $candidate)->exists()) {
+            $nextNumber++;
+            $candidate = sprintf('%s%04d', $prefix, $nextNumber);
+        }
+
+        return $candidate;
     }
 
     /**
@@ -654,6 +665,16 @@ class Patient extends Model
     public function biteIncidents()
     {
         return $this->hasMany(BiteIncident::class, 'patient_id', 'patient_id');
+    }
+
+    public function registrationEncounters()
+    {
+        return $this->hasMany(\App\Models\RegistrationEncounter::class, 'patient_id', 'patient_id');
+    }
+
+    public function latestRegistrationEncounter()
+    {
+        return $this->hasOne(\App\Models\RegistrationEncounter::class, 'patient_id', 'patient_id')->latestOfMany();
     }
 
     public function biteIntakes()

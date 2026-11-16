@@ -14,7 +14,9 @@ docs/tasks/
 ├── 03-controller-refactoring/  # Multi-developer controller refactoring architecture
 ├── 04-clinical-and-workflows/  # Clinical domain logic, PEP resolution, and workflow plans
 ├── 05-mobile-app-tasks/        # Mobile-specific implementation plans & architecture
-└── 06-deployment-and-audits/   # Deployment runbooks, pre-release checklists, and audits
+├── 06-deployment-and-audits/   # Deployment runbooks, pre-release checklists, and audits
+├── 07-mobile-push-alerts-fcm/  # Firebase Cloud Messaging background push alerts
+└── 08-google-sign-in-sso/      # Google OAuth 2.0 Single Sign-On integration
 ```
 
 ---
@@ -23,6 +25,9 @@ docs/tasks/
 
 ### 1. [01-roadmaps-and-todos](./01-roadmaps-and-todos/)
 High-level execution roadmaps and issue tracking:
+* [`bite_cases_summary_reporting_redesign_plan.md`](./bite_cases_summary_reporting_redesign_plan.md): Audit-first Phases 0–8 for DOH-based meeting reports, incomplete patient journeys, analytics, exports and scenario verification (Phases 0, 1, 2, 3, and 4 implemented and verified).
+* [`bite_cases_summary_preimplementation_audit.md`](./bite_cases_summary_preimplementation_audit.md): Findings A01–A16, source evidence, five synthetic probes, resolved PHPUnit bootstrap command, and Phase 2–4 closure notes.
+* [`bite_cases_summary_phase_1.md`](./bite_cases_summary_phase_1.md): Phase 1 metric dictionary (`bcs-phase1-local-v1`), reporting dimensions, crosswalk, source provenance map, permission proposal, decision register, and synthetic fixture/verifier baseline (`bite_cases_summary_phase_1_fixtures.json`, `bite_cases_summary_phase_1_verify.php`).
 * [`TODO.md`](./01-roadmaps-and-todos/TODO.md): Immediate priorities and daily tasks.
 * [`TODO_PART_2.md`](./01-roadmaps-and-todos/TODO_PART_2.md): ABTC / RHU workflow intake roadmap.
 * [`TODO_PART_3.md`](./01-roadmaps-and-todos/TODO_PART_3.md): Security & risk remediation roadmap.
@@ -43,6 +48,8 @@ Architectural refactoring plans to streamline backend controllers:
 
 ### 4. [04-clinical-and-workflows](./04-clinical-and-workflows/)
 Clinical specifications and medical protocol implementation:
+* [`booking_validation_and_patient_linking_plan.md`](./booking_validation_and_patient_linking_plan.md): Appointment booking validation & 3-layer patient profile linking strategy.
+* [`online_booking_checkin_vitals_modal_plan.md`](./online_booking_checkin_vitals_modal_plan.md): Online booking check-in vitals & referral modal restoration plan.
 * [`admin_patient_profiles_management.md`](./04-clinical-and-workflows/admin_patient_profiles_management.md): Pre-registered patient profile management.
 * [`case_continuity_and_reexposure_booster_plan.md`](./04-clinical-and-workflows/case_continuity_and_reexposure_booster_plan.md): Re-exposure & booster protocol design.
 * [`case-continuity-and-reexposure-protocol-with-mitigations.md`](./04-clinical-and-workflows/case-continuity-and-reexposure-protocol-with-mitigations.md): Protocol edge-case mitigations.
@@ -68,3 +75,11 @@ Deployment runbooks, pre-release checklists, and audits:
 * [`deployment_readiness_remediation_tasks.md`](./06-deployment-and-audits/deployment_readiness_remediation_tasks.md): Pre-launch remediation checklist.
 * [`pre_deployment_system_change_audit.md`](./06-deployment-and-audits/pre_deployment_system_change_audit.md): Pre-deployment system change audit log.
 * [`railway_vercel_mobile_deployment_checklist.md`](./06-deployment-and-audits/railway_vercel_mobile_deployment_checklist.md): Step-by-step deployment runbook for web, backend, and mobile.
+
+### 7. [07-mobile-push-alerts-fcm](./07-mobile-push-alerts-fcm/)
+Firebase Cloud Messaging (FCM) push notification integration:
+* [`PLAN.md`](./07-mobile-push-alerts-fcm/PLAN.md): End-to-end plan for background lock screen push alerts, device token registration, and notification events.
+
+### 8. [08-google-sign-in-sso](./08-google-sign-in-sso/)
+Google OAuth 2.0 Single Sign-On (SSO) credentials and configuration:
+* [`PLAN.md`](./08-google-sign-in-sso/PLAN.md): Complete setup guide for Google Cloud Console Client IDs (Web & Android), SHA-1 signing keys, `.env` settings, and role verification.

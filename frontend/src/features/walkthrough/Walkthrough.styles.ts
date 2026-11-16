@@ -37,6 +37,17 @@ export const walkthroughStyles = `
   animation: walkthroughPulse 2s infinite ease-in-out;
 }
 
+.walkthrough-tabs-illuminated {
+  position: fixed;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1.5px solid rgba(16, 185, 129, 0.55);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+  pointer-events: none;
+  z-index: ${WALKTHROUGH_Z_INDEX + 1};
+  transition: all 0.2s ease;
+}
+
 @keyframes walkthroughPulse {
   0%, 100% {
     box-shadow: 0 0 14px rgba(16, 185, 129, 0.4);
@@ -59,7 +70,7 @@ export const walkthroughStyles = `
   color: var(--text-h, #0f172a);
   border: 1px solid var(--border-glow, rgba(16, 185, 129, 0.35));
   border-radius: 16px;
-  padding: 16px 18px;
+  padding: 12px 16px;
   box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(16, 185, 129, 0.12);
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   animation: walkthroughCardFadeIn 0.2s ease;
@@ -86,7 +97,7 @@ export const walkthroughStyles = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .walkthrough-step-badge {
@@ -102,7 +113,7 @@ export const walkthroughStyles = `
   border: 1px solid #a7f3d0;
 }
 
-.walkthrough-progress { display: flex; gap: 3px; height: 5px; margin: 2px 0 15px; }
+.walkthrough-progress { display: flex; gap: 3px; height: 5px; margin: 2px 0 10px; }
 .walkthrough-progress span { display: block; flex: 1; height: 100%; border-radius: 8px; background: #edf0ef; transition: background .22s ease; }
 .walkthrough-progress span.done { background: #12b981; }
 .walkthrough-step-count { font-size: 11px; color: #6b7280; margin-left: auto; margin-right: 10px; }
@@ -168,17 +179,17 @@ export const walkthroughStyles = `
 }
 
 .walkthrough-title {
-  margin: 0 0 6px 0;
-  font-size: 16px;
+  margin: 0 0 5px 0;
+  font-size: 15.5px;
   font-weight: 700;
   line-height: 1.3;
   color: var(--text-h, #0f172a);
 }
 
 .walkthrough-content {
-  margin: 0 0 16px 0;
-  font-size: 13px;
-  line-height: 1.55;
+  margin: 0 0 10px 0;
+  font-size: 12.5px;
+  line-height: 1.5;
   color: var(--text-secondary, #475569);
   font-weight: 400;
 }
@@ -188,7 +199,7 @@ export const walkthroughStyles = `
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid var(--border-subtle, #f1f5f9);
 }
 
@@ -360,15 +371,15 @@ export const walkthroughStyles = `
 .walkthrough-welcome-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.48);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: ${WALKTHROUGH_Z_INDEX + 10};
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
-  animation: walkthroughFadeIn 0.2s ease;
+  padding: 20px;
+  animation: walkthroughFadeIn 0.22s ease;
 }
 
 @keyframes walkthroughFadeIn {
@@ -378,29 +389,32 @@ export const walkthroughStyles = `
 
 .walkthrough-welcome-card {
   position: relative;
-  width: 440px;
+  width: 490px;
   max-width: 100%;
-  background: var(--card-bg, #ffffff);
-  border-radius: 20px;
-  border: 1px solid var(--border-glow, rgba(16, 185, 129, 0.35));
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.15);
-  padding: 28px 24px 24px;
+  background: #ffffff;
+  border-radius: 22px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(13, 148, 136, 0.08);
+  padding: 34px 32px 24px;
   text-align: center;
   font-family: 'Poppins', sans-serif;
-  animation: walkthroughCardPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: walkthroughCardPop 0.26s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .walkthrough-modal-close-btn {
   position: absolute;
-  top: 14px;
-  right: 14px;
-  background: none;
-  border: none;
-  color: #94a3b8;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
   cursor: pointer;
-  padding: 6px;
-  border-radius: 8px;
+  padding: 0;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -408,48 +422,136 @@ export const walkthroughStyles = `
 }
 
 .walkthrough-modal-close-btn:hover {
-  color: #1e293b;
-  background: rgba(0, 0, 0, 0.05);
+  color: #0f172a;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: scale(1.05);
 }
 
 @keyframes walkthroughCardPop {
   from {
-    transform: scale(0.94);
+    transform: scale(0.93) translateY(8px);
     opacity: 0;
   }
   to {
-    transform: scale(1);
+    transform: scale(1) translateY(0);
     opacity: 1;
   }
 }
 
-.walkthrough-welcome-icon-wrap {
-  width: 60px;
-  height: 60px;
-  margin: 0 auto 16px;
-  border-radius: 50%;
-  background: #ecfdf5;
-  border: 2px solid #a7f3d0;
-  color: #059669;
+.walkthrough-welcome-icon-outer {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 14px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+.walkthrough-welcome-icon-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(13, 148, 136, 0.2) 0%, rgba(13, 148, 136, 0) 70%);
+  animation: walkthroughPulseGlow 3s ease-in-out infinite;
+}
+
+@keyframes walkthroughPulseGlow {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+.walkthrough-welcome-icon-wrap {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+  border: 1.5px solid #99f6e4;
+  color: #0d9488;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+}
+
+.walkthrough-welcome-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 13px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: #f0fdf4;
+  color: #047857;
+  border: 1px solid #bbf7d0;
+  margin-bottom: 12px;
+  letter-spacing: 0.01em;
+}
+
+.walkthrough-welcome-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  display: inline-block;
+}
+
 .walkthrough-welcome-title {
-  margin: 0 0 10px;
-  font-size: 20px;
+  margin: 0 0 8px;
+  font-size: 22px;
   font-weight: 700;
-  color: var(--text-h, #0f172a);
+  letter-spacing: -0.02em;
+  color: #0f172a;
   font-family: 'Poppins', sans-serif;
 }
 
 .walkthrough-welcome-text {
-  margin: 0 0 24px;
+  margin: 0 auto 18px;
   font-size: 13.5px;
-  line-height: 1.6;
-  color: var(--text-secondary, #475569);
+  line-height: 1.55;
+  color: #475569;
   font-family: 'Poppins', sans-serif;
+  max-width: 420px;
+}
+
+/* Feature highlight strip */
+.walkthrough-welcome-highlights {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 0 0 22px;
+  padding: 12px 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.walkthrough-welcome-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 2px;
+}
+
+.walkthrough-welcome-pill-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  color: #0d9488;
+}
+
+.walkthrough-welcome-pill-text {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
 }
 
 .walkthrough-welcome-actions {
@@ -457,5 +559,63 @@ export const walkthroughStyles = `
   align-items: center;
   justify-content: center;
   gap: 12px;
+}
+
+.walkthrough-welcome-btn-skip {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 22px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.walkthrough-welcome-btn-skip:hover {
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: #94a3b8;
+}
+
+.walkthrough-welcome-btn-start {
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 9px 26px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 4px 14px -1px rgba(13, 148, 136, 0.4), 0 2px 4px -1px rgba(13, 148, 136, 0.2);
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  outline: none;
+}
+
+.walkthrough-welcome-btn-start:hover {
+  background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+  box-shadow: 0 6px 20px -1px rgba(13, 148, 136, 0.5);
+  transform: translateY(-1px);
+}
+
+.walkthrough-welcome-btn-start:active {
+  transform: translateY(0);
+}
+
+.walkthrough-welcome-footer-note {
+  margin-top: 16px;
+  font-size: 11.5px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 `;

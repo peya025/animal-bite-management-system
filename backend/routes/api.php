@@ -13,6 +13,7 @@ use App\Http\Controllers\Clinical\BiteCaseController;
 use App\Http\Controllers\Clinical\BiteIncidentIntakeController;
 use App\Http\Controllers\Clinical\BiteIntakeSchemaController;
 use App\Http\Controllers\Clinical\PatientController;
+use App\Http\Controllers\Clinical\RegistrationFeeController;
 use App\Http\Controllers\Clinical\TagoloanTreatmentCardController;
 use App\Http\Controllers\Clinical\TreatmentRecordController;
 use App\Http\Controllers\Inventory\VaccineInventoryController;
@@ -191,11 +192,21 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::get('/reports/registration', [RegistrationReportController::class, 'index'])
         ->middleware('role:registration,admin,developer');
 
-    // DOH Official Reports
+    // DOH Official Reports & Bite Cases Summary
     Route::prefix('reports')->middleware('role:registration,admin,nurse,doctor,triage,treatment,staff,developer')->group(function () {
         Route::get('/exposure-registry', [ReportController::class, 'exposureRegistry']);
         Route::get('/monthly', [ReportController::class, 'monthlyReport']);
         Route::get('/cohort', [ReportController::class, 'cohortReport']);
+        Route::get('/bite-summary', [ReportController::class, 'biteSummary']);
+        Route::get('/bite-summary/cases', [ReportController::class, 'biteSummaryCases']);
+        Route::get('/bite-summary/snapshots', [ReportController::class, 'listSnapshots']);
+        Route::post('/bite-summary/snapshots', [ReportController::class, 'storeSnapshot']);
+        Route::get('/bite-summary/snapshots/{snapshotId}', [ReportController::class, 'showSnapshot'])->whereNumber('snapshotId');
+        Route::post('/bite-summary/snapshots/{snapshotId}/finalize', [ReportController::class, 'finalizeSnapshot'])->whereNumber('snapshotId');
+        Route::get('/bite-summary/actions', [ReportController::class, 'listActions']);
+        Route::post('/bite-summary/actions', [ReportController::class, 'storeAction']);
+        Route::match(['put', 'patch'], '/bite-summary/actions/{actionId}', [ReportController::class, 'updateAction'])->whereNumber('actionId');
+        Route::match(['get', 'post'], '/bite-summary/supply-projection', [ReportController::class, 'supplyProjection']);
     });
 
     // Auth routes
@@ -307,11 +318,12 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::get('/print/patient/{patient}/enrolment', [PrintController::class, 'enrolment'])
         ->middleware('can:printEnrolment,patient');
 
-    // DOH Official Reports Print Endpoints
-    Route::prefix('print/reports')->group(function () {
+    // DOH Official Reports & Bite Summary Print Endpoints
+    Route::prefix('print/reports')->middleware('role:registration,admin,nurse,doctor,triage,treatment,staff,developer')->group(function () {
         Route::get('/exposure-registry', [PrintController::class, 'exposureRegistry']);
         Route::get('/monthly', [PrintController::class, 'monthlyReport']);
         Route::get('/cohort', [PrintController::class, 'cohortReport']);
+        Route::get('/bite-summary', [PrintController::class, 'biteSummaryMeetingPack']);
     });
 
     // Patient Management (admin, registration, triage, treatment can view)
@@ -343,6 +355,18 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
 
         // Delete (admin only)
         Route::delete('/{id}', [PatientController::class, 'destroy'])->middleware('role:admin');
+    });
+
+    // Registration Fees & Payments (Staff & Admin)
+    Route::prefix('registration-fees')->group(function () {
+        Route::get('/{encounterId}', [RegistrationFeeController::class, 'show'])
+            ->middleware('role:admin,registration,triage,treatment,doctor,nurse,staff,developer');
+        Route::post('/{feeId}/payments', [RegistrationFeeController::class, 'recordPayment'])
+            ->middleware('role:admin,registration,developer');
+        Route::post('/{feeId}/payments/{paymentId}/void', [RegistrationFeeController::class, 'voidPayment'])
+            ->middleware('role:admin,developer');
+        Route::put('/{feeId}', [RegistrationFeeController::class, 'correctFee'])
+            ->middleware('role:admin,developer');
     });
 
     // Patient Portal Invitations & Account Linking (Staff endpoints)

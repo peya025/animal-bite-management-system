@@ -204,5 +204,46 @@ class ReportControllerCharacterizationTest extends TestCase
 
         $resCohort = $this->getJson('/api/reports/cohort');
         $resCohort->assertStatus(403);
+
+        // Passing ?clinic_id= for an unassigned user must still be rejected
+        $this->getJson('/api/reports/exposure-registry?clinic_id=' . $this->clinic->id)->assertStatus(403);
+        $this->getJson('/api/reports/monthly?clinic_id=' . $this->clinic->id)->assertStatus(403);
+        $this->getJson('/api/reports/cohort?clinic_id=' . $this->clinic->id)->assertStatus(403);
+    }
+
+    public function test_reports_reject_cross_clinic_query_parameter(): void
+    {
+        $otherClinic = Clinic::create([
+            'name' => 'OTHER ABTC',
+            'municipality' => 'Villanueva',
+            'province' => 'Misamis Oriental',
+            'status' => 'active',
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson('/api/reports/exposure-registry?clinic_id=' . $otherClinic->id)->assertStatus(403);
+        $this->getJson('/api/reports/monthly?clinic_id=' . $otherClinic->id)->assertStatus(403);
+        $this->getJson('/api/reports/cohort?clinic_id=' . $otherClinic->id)->assertStatus(403);
+    }
+
+    public function test_reports_reject_invalid_filters_with_422(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson('/api/reports/exposure-registry?from=2024-07-31&to=2024-07-01')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['to']);
+
+        $this->getJson('/api/reports/monthly?month=2026-13')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['month']);
+
+        $this->getJson('/api/reports/cohort?year=2024&category=INVALID')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['category']);
+
+        // Passing only `to` without `from` remains valid
+        $this->getJson('/api/reports/exposure-registry?to=2024-07-31')->assertStatus(200);
     }
 }

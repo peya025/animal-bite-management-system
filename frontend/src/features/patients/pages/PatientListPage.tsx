@@ -1117,7 +1117,7 @@ export default function PatientList() {
 
           {/* ── Summary Cards ── */}
           <div className="pm-stats-row" data-walkthrough="patients-stats" data-tour="patients-summary">
-            <div className="pm-stat-card">
+            <div className="pm-stat-card" data-walkthrough="patient-stat-total">
               <div className="pm-stat-icon pm-stat-icon--teal">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
@@ -1131,7 +1131,7 @@ export default function PatientList() {
               </div>
             </div>
 
-            <div className="pm-stat-card">
+            <div className="pm-stat-card" data-walkthrough="patient-stat-active">
               <div className="pm-stat-icon pm-stat-icon--green">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
@@ -1144,7 +1144,7 @@ export default function PatientList() {
               </div>
             </div>
 
-            <div className="pm-stat-card">
+            <div className="pm-stat-card" data-walkthrough="patient-stat-followup">
               <div className="pm-stat-icon pm-stat-icon--emerald">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>

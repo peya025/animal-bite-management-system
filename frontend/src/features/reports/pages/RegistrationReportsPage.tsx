@@ -66,10 +66,10 @@ const display = (value: string | number | null | undefined) => value === null ||
 const percent = (value: number | null) => value === null ? 'Not available' : `${value}%`;
 const escapeHtml = (value: unknown) => String(value ?? 'Not available').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]!));
 
-function Bars({ title, rows, note, limit }: { title: string; rows: Counts; note?: string; limit?: number }) {
+function Bars({ title, rows, note, limit, dataWalkthrough }: { title: string; rows: Counts; note?: string; limit?: number; dataWalkthrough?: string }) {
   const total = rows.reduce((sum, row) => sum + row.count, 0);
   const max = Math.max(1, ...rows.map(row => row.count));
-  return <Paper elevation={0} className="rr-panel">
+  return <Paper elevation={0} className="rr-panel" data-walkthrough={dataWalkthrough}>
     <Typography component="h2" className="rr-section-title">{title}</Typography>
     {total === 0 ? <p className="rr-empty">No records in this period.</p> : <ul className="rr-bars">
       {rows.slice(0, limit ?? rows.length).map(row => <li key={row.label}>
@@ -81,9 +81,9 @@ function Bars({ title, rows, note, limit }: { title: string; rows: Counts; note?
   </Paper>;
 }
 
-function CategoryTrend({ months }: { months: ReportData['months'] }) {
+function CategoryTrend({ months, dataWalkthrough }: { months: ReportData['months']; dataWalkthrough?: string }) {
   const max = Math.max(1, ...months.map(m => m.I + m.II + m.III));
-  return <Paper elevation={0} className="rr-panel">
+  return <Paper elevation={0} className="rr-panel" data-walkthrough={dataWalkthrough || "reg-reports-chart-categories"}>
     <Typography component="h2" className="rr-section-title">Exposure categories over time</Typography>
     <div className="rr-legend"><span><i className="rr-cat-I" />Category I</span><span><i className="rr-cat-II" />Category II</span><span><i className="rr-cat-III" />Category III</span></div>
     <div className="rr-chart" role="img" aria-label="Monthly incident counts by exposure category; exact values are in the table below.">
@@ -355,7 +355,7 @@ export default function RegistrationReportsPage() {
   ) => {
     const filterContent = (
       <>
-        <div className="rr-filter-row" data-walkthrough="reports-filters" data-tour="reports-filter-controls">
+        <div className="rr-filter-row" data-tour="reports-filter-controls">
           <TextField select size="small" label="Period" value={preset} onChange={event => { const next = event.target.value; setPreset(next); if (next !== 'custom') setDraft({ ...dateRange(next), category: draft.category }); }}>
             <MenuItem value="today">Today</MenuItem>
             <MenuItem value="week">This week</MenuItem>
@@ -375,7 +375,7 @@ export default function RegistrationReportsPage() {
         </div>
         {!valid && <p className="rr-error" role="alert">Enter a valid date range ending today or earlier.</p>}
         {showSummary && (
-          <p className="rr-note">Showing {filters.from} to {filters.to} · {filters.category === 'ALL' ? 'All categories' : `Category ${filters.category}`}{dirty ? ' · Filter changes not applied' : ''}</p>
+          <p className="rr-note" style={{ marginBottom: '4px' }}>Showing {filters.from} to {filters.to} · {filters.category === 'ALL' ? 'All categories' : `Category ${filters.category}`}{dirty ? ' · Filter changes not applied' : ''}</p>
         )}
         {extraSummary}
       </>
@@ -391,14 +391,14 @@ export default function RegistrationReportsPage() {
 
     if (standalone) {
       return (
-        <Paper elevation={0} className="rr-panel rr-filters" component="form" onSubmit={handleFilterSubmit}>
+        <Paper elevation={0} className="rr-panel rr-filters" data-walkthrough="reports-filters" component="form" onSubmit={handleFilterSubmit}>
           {filterContent}
         </Paper>
       );
     }
 
     return (
-      <Box component="form" className="rr-filters-unified" onSubmit={handleFilterSubmit}>
+      <Box component="form" className="rr-filters-unified" data-walkthrough="reg-reports-surveillance-filters" onSubmit={handleFilterSubmit}>
         {filterContent}
       </Box>
     );
@@ -553,34 +553,11 @@ export default function RegistrationReportsPage() {
       aria-label="Registration report sections"
       sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
     >
-      <Tab value="overview" label="Overview" />
-      <Tab value="pep" label="PEP & Follow-up" />
-      <Tab value="surveillance" label="Bite Surveillance" />
-      <Tab value="clinic_summary" label="Clinic Summary" />
+      <Tab value="overview" label="Overview" data-walkthrough="reg-reports-tab-overview" />
+      <Tab value="pep" label="PEP & Follow-up" data-walkthrough="reg-reports-tab-pep" />
+      <Tab value="surveillance" label="Bite Surveillance" data-walkthrough="reg-reports-tab-surveillance" />
+      <Tab value="clinic_summary" label="Clinic Summary" data-walkthrough="reg-reports-tab-summary" />
     </Tabs>
-
-    {/* Current Actions Alert: Displayed directly below tabs on the Overview tab */}
-    {tab === 'overview' && stats && (stats.overdue_patients > 0 || stats.awaiting_d0 > 0) && (
-      <Alert
-        severity="warning"
-        action={
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-            {stats.overdue_patients > 0 && (
-              <Button color="inherit" size="small" variant="outlined" onClick={() => selectReport('followup')}>
-                View Overdue ({stats.overdue_patients})
-              </Button>
-            )}
-            {stats.awaiting_d0 > 0 && (
-              <Button color="inherit" size="small" variant="outlined" onClick={() => selectReport('awaiting')}>
-                View Awaiting D0 ({stats.awaiting_d0})
-              </Button>
-            )}
-          </Stack>
-        }
-      >
-        Current actions: {stats.overdue_patients} patient(s) overdue · {stats.awaiting_d0} episode(s) awaiting D0. As of {data?.period?.as_of ?? globalData?.period?.as_of ?? ''}, across all incident dates.
-      </Alert>
-    )}
 
     {/* Unified Global Filters: Rendered at top for non-unified tabs if any */}
     {tab !== 'overview' && tab !== 'pep' && tab !== 'surveillance' && tab !== 'clinic_summary' && renderFilters()}
@@ -666,81 +643,118 @@ export default function RegistrationReportsPage() {
     )}
     {!initialLoading && data && stats && <>
       {tab === 'overview' && <>
-        {/* Top Summary Cards 2x2 Grid */}
-        <div className="rr-overview-top-section" data-walkthrough="reports-summary-cards" data-tour="reports-summary-cards">
-          {/* Row 1, Left: PEP vaccine-course completion */}
-          <Paper elevation={0} className="rr-panel rr-metric">
-            <h2>PEP vaccine-course completion</h2>
-            <strong>{percent(stats.completion.rate)}</strong>
-            <p>{stats.completion.completed} of {stats.completion.eligible} eligible courses completed</p>
-          </Paper>
+        {/* Top Summary Cards 2x2 Grid with optional warning alert */}
+        <div className="rr-overview-kpi-group" data-walkthrough="reg-reports-overview-kpis" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {stats && (stats.overdue_patients > 0 || stats.awaiting_d0 > 0) && (
+            <Alert
+              severity="warning"
+              action={
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                  {stats.overdue_patients > 0 && (
+                    <Button color="inherit" size="small" variant="outlined" onClick={() => selectReport('followup')}>
+                      View Overdue ({stats.overdue_patients})
+                    </Button>
+                  )}
+                  {stats.awaiting_d0 > 0 && (
+                    <Button color="inherit" size="small" variant="outlined" onClick={() => selectReport('awaiting')}>
+                      View Awaiting D0 ({stats.awaiting_d0})
+                    </Button>
+                  )}
+                </Stack>
+              }
+            >
+              Current actions: {stats.overdue_patients} patient(s) overdue · {stats.awaiting_d0} episode(s) awaiting D0. As of {data?.period?.as_of ?? globalData?.period?.as_of ?? ''}, across all incident dates.
+            </Alert>
+          )}
 
-          {/* Row 1, Right: Follow-up priorities today */}
-          <Paper elevation={0} className="rr-panel rr-followup-priorities">
-            <Typography component="h2" className="rr-section-title">Follow-up priorities today</Typography>
-            <div className="rr-priorities-body">
-              <div className="rr-priority-stat">
-                <span className="rr-priority-val rr-priority-warn">{stats.overdue_patients}</span>
-                <div className="rr-priority-text">
-                  <p className="rr-priority-main"><b>{stats.overdue_patients}</b> patients have <b>{stats.overdue_doses}</b> overdue prescribed doses.</p>
-                  <span className="rr-priority-sub">Scheduled follow-up dose target dates exceeded</span>
+          <div className="rr-overview-top-section" data-walkthrough="reports-summary-cards" data-tour="reports-summary-cards">
+            {/* Row 1, Left: PEP vaccine-course completion */}
+            <Paper elevation={0} className="rr-panel rr-metric" data-walkthrough="reg-reports-kpi-completion">
+              <h2>PEP vaccine-course completion</h2>
+              <strong>{percent(stats.completion.rate)}</strong>
+              <p>{stats.completion.completed} of {stats.completion.eligible} eligible courses completed</p>
+            </Paper>
+
+            {/* Row 1, Right: Follow-up priorities today */}
+            <Paper elevation={0} className="rr-panel rr-followup-priorities" data-walkthrough="reg-reports-kpi-priorities">
+              <Typography component="h2" className="rr-section-title">Follow-up priorities today</Typography>
+              <div className="rr-priorities-body">
+                <div className="rr-priority-stat">
+                  <span className="rr-priority-val rr-priority-warn">{stats.overdue_patients}</span>
+                  <div className="rr-priority-text">
+                    <p className="rr-priority-main"><b>{stats.overdue_patients}</b> patients have <b>{stats.overdue_doses}</b> overdue prescribed doses.</p>
+                    <span className="rr-priority-sub">Scheduled follow-up dose target dates exceeded</span>
+                  </div>
+                </div>
+                <div className="rr-priority-stat">
+                  <span className="rr-priority-val rr-priority-info">{stats.awaiting_d0}</span>
+                  <div className="rr-priority-text">
+                    <p className="rr-priority-main"><b>{stats.awaiting_d0}</b> episodes have an ordered regimen with no recorded D0.</p>
+                    <span className="rr-priority-sub">Prescriptions awaiting initial vaccination administration</span>
+                  </div>
                 </div>
               </div>
-              <div className="rr-priority-stat">
-                <span className="rr-priority-val rr-priority-info">{stats.awaiting_d0}</span>
-                <div className="rr-priority-text">
-                  <p className="rr-priority-main"><b>{stats.awaiting_d0}</b> episodes have an ordered regimen with no recorded D0.</p>
-                  <span className="rr-priority-sub">Prescriptions awaiting initial vaccination administration</span>
-                </div>
-              </div>
-            </div>
-          </Paper>
+            </Paper>
 
-          {/* Row 2, Left: Average time to first dose */}
-          <Paper elevation={0} className="rr-panel rr-metric">
-            <h2>Average time to first dose</h2>
-            <strong>{stats.delay.average === null ? 'Not available' : `${stats.delay.average} days`}</strong>
-            <p>{stats.delay.samples ? `Median: ${stats.delay.median} · Range: ${stats.delay.min}–${stats.delay.max} days` : 'No valid D0 dates in the selected period'}</p>
-          </Paper>
+            {/* Row 2, Left: Average time to first dose */}
+            <Paper elevation={0} className="rr-panel rr-metric" data-walkthrough="reg-reports-kpi-delay">
+              <h2>Average time to first dose</h2>
+              <strong>{stats.delay.average === null ? 'Not available' : `${stats.delay.average} days`}</strong>
+              <p>{stats.delay.samples ? `Median: ${stats.delay.median} · Range: ${stats.delay.min}–${stats.delay.max} days` : 'No valid D0 dates in the selected period'}</p>
+            </Paper>
 
-          {/* Row 2, Right: Patients needing follow-up */}
-          <Paper elevation={0} className="rr-panel rr-metric">
-            <h2>Patients needing follow-up</h2>
-            <strong>{stats.overdue_patients}</strong>
-            <p>{stats.overdue_doses} overdue doses · As of {data.period.as_of}</p>
-          </Paper>
+            {/* Row 2, Right: Patients needing follow-up */}
+            <Paper elevation={0} className="rr-panel rr-metric" data-walkthrough="reg-reports-kpi-followup">
+              <h2>Patients needing follow-up</h2>
+              <strong>{stats.overdue_patients}</strong>
+              <p>{stats.overdue_doses} overdue doses · As of {data.period.as_of}</p>
+            </Paper>
+          </div>
         </div>
 
         {/* Unified Bite Surveillance Analytics Card */}
         <Paper elevation={0} className="rr-panel rr-unified-surveillance-container">
-          {/* Bite Surveillance Analytics header & summary */}
-          <div className="rr-section-heading">
-            <Typography component="h2" className="rr-group-title">Bite Surveillance Analytics</Typography>
-            <span className="rr-group-desc">Temporal patterns, demographic distribution, and animal characteristics</span>
-          </div>
-          <div className="rr-activity">
-            <span><b>{stats.incidents}</b> incident episodes</span>
-            <span><b>{stats.patients}</b> unique patients</span>
-            <span><b>{stats.pep_starts}</b> PEP starts</span>
-            <span><b>{percent(stats.referral_rate)}</b> referred/transferred cases</span>
-          </div>
+          <div className="rr-surveillance-charts-section">
+            {/* Bite Surveillance Analytics header & summary */}
+            <div className="rr-section-heading">
+              <Typography component="h2" className="rr-group-title">Bite Surveillance Analytics</Typography>
+              <span className="rr-group-desc">Temporal patterns, demographic distribution, and animal characteristics</span>
+            </div>
+            <div className="rr-activity">
+              <span><b>{stats.incidents}</b> incident episodes</span>
+              <span><b>{stats.patients}</b> unique patients</span>
+              <span><b>{stats.pep_starts}</b> PEP starts</span>
+              <span><b>{percent(stats.referral_rate)}</b> referred/transferred cases</span>
+            </div>
 
-          {/* Filter Section */}
-          {renderFilters(false)}
+            {/* Filter Section */}
+            {renderFilters(false)}
 
-          {/* Larger analytics charts with equal width and height */}
-          <div className="rr-surveillance-row-1" data-walkthrough="reports-charts" data-tour="reports-charts">
-            <CategoryTrend months={data.months} />
-            <Bars title="Age at incident" rows={data.breakdowns.ages} />
-            <Bars title="Incident day of week" rows={data.breakdowns.weekdays} />
+            {/* Larger analytics charts with equal width and height */}
+            <div className="rr-surveillance-row-1" data-walkthrough="reports-charts" data-tour="reports-charts">
+              <CategoryTrend months={data.months} dataWalkthrough="reg-reports-chart-categories" />
+              <div
+                className="rr-demographics-pair"
+                data-walkthrough="reg-reports-chart-demographics"
+                style={{
+                  gridColumn: 'span 2',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: '16px',
+                }}
+              >
+                <Bars title="Age at incident" rows={data.breakdowns.ages} dataWalkthrough="reg-reports-chart-age" />
+                <Bars title="Incident day of week" rows={data.breakdowns.weekdays} dataWalkthrough="reg-reports-chart-weekdays" />
+              </div>
+            </div>
           </div>
 
           {/* Smaller breakdown charts grouped together in a balanced row */}
-          <div className="rr-surveillance-row-2">
-            <Bars title="Incident barangays" rows={data.breakdowns.barangays} limit={10} />
-            <Bars title="Animal type" rows={data.breakdowns.animals} />
-            <Bars title="Animal ownership" rows={data.breakdowns.ownership} />
-            <Bars title="Recorded animal observation status" rows={data.breakdowns.observation} />
+          <div className="rr-surveillance-row-2" data-walkthrough="reg-reports-demographics">
+            <Bars title="Incident barangays" rows={data.breakdowns.barangays} limit={10} dataWalkthrough="reg-reports-chart-barangays" />
+            <Bars title="Animal type" rows={data.breakdowns.animals} dataWalkthrough="reg-reports-chart-animal-type" />
+            <Bars title="Animal ownership" rows={data.breakdowns.ownership} dataWalkthrough="reg-reports-chart-animal-ownership" />
+            <Bars title="Recorded animal observation status" rows={data.breakdowns.observation} dataWalkthrough="reg-reports-chart-animal-observation" />
           </div>
         </Paper>
       </>}
@@ -749,7 +763,7 @@ export default function RegistrationReportsPage() {
         <Alert severity="info">D0 cohort: {filters.from} to {filters.to}. Outcomes observed as of {data.period.as_of}. {stats.completion.excluded} course(s) are not eligible for the completion denominator. Current follow-up and awaiting-D0 lists include all incident dates.</Alert>
 
         {/* Unified PEP & Follow-up Clinical Records Module */}
-        <Paper elevation={0} className="rr-panel rr-table-panel rr-pep-unified-container">
+        <Paper elevation={0} className="rr-panel rr-table-panel rr-pep-unified-container" data-walkthrough="reg-reports-pep-module">
           <div className="rr-pep-header">
             <Typography component="h2" className="rr-section-title" sx={{ mb: '4px !important' }}>PEP &amp; Follow-up Clinical Records</Typography>
             <p className="rr-note" style={{ margin: 0 }}>Review patient treatment outcomes, overdue dose queues, and episodes awaiting initial Day 0 doses.</p>
@@ -763,43 +777,49 @@ export default function RegistrationReportsPage() {
           {/* Filters Section with Current filter summary text */}
           {renderFilters(false, true)}
 
-          {/* Tabs */}
-          <div className="rr-pep-tabs-bar">
-            <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
-              <Button
-                variant={report === 'pep' ? 'contained' : 'outlined'}
-                size="small"
-                className="rr-pep-tab-btn"
-                onClick={() => selectReport('pep', false)}
-              >
-                PEP Treatment Outcomes
-              </Button>
-              <Button
-                variant={report === 'followup' ? 'contained' : 'outlined'}
-                size="small"
-                className="rr-pep-tab-btn"
-                onClick={() => selectReport('followup', false)}
-              >
-                Overdue Patients ({stats.overdue_patients})
-              </Button>
-              <Button
-                variant={report === 'awaiting' ? 'contained' : 'outlined'}
-                size="small"
-                className="rr-pep-tab-btn"
-                onClick={() => selectReport('awaiting', false)}
-              >
-                Awaiting D0 ({stats.awaiting_d0})
-              </Button>
-            </Stack>
-          </div>
+          {/* Subtabs and Table Container */}
+          <div className="rr-pep-table-section" data-walkthrough="reg-reports-pep-table-section">
+            {/* Tabs */}
+            <div className="rr-pep-tabs-bar" data-walkthrough="reg-reports-pep-tabs">
+              <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                <Button
+                  variant={report === 'pep' ? 'contained' : 'outlined'}
+                  size="small"
+                  className="rr-pep-tab-btn"
+                  data-walkthrough="reg-reports-subtab-pep"
+                  onClick={() => selectReport('pep', false)}
+                >
+                  PEP Treatment Outcomes
+                </Button>
+                <Button
+                  variant={report === 'followup' ? 'contained' : 'outlined'}
+                  size="small"
+                  className="rr-pep-tab-btn"
+                  data-walkthrough="reg-reports-subtab-followup"
+                  onClick={() => selectReport('followup', false)}
+                >
+                  Overdue Patients ({stats.overdue_patients})
+                </Button>
+                <Button
+                  variant={report === 'awaiting' ? 'contained' : 'outlined'}
+                  size="small"
+                  className="rr-pep-tab-btn"
+                  data-walkthrough="reg-reports-subtab-awaiting"
+                  onClick={() => selectReport('awaiting', false)}
+                >
+                  Awaiting D0 ({stats.awaiting_d0})
+                </Button>
+              </Stack>
+            </div>
 
-          {/* Data Table */}
-          {renderTableContent()}
+            {/* Data Table */}
+            {renderTableContent()}
+          </div>
         </Paper>
       </>}
       {tab === 'surveillance' && <>
         {/* Unified Bite Surveillance Incident Records Module */}
-        <Paper elevation={0} className="rr-panel rr-table-panel rr-surveillance-unified-container">
+        <Paper elevation={0} className="rr-panel rr-table-panel rr-surveillance-unified-container" data-walkthrough="reg-reports-surveillance-table">
           <div className="rr-surveillance-header">
             <Typography component="h2" className="rr-section-title" sx={{ mb: '4px !important' }}>Bite Surveillance Incident Records</Typography>
             <p className="rr-note" style={{ margin: 0 }}>Examine incident registry logs, bite exposures by barangay and animal species, and referred cases.</p>
@@ -821,35 +841,40 @@ export default function RegistrationReportsPage() {
             </div>
           )}
 
-          {/* Tabs */}
-          <div className="rr-surveillance-tabs-bar">
-            <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
-              <Button
-                variant={report === 'surveillance' ? 'contained' : 'outlined'}
-                size="small"
-                className="rr-surveillance-tab-btn"
-                onClick={() => selectReport('surveillance', false)}
-              >
-                Incident List ({stats.incidents})
-              </Button>
-              <Button
-                variant={report === 'referrals' ? 'contained' : 'outlined'}
-                size="small"
-                className="rr-surveillance-tab-btn"
-                onClick={() => selectReport('referrals', false)}
-              >
-                Referrals &amp; Transfers ({stats.referrals})
-              </Button>
-            </Stack>
-          </div>
+          {/* Subtabs and Table Container */}
+          <div className="rr-surveillance-table-section" data-walkthrough="reg-reports-surveillance-table-section">
+            {/* Tabs */}
+            <div className="rr-surveillance-tabs-bar" data-walkthrough="reg-reports-surveillance-tabs">
+              <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                <Button
+                  variant={report === 'surveillance' ? 'contained' : 'outlined'}
+                  size="small"
+                  className="rr-surveillance-tab-btn"
+                  data-walkthrough="reg-reports-subtab-surveillance"
+                  onClick={() => selectReport('surveillance', false)}
+                >
+                  Incident List ({stats.incidents})
+                </Button>
+                <Button
+                  variant={report === 'referrals' ? 'contained' : 'outlined'}
+                  size="small"
+                  className="rr-surveillance-tab-btn"
+                  data-walkthrough="reg-reports-subtab-referrals"
+                  onClick={() => selectReport('referrals', false)}
+                >
+                  Referrals &amp; Transfers ({stats.referrals})
+                </Button>
+              </Stack>
+            </div>
 
-          {/* Data Table */}
-          {renderTableContent()}
+            {/* Data Table */}
+            {renderTableContent()}
+          </div>
         </Paper>
       </>}
       {tab === 'clinic_summary' && (
-        <Paper elevation={0} className="rr-panel rr-table-panel rr-clinic-summary-unified-container">
-          <div className="rr-clinic-summary-header">
+        <Paper elevation={0} className="rr-panel rr-table-panel rr-clinic-summary-unified-container" data-walkthrough="reg-reports-clinic-summary">
+          <div className="rr-clinic-summary-header" data-walkthrough="reg-reports-clinic-summary-header">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Typography component="h2" className="rr-section-title" sx={{ margin: 0 }}>
                 {TITLES[report]}
@@ -873,7 +898,9 @@ export default function RegistrationReportsPage() {
             </p>
           )}
 
-          {renderTableContent(false)}
+          <div className="rr-clinic-summary-table-section" data-walkthrough="reg-reports-clinic-summary-table-section">
+            {renderTableContent(false)}
+          </div>
         </Paper>
       )}
       <details className="rr-definitions"><summary>Metric definitions and data availability</summary>{data.meta.notes.map(note => <p key={note}>{note}</p>)}

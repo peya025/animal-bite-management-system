@@ -83,8 +83,14 @@ class UpdateClinicModuleConfigRequest extends FormRequest
             'field_rules'                   => 'required|array',
         ];
 
+        $newFeeKeys = ['rig_fee', 'anti_rabies_fee', 'additional_fees'];
+
         foreach (array_keys($service->getDefaultFieldRules()) as $fieldKey) {
-            $rules["field_rules.{$fieldKey}"] = 'required|in:required,optional,hidden';
+            if (in_array($fieldKey, $newFeeKeys, true)) {
+                $rules["field_rules.{$fieldKey}"] = 'sometimes|in:required,optional,hidden';
+            } else {
+                $rules["field_rules.{$fieldKey}"] = 'required|in:required,optional,hidden';
+            }
         }
 
         return $rules;

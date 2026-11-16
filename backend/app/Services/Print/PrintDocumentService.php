@@ -17,19 +17,37 @@ class PrintDocumentService
     ) {}
 
     /**
-     * Resolve authenticated user from request session/bearer or query token.
+     * Resolve authenticated staff user from session/bearer or non-expired query token.
      */
     public function resolveAuthenticatedUser(Request $request): ?User
     {
-        $user = $request->user();
-        if (!$user && $request->query('token')) {
-            $tokenModel = PersonalAccessToken::findToken($request->query('token'));
-            if ($tokenModel && $tokenModel->tokenable instanceof User) {
-                $user = $tokenModel->tokenable;
+        $user = $request->user('sanctum') ?? $request->user();
+        if (!$user) {
+            $rawToken = $request->query('token') ?? $request->bearerToken();
+            if (is_string($rawToken) && $rawToken !== '') {
+                $tokenModel = PersonalAccessToken::findToken($rawToken);
+                if (
+                    $tokenModel
+                    && (!$tokenModel->expires_at || !$tokenModel->expires_at->isPast())
+                    && $tokenModel->tokenable instanceof User
+                ) {
+                    $user = $tokenModel->tokenable;
+                }
             }
         }
 
-        return $user;
+        return $user instanceof User ? $user : null;
+    }
+
+    /**
+     * Enforce report/print authentication, active staff role, and strict clinic isolation.
+     */
+    public function authorizePrintRequest(Request $request, ?int $expectedClinicId = null): array
+    {
+        $user = $this->resolveAuthenticatedUser($request);
+        $clinicId = $this->dohReportService->authorizeReportAccess($request, $user, $expectedClinicId);
+
+        return [$user, $clinicId];
     }
 
     /**
@@ -37,12 +55,15 @@ class PrintDocumentService
      */
     public function getEnrolmentData(Request $request, Patient $patient): array
     {
+        [$user, $clinicId] = $this->authorizePrintRequest(
+            $request,
+            $patient->clinic_id ? (int) $patient->clinic_id : null
+        );
+
         $patient->load(['clinic', 'details']);
 
         if (!$patient->clinic) {
-            $user = $this->resolveAuthenticatedUser($request);
-            $clinicId = $user?->clinic_id ?? $request->query('clinic_id');
-            $clinic = ($clinicId ? Clinic::find($clinicId) : null) ?? Clinic::first();
+            $clinic = Clinic::find($clinicId);
             if ($clinic) {
                 $patient->setRelation('clinic', $clinic);
             }
@@ -63,18 +84,17 @@ class PrintDocumentService
      */
     public function getExposureRegistryData(Request $request): array
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        $clinicId = $user?->clinic_id ?? $request->query('clinic_id') ?? Clinic::first()?->id;
-        abort_unless($clinicId, 403, 'A clinic assignment is required.');
+        [$user, $clinicId] = $this->authorizePrintRequest($request);
 
         return $this->dohReportService->getExposureRegistry(
-            clinicId: (int) $clinicId,
+            clinicId: $clinicId,
             fromDate: $request->query('from'),
             toDate: $request->query('to'),
             quarter: $request->query('quarter'),
             year: $request->query('year') ? (int) $request->query('year') : null,
             user: $user,
-            category: $request->query('category')
+            category: $request->query('category'),
+            cutoffDate: $request->query('cutoff')
         );
     }
 
@@ -83,17 +103,16 @@ class PrintDocumentService
      */
     public function getMonthlyReportData(Request $request): array
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        $clinicId = $user?->clinic_id ?? $request->query('clinic_id') ?? Clinic::first()?->id;
-        abort_unless($clinicId, 403, 'A clinic assignment is required.');
+        [$user, $clinicId] = $this->authorizePrintRequest($request);
 
         return $this->dohReportService->getMonthlyReport(
-            clinicId: (int) $clinicId,
+            clinicId: $clinicId,
             monthStr: $request->query('month'),
             user: $user,
             category: $request->query('category'),
             fromDate: $request->query('from'),
-            toDate: $request->query('to')
+            toDate: $request->query('to'),
+            cutoffDate: $request->query('cutoff')
         );
     }
 
@@ -102,15 +121,28 @@ class PrintDocumentService
      */
     public function getCohortReportData(Request $request): array
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        $clinicId = $user?->clinic_id ?? $request->query('clinic_id') ?? Clinic::first()?->id;
-        abort_unless($clinicId, 403, 'A clinic assignment is required.');
+        [$user, $clinicId] = $this->authorizePrintRequest($request);
 
         return $this->dohReportService->getCohortReport(
-            clinicId: (int) $clinicId,
+            clinicId: $clinicId,
             yearParam: $request->query('year') ? (int) $request->query('year') : null,
             user: $user,
-            category: $request->query('category')
+            category: $request->query('category'),
+            cutoffDate: $request->query('cutoff')
+        );
+    }
+
+    /**
+     * Prepare data payload for the Bite Cases Summary A4 Meeting Pack printout.
+     */
+    public function getBiteSummaryMeetingPackData(Request $request): array
+    {
+        [$user, $clinicId] = $this->authorizePrintRequest($request);
+
+        return app(\App\Services\Reporting\MeetingReportService::class)->getMeetingPackPrintData(
+            $clinicId,
+            $request->query(),
+            $user
         );
     }
 }

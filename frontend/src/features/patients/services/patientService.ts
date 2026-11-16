@@ -109,6 +109,9 @@ export async function createPatientRecord(
     reg_attending_provider: cleanField(enrolment.reg_attending_provider),
     reg_referred_by: enrolment.mode_of_transaction === 'referral' ? cleanField(enrolment.reg_referred_by) : null,
 
+    // IV. Fees and Payment
+    registration_fee: enrolment.registration_fee || undefined,
+
     // Explicit staff override when registering a verified same-name / homonym patient
     force_create: options.forceCreate ? true : undefined,
 

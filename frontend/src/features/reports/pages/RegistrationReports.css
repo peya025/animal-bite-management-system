@@ -48,10 +48,20 @@
 .rr-grid { display: grid; gap: 16px; }
 .rr-grid-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .rr-grid-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.rr-overview-kpi-group,
+.rr-surveillance-charts-section,
+.rr-pep-table-section,
+.rr-surveillance-table-section,
+.rr-clinic-summary-table-section {
+  display: block;
+  width: 100%;
+  margin-top: 28px;
+}
 .rr-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .rr-filter-row .MuiTextField-root { min-width: 155px; flex: 1 1 155px; }
 .rr-note, .rr-definitions { color: var(--rr-muted); font-size: 12px; line-height: 1.6; }
-.rr-note { margin: 12px 0 0; }
+.rr-note { margin: 12px 0 6px; }
 .rr-error { color: #b91c1c; }
 .rr-section-title, .rr-metric h2 { margin: 0 0 16px; font-size: 14px; font-weight: 600; }
 .rr-metric { display: flex; flex-direction: column; align-items: flex-start; }
@@ -247,7 +257,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: 20px 0 10px;
+  margin: 0 0 16px;
   width: 100%;
 }
 
@@ -369,6 +379,7 @@
 .rr-surveillance-unified-container .rr-filters-unified,
 .rr-clinic-summary-unified-container .rr-filters-unified {
   margin-top: 16px;
+  margin-bottom: 16px;
 }
 
 .rr-clinic-summary-unified-container .rr-record-basis {
@@ -381,7 +392,7 @@
 
 .rr-pep-unified-container .rr-pep-tabs-bar,
 .rr-surveillance-unified-container .rr-surveillance-tabs-bar {
-  margin: 18px 0 16px;
+  margin: 0 0 16px;
 }
 
 .rr-surveillance-unified-container .rr-surveillance-metrics {

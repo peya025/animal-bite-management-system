@@ -151,10 +151,13 @@ class ClinicModuleConfigCharacterizationTest extends TestCase
 
         $data = $response->json();
         $this->assertIsArray($data['field_rules']);
-        $this->assertCount(41, $data['field_rules']);
+        $this->assertCount(44, $data['field_rules']);
         $this->assertEquals('optional', $data['field_rules']['blood_type']);
         $this->assertEquals('required', $data['field_rules']['address_municipality']);
         $this->assertEquals('required', $data['field_rules']['bite_date']);
+        $this->assertEquals('hidden', $data['field_rules']['rig_fee']);
+        $this->assertEquals('hidden', $data['field_rules']['anti_rabies_fee']);
+        $this->assertEquals('hidden', $data['field_rules']['additional_fees']);
 
         $this->assertDatabaseHas('clinic_module_configs', [
             'clinic_id' => $this->clinic->id,

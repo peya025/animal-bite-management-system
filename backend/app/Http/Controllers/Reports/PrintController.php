@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Reports;
 
 use App\Http\Controllers\Controller;
-
+use App\Http\Requests\Reports\CohortReportRequest;
+use App\Http\Requests\Reports\ExposureRegistryReportRequest;
+use App\Http\Requests\Reports\MonthlyReportRequest;
 use App\Models\Patient;
 use App\Services\Print\PrintDocumentService;
 use Illuminate\Contracts\View\View;
@@ -30,7 +32,7 @@ class PrintController extends Controller
      * REPORT 1 — Rabies Exposure Registry (Weekly)
      * GET /print/reports/exposure-registry
      */
-    public function exposureRegistry(Request $request): View
+    public function exposureRegistry(ExposureRegistryReportRequest $request): View
     {
         $data = $this->printDocumentService->getExposureRegistryData($request);
 
@@ -41,7 +43,7 @@ class PrintController extends Controller
      * REPORT 2 — ABTC Monthly Report
      * GET /print/reports/monthly
      */
-    public function monthlyReport(Request $request): View
+    public function monthlyReport(MonthlyReportRequest $request): View
     {
         $data = $this->printDocumentService->getMonthlyReportData($request);
 
@@ -52,10 +54,21 @@ class PrintController extends Controller
      * REPORT 3 — Cohort Report (Quarterly)
      * GET /print/reports/cohort
      */
-    public function cohortReport(Request $request): View
+    public function cohortReport(CohortReportRequest $request): View
     {
         $data = $this->printDocumentService->getCohortReportData($request);
 
         return view('prints.cohort-report', $data);
+    }
+
+    /**
+     * REPORT 4 — Bite Cases Summary A4 Meeting Pack (Executive Summary + Supporting Tables)
+     * GET /print/reports/bite-summary
+     */
+    public function biteSummaryMeetingPack(Request $request): View
+    {
+        $data = $this->printDocumentService->getBiteSummaryMeetingPackData($request);
+
+        return view('prints.bite-summary-meeting-pack', $data);
     }
 }

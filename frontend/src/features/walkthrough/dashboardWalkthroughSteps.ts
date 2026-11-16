@@ -891,12 +891,15 @@ export const TRIAGE_DOCTOR_DASHBOARD_STEPS: WalkthroughStep[] = [
 export function getDashboardStepsForRole(role?: string): WalkthroughStep[] {
   switch (role) {
     case 'admin':
+    case 'developer':
       return ADMIN_DASHBOARD_STEPS;
     case 'registration':
       return REGISTRATION_DASHBOARD_STEPS;
     case 'treatment':
+    case 'nurse':
       return TREATMENT_NURSE_DASHBOARD_STEPS;
     case 'triage':
+    case 'doctor':
       return TRIAGE_DOCTOR_DASHBOARD_STEPS;
     default:
       return ADMIN_DASHBOARD_STEPS;
@@ -912,6 +915,7 @@ export function getDashboardModuleInfoForRole(role?: string): {
 } {
   switch (role) {
     case 'admin':
+    case 'developer':
       return {
         name: 'Administrator Dashboard Tour',
         description:
@@ -924,12 +928,14 @@ export function getDashboardModuleInfoForRole(role?: string): {
           'Essential guide to patient registration counts, today’s queue flow, and intake schedules.',
       };
     case 'treatment':
+    case 'nurse':
       return {
         name: 'Treatment Nurse Dashboard Tour',
         description:
           'Clinical guide to pending doses, Station 1 & 2 queues, and vaccination monitoring.',
       };
     case 'triage':
+    case 'doctor':
       return {
         name: 'Triage Doctor Dashboard Tour',
         description:

@@ -321,6 +321,7 @@ class TreatmentRecordService
                 'episode_type' => 'pending_assessment',
                 'is_previously_vaccinated' => null,
                 'bite_date' => $validated['consultation_date'] ?? Carbon::today()->toDateString(),
+                ...(BiteIncident::supportsProvisionalBiteDateColumn() ? ['bite_date_is_provisional' => true] : []),
                 'bite_place' => $placeOfExposure,
                 'site_washed' => null,
                 'exposure_type' => 'unassessed',

@@ -236,7 +236,7 @@
                         <td>{{ $row['cat_3'] }}</td>
                         <td>{{ $row['cat_total'] }}</td>
                         <td>{{ $row['cat_percentage'] }}</td>
-                        <td>{{ $row['no_hr'] }}</td>
+                        <td>{{ $row['no_hr'] ?? '—' }}</td>
                         <td>{{ $row['tcv'] }}</td>
                         <td>{{ $row['hrig'] }}</td>
                         <td>{{ $row['erig'] }}</td>
@@ -268,7 +268,7 @@
                     <td>{{ $totals['cat_3'] }}</td>
                     <td>{{ $totals['cat_total'] }}</td>
                     <td>{{ $totals['cat_percentage'] }}</td>
-                    <td>{{ $totals['no_hr'] }}</td>
+                    <td>{{ $totals['no_hr'] ?? '—' }}</td>
                     <td>{{ $totals['tcv'] }}</td>
                     <td>{{ $totals['hrig'] }}</td>
                     <td>{{ $totals['erig'] }}</td>

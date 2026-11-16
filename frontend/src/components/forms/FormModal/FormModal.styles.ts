@@ -19,7 +19,7 @@ export const Overlay = styled('div')({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 1000,
+  zIndex: 1400,
   padding: '16px',
   animation: `${fadeIn} 0.2s ease`,
   boxSizing: 'border-box',

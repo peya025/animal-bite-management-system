@@ -4,6 +4,7 @@ namespace Tests\Feature\Print;
 
 use App\Models\Clinic;
 use App\Models\Patient;
+use App\Models\PatientAccount;
 use App\Models\Role;
 use App\Models\TreatmentRecord;
 use App\Models\User;
@@ -145,28 +146,105 @@ class PrintControllerCharacterizationTest extends TestCase
         $this->assertStringContainsString('COMPLETION RATE', $response->getContent());
     }
 
-    public function test_web_routes_render_html_with_clinic_id(): void
+    public function test_print_reports_reject_unauthenticated_requests(): void
     {
-        $resRegistry = $this->get('/print/reports/exposure-registry?clinic_id=' . $this->clinic->id . '&from=2024-07-01&to=2024-07-31');
-        $resRegistry->assertStatus(200);
-        $this->assertStringContainsString('Rabies Exposure Registry', $resRegistry->getContent());
+        $this->get('/print/reports/exposure-registry?from=2024-07-01&to=2024-07-31')->assertStatus(401);
+        $this->get('/print/reports/monthly?month=2024-07')->assertStatus(401);
+        $this->get('/print/reports/cohort?year=2024')->assertStatus(401);
 
-        $resMonthly = $this->get('/print/reports/monthly?clinic_id=' . $this->clinic->id . '&month=2024-07');
-        $resMonthly->assertStatus(200);
-        $this->assertStringContainsString('ABTC Monthly Report', $resMonthly->getContent());
+        $this->getJson('/api/print/reports/exposure-registry?from=2024-07-01&to=2024-07-31')->assertStatus(401);
+        $this->getJson('/api/print/reports/monthly?month=2024-07')->assertStatus(401);
+        $this->getJson('/api/print/reports/cohort?year=2024')->assertStatus(401);
+    }
 
-        $resCohort = $this->get('/print/reports/cohort?clinic_id=' . $this->clinic->id . '&year=2024');
-        $resCohort->assertStatus(200);
-        $this->assertStringContainsString('Cohort Report', $resCohort->getContent());
+    public function test_print_reports_reject_unassigned_cross_clinic_and_unauthorized_users(): void
+    {
+        $otherClinic = Clinic::create([
+            'name' => 'OTHER ABTC',
+            'municipality' => 'Villanueva',
+            'province' => 'Misamis Oriental',
+            'status' => 'active',
+        ]);
+
+        $unassignedUser = User::create([
+            'clinic_id' => null,
+            'name'      => 'Unassigned Staff',
+            'email'     => 'unassigned@tagoloan.gov.ph',
+            'password'  => bcrypt('password123'),
+            'role'      => 'admin',
+            'is_active' => true,
+        ]);
+
+        $inactiveUser = User::create([
+            'clinic_id' => $this->clinic->id,
+            'name'      => 'Inactive Staff',
+            'email'     => 'inactive@tagoloan.gov.ph',
+            'password'  => bcrypt('password123'),
+            'role'      => 'admin',
+            'is_active' => false,
+        ]);
+
+        $patientAccount = PatientAccount::create([
+            'name'      => 'Patient Account',
+            'email'     => 'patient@tagoloan.gov.ph',
+            'password'  => bcrypt('password123'),
+            'is_active' => true,
+        ]);
+
+        // Unassigned user cannot bypass with ?clinic_id=
+        Sanctum::actingAs($unassignedUser);
+        $this->get('/print/reports/monthly?month=2024-07&clinic_id=' . $this->clinic->id)->assertStatus(403);
+        $this->get('/api/print/reports/monthly?month=2024-07&clinic_id=' . $this->clinic->id)->assertStatus(403);
+
+        // Assigned staff cannot query another clinic via ?clinic_id=
+        Sanctum::actingAs($this->admin);
+        $this->get('/print/reports/exposure-registry?from=2024-07-01&to=2024-07-31&clinic_id=' . $otherClinic->id)->assertStatus(403);
+        $this->get('/api/print/reports/exposure-registry?from=2024-07-01&to=2024-07-31&clinic_id=' . $otherClinic->id)->assertStatus(403);
+
+        $token = $this->admin->createToken('cross-clinic')->plainTextToken;
+        $this->get('/print/reports/cohort?year=2024&token=' . $token . '&clinic_id=' . $otherClinic->id)->assertStatus(403);
+
+        // Inactive user is rejected
+        Sanctum::actingAs($inactiveUser);
+        $this->get('/print/reports/monthly?month=2024-07')->assertStatus(403);
+        $this->get('/api/print/reports/monthly?month=2024-07')->assertStatus(403);
+
+        // PatientAccount cannot access web print or API print endpoints
+        $this->app['auth']->forgetGuards();
+        $patientToken = $patientAccount->createToken('patient-mobile')->plainTextToken;
+        $this->get('/print/reports/monthly?month=2024-07&token=' . $patientToken)->assertStatus(401);
+
+        Sanctum::actingAs($patientAccount);
+        $this->get('/print/reports/monthly?month=2024-07')->assertStatus(401);
+        $this->getJson('/api/print/reports/monthly?month=2024-07')->assertStatus(403);
+    }
+
+    public function test_print_views_reject_invalid_filters_with_422(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $this->get('/print/reports/exposure-registry?from=2024-07-31&to=2024-07-01')->assertStatus(422);
+        $this->getJson('/api/print/reports/exposure-registry?from=2024-07-31&to=2024-07-01')->assertStatus(422);
+        $this->get('/print/reports/monthly?month=2024-13')->assertStatus(422);
+        $this->getJson('/api/print/reports/monthly?month=2024-13')->assertStatus(422);
+        $this->get('/print/reports/cohort?year=2024&category=INVALID')->assertStatus(422);
+        $this->getJson('/api/print/reports/cohort?year=2024&category=INVALID')->assertStatus(422);
     }
 
     public function test_print_views_authenticate_via_query_token(): void
     {
         $token = $this->admin->createToken('print-token')->plainTextToken;
 
-        $response = $this->get('/print/reports/monthly?month=2024-07&token=' . $token);
+        $resRegistry = $this->get('/print/reports/exposure-registry?from=2024-07-01&to=2024-07-31&token=' . $token);
+        $resRegistry->assertStatus(200);
+        $this->assertStringContainsString('Rabies Exposure Registry', $resRegistry->getContent());
 
+        $response = $this->get('/print/reports/monthly?month=2024-07&token=' . $token);
         $response->assertStatus(200);
         $this->assertStringContainsString('ABTC Monthly Report', $response->getContent());
+
+        $resCohort = $this->get('/print/reports/cohort?year=2024&token=' . $token);
+        $resCohort->assertStatus(200);
+        $this->assertStringContainsString('Cohort Report', $resCohort->getContent());
     }
 }

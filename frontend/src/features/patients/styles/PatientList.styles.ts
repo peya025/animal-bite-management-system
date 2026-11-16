@@ -25,7 +25,7 @@ export const PatientListRoot = styled('div')`
     padding: var(--spacing-md);
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 20px;
   }
   [data-theme='dark'] & .pm-main-panel,
   [data-theme='dark'] .pm-main-panel {

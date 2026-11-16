@@ -10,13 +10,14 @@ use App\Models\PatientInvitation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
+use Tests\ConfiguresTestEmail;
 use Tests\TestCase;
 
 class PatientInvitationCharacterizationTest extends TestCase
 {
+    use ConfiguresTestEmail;
     use RefreshDatabase;
 
     private Clinic $clinic;
@@ -28,9 +29,9 @@ class PatientInvitationCharacterizationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->configureTestEmail();
         config(['messaging.email_enabled' => true, 'messaging.test_mode' => false]);
         config(['mail.default' => 'smtp']);
-        Mail::shouldReceive('raw')->andReturnNull();
 
         $this->clinic = Clinic::create(['name' => 'Tagoloan ABTC']);
 
@@ -270,7 +271,7 @@ class PatientInvitationCharacterizationTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson([
-                'message' => 'Invitation code resent successfully via email.',
+                'message' => 'Invitation email sent successfully to pedro@patient.test.',
             ]);
 
         $this->assertNotEquals('old-token-12345678901234567890123456789012345678901234567890123456', $invitation->fresh()->token);

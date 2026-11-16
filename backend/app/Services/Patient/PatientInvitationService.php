@@ -2,15 +2,16 @@
 
 namespace App\Services\Patient;
 
+use App\Mail\ClinicEmail;
 use App\Models\Patient;
 use App\Models\PatientAccount;
 use App\Models\PatientAccountPatient;
 use App\Models\PatientInvitation;
 use App\Services\Messaging\InvitationDelivery;
+use App\Services\Messaging\SmtpEmailService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class PatientInvitationService
@@ -22,66 +23,66 @@ class PatientInvitationService
      */
     public function send(int $patientId, int $staffUserId): array
     {
-        $patient = Patient::findOrFail($patientId);
+        return DB::transaction(function () use ($patientId, $staffUserId) {
+            $patient = Patient::whereKey($patientId)->lockForUpdate()->firstOrFail();
 
-        if (! filter_var(trim((string) $patient->email), FILTER_VALIDATE_EMAIL)) {
+            if (! filter_var(trim((string) $patient->email), FILTER_VALIDATE_EMAIL)) {
+                return [
+                    'status' => 422,
+                    'data' => [
+                        'message' => 'Patient does not have a valid email address on record. Please update the patient email first.',
+                    ],
+                ];
+            }
+
+            $alreadyVerified = PatientAccountPatient::where('patient_id', $patient->patient_id)
+                ->where('status', 'verified')
+                ->exists();
+
+            if ($alreadyVerified) {
+                return [
+                    'status' => 422,
+                    'data' => [
+                        'message' => 'Patient already has an active verified portal account.',
+                    ],
+                ];
+            }
+
+            $token = Str::random(64);
+            $expiresAt = now()->addDays(7);
+
+            $invitation = PatientInvitation::create([
+                'clinic_id' => $patient->clinic_id,
+                'patient_id' => $patient->patient_id,
+                'invited_by' => $staffUserId,
+                'phone' => $patient->contact_number ?: null,
+                'recipient_email' => trim($patient->email),
+                'token' => $token,
+                'status' => 'pending',
+                'expires_at' => $expiresAt,
+            ]);
+
+            if (! $this->sendInvitationEmail($patient->email, $invitation->token, $patient)) {
+                $invitation->update(['status' => 'expired']);
+
+                return [
+                    'status' => 503,
+                    'data' => [
+                        'message' => 'Unable to send the invitation email. Please try again or contact the system administrator.',
+                    ],
+                ];
+            }
+
+            PatientInvitation::where('patient_id', $patientId)->where('id', '!=', $invitation->id)->where('status', 'pending')->update(['status' => 'expired']);
+
             return [
-                'status' => 422,
+                'status' => 201,
                 'data' => [
-                    'message' => 'Patient does not have a valid email address on record. Please update the patient email first.',
+                    'message' => 'Invitation email sent successfully to '.trim($patient->email).'.',
+                    'invitation' => $invitation->load(['patient', 'invitedBy']),
                 ],
             ];
-        }
-
-        $alreadyVerified = PatientAccountPatient::where('patient_id', $patient->patient_id)
-            ->where('status', 'verified')
-            ->exists();
-
-        if ($alreadyVerified) {
-            return [
-                'status' => 422,
-                'data' => [
-                    'message' => 'Patient already has an active verified portal account.',
-                ],
-            ];
-        }
-
-        // Expire previous pending invitations for this patient
-        PatientInvitation::where('patient_id', $patient->patient_id)
-            ->where('status', 'pending')
-            ->update(['status' => 'expired']);
-
-        $token = Str::random(64);
-        $expiresAt = now()->addDays(7);
-
-        $invitation = PatientInvitation::create([
-            'clinic_id' => $patient->clinic_id,
-            'patient_id' => $patient->patient_id,
-            'invited_by' => $staffUserId,
-            'phone' => $patient->contact_number ?: null,
-            'token' => $token,
-            'status' => 'pending',
-            'expires_at' => $expiresAt,
-        ]);
-
-        if (! $this->sendInvitationEmail($patient->email, $invitation->token, $patient)) {
-            $invitation->update(['status' => 'expired']);
-
-            return [
-                'status' => 503,
-                'data' => [
-                    'message' => 'Invitation email could not be sent. Check the email service configuration and try again.',
-                ],
-            ];
-        }
-
-        return [
-            'status' => 201,
-            'data' => [
-                'message' => 'Patient invitation sent successfully via email.',
-                'invitation' => $invitation->load(['patient', 'invitedBy']),
-            ],
-        ];
+        });
     }
 
     /**
@@ -92,65 +93,19 @@ class PatientInvitationService
      */
     public function bulkSend(array $patientIds, int $staffUserId): array
     {
-        $uniqueIds = array_unique($patientIds);
-        $sentCount = 0;
-        $skippedCount = 0;
+        $sent = 0;
         $errors = [];
-
-        $patients = Patient::whereIn('patient_id', $uniqueIds)->get();
-
-        foreach ($patients as $patient) {
-            if (! filter_var(trim((string) $patient->email), FILTER_VALIDATE_EMAIL)) {
-                $skippedCount++;
-                $errors[] = "Patient {$patient->first_name} {$patient->last_name} (#{$patient->patient_number}) has no valid email address.";
-
-                continue;
+        foreach (array_unique($patientIds) as $patientId) {
+            $result = $this->send((int) $patientId, $staffUserId);
+            if ($result['status'] === 201) {
+                $sent++;
+            } else {
+                $errors[] = $result['data']['message'];
             }
-
-            $alreadyVerified = PatientAccountPatient::where('patient_id', $patient->patient_id)
-                ->where('status', 'verified')
-                ->exists();
-
-            if ($alreadyVerified) {
-                $skippedCount++;
-                $errors[] = "Patient {$patient->first_name} {$patient->last_name} already has a verified portal account.";
-
-                continue;
-            }
-
-            PatientInvitation::where('patient_id', $patient->patient_id)
-                ->where('status', 'pending')
-                ->update(['status' => 'expired']);
-
-            $token = Str::random(64);
-            $expiresAt = now()->addDays(7);
-
-            $invitation = PatientInvitation::create([
-                'clinic_id' => $patient->clinic_id,
-                'patient_id' => $patient->patient_id,
-                'invited_by' => $staffUserId,
-                'phone' => $patient->contact_number ?: null,
-                'token' => $token,
-                'status' => 'pending',
-                'expires_at' => $expiresAt,
-            ]);
-
-            if (! $this->sendInvitationEmail($patient->email, $invitation->token, $patient)) {
-                $invitation->update(['status' => 'expired']);
-                $skippedCount++;
-                $errors[] = "Email could not be sent for patient #{$patient->patient_number}.";
-
-                continue;
-            }
-            $sentCount++;
         }
 
-        return [
-            'message' => "Successfully sent {$sentCount} portal invitation(s).".($skippedCount > 0 ? " ({$skippedCount} skipped due to invalid email, existing account, or email delivery failure)" : ''),
-            'sent_count' => $sentCount,
-            'skipped_count' => $skippedCount,
-            'errors' => $errors,
-        ];
+        return ['message' => "Sent {$sent} portal invitation(s).", 'sent_count' => $sent,
+            'skipped_count' => count($errors), 'errors' => $errors];
     }
 
     /**
@@ -158,38 +113,47 @@ class PatientInvitationService
      *
      * @return array{status: int, data: array<string, mixed>}
      */
-    public function activate(array $validated): array
+    public function activate(array $validated, bool $issueToken = true): array
     {
-        $invitation = PatientInvitation::where('token', $validated['token'])->first();
+        return DB::transaction(function () use ($validated, $issueToken) {
+            $candidate = PatientInvitation::forToken($validated['token'])->first();
+            if ($candidate) {
+                Patient::whereKey($candidate->patient_id)->lockForUpdate()->first();
+            }
+            $invitation = PatientInvitation::forToken($validated['token'])->lockForUpdate()->first();
 
-        if (! $invitation) {
-            return [
-                'status' => 422,
-                'data' => ['message' => 'Invalid or expired code. Please contact the clinic for a new invite.'],
-            ];
-        }
-
-        if ($invitation->expires_at->isPast() || $invitation->status !== 'pending') {
-            if ($invitation->status === 'pending') {
-                $invitation->update(['status' => 'expired']);
+            if (! $invitation) {
+                return [
+                    'status' => 422,
+                    'data' => ['message' => 'Invalid or expired code. Please contact the clinic for a new invite.'],
+                ];
             }
 
-            return [
-                'status' => 422,
-                'data' => ['message' => 'Invalid or expired code. Please contact the clinic for a new invite.'],
-            ];
-        }
+            if ($invitation->expires_at->isPast() || $invitation->status !== 'pending') {
+                if ($invitation->status === 'pending') {
+                    $invitation->update(['status' => 'expired']);
+                }
 
-        $patient = $invitation->patient;
+                return [
+                    'status' => 422,
+                    'data' => ['message' => 'Invalid or expired code. Please contact the clinic for a new invite.'],
+                ];
+            }
 
-        if (! $patient) {
-            return [
-                'status' => 404,
-                'data' => ['message' => 'Associated patient record not found.'],
-            ];
-        }
+            $patient = $invitation->patient;
 
-        return DB::transaction(function () use ($validated, $invitation, $patient) {
+            if (! $patient) {
+                return [
+                    'status' => 404,
+                    'data' => ['message' => 'Associated patient record not found.'],
+                ];
+            }
+
+            $patient = Patient::whereKey($patient->patient_id)->lockForUpdate()->firstOrFail();
+            $invitedEmail = $invitation->recipient_email ?: $patient->email;
+            if (strcasecmp(trim($invitedEmail), trim($validated['email'])) !== 0 || strcasecmp(trim($patient->email), trim($invitedEmail)) !== 0 || PatientAccountPatient::where('patient_id', $patient->patient_id)->where('status', 'verified')->exists() || PatientAccount::where('email', strtolower($validated['email']))->exists()) {
+                return ['status' => 422, 'data' => ['message' => 'Use the invited email address, or contact the clinic if an account already exists.']];
+            }
             $patientAccount = PatientAccount::create([
                 'name' => trim("{$patient->first_name} {$patient->last_name}"),
                 'email' => strtolower($validated['email']),
@@ -214,7 +178,7 @@ class PatientInvitationService
                 'accepted_at' => now(),
             ]);
 
-            $authToken = $patientAccount->createToken('mobile-app-patient')->plainTextToken;
+            $authToken = $issueToken ? $patientAccount->createToken('mobile-app-patient')->plainTextToken : null;
 
             return [
                 'status' => 200,
@@ -236,46 +200,55 @@ class PatientInvitationService
      */
     public function resend(int $id): array
     {
-        $invitation = PatientInvitation::findOrFail($id);
+        return DB::transaction(function () use ($id) {
+            $candidate = PatientInvitation::findOrFail($id);
+            Patient::whereKey($candidate->patient_id)->lockForUpdate()->firstOrFail();
+            $invitation = PatientInvitation::whereKey($id)->lockForUpdate()->firstOrFail();
 
-        if ($invitation->status === 'accepted') {
-            return [
-                'status' => 422,
-                'data' => ['message' => 'This invitation has already been accepted.'],
-            ];
-        }
+            if ($invitation->status === 'accepted') {
+                return [
+                    'status' => 422,
+                    'data' => ['message' => 'This invitation has already been accepted.'],
+                ];
+            }
 
-        $patient = $invitation->patient;
-        if (! $patient || ! filter_var(trim((string) $patient->email), FILTER_VALIDATE_EMAIL)) {
-            return [
-                'status' => 422,
-                'data' => ['message' => 'Please update the patient with a valid email address first.'],
-            ];
-        }
+            $patient = $invitation->patient;
+            if (! $patient || ! filter_var(trim((string) $patient->email), FILTER_VALIDATE_EMAIL)) {
+                return [
+                    'status' => 422,
+                    'data' => ['message' => 'Please update the patient with a valid email address first.'],
+                ];
+            }
 
-        $newToken = Str::random(64);
-        if (! $this->sendInvitationEmail($patient->email, $newToken, $patient)) {
+            if (PatientAccountPatient::where('patient_id', $patient->patient_id)->where('status', 'verified')->exists()) {
+                return ['status' => 422, 'data' => ['message' => 'Patient already has an active verified portal account.']];
+            }
+            $newToken = Str::random(64);
+            if (! $this->sendInvitationEmail($patient->email, $newToken, $patient)) {
+                return [
+                    'status' => 503,
+                    'data' => [
+                        'message' => 'Unable to send the invitation email. Please try again or contact the system administrator.',
+                    ],
+                ];
+            }
+
+            PatientInvitation::where('patient_id', $patient->patient_id)->where('id', '!=', $invitation->id)->where('status', 'pending')->update(['status' => 'expired']);
+            $invitation->update([
+                'token' => $newToken,
+                'recipient_email' => trim($patient->email),
+                'status' => 'pending',
+                'expires_at' => now()->addDays(7),
+            ]);
+
             return [
-                'status' => 503,
+                'status' => 200,
                 'data' => [
-                    'message' => 'Invitation email could not be sent. Check the email service configuration and try again.',
+                    'message' => 'Invitation email sent successfully to '.trim($patient->email).'.',
+                    'invitation' => $invitation,
                 ],
             ];
-        }
-
-        $invitation->update([
-            'token' => $newToken,
-            'status' => 'pending',
-            'expires_at' => now()->addDays(7),
-        ]);
-
-        return [
-            'status' => 200,
-            'data' => [
-                'message' => 'Invitation code resent successfully via email.',
-                'invitation' => $invitation,
-            ],
-        ];
+        });
     }
 
     /**
@@ -350,17 +323,16 @@ class PatientInvitationService
 
         try {
             return app(InvitationDelivery::class)->send((int) $patient->clinic_id, $email, 'patient_invitation', function () use ($email, $token, $patient) {
-                Mail::raw(
-                    "Hello {$patient->first_name},\n\n".
-                    "You have been invited to join ABTCare, the Animal Bite Treatment Center patient app.\n\n".
-                    "Your activation code is:\n{$token}\n\n".
-                    "Open ABTCare and select account activation. Paste this code, enter your email, and create a password. This code expires in 7 days.\n\n".
-                    "If you do not have the app, ask your clinic for the installation link. Do not share this code with anyone.\n\n".
-                    "Thank you,\nAnimal Bite Treatment Center",
-                    function ($message) use ($email) {
-                        $message->to($email)->subject('ABTCare - Patient Portal Invitation');
-                    }
-                );
+                return app(SmtpEmailService::class)->send($email, new ClinicEmail(
+                    'Activate Your Tagoloan ABTC Patient Portal Account', [
+                        "Hello {$patient->first_name} {$patient->last_name},",
+                        'You have been invited to activate your Patient Portal account for the Tagoloan Animal Bite Treatment Center.',
+                        'Access upcoming schedules, appointment information, vaccination history, your digital card, profile and notifications in the patient app.',
+                        'Open ABTCare, select account activation, paste the code below and create your password using your registered email address.',
+                        'This invitation is valid for seven days. Do not share this code.',
+                        'If you did not expect this invitation, please contact the clinic.',
+                    ], rtrim(config('app.url'), '/').'/patient-portal/activate#'.$token, 'Activate Patient Portal', activationCode: $token
+                ));
             });
         } catch (\Exception $e) {
             Log::error('Portal invitation email failed.', [

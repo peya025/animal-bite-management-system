@@ -3,41 +3,21 @@
 namespace App\Mail;
 
 use App\Models\StaffInvitation;
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Content;
-use Illuminate\Mail\Mailables\Envelope;
-use Illuminate\Queue\SerializesModels;
 
-class StaffInvitationMail extends Mailable
+class StaffInvitationMail extends ClinicEmail
 {
-    use Queueable, SerializesModels;
-
-    public StaffInvitation $invitation;
     public string $invitationLink;
 
-    public function __construct(StaffInvitation $invitation)
+    public function __construct(public StaffInvitation $invitation)
     {
-        $this->invitation = $invitation;
-        $this->invitationLink = config('app.frontend_url') . '/accept-invitation/' . $invitation->token;
-    }
-
-    public function envelope(): Envelope
-    {
-        return new Envelope(
-            subject: 'Staff Invitation - ' . $this->invitation->clinic->name,
-        );
-    }
-
-    public function content(): Content
-    {
-        return new Content(
-            view: 'emails.staff-invitation',
-        );
-    }
-
-    public function attachments(): array
-    {
-        return [];
+        $this->invitationLink = rtrim(config('app.frontend_url'), '/').'/accept-invitation/'.$invitation->token;
+        parent::__construct('Invitation to Join Tagoloan ABTC', [
+            'Hello,',
+            'You have been invited to join the Tagoloan Animal Bite Treatment Center Management System.',
+            'Your assigned role: '.ucwords(str_replace('_', ' ', $invitation->workstation_role ?: $invitation->role)),
+            'Activate your account and create your password using the link below.',
+            'This invitation will expire on '.$invitation->expires_at->format('F j, Y g:i A T').'.',
+            'If you did not expect this invitation, you may ignore this email.',
+        ], $this->invitationLink, 'Activate Account');
     }
 }

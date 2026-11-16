@@ -2,6 +2,8 @@
 
 Date: 2026-11-13
 
+Follow-up SMTP audit and local repair (2026-11-14): [findings, implementation and verification](smtp_email_audit_and_implementation.md).
+
 Status: Implementation authorized by the user and completed locally on 2026-11-13. Live enablement remains pending. See [implementation findings and deployment runbook](sms_gateway_and_email_integration_implementation.md).
 
 ## Objective

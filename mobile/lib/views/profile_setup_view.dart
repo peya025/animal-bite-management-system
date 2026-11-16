@@ -88,6 +88,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
   final _indigenousTribe = TextEditingController();
   final _otherMembershipCustomName = TextEditingController();
   final _otherMembershipCustomId = TextEditingController();
+  final _scrollController = ScrollController();
 
   int _currentStep = 0; // 0: Step 1, 1: Step 2, 2: Step 3
 
@@ -136,6 +137,53 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
       _autoFillFromAccount();
     }
     _loadMunicipalities();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _firstName.dispose();
+    _middleName.dispose();
+    _lastName.dispose();
+    _suffix.dispose();
+    _birthDate.dispose();
+    _contactNumber.dispose();
+    _email.dispose();
+    _emergencyContactName.dispose();
+    _emergencyContactNumber.dispose();
+    _motherMaidenName.dispose();
+    _spouseName.dispose();
+    _purok.dispose();
+    _municipalityText.dispose();
+    _barangayText.dispose();
+    _philhealthNo.dispose();
+    _seniorCitizenId.dispose();
+    _pwdId.dispose();
+    _indigenousTribe.dispose();
+    _otherMembershipCustomName.dispose();
+    _otherMembershipCustomId.dispose();
+    super.dispose();
+  }
+
+  void _scrollToTop() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _setError(String message) {
+    setState(() {
+      _isLoading = false;
+      _error = message;
+    });
+    _scrollToTop();
   }
 
   Future<void> _autoFillFromAccount() async {
@@ -456,59 +504,67 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
       // Validate Step 1: Basic info
       final fnError = AppValidators.name(_firstName.text, 'First name');
       if (fnError != null) {
-        setState(() => _error = fnError);
+        _setError(fnError);
         return;
       }
       final lnError = AppValidators.name(_lastName.text, 'Last name');
       if (lnError != null) {
-        setState(() => _error = lnError);
+        _setError(lnError);
         return;
       }
       if (_gender == null) {
-        setState(() => _error = 'Please select a gender.');
+        _setError('Please select a gender.');
         return;
       }
       final dobError = AppValidators.dateOfBirth(_selectedBirthDate, required: false);
       if (dobError != null) {
-        setState(() => _error = dobError);
+        _setError(dobError);
         return;
       }
-      setState(() => _currentStep = 1);
+      setState(() {
+        _error = null;
+        _currentStep = 1;
+      });
+      _scrollToTop();
     } else if (_currentStep == 1) {
       // Validate Step 2: Address & Contact
       if (_useManualAddressFields) {
         if (_municipalityText.text.trim().isEmpty ||
             _barangayText.text.trim().isEmpty) {
-          setState(() => _error = 'Please enter municipality and barangay.');
+          _setError('Please enter municipality and barangay.');
           return;
         }
       } else {
         if (_selectedMunicipalityCode == null ||
             _selectedBarangayCode == null) {
-          setState(() => _error = 'Please select municipality and barangay.');
+          _setError('Please select municipality and barangay.');
           return;
         }
       }
 
       final contactError = AppValidators.phMobile(_contactNumber.text, required: false);
       if (contactError != null) {
-        setState(() => _error = contactError);
+        _setError(contactError);
         return;
       }
 
       final emailError = AppValidators.email(_email.text, required: false);
       if (emailError != null) {
-        setState(() => _error = emailError);
+        _setError(emailError);
         return;
       }
 
       final emgContactError = AppValidators.phMobile(_emergencyContactNumber.text, required: false);
       if (emgContactError != null) {
-        setState(() => _error = 'Emergency contact: $emgContactError');
+        _setError('Emergency contact: $emgContactError');
         return;
       }
 
-      setState(() => _currentStep = 2);
+      setState(() {
+        _error = null;
+        _currentStep = 2;
+      });
+      _scrollToTop();
     }
   }
 
@@ -518,6 +574,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         _error = null;
         _currentStep--;
       });
+      _scrollToTop();
     } else {
       Navigator.of(context).maybePop();
     }
@@ -526,20 +583,44 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
   Future<void> _save() async {
     if (_isLoading) return;
 
-    if (!_formKey.currentState!.validate()) {
-      setState(() => _error = 'Please resolve highlighted form errors.');
+    final invalid = _formKey.currentState!.validateGranularly();
+    if (invalid.isNotEmpty) {
+      _setError('Please resolve highlighted form errors.');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final fields = invalid.where((field) => field.mounted).toList();
+        fields.sort((a, b) {
+          final aBox = a.context.findRenderObject() as RenderBox?;
+          final bBox = b.context.findRenderObject() as RenderBox?;
+          if (aBox == null || bBox == null) return 0;
+          return aBox
+              .localToGlobal(Offset.zero)
+              .dy
+              .compareTo(bBox.localToGlobal(Offset.zero).dy);
+        });
+        if (fields.isNotEmpty) {
+          Scrollable.ensureVisible(
+            fields.first.context,
+            alignment: 0.15,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        } else {
+          _scrollToTop();
+        }
+      });
       return;
     }
 
     if (_gender == null) {
-      setState(() => _error = 'Gender is required.');
+      _setError('Gender is required.');
       return;
     }
 
     if (_philhealthMember == 'yes') {
       final phError = AppValidators.philHealth(_philhealthNo.text, isMember: true);
       if (phError != null) {
-        setState(() => _error = phError);
+        _setError(phError);
         return;
       }
     }
@@ -551,32 +632,21 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
 
     try {
       final emailValue = _email.text.trim();
-      final emailPattern = RegExp("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+\$");
+      final emailPattern = RegExp(r"^[^@\s]+@[^@\s]+\.[^@\s]+$");
       if (emailValue.isNotEmpty && !emailPattern.hasMatch(emailValue)) {
-        setState(() {
-          _isLoading = false;
-          _error = 'Please enter a valid email address.';
-        });
+        _setError('Please enter a valid email address.');
         return;
       }
 
       if (_philhealthNo.text.trim().isNotEmpty &&
           _philhealthNo.text.replaceAll(RegExp(r'\D'), '').length != 12) {
-        setState(() {
-          _isLoading = false;
-          _error =
-              'PhilHealth number must contain exactly 12 digits (XX-XXXXXXXXX-X).';
-        });
+        _setError('PhilHealth number must contain exactly 12 digits (XX-XXXXXXXXX-X).');
         return;
       }
 
       final memberships = _buildMembershipPayload();
       if (_hasMembership == 'yes' && memberships.isEmpty) {
-        setState(() {
-          _isLoading = false;
-          _error =
-              'Please select at least one membership or government program.';
-        });
+        _setError('Please select at least one membership or government program.');
         return;
       }
 
@@ -666,7 +736,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         context,
       ).pushNamedAndRemoveUntil(AppRoutes.menu, (route) => false);
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) _setError(error.toString());
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -689,6 +759,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
               child: SingleChildScrollView(
+                controller: _scrollController,
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 child: Form(
                   key: _formKey,
@@ -1441,14 +1512,17 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               percent,
               style: const TextStyle(
@@ -1521,12 +1595,14 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
             children: [
               Icon(icon, size: 18, color: AppColors.primary),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF111827),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111827),
+                  ),
                 ),
               ),
             ],
@@ -1684,6 +1760,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         children: [
           _sentenceLabel(label, required: required),
           DropdownButtonFormField<T>(
+            isExpanded: true,
             initialValue: selectedValue,
             hint: hint != null
                 ? Text(

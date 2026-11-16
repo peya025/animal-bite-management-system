@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Appointment;
+use App\Models\BiteIncidentIntake;
 use App\Models\Clinic;
 use App\Models\Patient;
 use App\Models\PatientAccount;
@@ -23,6 +25,11 @@ class MobilePatientWorkflowTest extends TestCase
             'email'    => fake()->unique()->safeEmail(),
             'password' => 'password123',
         ]);
+    }
+
+    private function clinic(): Clinic
+    {
+        return Clinic::firstOrCreate(['name' => 'Main Clinic']);
     }
 
     private function patientPayload(Clinic $clinic, string $relationship = 'self'): array
@@ -373,6 +380,11 @@ class MobilePatientWorkflowTest extends TestCase
             'visit_type' => 'new_case',
             'status' => 'waiting',
         ]);
+        $this->assertDatabaseHas('treatment_records', [
+            'patient_id' => $patient->patient_id,
+            'dose_number' => null,
+            'status' => 'scheduled',
+        ]);
 
         $this->getJson("/api/tagoloan-treatment-cards/patient/{$patient->patient_id}")
             ->assertOk()
@@ -384,6 +396,64 @@ class MobilePatientWorkflowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('already_checked_in', true);
         $this->assertDatabaseCount('queues', 1);
+    }
+
+    public function test_mobile_bite_intake_check_in_stores_clinic_measured_vitals_and_referral_payload(): void
+    {
+        $clinic = Clinic::create(['name' => 'Vitals Test Clinic']);
+        $account = $this->account();
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'first_name' => 'Maria',
+            'last_name' => 'Santos',
+            'birth_date' => '1995-05-15',
+            'gender' => 'Female',
+            'contact_number' => '09123456789',
+        ]);
+        $patient->accounts()->attach($account->id, ['relationship' => 'self', 'status' => 'verified']);
+
+        $staff = $this->registrationStaff($clinic);
+
+        Sanctum::actingAs($account);
+        $booking = $this->postJson('/api/mobile/appointments', [
+            'patient_id' => $patient->patient_id,
+            'appointment_type' => 'consultation',
+            'scheduled_date' => Carbon::today('Asia/Manila')->toDateString(),
+            'intake' => array_merge($this->intakePayload(), [
+                'referral_facility' => 'Tagoloan Health Station',
+                'referral_provider_name' => 'Nurse Joy',
+                'referral_blood_pressure' => '110/70',
+            ]),
+        ])->assertCreated();
+
+        $intakeId = $booking->json('bite_intake.intake_id');
+
+        // Check in with updated clinic measured vitals
+        Sanctum::actingAs($staff);
+        $this->postJson("/api/bite-intakes/{$intakeId}/check-in", [
+            'blood_pressure' => '120/80',
+            'temperature' => 36.6,
+            'height' => 165,
+            'weight' => 58,
+            'attending_provider' => 'Dr. Garcia',
+            'referred_by' => 'Tagoloan Health Station (Verified)',
+            'mode_of_transaction' => 'referral',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('consultation_record.blood_pressure', '120/80')
+        ->assertJsonPath('consultation_record.temperature', 36.6)
+        ->assertJsonPath('consultation_record.weight', 58)
+        ->assertJsonPath('consultation_record.attending_provider', 'Dr. Garcia');
+
+        $this->assertDatabaseHas('treatment_records', [
+            'patient_id' => $patient->patient_id,
+            'blood_pressure' => '120/80',
+            'temperature' => '36.6',
+            'weight' => '58',
+            'attending_provider' => 'Dr. Garcia',
+            'referred_by' => 'Tagoloan Health Station (Verified)',
+            'mode_of_transaction' => 'referral',
+        ]);
     }
 
     public function test_booking_accepts_the_current_manila_date_at_the_utc_day_boundary(): void
@@ -595,5 +665,280 @@ class MobilePatientWorkflowTest extends TestCase
         $this->withHeader('Authorization', "Bearer {$token2}")
             ->getJson('/api/mobile/me')
             ->assertUnauthorized();
+    }
+
+    public function test_mobile_find_existing_chart_by_patient_number_or_demographics(): void
+    {
+        $clinic = $this->clinic();
+        $account = $this->account();
+
+        $walkinPatient = Patient::create([
+            'clinic_id'           => $clinic->id,
+            'first_name'          => 'Hazel Ann',
+            'last_name'           => 'Nandong',
+            'date_of_birth'       => '1995-05-20',
+            'gender'              => 'female',
+            'registration_source' => 'staff',
+        ]);
+
+        $token = $account->createToken('test')->plainTextToken;
+
+        // 1. Search by patient number
+        $res1 = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/mobile/patients/find-existing', [
+                'patient_number' => $walkinPatient->patient_number,
+            ]);
+        $res1->assertOk()
+            ->assertJsonPath('found', true)
+            ->assertJsonPath('patient.patient_id', $walkinPatient->patient_id)
+            ->assertJsonPath('patient.patient_number', $walkinPatient->patient_number);
+
+        // 2. Search by demographics (first_name, last_name, date_of_birth)
+        $res2 = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/mobile/patients/find-existing', [
+                'first_name'    => 'hazel ann',
+                'last_name'     => 'nandong',
+                'date_of_birth' => '1995-05-20',
+            ]);
+        $res2->assertOk()
+            ->assertJsonPath('found', true)
+            ->assertJsonPath('patient.patient_id', $walkinPatient->patient_id);
+
+        // 3. Search non-existent
+        $res3 = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/mobile/patients/find-existing', [
+                'patient_number' => 'NON-EXISTENT-9999',
+            ]);
+        $res3->assertOk()
+            ->assertJsonPath('found', false);
+    }
+
+    public function test_mobile_profile_creation_links_to_existing_walkin_chart_preventing_duplicate(): void
+    {
+        $clinic = $this->clinic();
+        $account = $this->account();
+
+        $walkinPatient = Patient::create([
+            'clinic_id'           => $clinic->id,
+            'first_name'          => 'Hazel Ann',
+            'last_name'           => 'Nandong',
+            'date_of_birth'       => '1995-05-20',
+            'gender'              => 'female',
+            'registration_source' => 'staff',
+        ]);
+
+        $initialPatientCount = Patient::count();
+        $token = $account->createToken('test')->plainTextToken;
+
+        $res = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/mobile/patients', [
+                'clinic_id'      => $clinic->id,
+                'relationship'   => 'self',
+                'first_name'     => 'Hazel Ann',
+                'last_name'      => 'Nandong',
+                'date_of_birth'  => '1995-05-20',
+                'gender'         => 'female',
+                'contact_number' => '09171234567',
+            ]);
+
+        $res->assertStatus(201)
+            ->assertJsonPath('patient_id', $walkinPatient->patient_id)
+            ->assertJsonPath('patient_number', $walkinPatient->patient_number);
+
+        // Verify NO duplicate row was created
+        $this->assertEquals($initialPatientCount, Patient::count());
+
+        // Verify account is linked to existing patient
+        $this->assertDatabaseHas('patient_account_patient', [
+            'patient_account_id' => $account->id,
+            'patient_id'         => $walkinPatient->patient_id,
+            'status'             => 'verified',
+        ]);
+    }
+
+    public function test_mobile_profile_creation_rejects_if_chart_already_claimed_by_verified_account(): void
+    {
+        $clinic = $this->clinic();
+        $account1 = $this->account();
+        $account2 = PatientAccount::create([
+            'name'      => 'Other User',
+            'email'     => 'other@example.com',
+            'phone'     => '09181112233',
+            'password'  => bcrypt('password123'),
+            'is_active' => true,
+        ]);
+
+        $walkinPatient = Patient::create([
+            'clinic_id'           => $clinic->id,
+            'first_name'          => 'Hazel Ann',
+            'last_name'           => 'Nandong',
+            'date_of_birth'       => '1995-05-20',
+            'gender'              => 'female',
+            'registration_source' => 'staff',
+        ]);
+
+        // Account 1 has verified claim
+        $account1->patients()->attach($walkinPatient->patient_id, [
+            'relationship' => 'self',
+            'status'       => 'verified',
+        ]);
+
+        $token2 = $account2->createToken('test')->plainTextToken;
+
+        // Account 2 attempts to claim
+        $res = $this->withHeader('Authorization', "Bearer {$token2}")
+            ->postJson('/api/mobile/patients', [
+                'clinic_id'      => $clinic->id,
+                'relationship'   => 'self',
+                'first_name'     => 'Hazel Ann',
+                'last_name'      => 'Nandong',
+                'date_of_birth'  => '1995-05-20',
+                'gender'         => 'female',
+            ]);
+
+        $res->assertStatus(422)
+            ->assertJsonValidationErrors(['first_name']);
+    }
+
+    public function test_staff_can_merge_online_booking_into_existing_walkin_chart_and_check_in(): void
+    {
+        $clinic = $this->clinic();
+        $staff = $this->registrationStaff($clinic);
+        $account = $this->account();
+
+        // 1. Existing walk-in canonical patient record with prior history
+        $canonicalPatient = Patient::create([
+            'clinic_id'           => $clinic->id,
+            'first_name'          => 'Hazel Ann',
+            'last_name'           => 'Nandong',
+            'date_of_birth'       => '1995-05-20',
+            'gender'              => 'female',
+            'registration_source' => 'staff',
+        ]);
+
+        // 2. Mobile patient registers separately (detached placeholder)
+        $mobilePatient = Patient::create([
+            'clinic_id'           => $clinic->id,
+            'first_name'          => 'Hazel Ann',
+            'last_name'           => 'Nandong',
+            'date_of_birth'       => '1995-05-20',
+            'gender'              => 'female',
+            'registration_source' => 'mobile',
+        ]);
+        $account->patients()->attach($mobilePatient->patient_id, [
+            'relationship' => 'self',
+            'status'       => 'pending',
+        ]);
+
+        // 3. Mobile patient books consultation appointment with bite intake
+        $appointment = Appointment::create([
+            'clinic_id'            => $clinic->id,
+            'patient_id'           => $mobilePatient->patient_id,
+            'appointment_type'     => 'consultation',
+            'scheduled_date'       => now()->toDateString(),
+            'appointment_date'     => now()->toDateString(),
+            'status'               => 'scheduled',
+            'booked_by_account_id' => $account->id,
+        ]);
+
+        $intake = BiteIncidentIntake::create([
+            'clinic_id'          => $clinic->id,
+            'patient_id'         => $mobilePatient->patient_id,
+            'patient_account_id' => $account->id,
+            'appointment_id'     => $appointment->appointment_id,
+            'status'             => 'pending',
+            'submitted_at'       => now(),
+            'site_washed'        => true,
+            'exposure_type'      => 'transdermal_bite',
+            'animal_type'        => 'dog',
+            'animal_status'      => 'owned',
+            'bite_date'          => now()->toDateString(),
+            'bite_place'         => 'Poblacion',
+        ]);
+
+        // 4. Staff at reception merges mobile booking into canonical chart & checks in with vitals
+        Sanctum::actingAs($staff);
+
+        $res = $this->postJson("/api/patients/{$mobilePatient->patient_id}/merge-online-booking", [
+            'canonical_patient_id' => $canonicalPatient->patient_id,
+            'consultation_date'    => now()->toDateString(),
+            'consultation_time'    => '09:30',
+            'blood_pressure'       => '120/80',
+            'temperature'          => 36.6,
+            'weight'               => 55.0,
+            'height'               => 160.0,
+            'attending_provider'   => 'Dr. Santos',
+            'mode_of_transaction'  => 'online',
+        ]);
+
+        $res->assertOk()
+            ->assertJsonPath('patient.patient_id', $canonicalPatient->patient_id)
+            ->assertJsonPath('check_in.queue.patient_id', $canonicalPatient->patient_id);
+
+        // Mobile placeholder patient row was safely soft-deleted/archived
+        $this->assertSoftDeleted('patients', ['patient_id' => $mobilePatient->patient_id]);
+
+        // Appointment and Intake reassigned to canonical patient
+        $this->assertDatabaseHas('appointments', [
+            'appointment_id' => $appointment->appointment_id,
+            'patient_id'     => $canonicalPatient->patient_id,
+        ]);
+        $this->assertDatabaseHas('bite_incident_intakes', [
+            'intake_id'   => $intake->intake_id,
+            'patient_id'  => $canonicalPatient->patient_id,
+            'status'      => 'converted',
+        ]);
+
+        // Patient account linked to canonical chart with verified status
+        $this->assertDatabaseHas('patient_account_patient', [
+            'patient_account_id' => $account->id,
+            'patient_id'         => $canonicalPatient->patient_id,
+            'status'             => 'verified',
+        ]);
+
+        // Treatment record created with vitals for canonical patient
+        $this->assertDatabaseHas('treatment_records', [
+            'patient_id'     => $canonicalPatient->patient_id,
+            'blood_pressure' => '120/80',
+            'temperature'    => 36.6,
+        ]);
+
+        // Doctor queue ticket created for canonical patient
+        $this->assertDatabaseHas('queues', [
+            'patient_id' => $canonicalPatient->patient_id,
+            'status'     => 'waiting',
+        ]);
+    }
+
+    public function test_patient_number_generation_skips_soft_deleted_numbers_without_collision(): void
+    {
+        $clinic = Clinic::create(['name' => 'Number Gen Clinic']);
+
+        $p1 = Patient::create([
+            'clinic_id'  => $clinic->id,
+            'first_name' => 'First',
+            'last_name'  => 'Patient',
+            'gender'     => 'Male',
+        ]);
+
+        $firstNum = $p1->patient_number;
+
+        // Soft delete the first patient
+        $p1->delete();
+
+        // Create a second patient: must not collide with the soft-deleted patient's number
+        $p2 = Patient::create([
+            'clinic_id'  => $clinic->id,
+            'first_name' => 'Second',
+            'last_name'  => 'Patient',
+            'gender'     => 'Female',
+        ]);
+
+        $this->assertNotEquals($firstNum, $p2->patient_number);
+        $this->assertDatabaseHas('patients', [
+            'patient_id'     => $p2->patient_id,
+            'patient_number' => $p2->patient_number,
+            'deleted_at'     => null,
+        ]);
     }
 }

@@ -55,7 +55,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('referral vitals are required only while referral is enabled', (
+  testWidgets('referral facility is required when referral is enabled but vitals are optional', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(500, 1200);
@@ -69,6 +69,7 @@ void main() {
     await tapVisible(tester, find.text('Upper extremities (arm or hand)'));
     await tapVisible(tester, find.byType(Switch));
     await tapVisible(tester, find.text('Next: Animal details'));
+    expect(find.text('Please enter or select the referring health facility.'), findsOneWidget);
     for (final field in [
       'Systolic',
       'Diastolic',
@@ -77,10 +78,15 @@ void main() {
       'Weight',
       'Attending provider',
     ]) {
-      expect(find.text('$field is required.'), findsOneWidget);
+      expect(find.text('$field is required.'), findsNothing);
     }
-    expect(find.text('Step 2 of 5 — Incident details'), findsOneWidget);
-    await tapVisible(tester, find.byType(Switch));
+    await tester.enterText(
+      find.widgetWithText(
+        TextFormField,
+        'e.g. Poblacion Barangay Health Station',
+      ),
+      'Poblacion Barangay Health Station',
+    );
     await tapVisible(tester, find.text('Next: Animal details'));
     expect(find.text('Step 3 of 5 — Animal details'), findsOneWidget);
   });

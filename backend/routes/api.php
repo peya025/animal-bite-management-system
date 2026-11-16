@@ -31,9 +31,17 @@ use App\Http\Controllers\Operations\VaccinationJourneyController;
 use App\Http\Controllers\Operations\VaccinationRecordController;
 use App\Http\Controllers\Reports\PrintController;
 use App\Http\Controllers\Reports\ReportController;
+use App\Http\Controllers\Auth\PatientInvitationController;
+use App\Http\Controllers\Auth\StaffSignatureController;
+use App\Http\Controllers\Mobile\MobileHistoryController;
+use App\Http\Controllers\Reports\RegistrationReportController;
+use App\Http\Controllers\Settings\AnnouncementController;
 use App\Http\Controllers\Settings\LandingPageSettingsController;
 use App\Http\Controllers\Settings\NotificationController;
 use App\Http\Controllers\Support\PublicStorageController;
+use App\Http\Middleware\EnsureStaffAccount;
+use App\Models\Clinic;
+use App\Services\Messaging\DeliveryPolicy;
 use Illuminate\Support\Facades\Route;
 
 // Public media / storage fallback route (works without symlink)
@@ -139,6 +147,7 @@ Route::prefix('mobile')->group(function () {
         Route::post('/logout', [PatientAccountAuthController::class, 'logout']);
 
         Route::get('/patients', [PatientProfileController::class, 'index']);
+        Route::post('/patients/find-existing', [PatientProfileController::class, 'findExisting']);
         Route::post('/patients', [PatientProfileController::class, 'store']);
         Route::patch('/patients/{patient}', [PatientProfileController::class, 'update']);
         Route::get('/patients/{patient}/vaccination-card', [MobileVaccinationCardController::class, 'show']);
@@ -160,15 +169,6 @@ Route::prefix('mobile')->group(function () {
         Route::patch('/notifications/{notification}/read', [MobileNotificationController::class, 'markAsRead']);
     });
 });
-
-use App\Http\Controllers\Auth\PatientInvitationController;
-use App\Http\Controllers\Auth\StaffSignatureController;
-use App\Http\Controllers\Mobile\MobileHistoryController;
-use App\Http\Controllers\Reports\RegistrationReportController;
-use App\Http\Controllers\Settings\AnnouncementController;
-use App\Http\Middleware\EnsureStaffAccount;
-use App\Models\Clinic;
-use App\Services\Messaging\DeliveryPolicy;
 
 // Mobile Patient Invitation Activation (public, token-based)
 Route::post('/patient-invitations/activate', [PatientInvitationController::class, 'activate'])->middleware('throttle:invite-activation');
@@ -330,6 +330,10 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
 
         // Registration Staff check-in for returning patients who missed initial triage
         Route::post('/{id}/check-in', [PatientController::class, 'checkIn'])
+            ->middleware('role:admin,registration,developer');
+
+        // Registration Staff merge online booking into existing clinic chart
+        Route::post('/{id}/merge-online-booking', [PatientController::class, 'mergeOnlineBooking'])
             ->middleware('role:admin,registration,developer');
 
         // Registration Staff check-in to Nurse queue for patients not attended to within 1 day

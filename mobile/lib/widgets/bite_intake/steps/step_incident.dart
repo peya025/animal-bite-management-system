@@ -622,7 +622,7 @@ class StepIncident extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Required when referred — copy these values from the referral form. The doctor will re-check them onsite.',
+                    'Optional — copy these values if available on the referral form. The clinic will record or re-check them onsite.',
                     style: TextStyle(
                       fontSize: 11.5,
                       color: AppColors.gray600,
@@ -638,7 +638,7 @@ class StepIncident extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 4,
                     children: [
-                      const IntakeFieldLabel('Blood Pressure (mmHg) *'),
+                      const IntakeFieldLabel('Blood Pressure (mmHg)'),
                       ListenableBuilder(
                         listenable: Listenable.merge([
                           referralSystolicController,
@@ -656,9 +656,13 @@ class StepIncident extends StatelessWidget {
                       Expanded(
                         child: TextFormField(
                           controller: referralSystolicController,
-                          validator: (v) => v == null || v.trim().isEmpty
-                              ? 'Systolic is required.'
-                              : null,
+                          validator: (v) {
+                            final dia = referralDiastolicController.text.trim();
+                            if ((v == null || v.trim().isEmpty) && dia.isNotEmpty) {
+                              return 'Systolic is required when diastolic is entered.';
+                            }
+                            return null;
+                          },
                           enabled: !isSubmitting,
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.center,
@@ -682,9 +686,13 @@ class StepIncident extends StatelessWidget {
                       Expanded(
                         child: TextFormField(
                           controller: referralDiastolicController,
-                          validator: (v) => v == null || v.trim().isEmpty
-                              ? 'Diastolic is required.'
-                              : null,
+                          validator: (v) {
+                            final sys = referralSystolicController.text.trim();
+                            if ((v == null || v.trim().isEmpty) && sys.isNotEmpty) {
+                              return 'Diastolic is required when systolic is entered.';
+                            }
+                            return null;
+                          },
                           enabled: !isSubmitting,
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.center,
@@ -705,7 +713,7 @@ class StepIncident extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 4,
                     children: [
-                      const IntakeFieldLabel('Temperature (°C) *'),
+                      const IntakeFieldLabel('Temperature (°C)'),
                       ListenableBuilder(
                         listenable: referralTemperatureController,
                         builder: (context, _) => TempStatusBadge(
@@ -716,9 +724,14 @@ class StepIncident extends StatelessWidget {
                   ),
                   TextFormField(
                     controller: referralTemperatureController,
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? 'Temperature is required.'
-                        : null,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return null;
+                      final temp = double.tryParse(v.trim());
+                      if (temp == null || temp < 30 || temp > 45) {
+                        return 'Please enter a valid temperature between 30 and 45 °C.';
+                      }
+                      return null;
+                    },
                     enabled: !isSubmitting,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
@@ -734,12 +747,17 @@ class StepIncident extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const IntakeFieldLabel('Height (cm) *'),
+                            const IntakeFieldLabel('Height (cm)'),
                             TextFormField(
                               controller: referralHeightController,
-                              validator: (v) => v == null || v.trim().isEmpty
-                                  ? 'Height is required.'
-                                  : null,
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return null;
+                                final val = double.tryParse(v.trim());
+                                if (val == null || val <= 0) {
+                                  return 'Please enter a valid height.';
+                                }
+                                return null;
+                              },
                               enabled: !isSubmitting,
                               keyboardType: TextInputType.number,
                               decoration: const InputDecoration(
@@ -754,12 +772,17 @@ class StepIncident extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const IntakeFieldLabel('Weight (kg) *'),
+                            const IntakeFieldLabel('Weight (kg)'),
                             TextFormField(
                               controller: referralWeightController,
-                              validator: (v) => v == null || v.trim().isEmpty
-                                  ? 'Weight is required.'
-                                  : null,
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return null;
+                                final val = double.tryParse(v.trim());
+                                if (val == null || val <= 0) {
+                                  return 'Please enter a valid weight.';
+                                }
+                                return null;
+                              },
                               enabled: !isSubmitting,
                               keyboardType: TextInputType.number,
                               decoration: const InputDecoration(
@@ -774,12 +797,10 @@ class StepIncident extends StatelessWidget {
                   const SizedBox(height: 12),
 
                   // Attending Provider Name
-                  const IntakeFieldLabel('Name of Attending Provider *'),
+                  const IntakeFieldLabel('Name of Attending Provider (Optional)'),
                   TextFormField(
                     controller: referralProviderController,
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? 'Attending provider is required.'
-                        : null,
+                    validator: (_) => null,
                     enabled: !isSubmitting,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(

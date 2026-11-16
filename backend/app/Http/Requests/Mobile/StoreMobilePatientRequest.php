@@ -29,6 +29,7 @@ class StoreMobilePatientRequest extends FormRequest
         $membershipService = app(PatientMembershipService::class);
 
         return array_merge([
+            'patient_number'           => ['nullable', 'string', 'max:50'],
             'clinic_id'                => ['sometimes', 'integer', 'exists:clinics,id'],
             'relationship'             => ['required', 'in:self,child,dependent'],
             'first_name'               => ['required', 'string', 'max:255'],

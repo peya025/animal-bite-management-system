@@ -555,7 +555,7 @@ export default function AddPatientModal({
         queue_priority_level: enrolment.queue_priority_group === 'normal' ? 'normal' : 'priority',
         registration_fee: cleanedFee,
       };
-      await createPatientRecord(submissionEnrolment, {
+      const createdResult = await createPatientRecord(submissionEnrolment, {
         full: loc.full,
         munName: loc.munName,
         brgyName: loc.brgyName,
@@ -565,7 +565,8 @@ export default function AddPatientModal({
         forceCreate: confirmedDifferentPerson,
       });
       draft.clearDraft();
-      onSuccess();
+      const newPatient = createdResult?.patient || createdResult?.data || createdResult;
+      onSuccess(newPatient);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Failed to save patient record.';
       const causeResponse = (e as { cause?: { response?: { status?: number; data?: { code?: string; duplicates?: DuplicatePatientMatch[] } } } })?.cause?.response;

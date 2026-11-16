@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\EnforcesStationCapabilities;
 use App\Http\Controllers\Controller;
 use App\Services\Clinic\StationCapabilityPolicy;
 
+use App\Http\Requests\Clinical\CheckInBiteIntakeRequest;
 use App\Models\BiteIncidentIntake;
 use App\Services\Clinical\BiteIncidentIntakeService;
 use Illuminate\Http\JsonResponse;
@@ -49,7 +50,7 @@ class BiteIncidentIntakeController extends Controller
     /**
      * Confirm that a patient with a mobile bite consultation has physically arrived.
      */
-    public function checkIn(Request $request, BiteIncidentIntake $intake): JsonResponse
+    public function checkIn(CheckInBiteIntakeRequest $request, BiteIncidentIntake $intake): JsonResponse
     {
         abort_unless($intake->clinic_id === $request->user()->clinic_id, 404);
 
@@ -57,7 +58,7 @@ class BiteIncidentIntakeController extends Controller
             return $denied;
         }
 
-        $result = $this->intakeService->checkIn($intake, $request->user());
+        $result = $this->intakeService->checkIn($intake, $request->user(), $request->validated());
 
         return $this->json($result['data'], $result['status']);
     }

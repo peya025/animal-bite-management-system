@@ -268,7 +268,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
         <div className="fm-grid" style={{ marginBottom: 14 }}>
           <FormField label="Mode of Transaction">
             <div className="fm-segmented-group">
-              {(['walk-in', 'visited', 'referral'] as const).map((mode) => {
+              {(['walk-in', 'online', 'visited', 'referral'] as const).map((mode) => {
                 const isSelected = (data.mode_of_transaction || 'walk-in') === mode;
                 return (
                   <label

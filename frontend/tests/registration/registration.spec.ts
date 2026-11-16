@@ -88,7 +88,7 @@ test('referral fields appear only for Referral and are cleared when switching mo
   await municipality.selectOption('104324000');
   await expect(barangay).toBeEnabled();
   await barangay.selectOption('Poblacion');
-  await expect(facility).toHaveValue('Tagoloan Rural Health Unit (RHU) / BHS');
+  await expect(facility).toHaveValue('Barangay Poblacion Health Station (BHS)');
   await facility.fill('Manual Referral Facility');
   await page.getByRole('radio', { name: 'Visited' }).check();
   await expect(facility).toHaveCount(0);
@@ -118,7 +118,7 @@ test('Referral saves the selected or manually entered facility', async ({ page }
   await page.locator('select[name="reg_referred_by_municipality"]').selectOption('104324000');
   await page.locator('select[name="reg_referred_by_barangay"]').selectOption('Poblacion');
   const facility = page.locator('input[name="reg_referred_by"]');
-  await expect(facility).toHaveValue('Tagoloan Rural Health Unit (RHU) / BHS');
+  await expect(facility).toHaveValue('Barangay Poblacion Health Station (BHS)');
   await facility.fill('Manual Referral Facility');
   await page.getByRole('button', { name: 'Save Patient Record' }).click();
   await expect(page.getByText('Test record saved')).toBeVisible();

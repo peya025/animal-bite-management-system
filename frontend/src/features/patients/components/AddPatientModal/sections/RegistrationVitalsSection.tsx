@@ -7,6 +7,7 @@ import { useClinicModuleConfig } from '../../../../../hooks/useClinicModuleConfi
 import {
   MISAMIS_ORIENTAL_MUNICIPALITIES,
   FALLBACK_BARANGAYS,
+  suggestReferralFacility,
 } from '../../../hooks/useAddressLocation';
 import type { PsgcItem } from '../../../types';
 
@@ -240,13 +241,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
     const name = e.target.value;
     setBarangayName(name);
     if (!name) return;
-    const munObj = MISAMIS_ORIENTAL_MUNICIPALITIES.find(m => m.code === municipalityCode);
-    const munName = munObj?.name || '';
-    if (name.toLowerCase() === 'poblacion') {
-      onDirectChange('reg_referred_by', `${munName} Rural Health Unit (RHU) / BHS`);
-    } else {
-      onDirectChange('reg_referred_by', `Barangay ${name} Health Station (BHS)`);
-    }
+    onDirectChange('reg_referred_by', suggestReferralFacility(name));
   };
 
   const handleModeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -374,7 +369,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                     name="reg_referred_by"
                     value={data.reg_referred_by}
                     onChange={onChange('reg_referred_by')}
-                    placeholder="e.g. Barangay Health Station / Rural Health Unit"
+                    placeholder="e.g. Barangay Health Station (BHS)"
                     style={{ width: '100%', boxSizing: 'border-box' }}
                   />
                 </FormField>
@@ -472,7 +467,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                       name="reg_referred_by"
                       value={data.reg_referred_by}
                       onChange={onChange('reg_referred_by')}
-                      placeholder="e.g. Barangay Health Station"
+                      placeholder="e.g. Barangay Health Station (BHS)"
                     />
                   </FormField>
                 </div>

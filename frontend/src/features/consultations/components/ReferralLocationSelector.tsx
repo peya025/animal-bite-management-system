@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   MISAMIS_ORIENTAL_MUNICIPALITIES,
   FALLBACK_BARANGAYS,
+  suggestReferralFacility,
 } from '../../patients/hooks/useAddressLocation';
 import type { PsgcItem } from '../../patients/types';
 
@@ -172,15 +173,8 @@ export default function ReferralLocationSelector({
     setBarangayName(name);
     if (!name) return;
 
-    const munObj = MISAMIS_ORIENTAL_MUNICIPALITIES.find(m => m.code === municipalityCode);
-    const munName = munObj?.name || 'Tagoloan';
-
-    // Auto-suggest health station name based on selected barangay
-    if (name.toLowerCase() === 'poblacion') {
-      onChange(`${munName} Rural Health Unit (RHU) / BHS`);
-    } else {
-      onChange(`Barangay ${name} Health Station (BHS)`);
-    }
+    // Auto-suggest Barangay Health Station (BHS) name based on selected barangay
+    onChange(suggestReferralFacility(name));
   };
 
   return (
@@ -240,7 +234,7 @@ export default function ReferralLocationSelector({
             type="text"
             value={value}
             onChange={e => onChange(e.target.value)}
-            placeholder="e.g. Barangay Health Station"
+            placeholder="e.g. Barangay Health Station (BHS)"
             disabled={disabled}
           />
         </div>

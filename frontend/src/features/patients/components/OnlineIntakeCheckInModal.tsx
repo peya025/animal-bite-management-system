@@ -7,6 +7,7 @@ import { checkDuplicatePatients } from '../services';
 import {
   MISAMIS_ORIENTAL_MUNICIPALITIES,
   FALLBACK_BARANGAYS,
+  suggestReferralFacility,
 } from '../hooks/useAddressLocation';
 
 const PSGC = 'https://psgc.gitlab.io/api';
@@ -246,13 +247,7 @@ export default function OnlineIntakeCheckInModal({
     const name = e.target.value;
     setBarangayName(name);
     if (!name) return;
-    const munObj = MISAMIS_ORIENTAL_MUNICIPALITIES.find((m) => m.code === municipalityCode);
-    const munName = munObj?.name || 'Tagoloan';
-    if (name.toLowerCase() === 'poblacion') {
-      setReferredBy(`${munName} Rural Health Unit (RHU) / BHS`);
-    } else {
-      setReferredBy(`Barangay ${name} Health Station (BHS)`);
-    }
+    setReferredBy(suggestReferralFacility(name));
   };
 
   const handleSystolicChange = (val: string) => {
@@ -938,7 +933,7 @@ export default function OnlineIntakeCheckInModal({
                   type="text"
                   value={referredBy}
                   onChange={(e) => setReferredBy(e.target.value)}
-                  placeholder="e.g. Barangay Health Station / Rural Health Unit"
+                  placeholder="e.g. Barangay Health Station (BHS)"
                   disabled={submitting}
                   style={{ width: '100%', boxSizing: 'border-box' }}
                 />

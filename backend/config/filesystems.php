@@ -30,12 +30,26 @@ return [
 
     'disks' => [
 
-        'signatures' => [
-            'driver' => 'local',
-            'root' => storage_path('app/private/staff-signatures'),
-            'visibility' => 'private',
-            'throw' => true,
-        ],
+        'signatures' => env('FILESYSTEM_DISK', 'local') === 's3'
+            ? [
+                'driver' => 's3',
+                'key' => env('AWS_ACCESS_KEY_ID'),
+                'secret' => env('AWS_SECRET_ACCESS_KEY'),
+                'region' => env('AWS_DEFAULT_REGION') ?: 'auto',
+                'bucket' => env('AWS_SIGNATURES_BUCKET', env('AWS_BUCKET')) ?: 'abtc-storage',
+                'endpoint' => env('AWS_ENDPOINT'),
+                'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+                'visibility' => 'private',
+                'prefix' => 'private-staff-signatures',
+                'throw' => true,
+                'report' => false,
+            ]
+            : [
+                'driver' => 'local',
+                'root' => storage_path('app/private/staff-signatures'),
+                'visibility' => 'private',
+                'throw' => true,
+            ],
 
         'local' => [
             'driver' => 'local',
@@ -45,25 +59,40 @@ return [
             'report' => false,
         ],
 
-        'public' => [
-            'driver' => 'local',
-            'root' => storage_path('app/public'),
-            'url' => rtrim((string) config('app.url'), '/').'/storage',
-            'visibility' => 'public',
-            'throw' => false,
-            'report' => false,
-        ],
+        'public' => env('FILESYSTEM_DISK', 'local') === 's3'
+            ? [
+                'driver' => 's3',
+                'key' => env('AWS_ACCESS_KEY_ID'),
+                'secret' => env('AWS_SECRET_ACCESS_KEY'),
+                'region' => env('AWS_DEFAULT_REGION') ?: 'auto',
+                'bucket' => env('AWS_BUCKET') ?: 'abtc-storage',
+                'url' => env('AWS_URL'),
+                'endpoint' => env('AWS_ENDPOINT'),
+                'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+                'visibility' => 'public',
+                'throw' => true,
+                'report' => false,
+            ]
+            : [
+                'driver' => 'local',
+                'root' => storage_path('app/public'),
+                'url' => rtrim((string) config('app.url'), '/').'/storage',
+                'visibility' => 'public',
+                'throw' => false,
+                'report' => false,
+            ],
 
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
-            'region' => env('AWS_DEFAULT_REGION'),
-            'bucket' => env('AWS_BUCKET'),
+            'region' => env('AWS_DEFAULT_REGION') ?: 'auto',
+            'bucket' => env('AWS_BUCKET') ?: 'abtc-storage',
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
-            'throw' => false,
+            'visibility' => 'public',
+            'throw' => true,
             'report' => false,
         ],
 

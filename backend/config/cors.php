@@ -18,6 +18,7 @@ return [
 
     'allowed_origins' => array_values(array_filter([
         env('FRONTEND_URL'),
+        env('FRONTEND_URL_ALT'),
     ])),
 
     'allowed_origins_patterns' => [],

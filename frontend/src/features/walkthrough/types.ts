@@ -71,5 +71,6 @@ export interface WalkthroughContextType {
   prevStep: () => void;
   goToStep: (index: number) => void;
   dismissWelcomeModal: () => void;
+  openWelcomeModal: (moduleId?: string) => void;
   restartWalkthrough: () => void;
 }

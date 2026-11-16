@@ -3,6 +3,8 @@ import React, { useEffect } from 'react';
 interface WalkthroughWelcomeModalProps {
   open: boolean;
   roleName?: string;
+  title?: string;
+  description?: string;
   totalSteps?: number;
   onStart: () => void;
   onDismiss: () => void;
@@ -11,6 +13,8 @@ interface WalkthroughWelcomeModalProps {
 export const WalkthroughWelcomeModal: React.FC<WalkthroughWelcomeModalProps> = ({
   open,
   roleName,
+  title,
+  description,
   totalSteps,
   onStart,
   onDismiss,
@@ -92,12 +96,12 @@ export const WalkthroughWelcomeModal: React.FC<WalkthroughWelcomeModalProps> = (
 
         {/* Title */}
         <h2 id="walkthrough-welcome-heading" className="walkthrough-welcome-title">
-          Explore Your Dashboard
+          {title || 'Explore Your Dashboard'}
         </h2>
 
         {/* Subtitle */}
         <p className="walkthrough-welcome-text">
-          Welcome to your clinical dashboard. This interactive guide will walk you through the essential tools, workflow queues, and patient surveillance features available for your role.
+          {description || 'Welcome to your clinical dashboard. This interactive guide will walk you through the essential tools, workflow queues, and patient surveillance features available for your role.'}
         </p>
 
         {/* Professional Feature Highlights (Vector SVGs, No Emojis) */}

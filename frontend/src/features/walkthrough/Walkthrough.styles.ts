@@ -132,6 +132,115 @@ export const walkthroughStyles = `
 .guide-header-icon { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; border-radius: 8px; border: 1px solid var(--card-border, #e5e7eb); background: var(--btn-outlined-bg, #fff); color: var(--text-h, #111827); cursor: pointer; box-shadow: var(--shadow); transition: background .2s, border-color .2s, color .2s; }
 .guide-header-icon:hover { background: rgba(16,185,129,.09); color: #059669; border-color: #10b981; }
 .guide-header-icon:focus-visible, .guide-center-dialog button:focus-visible { outline: 2px solid #059669; outline-offset: 3px; }
+
+/* ── Guide Tour Discovery Indicator ── */
+.guide-tour-indicator-anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.guide-tour-indicator {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: -6px;
+  z-index: 1250;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 12px;
+  background: #ffffff;
+  border: 1.5px solid #10b981;
+  border-radius: 999px;
+  box-shadow: 0 10px 25px -4px rgba(16, 185, 129, 0.25), 0 4px 10px -2px rgba(15, 23, 42, 0.08);
+  color: #065f46;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+  animation: guideIndicatorFadeIn 0.25s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.guide-tour-indicator:hover {
+  background: #f0fdf4;
+  border-color: #059669;
+  box-shadow: 0 12px 28px -4px rgba(16, 185, 129, 0.35), 0 6px 12px -2px rgba(15, 23, 42, 0.12);
+}
+
+.guide-tour-indicator-pointer {
+  position: absolute;
+  top: -6px;
+  right: 18px;
+  width: 10px;
+  height: 10px;
+  background: #ffffff;
+  border-left: 1.5px solid #10b981;
+  border-top: 1.5px solid #10b981;
+  transform: rotate(45deg);
+  pointer-events: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.guide-tour-indicator:hover .guide-tour-indicator-pointer {
+  background: #f0fdf4;
+  border-color: #059669;
+}
+
+.guide-tour-indicator-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.65);
+  flex-shrink: 0;
+}
+
+.guide-tour-indicator-text {
+  color: #047857;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: -0.01em;
+  user-select: none;
+}
+
+.guide-tour-indicator-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin-left: 2px;
+  background: #e2e8f0;
+  border: none;
+  border-radius: 50%;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.guide-tour-indicator-close:hover {
+  background: #fee2e2;
+  color: #ef4444;
+  transform: scale(1.08);
+}
+
+@keyframes guideIndicatorFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 .guide-center-dialog { font-family: 'Poppins', sans-serif; }
 .guide-center-dialog h2 { margin: 0 0 4px; font-size: 18px; color: var(--text-h, #171a19); }
 .guide-center-dialog p { margin-top: 0; font-size: 13px; line-height: 1.5; color: var(--text-secondary, #737977); }

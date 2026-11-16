@@ -41,7 +41,17 @@ void main() {
 
     // Should have smoothly scrolled back to top to reveal the error banner
     expect(controller.offset, lessThanOrEqualTo(10.0));
-    expect(find.text('First name is required.'), findsOneWidget);
+    expect(find.text('First name is required.'), findsWidgets);
+
+    // Verify the invalid field is highlighted with red errorBorder
+    final firstNameDecorator = tester.widget<InputDecorator>(
+      find.descendant(
+        of: find.byType(TextFormField).at(0),
+        matching: find.byType(InputDecorator),
+      ),
+    );
+    expect(firstNameDecorator.decoration.errorText, 'First name is required.');
+    expect(firstNameDecorator.decoration.errorBorder?.borderSide.color, const Color(0xFFEF4444));
   });
 
   testWidgets('resets scroll position to top when transitioning between steps', (tester) async {
@@ -85,5 +95,61 @@ void main() {
     // Should now be on Step 2 and scroll position should be reset at top
     expect(find.text('Step 2 of 3 — Address & contact'), findsOneWidget);
     expect(controller.offset, lessThanOrEqualTo(10.0));
+  });
+
+  testWidgets('highlights missing gender and dropdown fields in red when validation fails', (tester) async {
+    tester.view.physicalSize = const Size(390, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ProfileSetupView(
+          initialRelationship: 'dependent',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Fill First and Last name, but omit gender
+    await tester.enterText(find.byType(TextFormField).at(0), 'Jane');
+    await tester.enterText(find.byType(TextFormField).at(1), 'Smith');
+
+    final continueButtonFinder = find.widgetWithText(ElevatedButton, 'Continue');
+    await tester.ensureVisible(continueButtonFinder);
+    await tester.tap(continueButtonFinder);
+    await tester.pumpAndSettle();
+
+    // Gender should be highlighted in red with error text
+    expect(find.text('Please select a gender.'), findsWidgets);
+
+    // Now tap Male chip - error should clear
+    final maleFinder = find.text('Male');
+    await tester.ensureVisible(maleFinder);
+    await tester.tap(maleFinder);
+    await tester.pumpAndSettle();
+
+    // Proceed to Step 2
+    await tester.ensureVisible(continueButtonFinder);
+    await tester.tap(continueButtonFinder);
+    await tester.pumpAndSettle();
+    expect(find.text('Step 2 of 3 — Address & contact'), findsOneWidget);
+
+    // In Step 2, tap Continue without selecting City/Municipality
+    final step2Continue = find.widgetWithText(ElevatedButton, 'Continue');
+    await tester.ensureVisible(step2Continue);
+    await tester.tap(step2Continue);
+    await tester.pumpAndSettle();
+
+    // City / Municipality dropdown should have red error
+    expect(find.text('City / Municipality is required.'), findsWidgets);
+    final dropdownDecorator = tester.widget<InputDecorator>(
+      find.descendant(
+        of: find.byType(DropdownButtonFormField<String>).first,
+        matching: find.byType(InputDecorator),
+      ),
+    );
+    expect(dropdownDecorator.decoration.errorBorder?.borderSide.color, const Color(0xFFEF4444));
   });
 }

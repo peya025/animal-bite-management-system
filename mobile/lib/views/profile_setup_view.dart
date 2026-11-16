@@ -113,6 +113,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
   DateTime? _selectedBirthDate;
   bool _isLoading = false;
   String? _error;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
 
   // Address (PSGC)
   List<PsgcLocation> _municipalities = [];
@@ -500,69 +501,28 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
   void _nextStep() {
     setState(() => _error = null);
 
+    final invalid = _formKey.currentState!.validateGranularly();
+    if (invalid.isNotEmpty) {
+      setState(() {
+        _autoValidateMode = AutovalidateMode.onUserInteraction;
+      });
+      final firstError = invalid.first.errorText ?? 'Please resolve highlighted form errors.';
+      _setError(firstError);
+      return;
+    }
+
     if (_currentStep == 0) {
-      // Validate Step 1: Basic info
-      final fnError = AppValidators.name(_firstName.text, 'First name');
-      if (fnError != null) {
-        _setError(fnError);
-        return;
-      }
-      final lnError = AppValidators.name(_lastName.text, 'Last name');
-      if (lnError != null) {
-        _setError(lnError);
-        return;
-      }
-      if (_gender == null) {
-        _setError('Please select a gender.');
-        return;
-      }
-      final dobError = AppValidators.dateOfBirth(_selectedBirthDate, required: false);
-      if (dobError != null) {
-        _setError(dobError);
-        return;
-      }
       setState(() {
         _error = null;
         _currentStep = 1;
+        _autoValidateMode = AutovalidateMode.disabled;
       });
       _scrollToTop();
     } else if (_currentStep == 1) {
-      // Validate Step 2: Address & Contact
-      if (_useManualAddressFields) {
-        if (_municipalityText.text.trim().isEmpty ||
-            _barangayText.text.trim().isEmpty) {
-          _setError('Please enter municipality and barangay.');
-          return;
-        }
-      } else {
-        if (_selectedMunicipalityCode == null ||
-            _selectedBarangayCode == null) {
-          _setError('Please select municipality and barangay.');
-          return;
-        }
-      }
-
-      final contactError = AppValidators.phMobile(_contactNumber.text, required: false);
-      if (contactError != null) {
-        _setError(contactError);
-        return;
-      }
-
-      final emailError = AppValidators.email(_email.text, required: false);
-      if (emailError != null) {
-        _setError(emailError);
-        return;
-      }
-
-      final emgContactError = AppValidators.phMobile(_emergencyContactNumber.text, required: false);
-      if (emgContactError != null) {
-        _setError('Emergency contact: $emgContactError');
-        return;
-      }
-
       setState(() {
         _error = null;
         _currentStep = 2;
+        _autoValidateMode = AutovalidateMode.disabled;
       });
       _scrollToTop();
     }
@@ -573,6 +533,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
       setState(() {
         _error = null;
         _currentStep--;
+        _autoValidateMode = AutovalidateMode.disabled;
       });
       _scrollToTop();
     } else {
@@ -585,30 +546,11 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
 
     final invalid = _formKey.currentState!.validateGranularly();
     if (invalid.isNotEmpty) {
-      _setError('Please resolve highlighted form errors.');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final fields = invalid.where((field) => field.mounted).toList();
-        fields.sort((a, b) {
-          final aBox = a.context.findRenderObject() as RenderBox?;
-          final bBox = b.context.findRenderObject() as RenderBox?;
-          if (aBox == null || bBox == null) return 0;
-          return aBox
-              .localToGlobal(Offset.zero)
-              .dy
-              .compareTo(bBox.localToGlobal(Offset.zero).dy);
-        });
-        if (fields.isNotEmpty) {
-          Scrollable.ensureVisible(
-            fields.first.context,
-            alignment: 0.15,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        } else {
-          _scrollToTop();
-        }
+      setState(() {
+        _autoValidateMode = AutovalidateMode.onUserInteraction;
       });
+      final firstError = invalid.first.errorText ?? 'Please resolve highlighted form errors.';
+      _setError(firstError);
       return;
     }
 
@@ -763,6 +705,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 child: Form(
                   key: _formKey,
+                  autovalidateMode: _autoValidateMode,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -835,6 +778,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                                     _firstName,
                                     hint: 'e.g. Juan',
                                     required: true,
+                                    validator: (v) => AppValidators.name(v, 'First name', required: true),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -844,6 +788,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                                     _lastName,
                                     hint: 'e.g. Dela Cruz',
                                     required: true,
+                                    validator: (v) => AppValidators.name(v, 'Last name', required: true),
                                   ),
                                 ),
                               ],
@@ -873,6 +818,9 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                               label: 'Gender',
                               selectedValue: _gender,
                               required: true,
+                              validator: (v) => (_gender == null || _gender!.isEmpty)
+                                  ? 'Please select a gender.'
+                                  : null,
                               options: const [
                                 MapEntry('male', 'Male'),
                                 MapEntry('female', 'Female'),
@@ -892,6 +840,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                                     hint: 'MM / DD / YYYY',
                                     readOnly: true,
                                     onTap: _chooseBirthDate,
+                                    validator: (v) => AppValidators.dateOfBirth(_selectedBirthDate, required: false),
                                     suffixIcon: IconButton(
                                       onPressed: _chooseBirthDate,
                                       icon: const Icon(
@@ -1253,6 +1202,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                                   _philhealthNo,
                                   hint: 'XX-XXXXXXXXX-X',
                                   philhealth: true,
+                                  required: true,
                                 ),
                               ],
                               _chipSelector<String>(
@@ -1620,39 +1570,88 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     required List<MapEntry<T, String>> options,
     required ValueChanged<T> onSelected,
     bool required = false,
+    String? Function(T?)? validator,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sentenceLabel(label, required: required),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: options.map((option) {
-            final isSelected = selectedValue == option.key;
-            return ChoiceChip(
-              label: Text(option.value),
-              selected: isSelected,
-              selectedColor: const Color(0xFFE1F5EE),
-              backgroundColor: Colors.white,
-              side: BorderSide(
-                color: isSelected ? AppColors.primary : Colors.grey.shade300,
-                width: isSelected ? 1.5 : 0.5,
+    return FormField<T>(
+      key: ValueKey(selectedValue),
+      initialValue: selectedValue,
+      validator: validator ??
+          (value) {
+            final current = selectedValue ?? value;
+            if (required && current == null) {
+              return '$label is required.';
+            }
+            return null;
+          },
+      builder: (state) {
+        final hasError = state.hasError;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sentenceLabel(label, required: required),
+              const SizedBox(height: 6),
+              Container(
+                decoration: hasError
+                    ? BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.error,
+                          width: 1.5,
+                        ),
+                      )
+                    : null,
+                padding: hasError ? const EdgeInsets.all(8) : EdgeInsets.zero,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: options.map((option) {
+                    final isSelected = selectedValue == option.key;
+                    return ChoiceChip(
+                      label: Text(option.value),
+                      selected: isSelected,
+                      selectedColor: const Color(0xFFE1F5EE),
+                      backgroundColor: Colors.white,
+                      side: BorderSide(
+                        color: isSelected
+                            ? AppColors.primary
+                            : (hasError ? AppColors.error : Colors.grey.shade300),
+                        width: isSelected ? 1.5 : (hasError ? 1.0 : 0.5),
+                      ),
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? const Color(0xFF085041)
+                            : (hasError ? AppColors.error : const Color(0xFF374151)),
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                      onSelected: _isLoading
+                          ? null
+                          : (_) {
+                              state.didChange(option.key);
+                              onSelected(option.key);
+                            },
+                    );
+                  }).toList(),
+                ),
               ),
-              labelStyle: TextStyle(
-                color: isSelected
-                    ? const Color(0xFF085041)
-                    : const Color(0xFF374151),
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
-              onSelected: _isLoading ? null : (_) => onSelected(option.key),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 12),
-      ],
+              if (hasError) ...[
+                const SizedBox(height: 6),
+                Text(
+                  state.errorText ?? '',
+                  style: const TextStyle(
+                    color: AppColors.error,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1667,6 +1666,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     Widget? suffixIcon,
     VoidCallback? onTap,
     bool readOnly = false,
+    String? Function(String?)? validator,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -1717,16 +1717,35 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                   width: 1.5,
                 ),
               ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.error,
+                  width: 1.5,
+                ),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.error,
+                  width: 1.5,
+                ),
+              ),
+              errorStyle: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: AppColors.error,
+              ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 12,
               ),
               suffixIcon: suffixIcon,
             ),
-            validator: (value) {
+            validator: validator ?? (value) {
               final trimmed = value?.trim() ?? '';
               if (required && trimmed.isEmpty) {
-                return '$label is required';
+                return '$label is required.';
               }
               if (phone && trimmed.isNotEmpty) {
                 return AppValidators.phMobile(trimmed, required: required);
@@ -1752,6 +1771,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     required ValueChanged<T?>? onChanged,
     String? hint,
     bool required = false,
+    String? Function(T?)? validator,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -1760,6 +1780,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         children: [
           _sentenceLabel(label, required: required),
           DropdownButtonFormField<T>(
+            key: ValueKey(selectedValue),
             isExpanded: true,
             initialValue: selectedValue,
             hint: hint != null
@@ -1785,13 +1806,42 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                 borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(color: Colors.grey.shade200, width: 0.5),
               ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 1.5,
+                ),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.error,
+                  width: 1.5,
+                ),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.error,
+                  width: 1.5,
+                ),
+              ),
+              errorStyle: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: AppColors.error,
+              ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 12,
               ),
             ),
-            validator: (value) =>
-                (required && value == null) ? '$label is required' : null,
+            validator: validator ??
+                (value) =>
+                    (required && (value == null || (value is String && value.isEmpty)))
+                        ? '$label is required.'
+                        : null,
           ),
         ],
       ),

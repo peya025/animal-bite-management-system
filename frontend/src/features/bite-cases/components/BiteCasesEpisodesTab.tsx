@@ -29,7 +29,7 @@ import {
   VisibilityOutlined,
 } from '@mui/icons-material';
 import { useState, useMemo, useEffect } from 'react';
-import { BITE_CASE_STATUS_LABELS } from '../utils/biteCaseUtils';
+import { BITE_CASE_STATUS_LABELS, formatAnimalConditionLabel, formatAnimalOwnershipLabel } from '../utils/biteCaseUtils';
 import type { CaseSummary, PrivacyMode } from '../types/biteCasesSummary.types';
 import { BC_BORDER, DohStatLine, SemanticChip } from './BiteCasesSharedUi';
 
@@ -192,15 +192,17 @@ export function BiteCasesEpisodesTab({
                               )}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ minWidth: 110 }}>
+                      <TableCell sx={{ minWidth: 130 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <PetsOutlined aria-hidden="true" sx={{ fontSize: 14, color: 'var(--bc-text-secondary)' }} />
                           <Typography sx={{ fontSize: 12.5, textTransform: 'capitalize', fontWeight: 600 }}>
-                            {c.animal_type || 'Unknown'}
+                            {c.animal_type_detail === 'not_recorded'
+                              ? 'Not recorded'
+                              : c.animal_type || 'Unknown'}
                           </Typography>
                         </Box>
-                        <Typography sx={{ fontSize: 11, color: 'var(--bc-text-secondary)', textTransform: 'capitalize' }}>
-                          {c.animal_status || 'unassessed'}
+                        <Typography sx={{ fontSize: 11, color: 'var(--bc-text-secondary)' }}>
+                          {formatAnimalOwnershipLabel(c.animal_ownership ?? c.animal_status)} · {formatAnimalConditionLabel(c.animal_condition)}
                         </Typography>
                       </TableCell>
                       <TableCell sx={{ minWidth: 175 }}>
@@ -348,8 +350,18 @@ export function BiteCasesEpisodesTab({
                   <DohStatLine label="Exposure Date" value={selectedCase.bite_date || 'Unknown'} />
                   <DohStatLine label="Normalized Barangay" value={selectedCase.normalized_barangay || selectedCase.location} />
                   <DohStatLine label="Raw Location" value={selectedCase.location} />
-                  <DohStatLine label="Biting Animal" value={selectedCase.animal_type || 'Unknown'} />
-                  <DohStatLine label="Animal Status" value={selectedCase.animal_status || 'Unassessed'} />
+                  <DohStatLine
+                    label="Biting Animal"
+                    value={selectedCase.animal_type_detail === 'not_recorded' ? 'Not recorded' : selectedCase.animal_type || 'Unknown'}
+                  />
+                  <DohStatLine
+                    label="Animal Ownership"
+                    value={formatAnimalOwnershipLabel(selectedCase.animal_ownership ?? selectedCase.animal_status)}
+                  />
+                  <DohStatLine
+                    label="Animal Condition"
+                    value={formatAnimalConditionLabel(selectedCase.animal_condition)}
+                  />
                 </Paper>
 
                 <Paper elevation={0} sx={{ p: 1.25, border: BC_BORDER, borderRadius: '8px' }}>

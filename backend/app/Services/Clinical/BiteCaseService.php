@@ -474,6 +474,21 @@ class BiteCaseService
         if ($animalFilter === '' || $animalFilter === 'all') {
             $animalFilter = null;
         }
+        $rawAnimalStatusFilter = !empty($validated['animal_status']) ? strtolower(trim((string) $validated['animal_status'])) : null;
+        $animalStatusFilter = match ($rawAnimalStatusFilter) {
+            null, '', 'all' => null,
+            'unassessed' => 'not_recorded',
+            default => $rawAnimalStatusFilter,
+        };
+        $rawAnimalConditionFilter = !empty($validated['animal_condition']) ? strtolower(trim((string) $validated['animal_condition'])) : null;
+        $animalConditionFilter = match ($rawAnimalConditionFilter) {
+            null, '', 'all' => null,
+            'dead' => 'died',
+            'unassessed' => 'not_recorded',
+            default => $rawAnimalConditionFilter,
+        };
+        $rawChannelFilter = !empty($validated['channel']) ? strtolower(trim((string) $validated['channel'])) : null;
+        $channelFilter = ($rawChannelFilter && $rawChannelFilter !== 'all') ? $rawChannelFilter : null;
         $statusFilter = !empty($validated['status']) ? strtolower(trim((string) $validated['status'])) : null;
         $searchFilter = !empty($validated['search']) ? trim((string) $validated['search']) : null;
 
@@ -484,6 +499,9 @@ class BiteCaseService
             $cutoff,
             $severityFilter,
             $animalFilter,
+            $animalStatusFilter,
+            $animalConditionFilter,
+            $channelFilter,
             $statusFilter,
             $searchFilter,
             $stateResolver,
@@ -508,6 +526,9 @@ class BiteCaseService
             $previousCutoff,
             $severityFilter,
             $animalFilter,
+            $animalStatusFilter,
+            $animalConditionFilter,
+            $channelFilter,
             $statusFilter,
             $searchFilter,
             $stateResolver,
@@ -588,7 +609,7 @@ class BiteCaseService
                 $unknownAnimals = (int) ($animalTypes['unknown'] ?? 0);
 
                 $strayCount = $locationCases->filter(
-                    fn (BiteIncident $case) => strtolower(trim((string) ($case->animal_status ?? $case->intake?->animal_status ?? ''))) === 'stray'
+                    fn (BiteIncident $case) => $reportingQuery->normalizedAnimalOwnership($case) === 'stray'
                 )->count();
 
                 $childrenCount = $locationCases->filter(function (BiteIncident $case) use ($cutoff) {
@@ -713,8 +734,32 @@ class BiteCaseService
         $pepCompliancePct = $pepPrescribed > 0 ? (int) round(($verifiedInitiation / $pepPrescribed) * 100) : 0;
 
         $dohDemographics = ['male' => 0, 'female' => 0, 'unknown_sex' => 0, 'age_below_15' => 0, 'age_15_above' => 0, 'age_unknown' => 0];
-        $dohAnimals = ['dog' => 0, 'cat' => 0, 'other' => 0, 'unknown' => 0, 'stray' => 0, 'owned' => 0, 'animal_status_unknown' => 0];
+        $dohAnimals = [
+            'dog' => 0,
+            'cat' => 0,
+            'other' => 0,
+            'unknown' => 0,
+            'species_unknown' => 0,
+            'species_not_recorded' => 0,
+            'stray' => 0,
+            'owned' => 0,
+            'ownership_unknown' => 0,
+            'ownership_not_recorded' => 0,
+            'animal_status_unknown' => 0,
+            'condition_healthy' => 0,
+            'condition_sick' => 0,
+            'condition_died' => 0,
+            'condition_unknown' => 0,
+            'condition_not_recorded' => 0,
+        ];
+        $walkInCount = 0;
+        $onlineCount = 0;
         foreach ($cases as $case) {
+            if ($reportingQuery->normalizedRegistrationChannel($case) === 'online') {
+                $onlineCount++;
+            } else {
+                $walkInCount++;
+            }
             $gender = strtolower(trim((string) ($case->patient?->gender ?? '')));
             if ($gender === 'male') {
                 $dohDemographics['male']++;
@@ -733,17 +778,33 @@ class BiteCaseService
                 $dohDemographics['age_15_above']++;
             }
 
-            $animalKey = $reportingQuery->normalizedAnimalCategory($case);
-            $dohAnimals[$animalKey] = ($dohAnimals[$animalKey] ?? 0) + 1;
-
-            $animalStatus = strtolower(trim((string) ($case->animal_status ?? $case->intake?->animal_status ?? '')));
-            if ($animalStatus === 'stray') {
-                $dohAnimals['stray']++;
-            } elseif ($animalStatus === 'owned') {
-                $dohAnimals['owned']++;
+            $speciesDetail = $reportingQuery->normalizedAnimalSpeciesDetail($case);
+            if ($speciesDetail === 'unknown') {
+                $dohAnimals['unknown']++;
+                $dohAnimals['species_unknown']++;
+            } elseif ($speciesDetail === 'not_recorded') {
+                $dohAnimals['unknown']++;
+                $dohAnimals['species_not_recorded']++;
             } else {
+                $dohAnimals[$speciesDetail] = ($dohAnimals[$speciesDetail] ?? 0) + 1;
+            }
+
+            $ownership = $reportingQuery->normalizedAnimalOwnership($case);
+            if ($ownership === 'stray') {
+                $dohAnimals['stray']++;
+            } elseif ($ownership === 'owned') {
+                $dohAnimals['owned']++;
+            } elseif ($ownership === 'unknown') {
+                $dohAnimals['ownership_unknown']++;
+                $dohAnimals['animal_status_unknown']++;
+            } else {
+                $dohAnimals['ownership_not_recorded']++;
                 $dohAnimals['animal_status_unknown']++;
             }
+
+            $condition = $reportingQuery->normalizedAnimalCondition($case);
+            $conditionKey = 'condition_' . $condition;
+            $dohAnimals[$conditionKey] = ($dohAnimals[$conditionKey] ?? 0) + 1;
         }
 
         $isNewStartedCat = fn (array $s, string $cat): bool => $s['assessment'] === 'finalized'
@@ -840,6 +901,9 @@ class BiteCaseService
             'category' => $severityFilter,
             'status' => $statusFilter,
             'animal' => $animalFilter,
+            'animal_status' => $animalStatusFilter,
+            'animal_condition' => $animalConditionFilter,
+            'channel' => $channelFilter,
             'search' => $searchFilter,
         ], fn ($v) => $v !== null && $v !== '');
 
@@ -896,6 +960,8 @@ class BiteCaseService
             'animals' => $dohAnimals,
             'pep_and_biologics' => [
                 'recorded_exposures' => (int) $reconciliation['recorded_episodes'],
+                'walk_in_registrations' => $walkInCount,
+                'online_registrations' => $onlineCount,
                 'finalized_assessments' => (int) $reconciliation['finalized_assessments'],
                 'awaiting_assessment' => (int) $reconciliation['awaiting_assessment'],
                 'pep_prescribed' => $pepPrescribed,
@@ -1082,7 +1148,11 @@ class BiteCaseService
                     'normalized_barangay' => $expGeo['barangay'],
                     'category' => $stage['category_display'],
                     'animal_type' => $reportingQuery->normalizedAnimalCategory($case),
+                    'animal_type_detail' => $reportingQuery->normalizedAnimalSpeciesDetail($case),
                     'animal_status' => $case->animal_status ?? $case->intake?->animal_status ?? 'unassessed',
+                    'animal_ownership' => $reportingQuery->normalizedAnimalOwnership($case),
+                    'animal_condition' => $reportingQuery->normalizedAnimalCondition($case),
+                    'registration_channel' => $reportingQuery->normalizedRegistrationChannel($case),
                     'status' => $stage['resolved_status'],
                     'last_completed_stage' => $stage['last_completed_stage'],
                     'stage_label' => $stage['stage_label'],
@@ -1122,6 +1192,9 @@ class BiteCaseService
         CarbonImmutable $cutoff,
         ?string $severityFilter,
         ?string $animalFilter,
+        ?string $animalStatusFilter,
+        ?string $animalConditionFilter,
+        ?string $channelFilter,
         ?string $statusFilter,
         ?string $searchFilter,
         EpisodeReportingStateResolver $stateResolver,
@@ -1153,7 +1226,10 @@ class BiteCaseService
 
         $rawCases = $query->get()
             ->reject(fn (BiteIncident $case) => in_array(strtolower(trim((string) $case->status)), ['void', 'voided', 'duplicate'], true))
-            ->filter(fn (BiteIncident $case) => $animalFilter === null || $reportingQuery->normalizedAnimalCategory($case) === $animalFilter)
+            ->filter(fn (BiteIncident $case) => $reportingQuery->matchesAnimalFilter($case, $animalFilter))
+            ->filter(fn (BiteIncident $case) => $animalStatusFilter === null || $reportingQuery->normalizedAnimalOwnership($case) === $animalStatusFilter)
+            ->filter(fn (BiteIncident $case) => $animalConditionFilter === null || $reportingQuery->normalizedAnimalCondition($case) === $animalConditionFilter)
+            ->filter(fn (BiteIncident $case) => $channelFilter === null || $reportingQuery->normalizedRegistrationChannel($case) === $channelFilter)
             ->filter(function (BiteIncident $case) use ($severityFilter): bool {
                 if ($severityFilter === null || in_array($severityFilter, ['not_yet_assessed', 'assessed_category_missing'], true)) {
                     return true;

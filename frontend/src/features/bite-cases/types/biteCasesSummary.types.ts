@@ -140,7 +140,11 @@ export type CaseSummary = {
   normalized_barangay?: string;
   category: string;
   animal_type: string;
+  animal_type_detail?: string;
   animal_status?: string;
+  animal_ownership?: string;
+  animal_condition?: string;
+  registration_channel?: 'walk_in' | 'online';
   status: string;
   last_completed_stage?: string;
   stage_label?: string;
@@ -225,12 +229,23 @@ export type DohSummary = {
     cat: number;
     other: number;
     unknown: number;
+    species_unknown?: number;
+    species_not_recorded?: number;
     stray: number;
     owned: number;
+    ownership_unknown?: number;
+    ownership_not_recorded?: number;
     animal_status_unknown: number;
+    condition_healthy?: number;
+    condition_sick?: number;
+    condition_died?: number;
+    condition_unknown?: number;
+    condition_not_recorded?: number;
   };
   pep_and_biologics: {
     recorded_exposures: number;
+    walk_in_registrations?: number;
+    online_registrations?: number;
     finalized_assessments: number;
     awaiting_assessment: number;
     pep_prescribed: number;
@@ -452,6 +467,9 @@ export type Filters = {
   severity: string;
   status: string;
   animal: string;
+  animalStatus: string;
+  animalCondition: string;
+  channel: string;
   range: string;
   customFrom: string;
   customTo: string;

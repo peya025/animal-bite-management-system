@@ -76,10 +76,17 @@ export function exportAggregateSummaryToCsv(
   addRow(['Animal Source', 'Dog', animals?.dog ?? 0]);
   addRow(['Animal Source', 'Cat', animals?.cat ?? 0]);
   addRow(['Animal Source', 'Other Animal', animals?.other ?? 0]);
-  addRow(['Animal Source', 'Unknown Animal', animals?.unknown ?? 0]);
-  addRow(['Animal Ownership', 'Stray / Unowned', animals?.stray ?? 0]);
+  addRow(['Animal Source', 'Unknown Species', animals?.species_unknown ?? animals?.unknown ?? 0]);
+  addRow(['Animal Source', 'Species Not Recorded', animals?.species_not_recorded ?? 0]);
   addRow(['Animal Ownership', 'Owned', animals?.owned ?? 0]);
-  addRow(['Animal Ownership', 'Ownership Unknown', animals?.animal_status_unknown ?? 0]);
+  addRow(['Animal Ownership', 'Stray / Unowned', animals?.stray ?? 0]);
+  addRow(['Animal Ownership', 'Ownership Unknown', animals?.ownership_unknown ?? animals?.animal_status_unknown ?? 0]);
+  addRow(['Animal Ownership', 'Ownership Not Recorded', animals?.ownership_not_recorded ?? 0]);
+  addRow(['Animal Condition', 'Healthy', animals?.condition_healthy ?? 0]);
+  addRow(['Animal Condition', 'Sick', animals?.condition_sick ?? 0]);
+  addRow(['Animal Condition', 'Dead / Died', animals?.condition_died ?? 0]);
+  addRow(['Animal Condition', 'Condition Unknown', animals?.condition_unknown ?? 0]);
+  addRow(['Animal Condition', 'Condition Not Recorded', animals?.condition_not_recorded ?? 0]);
   addRow([]);
 
   addRow(['SECTION 4: CATEGORY I-III COHORT OUTCOMES (ASSESSED EPISODES ONLY)']);
@@ -275,6 +282,37 @@ export function exportLocationsToCsv(locations: LocationSummary[], filename = 'b
   downloadCsvFile(csvContent, filename);
 }
 
+export function formatAnimalOwnershipLabel(value?: string | null): string {
+  const normalized = (value || '').trim().toLowerCase();
+  return matchMap(normalized, {
+    owned: 'Owned',
+    domestic: 'Owned',
+    stray: 'Stray',
+    unknown: 'Unknown',
+    not_recorded: 'Not recorded',
+    unassessed: 'Not recorded',
+  });
+}
+
+export function formatAnimalConditionLabel(value?: string | null): string {
+  const normalized = (value || '').trim().toLowerCase();
+  return matchMap(normalized, {
+    healthy: 'Healthy',
+    apparently_healthy: 'Healthy',
+    sick: 'Sick',
+    died: 'Dead / Died',
+    dead: 'Dead / Died',
+    unknown: 'Unknown',
+    not_recorded: 'Not recorded',
+    unassessed: 'Not recorded',
+  });
+}
+
+function matchMap(value: string, map: Record<string, string>): string {
+  if (!value) return 'Not recorded';
+  return map[value] ?? value.replace(/_/g, ' ');
+}
+
 export const BITE_CASE_STATUS_LABELS: Record<string, string> = {
   awaiting_assessment: 'Awaiting Assessment (Form 1)',
   awaiting_treatment: 'Awaiting Treatment (Form 2)',
@@ -322,7 +360,8 @@ export function exportCasesToCsv(
     'What Can Be Reported',
     'Category',
     'Animal Type',
-    'Animal Status',
+    'Animal Ownership',
+    'Animal Condition',
     'Treatment Decision',
     'Administration Status',
     'Vaccination / Course Progress',
@@ -352,7 +391,8 @@ export function exportCasesToCsv(
     escapeCsvField(c.what_can_be_reported || ''),
     escapeCsvField(c.category),
     escapeCsvField(c.animal_type || 'unknown'),
-    escapeCsvField(c.animal_status || 'unassessed'),
+    escapeCsvField(formatAnimalOwnershipLabel(c.animal_ownership ?? c.animal_status)),
+    escapeCsvField(formatAnimalConditionLabel(c.animal_condition)),
     escapeCsvField(c.treatment_decision_display || c.pep_decision || ''),
     escapeCsvField(c.administration_display || ''),
     escapeCsvField(c.vaccination_display || c.course_outcome || ''),

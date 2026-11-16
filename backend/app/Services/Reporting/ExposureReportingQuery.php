@@ -494,16 +494,107 @@ class ExposureReportingQuery
 
     public function normalizedAnimalCategory(BiteIncident $incident): string
     {
+        return match ($this->normalizedAnimalSpeciesDetail($incident)) {
+            'dog' => 'dog',
+            'cat' => 'cat',
+            'other' => 'other',
+            default => 'unknown',
+        };
+    }
+
+    public function normalizedAnimalSpeciesDetail(BiteIncident $incident): string
+    {
         $raw = strtolower(trim((string) ($incident->animal_type ?? $incident->intake?->animal_type ?? '')));
-        if ($raw === '' || in_array($raw, ['unknown', 'unassessed', 'unspecified'], true)) {
+        if ($raw === '' || $raw === 'unassessed') {
+            return 'not_recorded';
+        }
+        if (in_array($raw, ['unknown', 'unspecified'], true)) {
             return 'unknown';
         }
-
         if (in_array($raw, ['dog', 'cat'], true)) {
             return $raw;
         }
 
         return 'other';
+    }
+
+    public function normalizedAnimalOwnership(BiteIncident $incident): string
+    {
+        $raw = strtolower(trim((string) ($incident->animal_status ?? '')));
+        if ($raw === '' || $raw === 'unassessed') {
+            $intake = strtolower(trim((string) ($incident->intake?->animal_status ?? '')));
+            if ($intake !== '' && $intake !== 'unassessed') {
+                $raw = $intake;
+            }
+        }
+
+        return match ($raw) {
+            'owned', 'domestic' => 'owned',
+            'stray' => 'stray',
+            'unknown' => 'unknown',
+            default => 'not_recorded',
+        };
+    }
+
+    public function normalizedAnimalCondition(BiteIncident $incident): string
+    {
+        $raw = strtolower(trim((string) ($incident->animal_observation_status ?? '')));
+        if ($raw === '' || $raw === 'unassessed') {
+            $intake = strtolower(trim((string) ($incident->intake?->animal_condition_reported ?? '')));
+            if ($intake !== '' && $intake !== 'unassessed') {
+                $raw = $intake;
+            }
+        }
+
+        return match ($raw) {
+            'healthy', 'apparently_healthy' => 'healthy',
+            'sick' => 'sick',
+            'died', 'dead' => 'died',
+            'unknown' => 'unknown',
+            default => 'not_recorded',
+        };
+    }
+
+    public function matchesAnimalFilter(BiteIncident $incident, ?string $animalFilter): bool
+    {
+        $filter = strtolower(trim((string) ($animalFilter ?? '')));
+        if ($filter === '' || $filter === 'all') {
+            return true;
+        }
+        if ($filter === 'species_unknown') {
+            return $this->normalizedAnimalSpeciesDetail($incident) === 'unknown';
+        }
+        if ($filter === 'species_not_recorded') {
+            return $this->normalizedAnimalSpeciesDetail($incident) === 'not_recorded';
+        }
+
+        return $this->normalizedAnimalCategory($incident) === $filter;
+    }
+
+    public function normalizedRegistrationChannel(BiteIncident $incident): string
+    {
+        if ($incident->intake !== null) {
+            return 'online';
+        }
+
+        $hasOnlineAppointment = $incident->appointments->contains(function ($appointment): bool {
+            if (strtolower(trim((string) ($appointment->status ?? ''))) === 'cancelled') {
+                return false;
+            }
+
+            return !empty($appointment->booked_by_account_id)
+                || in_array(strtolower(trim((string) ($appointment->booking_channel ?? ''))), ['mobile', 'online'], true);
+        });
+        if ($hasOnlineAppointment) {
+            return 'online';
+        }
+
+        $hasOnlineConsultation = $incident->treatmentRecords->contains(
+            fn ($record) => $record->dose_number === null
+                && strtolower(trim((string) ($record->mode_of_transaction ?? ''))) === 'online'
+        );
+
+        return $hasOnlineConsultation ? 'online' : 'walk_in';
     }
 
     public function matchesFilters(
@@ -550,9 +641,33 @@ class ExposureReportingQuery
             }
         }
 
-        $animalFilter = strtolower(trim((string) ($filters['animal'] ?? '')));
-        if ($animalFilter !== '' && $animalFilter !== 'all') {
-            if ($this->normalizedAnimalCategory($incident) !== $animalFilter) {
+        if (!$this->matchesAnimalFilter($incident, $filters['animal'] ?? null)) {
+            return false;
+        }
+
+        $animalStatusFilter = strtolower(trim((string) ($filters['animal_status'] ?? '')));
+        if ($animalStatusFilter !== '' && $animalStatusFilter !== 'all') {
+            $normalizedOwnership = $animalStatusFilter === 'unassessed' ? 'not_recorded' : $animalStatusFilter;
+            if ($this->normalizedAnimalOwnership($incident) !== $normalizedOwnership) {
+                return false;
+            }
+        }
+
+        $animalConditionFilter = strtolower(trim((string) ($filters['animal_condition'] ?? '')));
+        if ($animalConditionFilter !== '' && $animalConditionFilter !== 'all') {
+            $normalizedConditionFilter = match ($animalConditionFilter) {
+                'dead' => 'died',
+                'unassessed' => 'not_recorded',
+                default => $animalConditionFilter,
+            };
+            if ($this->normalizedAnimalCondition($incident) !== $normalizedConditionFilter) {
+                return false;
+            }
+        }
+
+        $channelFilter = strtolower(trim((string) ($filters['channel'] ?? '')));
+        if ($channelFilter !== '' && $channelFilter !== 'all') {
+            if ($this->normalizedRegistrationChannel($incident) !== $channelFilter) {
                 return false;
             }
         }

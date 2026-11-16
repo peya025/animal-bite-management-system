@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-
 use App\Http\Requests\Staff\AcceptStaffInvitationRequest;
 use App\Http\Requests\Staff\SendStaffInvitationRequest;
 use App\Services\Staff\StaffInvitationService;
@@ -23,7 +22,14 @@ class StaffInvitationController extends Controller
     {
         $result = $this->invitationService->invite($request->user(), $request->validated());
 
-        return response()->json($result, 201);
+        return response()->json($result, $result['email_sent'] ? 201 : 503);
+    }
+
+    public function resend(Request $request, int $id): JsonResponse
+    {
+        $result = $this->invitationService->resend($request->user(), $id);
+
+        return response()->json($result, $result['email_sent'] ? 200 : 503);
     }
 
     /**

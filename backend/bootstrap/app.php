@@ -40,6 +40,19 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->dontFlash(['token', 'password', 'password_confirmation', 'current_password']);
+        $exceptions->render(function (\Illuminate\Database\QueryException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json(['message' => 'The service is temporarily unavailable. Please contact the system administrator.'], 503);
+            }
+        });
+        $exceptions->report(function (\Illuminate\Database\QueryException $e) {
+            if (request()->is('api/*invitations*', 'patient-portal/*')) {
+                \Illuminate\Support\Facades\Log::error('Invitation database operation failed.', ['sqlstate' => $e->getCode()]);
+                return false; // Do not write SQL bindings containing activation credentials.
+            }
+        });
+
         // Ensure all API routes render consistent JSON responses
         $exceptions->shouldRenderJsonWhen(function (Request $request, Throwable $e): bool {
             return $request->is('api/*') || $request->expectsJson();

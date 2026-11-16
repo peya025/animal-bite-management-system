@@ -10,7 +10,7 @@ class DeliveryPolicy
     {
         $mailer ??= config('mail.default');
 
-        return in_array(config("mail.mailers.{$mailer}.transport"), config('messaging.delivery_transports'), true);
+        return app(SmtpEmailService::class)->configurationError($mailer) === null;
     }
 
     public function error(string $channel, string $recipient, ?string $provider = null): ?string
@@ -29,7 +29,7 @@ class DeliveryPolicy
                 return 'invalid_email';
             }
 
-            return $this->mailerReady($provider) ? null : 'delivery_mailer_required';
+            return app(SmtpEmailService::class)->configurationError($provider);
         }
         try {
             SmsManager::normalize($recipient);

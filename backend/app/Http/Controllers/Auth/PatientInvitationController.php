@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-
 use App\Http\Requests\ActivatePatientInvitationRequest;
 use App\Http\Requests\LinkPatientAccountRequest;
-use App\Http\Requests\Patient\BulkPatientInvitationRequest;
 use App\Http\Requests\SendPatientInvitationRequest;
+use App\Models\Patient;
+use App\Models\PatientInvitation;
 use App\Services\Patient\PatientInvitationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,6 +23,7 @@ class PatientInvitationController extends Controller
      */
     public function store(SendPatientInvitationRequest $request): JsonResponse
     {
+        Patient::where('clinic_id', auth()->user()->clinic_id)->findOrFail($request->patient_id);
         $result = $this->invitationService->send((int) $request->patient_id, (int) auth()->id());
 
         return response()->json($result['data'], $result['status']);
@@ -34,10 +35,12 @@ class PatientInvitationController extends Controller
     public function bulkStore(Request $request): JsonResponse
     {
         $request->validate([
-            'patient_ids'   => ['required', 'array', 'min:1'],
+            'patient_ids' => ['required', 'array', 'min:1', 'max:100'],
             'patient_ids.*' => ['required', 'integer'],
         ]);
 
+        $count = Patient::where('clinic_id', auth()->user()->clinic_id)->whereIn('patient_id', array_unique($request->patient_ids))->count();
+        abort_unless($count === count(array_unique($request->patient_ids)), 404);
         $result = $this->invitationService->bulkSend($request->patient_ids, (int) auth()->id());
 
         return response()->json($result);
@@ -58,6 +61,7 @@ class PatientInvitationController extends Controller
      */
     public function resend($id): JsonResponse
     {
+        PatientInvitation::where('clinic_id', auth()->user()->clinic_id)->findOrFail($id);
         $result = $this->invitationService->resend((int) $id);
 
         return response()->json($result['data'], $result['status']);

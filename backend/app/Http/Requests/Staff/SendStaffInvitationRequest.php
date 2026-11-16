@@ -14,9 +14,9 @@ class SendStaffInvitationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email'            => 'required|email|max:255',
-            'role'             => ['nullable', 'string'],
-            'workstation_role' => ['nullable', 'string'],
+            'email' => 'required|email|max:255',
+            'role' => ['nullable', 'string', 'in:registration,receptionist,treatment,intake_nurse,follow_up_nurse,solo_nurse,doctor,triage,admin,clinic_admin'],
+            'workstation_role' => ['nullable', 'string', 'in:registration,receptionist,treatment,intake_nurse,follow_up_nurse,solo_nurse,doctor,triage,admin,clinic_admin'],
         ];
     }
 }

@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ProtectsInvitationToken;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
-use Carbon\Carbon;
 
 class StaffInvitation extends Model
 {
+    use ProtectsInvitationToken;
+
+    protected $hidden = ['encrypted_token'];
+
     protected $fillable = [
         'clinic_id',
         'invited_by',
@@ -87,7 +92,7 @@ class StaffInvitation extends Model
      */
     public function isValid(): bool
     {
-        return $this->isPending() && !$this->isExpired();
+        return $this->isPending() && ! $this->isExpired();
     }
 
     /**

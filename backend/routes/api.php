@@ -8,7 +8,9 @@ use App\Http\Controllers\Admin\ClinicSetupController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PatientAccessController;
+use App\Http\Controllers\Auth\PatientInvitationController;
 use App\Http\Controllers\Auth\StaffInvitationController;
+use App\Http\Controllers\Auth\StaffSignatureController;
 use App\Http\Controllers\Clinical\BiteCaseController;
 use App\Http\Controllers\Clinical\BiteIncidentIntakeController;
 use App\Http\Controllers\Clinical\BiteIntakeSchemaController;
@@ -16,9 +18,11 @@ use App\Http\Controllers\Clinical\PatientController;
 use App\Http\Controllers\Clinical\RegistrationFeeController;
 use App\Http\Controllers\Clinical\TagoloanTreatmentCardController;
 use App\Http\Controllers\Clinical\TreatmentRecordController;
+use App\Http\Controllers\Developer\AppointmentDiagnosticController;
 use App\Http\Controllers\Inventory\VaccineInventoryController;
 use App\Http\Controllers\Mobile\MobileAppointmentController;
 use App\Http\Controllers\Mobile\MobileClinicResourceController;
+use App\Http\Controllers\Mobile\MobileHistoryController;
 use App\Http\Controllers\Mobile\MobileLocationController;
 use App\Http\Controllers\Mobile\MobileNotificationController;
 use App\Http\Controllers\Mobile\MobileVaccinationCardController;
@@ -30,18 +34,19 @@ use App\Http\Controllers\Operations\VaccinationController;
 use App\Http\Controllers\Operations\VaccinationJourneyController;
 use App\Http\Controllers\Operations\VaccinationRecordController;
 use App\Http\Controllers\Reports\PrintController;
-use App\Http\Controllers\Reports\ReportController;
-use App\Http\Controllers\Auth\PatientInvitationController;
-use App\Http\Controllers\Auth\StaffSignatureController;
-use App\Http\Controllers\Mobile\MobileHistoryController;
 use App\Http\Controllers\Reports\RegistrationReportController;
+use App\Http\Controllers\Reports\ReportController;
 use App\Http\Controllers\Settings\AnnouncementController;
 use App\Http\Controllers\Settings\LandingPageSettingsController;
 use App\Http\Controllers\Settings\NotificationController;
+use App\Http\Controllers\Support\DeveloperDatabaseExplorerController;
 use App\Http\Controllers\Support\PublicStorageController;
 use App\Http\Middleware\EnsureStaffAccount;
 use App\Models\Clinic;
+use App\Models\OutboundMessage;
 use App\Services\Messaging\DeliveryPolicy;
+use App\Services\Messaging\SmtpEmailService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // Public media / storage fallback route (works without symlink)
@@ -104,9 +109,6 @@ Route::get('/setup/check-needed', function () {
         'needs_setup' => Clinic::count() === 0,
     ]);
 })->middleware('public.setup');
-
-use App\Http\Controllers\Developer\AppointmentDiagnosticController;
-use App\Http\Controllers\Support\DeveloperDatabaseExplorerController;
 
 if (
     app()->environment(['local', 'testing']) &&
@@ -213,9 +215,19 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
 
     // Staff Invitations (admin only)
     Route::middleware('role:admin')->group(function () {
-        Route::post('/staff-invitations', [StaffInvitationController::class, 'invite']);
+        Route::post('/staff-invitations', [StaffInvitationController::class, 'invite'])->middleware('throttle:10,1');
         Route::get('/staff-invitations', [StaffInvitationController::class, 'index']);
         Route::delete('/staff-invitations/{id}', [StaffInvitationController::class, 'cancel']);
+
+        Route::get('/email-activity', function (Request $request) {
+            return OutboundMessage::where('clinic_id', $request->user()->clinic_id)
+                ->where('channel', 'email')->with('attempts')->latest('id')->paginate(25);
+        });
+        Route::get('/email-configuration-status', function () {
+            return ['configuration_error' => app(SmtpEmailService::class)->configurationError(),
+                'enabled' => (bool) config('messaging.email_enabled'), 'test_mode' => (bool) config('messaging.test_mode')];
+        });
+        Route::post('/staff-invitations/{id}/resend', [StaffInvitationController::class, 'resend'])->middleware('throttle:10,1');
 
         // Audit Logs (staff activity monitoring)
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
@@ -296,7 +308,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
 
     // Staff Invitations (admin only)
     Route::middleware('role:admin')->prefix('invitations')->group(function () {
-        Route::post('/', [StaffInvitationController::class, 'invite']);
+        Route::post('/', [StaffInvitationController::class, 'invite'])->middleware('throttle:10,1');
         Route::get('/', [StaffInvitationController::class, 'index']);
         Route::post('/{id}/cancel', [StaffInvitationController::class, 'cancel']);
     });
@@ -362,9 +374,9 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
 
     // Patient Portal Invitations & Account Linking (Staff endpoints)
     Route::middleware('role:admin,registration,triage')->group(function () {
-        Route::post('/patient-invitations', [PatientInvitationController::class, 'store']);
-        Route::post('/patient-invitations/bulk', [PatientInvitationController::class, 'bulkStore']);
-        Route::post('/patient-invitations/{id}/resend', [PatientInvitationController::class, 'resend']);
+        Route::post('/patient-invitations', [PatientInvitationController::class, 'store'])->middleware('throttle:10,1');
+        Route::post('/patient-invitations/bulk', [PatientInvitationController::class, 'bulkStore'])->middleware('throttle:10,1');
+        Route::post('/patient-invitations/{id}/resend', [PatientInvitationController::class, 'resend'])->middleware('throttle:10,1');
         Route::post('/patients/{patient_id}/link-account', [PatientInvitationController::class, 'linkAccount']);
         Route::patch('/patient-account-patient/{id}/verify', [PatientInvitationController::class, 'verifyLink']);
     });

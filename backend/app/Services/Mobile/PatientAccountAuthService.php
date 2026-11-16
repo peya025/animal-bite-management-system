@@ -3,6 +3,7 @@
 namespace App\Services\Mobile;
 
 use App\Models\PatientAccount;
+use App\Services\Messaging\AccountSecurityEmail;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -17,8 +18,8 @@ class PatientAccountAuthService
         $account = PatientAccount::create($data);
 
         return [
-            'account'    => $account,
-            'token'      => $account->createToken('mobile')->plainTextToken,
+            'account' => $account,
+            'token' => $account->createToken('mobile')->plainTextToken,
             'token_type' => 'Bearer',
         ];
     }
@@ -45,8 +46,8 @@ class PatientAccountAuthService
         $account->update(['last_login_at' => now()]);
 
         return [
-            'account'    => $account,
-            'token'      => $account->createToken('mobile')->plainTextToken,
+            'account' => $account,
+            'token' => $account->createToken('mobile')->plainTextToken,
             'token_type' => 'Bearer',
         ];
     }
@@ -98,6 +99,8 @@ class PatientAccountAuthService
             'password' => $newPassword,
         ]);
 
+        app(AccountSecurityEmail::class)->passwordChanged($account);
+
         $currentTokenId = $account->currentAccessToken()?->id;
         if ($currentTokenId) {
             $account->tokens()->where('id', '!=', $currentTokenId)->delete();
@@ -140,10 +143,10 @@ class PatientAccountAuthService
     }
 
     /**
-     * Password reset placeholder.
+     * Request password recovery without disclosing whether an account exists.
      */
     public function forgotPassword(string $email): void
     {
-        // No-op or notification trigger
+        app(PatientPasswordRecovery::class)->request($email);
     }
 }

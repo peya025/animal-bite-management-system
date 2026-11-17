@@ -54,6 +54,29 @@ class FcmTestCommandTest extends TestCase
             ->assertExitCode(1);
     }
 
+    public function test_command_accepts_patient_and_user_option_aliases(): void
+    {
+        $mockAuth = $this->createMock(FirebaseAuthService::class);
+        $mockAuth->method('validateCredentialsFile')->willReturn([
+            'project_id'   => 'abtc-management-system',
+            'client_email' => 'firebase-test@abtc-management-system.iam.gserviceaccount.com',
+            'type'         => 'service_account',
+        ]);
+        $this->app->instance(FirebaseAuthService::class, $mockAuth);
+
+        $account = $this->createPatientAccount();
+
+        // Test --patient alias
+        $this->artisan('fcm:test', ['--patient' => $account->id])
+            ->expectsOutputToContain("Patient account [{$account->id}] {$account->email} has no active registered device tokens.")
+            ->assertExitCode(0);
+
+        // Test --user alias
+        $this->artisan('fcm:test', ['--user' => $account->id])
+            ->expectsOutputToContain("Patient account [{$account->id}] {$account->email} has no active registered device tokens.")
+            ->assertExitCode(0);
+    }
+
     public function test_command_dry_run_with_token(): void
     {
         $mockAuth = $this->createMock(FirebaseAuthService::class);

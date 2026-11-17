@@ -14,6 +14,8 @@ class SendFcmTestNotification extends Command
 {
     protected $signature = 'fcm:test
                             {--account= : Target test patient account ID or email}
+                            {--patient= : Target test patient account ID or email (alias for --account)}
+                            {--user= : Target test patient account ID or email (alias for --account)}
                             {--token= : Target explicit FCM registration token}
                             {--device= : Target registered device ID}
                             {--dry-run : Validate payload with Firebase HTTP v1 API without sending to physical device}
@@ -40,7 +42,7 @@ class SendFcmTestNotification extends Command
             return Command::FAILURE;
         }
 
-        $accountOption = $this->option('account');
+        $accountOption = $this->option('account') ?: ($this->option('patient') ?: $this->option('user'));
         $tokenOption   = $this->option('token');
         $deviceOption  = $this->option('device');
         $isDryRun      = (bool) ($this->option('dry-run') || $this->option('validate-only'));

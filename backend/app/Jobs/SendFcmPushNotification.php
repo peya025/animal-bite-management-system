@@ -11,7 +11,9 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 class SendFcmPushNotification implements ShouldQueue
@@ -21,6 +23,11 @@ class SendFcmPushNotification implements ShouldQueue
     public int $tries = 3;
     public int $timeout = 30;
     public array $backoff = [30, 120, 300];
+
+    /**
+     * Unique idempotency identifier persisted across job retries and restarts.
+     */
+    public ?string $idempotencyKey = null;
 
     /**
      * Tracks device token IDs whose delivery has already succeeded or completed,
@@ -33,15 +40,75 @@ class SendFcmPushNotification implements ShouldQueue
         public string $title,
         public string $body,
         public array $data = [],
-        public ?int $deviceTokenId = null
+        public ?int $deviceTokenId = null,
+        ?string $idempotencyKey = null
     ) {
+        $this->idempotencyKey = $idempotencyKey ?? (string) Str::uuid();
         $this->onConnection(config('messaging.queue_connection', 'database'));
         $this->onQueue(config('messaging.queue', 'notifications'));
         $this->afterCommit();
     }
 
+    /**
+     * Generate or return the persistent cache key for tracking delivered devices across retries.
+     */
+    public function getDeliveredCacheKey(): string
+    {
+        if (empty($this->idempotencyKey)) {
+            $contentHash = md5("{$this->patientAccountId}:{$this->title}:{$this->body}:" . json_encode($this->data));
+            $this->idempotencyKey = "hash_{$contentHash}";
+        }
+
+        return "fcm:job:delivered:{$this->idempotencyKey}";
+    }
+
+    /**
+     * Load previously delivered device IDs from persistent cache storage.
+     */
+    protected function loadDeliveredDevicesFromStorage(): void
+    {
+        try {
+            $cached = Cache::get($this->getDeliveredCacheKey(), []);
+            if (is_array($cached)) {
+                $this->deliveredDeviceTokenIds = array_values(array_unique(array_merge(
+                    $this->deliveredDeviceTokenIds,
+                    $cached
+                )));
+            }
+        } catch (Throwable $e) {
+            Log::warning("Failed to load cached delivered FCM device IDs: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Record a device ID as successfully delivered both in-memory and persistently in cache.
+     */
+    protected function recordDeviceDelivered(int $tokenId): void
+    {
+        if ($tokenId <= 0) {
+            return;
+        }
+
+        if (!in_array($tokenId, $this->deliveredDeviceTokenIds, true)) {
+            $this->deliveredDeviceTokenIds[] = $tokenId;
+        }
+
+        try {
+            Cache::put(
+                $this->getDeliveredCacheKey(),
+                $this->deliveredDeviceTokenIds,
+                now()->addHours(24)
+            );
+        } catch (Throwable $e) {
+            Log::warning("Failed to persist delivered FCM device IDs to cache: " . $e->getMessage());
+        }
+    }
+
     public function handle(FcmService $fcmService): void
     {
+        // 1. Recover persistent delivery state to survive worker crashes, reboots, and queue deserialization
+        $this->loadDeliveredDevicesFromStorage();
+
         $account = PatientAccount::find($this->patientAccountId);
 
         if (!$account || !$account->is_active) {
@@ -78,7 +145,7 @@ class SendFcmPushNotification implements ShouldQueue
             );
 
             if ($result->isSuccessful() || !$result->isRetryable()) {
-                $this->deliveredDeviceTokenIds[] = $deviceToken->id;
+                $this->recordDeviceDelivered($deviceToken->id);
             }
 
             $this->evaluateResult($result);
@@ -100,7 +167,7 @@ class SendFcmPushNotification implements ShouldQueue
             foreach ($results as $tokenId => $result) {
                 if ($result->isSuccessful() || !$result->isRetryable()) {
                     if (is_int($tokenId) && $tokenId > 0) {
-                        $this->deliveredDeviceTokenIds[] = $tokenId;
+                        $this->recordDeviceDelivered($tokenId);
                     }
                 }
 
@@ -131,7 +198,7 @@ class SendFcmPushNotification implements ShouldQueue
                 );
 
                 if ($result->isSuccessful() || !$result->isRetryable()) {
-                    $this->deliveredDeviceTokenIds[] = $deviceToken->id;
+                    $this->recordDeviceDelivered($deviceToken->id);
                 }
 
                 if ($result->isRetryable()) {

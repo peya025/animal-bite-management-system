@@ -407,6 +407,30 @@ class MobileApi {
     );
   }
 
+  /// Get backend notification preferences for the authenticated patient account.
+  Future<Map<String, dynamic>> getNotificationPreferences() async {
+    final data = await _send('GET', '/notification-preferences');
+    if (data is Map<String, dynamic> && data['preferences'] is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(data['preferences'] as Map);
+    }
+    return <String, dynamic>{};
+  }
+
+  /// Update backend notification preferences for the authenticated patient account.
+  Future<Map<String, dynamic>> updateNotificationPreferences(
+    Map<String, dynamic> preferences,
+  ) async {
+    final data = await _send(
+      'PUT',
+      '/notification-preferences',
+      body: preferences,
+    );
+    if (data is Map<String, dynamic> && data['preferences'] is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(data['preferences'] as Map);
+    }
+    return <String, dynamic>{};
+  }
+
   Future<Map<String, dynamic>> history({int? patientId}) async {
     final query = patientId != null ? '?patient_id=$patientId' : '';
     final data = await _send('GET', '/history$query') as Map<String, dynamic>;

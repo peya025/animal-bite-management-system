@@ -745,6 +745,29 @@ class MockMobileApi {
     }
   }
 
+  final Map<String, dynamic> _mockNotificationPreferences = {
+    'push_enabled': true,
+    'appointment_updates': true,
+    'reminders': true,
+    'digital_card': true,
+    'announcements': true,
+  };
+
+  /// Mock get notification preferences
+  Future<Map<String, dynamic>> getNotificationPreferences() async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    return Map<String, dynamic>.from(_mockNotificationPreferences);
+  }
+
+  /// Mock update notification preferences
+  Future<Map<String, dynamic>> updateNotificationPreferences(
+    Map<String, dynamic> preferences,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    _mockNotificationPreferences.addAll(preferences);
+    return Map<String, dynamic>.from(_mockNotificationPreferences);
+  }
+
   String _resolveString(
     Map<String, dynamic> profile,
     Map<String, dynamic>? existing,

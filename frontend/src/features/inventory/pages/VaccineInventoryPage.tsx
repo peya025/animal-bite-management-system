@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useEcho } from '../../../shared/hooks/useEcho';
 
 type ApiError = {
   response?: {
@@ -76,7 +77,9 @@ function InventorySummaryCard({ label, value, subtitle, tone, icon, loading }: {
 }
 
 export default function VaccineInventory({ initialTab }: VaccineInventoryProps = {}) {
-  const { user } = useAuth();
+  const { user, clinic } = useAuth();
+  const { echo, isConnected } = useEcho();
+  const clinicId = clinic?.id ?? user?.clinic_id ?? null;
   const isNurseRole = user?.role === 'treatment';
   const isAdminRole = user?.role === 'admin';
   const location = useLocation();
@@ -191,6 +194,70 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
 
     return () => window.clearTimeout(timer);
   }, [loadData]);
+
+  // Real-time WebSocket live updates for vaccine inventory changes
+  const liveReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasConnectedRef = useRef<boolean>(false);
+
+  const scheduleLoadData = useCallback(() => {
+    if (liveReloadTimerRef.current) {
+      clearTimeout(liveReloadTimerRef.current);
+    }
+    liveReloadTimerRef.current = setTimeout(() => {
+      void loadData();
+      liveReloadTimerRef.current = null;
+    }, 250);
+  }, [loadData]);
+
+  // Reconnection recovery
+  useEffect(() => {
+    if (isConnected && !wasConnectedRef.current) {
+      void loadData();
+    }
+    wasConnectedRef.current = isConnected;
+  }, [isConnected, loadData]);
+
+  // Fallback polling loop (60s connected, 30s disconnected)
+  useEffect(() => {
+    const pollInterval = isConnected ? 60_000 : 30_000;
+    const interval = setInterval(() => {
+      if (!document.hidden) void loadData();
+    }, pollInterval);
+    return () => clearInterval(interval);
+  }, [isConnected, loadData]);
+
+  // Subscribe to clinic inventory channel
+  useEffect(() => {
+    if (!echo || !clinicId) return;
+
+    const channelName = `clinic.${clinicId}.inventory`;
+    let channel: any;
+
+    try {
+      channel = echo.private(channelName);
+
+      const handleInventoryUpdate = () => {
+        scheduleLoadData();
+      };
+
+      channel.listen('.inventory.updated', handleInventoryUpdate);
+      channel.listen('inventory.updated', handleInventoryUpdate);
+    } catch (err) {
+      console.warn('[Echo] VaccineInventoryPage subscription warning:', err);
+    }
+
+    return () => {
+      if (liveReloadTimerRef.current) {
+        clearTimeout(liveReloadTimerRef.current);
+      }
+      if (channel) {
+        try {
+          channel.stopListening('.inventory.updated');
+          channel.stopListening('inventory.updated');
+        } catch {}
+      }
+    };
+  }, [echo, clinicId, scheduleLoadData]);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {

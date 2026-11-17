@@ -141,7 +141,7 @@ class MobileAppointmentService
                 'status'               => 'scheduled',
             ]);
 
-            event(AppointmentStatusChanged::fromModel($appointment, 'created', (int) $account->id));
+            AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment, 'created', (int) $account->id));
 
             if ($isBooster) {
                 $day3Date = Carbon::parse($validated['scheduled_date'])->addDays(3)->format('Y-m-d');
@@ -158,7 +158,7 @@ class MobileAppointmentService
                     'booked_by_account_id' => $account->id,
                     'status'               => 'scheduled',
                 ]);
-                event(AppointmentStatusChanged::fromModel($day3Appt, 'created', (int) $account->id));
+                AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($day3Appt, 'created', (int) $account->id));
             }
 
             if ($appointment->appointment_type === 'consultation' && !empty($validated['intake'])) {
@@ -235,7 +235,7 @@ class MobileAppointmentService
             'cancelled_at'        => now(),
         ]);
 
-        event(AppointmentStatusChanged::fromModel($appointment->fresh(), 'cancelled', (int) $account->id));
+        AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment->fresh(), 'cancelled', (int) $account->id));
 
         Notification::create([
             'patient_id'         => $appointment->patient_id,

@@ -51,6 +51,18 @@ class QueueTicketUpdated implements ShouldBroadcastNow, ShouldDispatchAfterCommi
     }
 
     /**
+     * Dispatch the event with the given arguments or an existing instance.
+     */
+    public static function dispatch(...$arguments)
+    {
+        if (isset($arguments[0]) && $arguments[0] instanceof static) {
+            return event($arguments[0]);
+        }
+
+        return event(new static(...$arguments));
+    }
+
+    /**
      * Factory helper to create an event instance from an Eloquent model
      * without exposing the Eloquent model to broadcast serialization.
      */

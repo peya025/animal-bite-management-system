@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from './AuthContext';
 import { useAccessDenied } from './AccessDeniedContext';
+import { useEcho } from '../hooks/useEcho';
 import {
   canUserAccessRoute,
   isNotificationRelevantToUser,
@@ -27,9 +28,11 @@ interface NotificationContextValue {
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
-  const { user, token } = useAuth();
+  const { user, token, clinic } = useAuth();
   const { showAccessDenied } = useAccessDenied();
   const navigate = useNavigate();
+  const { echo, isConnected } = useEcho();
+  const clinicId = clinic?.id ?? user?.clinic_id ?? null;
 
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
@@ -40,6 +43,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const seenNotificationIds = useRef<Set<number>>(new Set());
   const hasInitializedRef = useRef<boolean>(false);
   const currentUserIdRef = useRef<number | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasConnectedRef = useRef<boolean>(false);
 
   // Hydrate seen notification IDs from sessionStorage scoped to the current user
   useEffect(() => {
@@ -126,13 +131,32 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, [token, user, saveSeenIdsToStorage]);
 
-  // Polling loop
+  const scheduleFetchNotifications = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      void fetchNotifications();
+      debounceTimerRef.current = null;
+    }, 200);
+  }, [fetchNotifications]);
+
+  // Reconnection recovery: catch up on any missed notifications
+  useEffect(() => {
+    if (isConnected && !wasConnectedRef.current) {
+      void fetchNotifications();
+    }
+    wasConnectedRef.current = isConnected;
+  }, [isConnected, fetchNotifications]);
+
+  // Adaptive polling fallback
   useEffect(() => {
     if (!token || !user) return;
 
     fetchNotifications();
 
-    const interval = setInterval(fetchNotifications, NOTIFICATION_POLL_INTERVAL_MS);
+    const pollInterval = isConnected ? 30_000 : NOTIFICATION_POLL_INTERVAL_MS;
+    const interval = setInterval(fetchNotifications, pollInterval);
 
     const handleFocus = () => {
       fetchNotifications();
@@ -143,8 +167,57 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
     };
-  }, [token, user, fetchNotifications]);
+  }, [token, user, isConnected, fetchNotifications]);
+
+  // WebSocket subscriptions for clinic-wide and user-targeted notifications
+  useEffect(() => {
+    if (!echo || !clinicId || !user?.id) return;
+
+    const clinicChannelName = `clinic.${clinicId}.notifications`;
+    const userChannelName = `clinic.${clinicId}.user.${user.id}.notifications`;
+
+    let clinicChannel: any;
+    let userChannel: any;
+
+    const handleNotificationEvent = (payload: any) => {
+      // Respect user-specific and role filters
+      if (payload && !isNotificationRelevantToUser(payload, user)) {
+        return;
+      }
+      scheduleFetchNotifications();
+    };
+
+    try {
+      clinicChannel = echo.private(clinicChannelName);
+      clinicChannel.listen('.notification.created', handleNotificationEvent);
+      clinicChannel.listen('notification.created', handleNotificationEvent);
+
+      userChannel = echo.private(userChannelName);
+      userChannel.listen('.notification.created', handleNotificationEvent);
+      userChannel.listen('notification.created', handleNotificationEvent);
+    } catch (err) {
+      console.warn('[Echo] Failed to subscribe to notification channels:', err);
+    }
+
+    return () => {
+      if (clinicChannel) {
+        try {
+          clinicChannel.stopListening('.notification.created');
+          clinicChannel.stopListening('notification.created');
+        } catch {}
+      }
+      if (userChannel) {
+        try {
+          userChannel.stopListening('.notification.created');
+          userChannel.stopListening('notification.created');
+        } catch {}
+      }
+    };
+  }, [echo, clinicId, user, scheduleFetchNotifications]);
 
   const dismissToast = useCallback((id: number) => {
     // Auto-dismiss or close button click: Remove toast without marking it as read

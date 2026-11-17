@@ -283,12 +283,14 @@ class DomainServicesBroadcastingIntegrationTest extends TestCase
             'bite_place' => 'Tagoloan Market',
             'bite_category' => 'III',
             'status' => 'assessment_completed',
+            'created_by' => $this->doctor->id,
         ]);
 
         TreatmentPlan::create([
             'clinic_id' => $this->clinic1->id,
+            'patient_id' => $this->patient->patient_id,
             'bite_id' => $incident->bite_id,
-            'plan_type' => 'PEP_ESSENTIAL',
+            'plan_type' => 'full_pep',
             'status' => 'approved',
         ]);
 
@@ -483,11 +485,17 @@ class DomainServicesBroadcastingIntegrationTest extends TestCase
 
         // 1. Mobile booking
         $response = $this->actingAs($this->patientAccount, 'sanctum')
-            ->postJson('/api/appointments', [
+            ->postJson('/api/mobile/appointments', [
                 'patient_id' => $this->patient->patient_id,
                 'appointment_type' => 'consultation',
                 'scheduled_date' => $futureDate,
                 'time_slot' => 'morning',
+                'intake' => [
+                    'bite_date' => Carbon::yesterday()->toDateString(),
+                    'exposure_type' => 'bite',
+                    'animal_type' => 'dog',
+                    'animal_status' => 'owned',
+                ],
             ]);
 
         $response->assertStatus(201);
@@ -503,7 +511,7 @@ class DomainServicesBroadcastingIntegrationTest extends TestCase
 
         // 2. Mobile cancellation
         $response = $this->actingAs($this->patientAccount, 'sanctum')
-            ->patchJson("/api/appointments/{$appointmentId}/cancel", [
+            ->patchJson("/api/mobile/appointments/{$appointmentId}/cancel", [
                 'reason' => 'Schedule conflict',
             ]);
 

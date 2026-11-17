@@ -2,6 +2,7 @@ import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
+import { useEcho } from '../../../shared/hooks/useEcho';
 import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import { Typography } from '@mui/material';
 import { ROUTES } from '../../../shared/config/routes';
@@ -96,11 +97,13 @@ export default function PatientList() {
   // Returning Patient Reassessment Check-In state
   const [reassessmentCheckInPatient, setReassessmentCheckInPatient] = useState<Patient | null>(null);
 
-  const { clinic: authClinic } = useAuth();
+  const { clinic: authClinic, user: authUser } = useAuth();
+  const { echo, isConnected } = useEcho();
   const userData   = localStorage.getItem('userData');
   const clinicData = localStorage.getItem('clinicData');
   const storedClinic = clinicData ? JSON.parse(clinicData) : null;
   const clinic       = authClinic || storedClinic;
+  const clinicId     = clinic?.id ?? authUser?.clinic_id ?? null;
 
   const userRole   = user?.role || (userData ? (JSON.parse(userData)?.role ?? '') : '');
   const printedBy  = user?.name || (userData ? (JSON.parse(userData)?.name ?? 'Unknown') : 'Unknown');
@@ -665,6 +668,64 @@ export default function PatientList() {
       window.removeEventListener('focus', handleVisibilityOrFocus);
     };
   }, [fetchPatients]);
+
+  // Real-time WebSocket live updates for patient queue and online appointments
+  const liveReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasConnectedRef = useRef<boolean>(false);
+
+  const scheduleFetchPatients = useCallback(() => {
+    if (liveReloadTimerRef.current) {
+      clearTimeout(liveReloadTimerRef.current);
+    }
+    liveReloadTimerRef.current = setTimeout(() => {
+      void fetchPatients();
+      liveReloadTimerRef.current = null;
+    }, 250);
+  }, [fetchPatients]);
+
+  // Reconnection recovery: catch up on missed appointments and queue updates
+  useEffect(() => {
+    if (isConnected && !wasConnectedRef.current) {
+      void fetchPatients();
+    }
+    wasConnectedRef.current = isConnected;
+  }, [isConnected, fetchPatients]);
+
+  useEffect(() => {
+    if (!echo || !clinicId) return;
+
+    const channelName = `clinic.${clinicId}.queue`;
+    let channel: any;
+
+    try {
+      channel = echo.private(channelName);
+
+      const handleLiveEvent = () => {
+        scheduleFetchPatients();
+      };
+
+      channel.listen('.appointment.changed', handleLiveEvent);
+      channel.listen('appointment.changed', handleLiveEvent);
+      channel.listen('.queue.updated', handleLiveEvent);
+      channel.listen('queue.updated', handleLiveEvent);
+    } catch (err) {
+      console.warn('[Echo] PatientListPage subscription warning:', err);
+    }
+
+    return () => {
+      if (liveReloadTimerRef.current) {
+        clearTimeout(liveReloadTimerRef.current);
+      }
+      if (channel) {
+        try {
+          channel.stopListening('.appointment.changed');
+          channel.stopListening('appointment.changed');
+          channel.stopListening('.queue.updated');
+          channel.stopListening('queue.updated');
+        } catch {}
+      }
+    };
+  }, [echo, clinicId, scheduleFetchPatients]);
 
   // Visible walk-in patients on current page
   const visibleWalkins = useMemo(() => {

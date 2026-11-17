@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { QueueEntry, QueueStats } from '../types';
 import { fetchQueueData } from '../services';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useEcho } from '../../../shared/hooks/useEcho';
+
+const FAST_FALLBACK_POLL_MS = 30_000;
+const CONNECTED_HEARTBEAT_MS = 60_000;
 
 export function useQueueData(onError?: (msg: string) => void) {
   const [queue,             setQueue]             = useState<QueueEntry[]>([]);
@@ -9,8 +14,15 @@ export function useQueueData(onError?: (msg: string) => void) {
   const [loading,           setLoading]           = useState(true);
   const [nextEntry,         setNextEntry]         = useState<QueueEntry | null>(null);
 
+  const { user, clinic } = useAuth();
+  const { echo, isConnected } = useEcho();
+  const clinicId = clinic?.id ?? user?.clinic_id ?? null;
+
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
+
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasConnectedRef = useRef<boolean>(false);
 
   const loadData = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -27,11 +39,80 @@ export function useQueueData(onError?: (msg: string) => void) {
     }
   }, []);
 
+  // Coalesce rapid event broadcasts into a single silent fetch
+  const scheduleSilentReload = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      void loadData(true);
+      debounceTimerRef.current = null;
+    }, 200);
+  }, [loadData]);
+
+  // Initial fetch on mount
   useEffect(() => {
     loadData(false);
-    const id = setInterval(() => loadData(true), 30000);
-    return () => clearInterval(id);
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [loadData]);
+
+  // Reconnection recovery: when transitioning to connected, refresh immediately
+  useEffect(() => {
+    if (isConnected && !wasConnectedRef.current) {
+      void loadData(true);
+    }
+    wasConnectedRef.current = isConnected;
+  }, [isConnected, loadData]);
+
+  // Adaptive polling fallback
+  useEffect(() => {
+    const pollInterval = isConnected ? CONNECTED_HEARTBEAT_MS : FAST_FALLBACK_POLL_MS;
+    const intervalId = setInterval(() => {
+      void loadData(true);
+    }, pollInterval);
+
+    return () => clearInterval(intervalId);
+  }, [isConnected, loadData]);
+
+  // Real-time WebSocket subscription
+  useEffect(() => {
+    if (!echo || !clinicId) return;
+
+    const channelName = `clinic.${clinicId}.queue`;
+    let channel: any;
+
+    try {
+      channel = echo.private(channelName);
+
+      const handleQueueEvent = () => {
+        scheduleSilentReload();
+      };
+
+      channel.listen('.queue.updated', handleQueueEvent);
+      channel.listen('queue.updated', handleQueueEvent);
+      channel.listen('.appointment.changed', handleQueueEvent);
+      channel.listen('appointment.changed', handleQueueEvent);
+    } catch (err) {
+      console.warn('[Echo] Failed to subscribe to queue channel:', err);
+    }
+
+    return () => {
+      if (channel) {
+        try {
+          channel.stopListening('.queue.updated');
+          channel.stopListening('queue.updated');
+          channel.stopListening('.appointment.changed');
+          channel.stopListening('appointment.changed');
+        } catch {
+          // Ignore unbind errors
+        }
+      }
+    };
+  }, [echo, clinicId, scheduleSilentReload]);
 
   return {
     queue,

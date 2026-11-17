@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react';
 import type { User, Clinic, LoginCredentials, AuthContextType } from '../types';
 import authService from '../services/auth.service';
+import { disconnectEcho } from '../services/echo';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ROUTES } from '../config/routes';
 import {
@@ -61,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (storedToken && storedUser) {
       if (lastActivity && Date.now() - lastActivity >= IDLE_TIMEOUT_MS) {
+        disconnectEcho();
         authService.clearAuthSession();
         setIsLoading(false);
         navigate('/login?reason=idle-timeout', { replace: true });
@@ -177,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const now = Date.now();
       if (lastActivity && now - lastActivity >= IDLE_TIMEOUT_MS) {
         setShowWarning(false);
+        disconnectEcho();
         authService.clearAuthSession();
         setUser(null);
         setClinic(null);
@@ -216,6 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const elapsed = Date.now() - lastActivity;
       if (elapsed >= IDLE_TIMEOUT_MS) {
         setShowWarning(false);
+        disconnectEcho();
         authService.clearAuthSession();
         setUser(null);
         setClinic(null);
@@ -269,6 +273,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     setShowWarning(false);
+    disconnectEcho();
     try {
       await authService.logout();
     } finally {

@@ -52,6 +52,18 @@ class VaccineStockUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
     }
 
     /**
+     * Dispatch the event with the given arguments or an existing instance.
+     */
+    public static function dispatch(...$arguments)
+    {
+        if (isset($arguments[0]) && $arguments[0] instanceof static) {
+            return event($arguments[0]);
+        }
+
+        return event(new static(...$arguments));
+    }
+
+    /**
      * Factory helper to create an event instance from a VaccineInventory model
      * without exposing the full Eloquent model to broadcast serialization.
      */

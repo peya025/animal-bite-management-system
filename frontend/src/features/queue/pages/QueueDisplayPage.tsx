@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useEcho } from '../../../shared/hooks/useEcho';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -212,7 +213,9 @@ function SubStationCard({
 // ─── Main Page ────────────────────────────────────────────────
 
 export default function QueueDisplayPage() {
-  const { user } = useAuth();
+  const { user, clinic } = useAuth();
+  const { echo, isConnected } = useEcho();
+  const clinicId = clinic?.id ?? user?.clinic_id ?? null;
   const [now, setNow]         = useState(new Date());
   const [queue, setQueue]     = useState<QueueEntry[]>([]);
   const [, setLoading] = useState(true);
@@ -220,6 +223,8 @@ export default function QueueDisplayPage() {
   const [lastCall, setLastCall] = useState<QueueEntry | null>(null);
   const [callNoticeId, setCallNoticeId] = useState(0);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasConnectedRef = useRef<boolean>(false);
   const prevCalledRef  = useRef<Set<string>>(new Set());
   const autoCallingRef = useRef<Set<number>>(new Set()); // guard against duplicate auto-calls
   const attemptedCallIdsRef = useRef<Set<number>>(new Set());
@@ -258,6 +263,9 @@ export default function QueueDisplayPage() {
       if (!audioCtxRef.current)
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
       [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -270,6 +278,23 @@ export default function QueueDisplayPage() {
         osc.stop(ctx.currentTime + i * 0.18 + 0.36);
       });
     } catch { /* ignore */ }
+  }, []);
+
+  // Unlock browser audio autoplay restrictions on user gesture
+  useEffect(() => {
+    const unlockAudio = () => {
+      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+    };
+    window.addEventListener('click', unlockAudio, { once: true });
+    window.addEventListener('touchstart', unlockAudio, { once: true });
+    window.addEventListener('keydown', unlockAudio, { once: true });
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
   }, []);
 
   // Show notice immediately and restart 5-second timer
@@ -367,11 +392,73 @@ export default function QueueDisplayPage() {
     } catch { /* ignore */ }
   }, [triggerCallNotice, canCallPatients]);
 
+  // Coalesce rapid event broadcasts into a single loadQueue call
+  const scheduleLoadQueue = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      void loadQueue();
+      debounceTimerRef.current = null;
+    }, 150);
+  }, [loadQueue]);
+
+  // Initial load
   useEffect(() => {
     loadQueue();
-    const id = setInterval(loadQueue, 5_000); // poll every 5s
-    return () => clearInterval(id);
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [loadQueue]);
+
+  // Reconnection recovery: refresh immediately when connection restored
+  useEffect(() => {
+    if (isConnected && !wasConnectedRef.current) {
+      void loadQueue();
+    }
+    wasConnectedRef.current = isConnected;
+  }, [isConnected, loadQueue]);
+
+  // Adaptive polling fallback: 20s when connected, 5s when disconnected
+  useEffect(() => {
+    const pollInterval = isConnected ? 20_000 : 5_000;
+    const id = setInterval(loadQueue, pollInterval);
+    return () => clearInterval(id);
+  }, [isConnected, loadQueue]);
+
+  // WebSocket event listener
+  useEffect(() => {
+    if (!echo || !clinicId) return;
+
+    const channelName = `clinic.${clinicId}.queue`;
+    let channel: any;
+
+    try {
+      channel = echo.private(channelName);
+
+      const handleQueueUpdate = () => {
+        scheduleLoadQueue();
+      };
+
+      channel.listen('.queue.updated', handleQueueUpdate);
+      channel.listen('queue.updated', handleQueueUpdate);
+    } catch (err) {
+      console.warn('[Echo] Queue Display subscription warning:', err);
+    }
+
+    return () => {
+      if (channel) {
+        try {
+          channel.stopListening('.queue.updated');
+          channel.stopListening('queue.updated');
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, [echo, clinicId, scheduleLoadQueue]);
 
   // Active statuses = patient is at or being directed to the station
   const ACTIVE = (s: string) => ['called', 'serving', 'in_consultation'].includes(s);

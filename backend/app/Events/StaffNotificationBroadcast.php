@@ -68,9 +68,18 @@ class StaffNotificationBroadcast implements ShouldBroadcast, ShouldDispatchAfter
 
     /**
      * Get the channels the event should broadcast on.
+     *
+     * Targets a user-specific private channel when userId is present to prevent leaking
+     * private messages to all clinic staff. Otherwise broadcasts to the general clinic staff channel.
      */
     public function broadcastOn(): array
     {
+        if ($this->userId !== null && $this->userId > 0) {
+            return [
+                new PrivateChannel("clinic.{$this->clinicId}.user.{$this->userId}.notifications"),
+            ];
+        }
+
         return [
             new PrivateChannel("clinic.{$this->clinicId}.notifications"),
         ];

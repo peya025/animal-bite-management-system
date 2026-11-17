@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\QueueTicketUpdated;
 use App\Models\Patient;
 use App\Models\Queue;
 use App\Models\QueueHistory;
@@ -227,6 +228,8 @@ class QueueService
 
             app(\App\Services\NotificationService::class)
                 ->notifyQueueEvent($queue->load('patient'), 'checked_in', $user);
+
+            QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'checked_in'));
 
             return [
                 'duplicate'      => false,

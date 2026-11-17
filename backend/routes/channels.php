@@ -29,6 +29,13 @@ Broadcast::channel('clinic.{clinicId}.notifications', function ($user, int $clin
     return $user instanceof User && (int) $user->clinic_id === (int) $clinicId;
 }, ['guards' => ['sanctum']]);
 
+// Recipient-specific staff notification channel (for private/targeted staff user notifications)
+Broadcast::channel('clinic.{clinicId}.user.{userId}.notifications', function ($user, int $clinicId, int $userId) {
+    return $user instanceof User
+        && (int) $user->clinic_id === (int) $clinicId
+        && (int) $user->id === (int) $userId;
+}, ['guards' => ['sanctum']]);
+
 // 3. Clinic Inventory Channel (Treatment & Admin roles)
 Broadcast::channel('clinic.{clinicId}.inventory', function ($user, int $clinicId) {
     return $user instanceof User

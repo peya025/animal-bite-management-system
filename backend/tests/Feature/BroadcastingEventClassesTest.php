@@ -429,6 +429,25 @@ class BroadcastingEventClassesTest extends TestCase
         $this->assertSame('private-clinic.' . $this->clinic1->id . '.notifications', $channels[0]->name);
     }
 
+    public function test_staff_notification_broadcast_channel_targeting_with_user_id(): void
+    {
+        $event = new StaffNotificationBroadcast(
+            clinicId: $this->clinic1->id,
+            notificationId: 88,
+            category: 'inventory',
+            type: 'stock_low',
+            title: 'Personal Notification',
+            message: 'Private message for specific user',
+            userId: $this->staff->id,
+        );
+
+        $channels = $event->broadcastOn();
+
+        $this->assertCount(1, $channels);
+        $this->assertInstanceOf(PrivateChannel::class, $channels[0]);
+        $this->assertSame("private-clinic.{$this->clinic1->id}.user.{$this->staff->id}.notifications", $channels[0]->name);
+    }
+
     public function test_staff_notification_broadcast_as_name(): void
     {
         $event = new StaffNotificationBroadcast(

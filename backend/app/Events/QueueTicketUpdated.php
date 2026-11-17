@@ -70,7 +70,7 @@ class QueueTicketUpdated implements ShouldBroadcastNow, ShouldDispatchAfterCommi
                 $resolvedLane = 'station1';
             } elseif ($queue->visit_type === 'follow_up') {
                 $resolvedLane = 'station2';
-            } elseif ($queue->visit_type === 'consultation' || $queue->visit_type === 'new_bite') {
+            } elseif ($queue->visit_type === 'consultation' || $queue->visit_type === 'new_bite' || $queue->visit_type === 'new_case') {
                 $resolvedLane = 'triage';
             }
         }

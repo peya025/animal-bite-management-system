@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Operations;
 
+use App\Events\AppointmentStatusChanged;
+use App\Events\QueueTicketUpdated;
 use App\Http\Controllers\Concerns\EnforcesStationCapabilities;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
@@ -118,6 +120,7 @@ class AppointmentController extends Controller
         // Auto-update to missed status
         foreach ($appointments as $appointment) {
             $appointment->update(['status' => 'missed']);
+            AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment->fresh(), 'missed'));
         }
 
         return response()->json(['count' => $appointments->count(), 'appointments' => $appointments]);
@@ -549,6 +552,7 @@ class AppointmentController extends Controller
 
         if ($appointment->status !== 'confirmed') {
             $appointment->update(['status' => 'confirmed']);
+            AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment->fresh(), 'confirmed'));
         }
 
         return $this->appointmentService->processCheckIn(
@@ -604,6 +608,7 @@ class AppointmentController extends Controller
                 return $denied;
             }
             $appointment->update(['status' => 'confirmed']);
+            AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment->fresh(), 'confirmed'));
             return $this->appointmentService->processCheckIn($clinicId, $request->user(), $patientId, $appointment, $todayDate, $request->get('priority', 'normal'));
         }
 
@@ -661,6 +666,7 @@ class AppointmentController extends Controller
 
             foreach ($activeQueues as $queue) {
                 $queue->update(['status' => 'cancelled', 'cancelled_at' => now(), 'check_in_notes' => $queue->check_in_notes ? $queue->check_in_notes . ' | Check-in cancelled' : 'Check-in cancelled']);
+                QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'cancelled'));
             }
 
             $confirmedAppointments = Appointment::where('clinic_id', $clinicId)->where('patient_id', $patientId)->where('status', 'confirmed')->lockForUpdate()->get();
@@ -668,6 +674,7 @@ class AppointmentController extends Controller
                 $apptDate = $appointment->scheduled_date ?? $appointment->appointment_date;
                 $isPast   = $apptDate && Carbon::parse($apptDate)->isBefore(Carbon::today());
                 $appointment->update(['status' => $isPast ? 'missed' : 'scheduled', 'queue_number' => null]);
+                AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment->fresh(), $isPast ? 'missed' : 'scheduled'));
             }
 
             Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");

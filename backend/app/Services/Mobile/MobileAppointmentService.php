@@ -2,6 +2,7 @@
 
 namespace App\Services\Mobile;
 
+use App\Events\AppointmentStatusChanged;
 use App\Models\Appointment;
 use App\Models\BiteIncidentIntake;
 use App\Models\Notification;
@@ -140,9 +141,11 @@ class MobileAppointmentService
                 'status'               => 'scheduled',
             ]);
 
+            event(AppointmentStatusChanged::fromModel($appointment, 'created', (int) $account->id));
+
             if ($isBooster) {
                 $day3Date = Carbon::parse($validated['scheduled_date'])->addDays(3)->format('Y-m-d');
-                Appointment::create([
+                $day3Appt = Appointment::create([
                     'clinic_id'            => $patient->clinic_id,
                     'patient_id'           => $validated['patient_id'],
                     'appointment_type'     => 'booster',
@@ -155,6 +158,7 @@ class MobileAppointmentService
                     'booked_by_account_id' => $account->id,
                     'status'               => 'scheduled',
                 ]);
+                event(AppointmentStatusChanged::fromModel($day3Appt, 'created', (int) $account->id));
             }
 
             if ($appointment->appointment_type === 'consultation' && !empty($validated['intake'])) {
@@ -230,6 +234,8 @@ class MobileAppointmentService
             'cancellation_reason' => $reason,
             'cancelled_at'        => now(),
         ]);
+
+        event(AppointmentStatusChanged::fromModel($appointment->fresh(), 'cancelled', (int) $account->id));
 
         Notification::create([
             'patient_id'         => $appointment->patient_id,

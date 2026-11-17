@@ -2,6 +2,8 @@
 
 namespace App\Services\Clinical;
 
+use App\Events\AppointmentStatusChanged;
+use App\Events\QueueTicketUpdated;
 use App\Exceptions\DuplicatePatientException;
 use App\Http\Controllers\Operations\QueueController;
 use App\Models\Appointment;
@@ -1090,6 +1092,11 @@ class PatientService
 
                 $this->notificationService->notifyQueueEvent($queue->load('patient'), 'checked_in', $user);
 
+                QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'checked_in'));
+                if ($appointment) {
+                    AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment->fresh(), 'confirmed'));
+                }
+
                 $encounter = app(\App\Services\RegistrationFeeService::class)->getOrCreateEncounter(
                     $clinicId,
                     $patient->patient_id,
@@ -1413,6 +1420,11 @@ class PatientService
                 $this->clearPatientListCache($clinicId);
 
                 $this->notificationService->notifyQueueEvent($queue->load('patient'), 'checked_in', $user);
+
+                QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'checked_in'));
+                if ($appointment) {
+                    AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment->fresh(), 'confirmed'));
+                }
 
                 return [
                     'status' => 200,

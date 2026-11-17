@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Events\AppointmentStatusChanged;
+use App\Events\QueueTicketUpdated;
 use App\Models\Appointment;
 use App\Models\BiteIncident;
 use App\Models\Clinic;
@@ -548,6 +550,7 @@ class VaccinationRecordService
                         'recall_stage' => null,
                     ]);
                     Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
+                    QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($todayQueue->fresh(), 'completed'));
                 }
             }
 
@@ -795,8 +798,10 @@ class VaccinationRecordService
 
             app(\App\Services\NotificationService::class)->notifyAppointmentEvent($appt, 'scheduled', request()->user());
 
+            $firstAccId = null;
             $patient = Patient::with('accounts')->find($patientId);
             if ($patient && $patient->accounts->isNotEmpty()) {
+                $firstAccId = (int) ($patient->accounts->first()->patient_account_id ?? $patient->accounts->first()->id);
                 foreach ($patient->accounts as $account) {
                     $accId = $account->patient_account_id ?? $account->id;
                     $msg   = $resolution['drift_days'] !== 0
@@ -815,6 +820,8 @@ class VaccinationRecordService
                     Cache::forget("mobile:notifications:account:{$accId}:page:1");
                 }
             }
+
+            AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appt, 'created', $firstAccId));
 
             Log::info("Created follow-up appointment for Patient #{$patientId}: {$followUp['period']} on {$resolvedDate->toDateString()} (Ideal: {$idealDate->toDateString()}, Drift: {$resolution['drift_days']})");
         }

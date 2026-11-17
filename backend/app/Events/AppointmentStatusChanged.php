@@ -58,6 +58,12 @@ class AppointmentStatusChanged implements ShouldBroadcast, ShouldDispatchAfterCo
     public static function fromModel(Appointment $appointment, string $action = 'updated', ?int $patientAccountId = null): self
     {
         $resolvedAccountId = $patientAccountId ?? ($appointment->booked_by_account_id ? (int) $appointment->booked_by_account_id : null);
+        if ($resolvedAccountId === null && $appointment->relationLoaded('patient') && $appointment->patient) {
+            if ($appointment->patient->relationLoaded('accounts') && $appointment->patient->accounts->isNotEmpty()) {
+                $firstAcc = $appointment->patient->accounts->first();
+                $resolvedAccountId = $firstAcc ? (int) ($firstAcc->patient_account_id ?? $firstAcc->id) : null;
+            }
+        }
 
         $dateStr = null;
         if ($appointment->appointment_date instanceof DateTimeInterface) {

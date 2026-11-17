@@ -2,6 +2,8 @@
 
 namespace App\Services\Clinical;
 
+use App\Events\AppointmentStatusChanged;
+use App\Events\QueueTicketUpdated;
 use App\Models\BiteIncident;
 use App\Models\BiteIncidentIntake;
 use App\Models\Patient;
@@ -244,6 +246,9 @@ class BiteIncidentIntakeService
             Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
 
             $this->notificationService->notifyQueueEvent($queue->load('patient'), 'checked_in', $user);
+
+            QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'checked_in'));
+            AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment->fresh(), 'confirmed', (int) $lockedIntake->patient_account_id));
 
             $encounter = app(\App\Services\RegistrationFeeService::class)->getOrCreateEncounter(
                 $clinicId,

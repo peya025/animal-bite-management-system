@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\VaccineStockUpdated;
 use App\Models\AuditLog;
 use App\Models\InventoryTransaction;
 use App\Models\VaccineInventory;
@@ -58,8 +59,11 @@ class VaccineInventoryUsageService
                     'description' => "Dose {$newDosesUsed}/{$dosesPerVial} administered from open vial batch {$openVial->batch_number}",
                 ]);
 
+                $freshOpenVial = $openVial->fresh();
+                VaccineStockUpdated::dispatch(VaccineStockUpdated::fromModel($freshOpenVial, 'dose_administered'));
+
                 return [
-                    'batch' => $openVial->fresh(),
+                    'batch' => $freshOpenVial,
                     'units_deducted' => 0,
                     'dose_index' => $newDosesUsed,
                     'total_doses' => $dosesPerVial,
@@ -127,8 +131,11 @@ class VaccineInventoryUsageService
                 'description' => "Vial opened for batch {$batch->batch_number} (Treatment ID: {$treatmentId})",
             ]);
 
+            $freshBatch = $batch->fresh();
+            VaccineStockUpdated::dispatch(VaccineStockUpdated::fromModel($freshBatch, 'vial_opened'));
+
             return [
-                'batch' => $batch->fresh(),
+                'batch' => $freshBatch,
                 'units_deducted' => 1,
                 'dose_index' => 1,
                 'total_doses' => $dosesPerVial,
@@ -283,8 +290,11 @@ class VaccineInventoryUsageService
                 'description' => "Deducted {$quantity} unit(s) from batch {$batch->batch_number} (Treatment ID: {$treatmentId})",
             ]);
 
+            $freshBatch = $batch->fresh();
+            VaccineStockUpdated::dispatch(VaccineStockUpdated::fromModel($freshBatch, 'deducted'));
+
             return [
-                'batch' => $batch->fresh(),
+                'batch' => $freshBatch,
                 'quantity_used' => $quantity,
                 'remaining_quantity' => $newQuantity,
             ];

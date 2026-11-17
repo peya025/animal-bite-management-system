@@ -123,7 +123,8 @@ export default function Login() {
         callback: handleGoogleCredential,
         auto_select: false,
         cancel_on_tap_outside: true,
-        use_fedcm_for_prompt: false,
+        use_fedcm_for_prompt: false,  // disable FedCM for prompt()
+        itp_support: false,           // disable Intelligent Tracking Prevention flow
       });
       setGisReady(true);
     };
@@ -137,6 +138,7 @@ export default function Login() {
       type: 'standard',
       theme: 'outline',
       size: 'large',
+      ux_mode: 'popup',      // force popup — prevents FedCM from being used
     });
   }, [gisReady]);
 

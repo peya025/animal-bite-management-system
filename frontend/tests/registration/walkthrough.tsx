@@ -582,6 +582,195 @@ function MockReports() {
   );
 }
 
+function MockVaccinationSchedule() {
+  return (
+    <div style={{ padding: 24 }}>
+      {/* Header */}
+      <header
+        data-walkthrough="vax-sched-header"
+        data-testid="vax-sched-header"
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}
+      >
+        <div>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>Vaccination Schedule</h1>
+          <div style={{ fontSize: 13, color: '#6b7280', marginTop: 4 }}>Dashboard › Vaccination Schedule</div>
+        </div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <button
+            type="button"
+            data-walkthrough="vax-sched-btn-auto-recall"
+            style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#166534', fontWeight: 600 }}
+          >
+            ⚡ Run Auto-Recall Sweep
+          </button>
+          <button
+            type="button"
+            data-walkthrough="vax-sched-btn-bulk-recall"
+            style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 600 }}
+          >
+            📢 Recall All Missed (1)
+          </button>
+          <button
+            type="button"
+            data-walkthrough="vax-sched-btn-refresh"
+            style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', color: '#475569' }}
+          >
+            Refresh
+          </button>
+        </div>
+      </header>
+
+      {/* KPI Cards */}
+      <div
+        data-walkthrough="vax-sched-kpi-grid"
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 20 }}
+      >
+        <div data-walkthrough="vax-sched-kpi-total" style={{ padding: 16, background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#047857' }}>TOTAL PEP CASES</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#064e3b' }}>8</div>
+          <div style={{ fontSize: 11, color: '#64748b' }}>8 Walk-in • 0 Online</div>
+        </div>
+        <div data-walkthrough="vax-sched-kpi-on_track" style={{ padding: 16, background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#047857' }}>ON TRACK</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#064e3b' }}>4</div>
+          <div style={{ fontSize: 11, color: '#64748b' }}>Adherent to schedule</div>
+        </div>
+        <div data-walkthrough="vax-sched-kpi-due_today" style={{ padding: 16, background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#92400e' }}>DUE TODAY</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#92400e' }}>0</div>
+          <div style={{ fontSize: 11, color: '#64748b' }}>Expected injection today</div>
+        </div>
+        <div data-walkthrough="vax-sched-kpi-overdue_missed" style={{ padding: 16, background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#b91c1c' }}>OVERDUE / MISSED</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#b91c1c' }}>1</div>
+          <div style={{ fontSize: 11, color: '#64748b' }}>Defaulters requiring recall</div>
+        </div>
+        <div data-walkthrough="vax-sched-kpi-completed" style={{ padding: 16, background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#047857' }}>COMPLETED PEP</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#064e3b' }}>3</div>
+          <div style={{ fontSize: 11, color: '#64748b' }}>Full regimen completed</div>
+        </div>
+      </div>
+
+      {/* Filters Bar */}
+      <div
+        data-walkthrough="vax-sched-filters-bar"
+        style={{ padding: 16, background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+      >
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div data-walkthrough="vax-sched-filter-status">
+            <select defaultValue="matrix" style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #a7f3d0', background: '#f0fdf4' }}>
+              <option value="matrix">All Patients (8)</option>
+              <option value="today">Today's Injections (0)</option>
+            </select>
+          </div>
+          <div data-walkthrough="vax-sched-filter-channel">
+            <select defaultValue="all" style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+              <option value="all">All Channels</option>
+              <option value="walk_in">Walk-in Only</option>
+              <option value="online">Online Mobile Only</option>
+            </select>
+          </div>
+          <div data-walkthrough="vax-sched-filter-dose">
+            <select defaultValue="all" style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+              <option value="all">All Doses</option>
+              <option value="Day 0">Day 0 (Initial)</option>
+              <option value="Day 3">Day 3</option>
+              <option value="Day 7">Day 7</option>
+              <option value="Booster">Booster Doses</option>
+            </select>
+          </div>
+        </div>
+        <div data-walkthrough="vax-sched-search">
+          <input type="text" placeholder="Search patient name, ID..." style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e2e8f0', width: 220 }} />
+        </div>
+      </div>
+
+      {/* Patient Stepper Matrix List */}
+      <div style={{ padding: 16, background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+        <div
+          data-walkthrough="vax-sched-batch-select"
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #f1f5f9' }}
+        >
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 13 }}>
+            <input type="checkbox" /> Select all on page (8)
+          </label>
+        </div>
+
+        <div data-walkthrough="vax-sched-patient-list" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Patient 1: Active */}
+          <div
+            data-walkthrough="vax-sched-patient-card"
+            style={{ padding: 18, borderRadius: 12, border: '1px solid #e2e8f0', display: 'grid', gridTemplateColumns: '3.5fr 5fr 3fr', gap: 16, alignItems: 'center' }}
+          >
+            <div data-walkthrough="vax-sched-patient-profile">
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Cyrill Ong <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#f1f5f9' }}>Walk-In</span></div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>P-2026-0008 • 21y male • 09873265874</div>
+              <div style={{ fontSize: 11, color: '#92400e', background: '#fef3c7', padding: '2px 8px', borderRadius: 6, display: 'inline-block', marginTop: 4 }}>Category I • Dog (N/A)</div>
+            </div>
+            <div data-walkthrough="vax-sched-dose-stepper" style={{ display: 'flex', gap: 8, background: '#f8fafc', padding: 8, borderRadius: 10, justifyContent: 'center' }}>
+              <div data-walkthrough="vax-sched-dose-badge" style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', fontSize: 11 }}>
+                <strong>Day 0 (Initial)</strong><br />Pending
+              </div>
+              <div style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', fontSize: 11 }}>
+                <strong>Day 3</strong><br />Pending
+              </div>
+              <div style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', fontSize: 11 }}>
+                <strong>Day 7</strong><br />Pending
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" data-walkthrough="vax-sched-btn-card" style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', fontSize: 12, fontWeight: 600 }}>
+                👁 Card
+              </button>
+            </div>
+          </div>
+
+          {/* Patient 2: Overdue Defaulter */}
+          <div
+            data-walkthrough="vax-sched-overdue-alert"
+            style={{ padding: 18, borderRadius: 12, border: '1px solid #fca5a5', background: '#fffdfd', display: 'grid', gridTemplateColumns: '3.5fr 5fr 3fr', gap: 16, alignItems: 'center' }}
+          >
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Twella Sabella <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#f1f5f9' }}>Walk-In</span></div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>P-2026-0002 • 21y female • 09354872514</div>
+              <div style={{ fontSize: 11, color: '#92400e', background: '#fef3c7', padding: '2px 8px', borderRadius: 6, display: 'inline-block', marginTop: 4 }}>Category III • cat (N/A)</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, background: '#f8fafc', padding: 8, borderRadius: 10, justifyContent: 'center' }}>
+              <div style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #a7f3d0', background: '#ecfdf5', color: '#047857', fontSize: 11 }}>
+                <strong>Day 0 (Initial)</strong><br />2026-10-27
+              </div>
+              <div style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #fecaca', background: '#fef2f2', color: '#b91c1c', fontSize: 11 }}>
+                <strong>Day 3</strong><br />Missed
+              </div>
+              <div style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #fecaca', background: '#fef2f2', color: '#b91c1c', fontSize: 11 }}>
+                <strong>Day 7</strong><br />Missed
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+              <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>Next: Day 3 on Oct 30, 2026 (17 days overdue)</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" data-walkthrough="vax-sched-btn-single-recall" style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: '#10b981', color: '#fff', fontSize: 12, fontWeight: 600 }}>
+                  ✉ Send Recall
+                </button>
+                <button type="button" style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', fontSize: 12, fontWeight: 600 }}>
+                  👁 Card
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Pagination */}
+        <div data-walkthrough="vax-sched-pagination" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingTop: 12, borderTop: '1px solid #f1f5f9', fontSize: 13, color: '#64748b' }}>
+          <div>Rows per page: 10</div>
+          <div>1-8 of 8</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TestShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
@@ -626,6 +815,7 @@ function TestShell({ children }: { children: React.ReactNode }) {
           <button type="button" data-tour="nav-item-bite-cases-summary" data-nav-item="bite-cases-summary" onClick={() => navigate('/bite-cases')} style={{ display: 'block', width: '100%', textAlign: 'left', padding: 8, color: '#fff', background: 'none', border: 'none' }}>Bite Cases Summary</button>
           <button type="button" data-tour="nav-item-bite-map" data-nav-item="bite-map" onClick={() => navigate('/bite-map')} style={{ display: 'block', width: '100%', textAlign: 'left', padding: 8, color: '#fff', background: 'none', border: 'none' }}>Bite Map</button>
           <button type="button" data-tour="nav-item-reports-analytics" data-nav-item="reports-analytics" onClick={() => navigate('/reports')} style={{ display: 'block', width: '100%', textAlign: 'left', padding: 8, color: '#fff', background: 'none', border: 'none' }}>Reports &amp; Analytics</button>
+          <button type="button" data-tour="nav-item-vaccinations" data-nav-item="vaccinations" onClick={() => navigate('/vaccinations')} style={{ display: 'block', width: '100%', textAlign: 'left', padding: 8, color: '#fff', background: 'none', border: 'none' }}>Vaccination Schedule</button>
         </nav>
         {sidebarOpen ? (
           <div className="sidebar-user" data-walkthrough="sidebar-user" style={{ padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
@@ -715,6 +905,7 @@ function TestApp() {
                 <Route path="/bite-cases" element={<MockBiteCasesSummary />} />
                 <Route path="/bite-map" element={<MockBiteMap />} />
                 <Route path="/reports" element={<MockReports />} />
+                <Route path="/vaccinations" element={<MockVaccinationSchedule />} />
                 <Route path="*" element={<MockDashboard />} />
               </Routes>
             </TestShell>

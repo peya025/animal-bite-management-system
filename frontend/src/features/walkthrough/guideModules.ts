@@ -11,41 +11,7 @@ import { getVaccineStockSteps } from './vaccineStockWalkthroughSteps';
 import { getReportsAnalyticsSteps } from './reportsAnalyticsWalkthroughSteps';
 import { getUserManagementSteps } from './userManagementWalkthroughSteps';
 import { getClinicSetupSteps } from './clinicSetupWalkthroughSteps';
-
-function getVaccinationScheduleSteps(): WalkthroughStep[] {
-  return [
-    {
-      id: 'vaccinations-overview',
-      module: 'Vaccination Schedule',
-      route: ROUTES.VACCINATIONS.LIST,
-      title: 'Vaccination Schedule Overview',
-      content: 'View calendar schedules and list views of returning patients due for scheduled vaccination doses.',
-      targetSelector: 'main.page-content',
-      fallbackSelector: 'main.page-content',
-      placement: 'bottom',
-    },
-    {
-      id: 'vaccinations-filters',
-      module: 'Vaccination Schedule',
-      route: ROUTES.VACCINATIONS.LIST,
-      title: 'Date Range & Dose Filters',
-      content: 'Filter appointments by date range or dose day (Day 0, Day 3, Day 7, Day 14/28, Booster) to plan daily clinic workload.',
-      targetSelector: 'main.page-content',
-      fallbackSelector: 'main.page-content',
-      placement: 'bottom',
-    },
-    {
-      id: 'vaccinations-actions',
-      module: 'Vaccination Schedule',
-      route: ROUTES.VACCINATIONS.LIST,
-      title: 'Patient Appointment Check-in & Actions',
-      content: 'Check in returning patients for their vaccination, update attendance, and monitor follow-up completion rates.',
-      targetSelector: '.MuiTableContainer-root, .MuiTable-root, main.page-content',
-      fallbackSelector: 'main.page-content',
-      placement: 'top',
-    },
-  ];
-}
+import { getVaccinationScheduleSteps } from './vaccinationScheduleWalkthroughSteps';
 
 function getDeveloperToolsSteps(): WalkthroughStep[] {
   return [
@@ -177,7 +143,7 @@ export function getGuideModules(role?: string): GuideModule[] {
         name: 'Vaccination Schedule',
         route: ROUTES.VACCINATIONS.LIST,
         description: 'Track upcoming appointments, monitor dose adherence, and manage return visits.',
-        steps: getVaccinationScheduleSteps(),
+        steps: getVaccinationScheduleSteps(role),
       };
     }
 

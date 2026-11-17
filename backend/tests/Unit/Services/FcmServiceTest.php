@@ -400,4 +400,38 @@ class FcmServiceTest extends TestCase
 
         Http::assertSentCount(1);
     }
+
+    public function test_send_to_token_simulates_when_test_mode_is_true(): void
+    {
+        Config::set('services.firebase.fcm_enabled', false);
+        Config::set('services.firebase.fcm_test_mode', true);
+
+        Http::fake();
+
+        $result = $this->service->sendToToken('token_1234567890', 'Title', 'Body', isControlledTest: true);
+
+        $this->assertTrue($result->isSuccessful());
+        $this->assertTrue($result->isSimulated());
+        $this->assertStringContainsString('simulated', $result->getMessageId());
+        Http::assertNothingSent();
+    }
+
+    public function test_send_to_token_controlled_test_bypasses_disabled_gate_when_test_mode_is_false(): void
+    {
+        Config::set('services.firebase.fcm_enabled', false);
+        Config::set('services.firebase.fcm_test_mode', false);
+
+        Http::fake([
+            'https://fcm.googleapis.com/v1/projects/abtc-management-system/messages:send' => Http::response([
+                'name' => 'projects/abtc-management-system/messages/controlled_test_msg',
+            ], 200),
+        ]);
+
+        $result = $this->service->sendToToken('token_1234567890', 'Title', 'Body', isControlledTest: true);
+
+        $this->assertTrue($result->isSuccessful());
+        $this->assertFalse($result->isSimulated());
+        $this->assertEquals('projects/abtc-management-system/messages/controlled_test_msg', $result->getMessageId());
+        Http::assertSentCount(1);
+    }
 }

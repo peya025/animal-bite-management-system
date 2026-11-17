@@ -36,7 +36,8 @@ class SendFcmTestNotification extends Command
             $this->line("Firebase Project:   <info>{$metadata['project_id']}</info>");
             $this->line("Service Account:    <info>{$metadata['client_email']}</info>");
             $this->line("Android Channel:    <info>{$fcmService->getChannelId()}</info>");
-            $this->line("FCM Enabled:        " . ($fcmService->isEnabled() ? '<info>true</info>' : '<comment>false (testing permitted via test command)</comment>'));
+            $this->line("FCM Enabled:        " . ($fcmService->isEnabled() ? '<info>true (automatic pushes enabled)</info>' : '<comment>false (automatic patient pushes disabled; testing permitted via test command)</comment>'));
+            $this->line("FCM Test Mode:      " . ($fcmService->isTestMode() ? '<comment>true (simulated local responses)</comment>' : '<info>false (live Firebase HTTP v1 API)</info>'));
         } catch (Throwable $e) {
             $this->error('Firebase configuration error: ' . $e->getMessage());
             return Command::FAILURE;
@@ -78,7 +79,7 @@ class SendFcmTestNotification extends Command
             }
 
             $this->line($isDryRun ? 'Validating payload with Firebase HTTP v1 (validate_only=true)...' : 'Dispatching push to Firebase HTTP v1...');
-            $result = $fcmService->sendToToken($tokenOption, $title, $body, $data, validateOnly: $isDryRun);
+            $result = $fcmService->sendToToken($tokenOption, $title, $body, $data, validateOnly: $isDryRun, isControlledTest: true);
             $results[] = [$masked, $result];
         } elseif (!empty($deviceOption)) {
             $deviceToken = PatientDeviceToken::where('device_id', $deviceOption)->first();
@@ -99,7 +100,7 @@ class SendFcmTestNotification extends Command
             }
 
             $this->line($isDryRun ? 'Validating payload with Firebase HTTP v1 (validate_only=true)...' : 'Dispatching push to Firebase HTTP v1...');
-            $result = $fcmService->sendToDevice($deviceToken, $title, $body, $data, validateOnly: $isDryRun);
+            $result = $fcmService->sendToDevice($deviceToken, $title, $body, $data, validateOnly: $isDryRun, isControlledTest: true);
             $results[] = ["Device: {$deviceOption} ({$masked})", $result];
         } else {
             // Target patient account
@@ -135,7 +136,7 @@ class SendFcmTestNotification extends Command
             }
 
             $this->line($isDryRun ? 'Validating payload with Firebase HTTP v1 (validate_only=true)...' : 'Dispatching push to Firebase HTTP v1...');
-            $accountResults = $fcmService->sendToAccount($account, $title, $body, $data, validateOnly: $isDryRun);
+            $accountResults = $fcmService->sendToAccount($account, $title, $body, $data, validateOnly: $isDryRun, isControlledTest: true);
 
             foreach ($accountResults as $tokenId => $result) {
                 $tokenModel = $activeTokens->firstWhere('id', $tokenId);
@@ -150,31 +151,49 @@ class SendFcmTestNotification extends Command
 
         foreach ($results as [$targetLabel, $result]) {
             /** @var FcmResult $result */
-            $status = $result->isSuccessful()
-                ? '<info>ACCEPTED</info>'
-                : ($result->getErrorCode() === 'SKIPPED' ? '<comment>SKIPPED</comment>' : '<error>FAILED</error>');
+            $isSimulated = $result->isSimulated();
+            $messageId = $result->getMessageId() ?? 'accepted';
+            $isGoogleSentinel = $result->isGoogleSentinel() || str_contains($messageId, 'fake_message_id');
 
             if ($result->isSuccessful()) {
-                $this->info("✓ [{$targetLabel}] Accepted by Firebase. Message ID: " . ($result->getMessageId() ?? 'accepted'));
+                if ($isSimulated) {
+                    $this->comment("⚡ [{$targetLabel}] [SIMULATED TEST MODE] Response simulated locally (FCM_TEST_MODE=true).");
+                    $this->line("  Simulated Message ID: <comment>{$messageId}</comment>");
+                    $acceptanceStatus = '<comment>SIMULATED</comment>';
+                    $note = 'Simulated test mode (FCM_TEST_MODE=true; API not contacted)';
+                } elseif ($isDryRun || $isGoogleSentinel) {
+                    $this->info("✓ [{$targetLabel}] [LIVE FIREBASE API] Accepted by Firebase HTTP v1 (Validate-Only).");
+                    $this->line("  Message ID: <info>{$messageId}</info>");
+                    $this->line("  Google Sentinel: 'fake_message_id' confirms credentials, project & token were validated by Google servers without physical device delivery.");
+                    $acceptanceStatus = '<info>ACCEPTED (Dry-Run)</info>';
+                    $note = 'Genuine Firebase HTTP v1 validate_only response (Google Sentinel: fake_message_id)';
+                } else {
+                    $this->info("✓ [{$targetLabel}] [LIVE FIREBASE API] Accepted by Firebase HTTP v1 & Dispatched.");
+                    $this->line("  Message ID: <info>{$messageId}</info>");
+                    $acceptanceStatus = '<info>ACCEPTED (Live)</info>';
+                    $note = 'Dispatched to Firebase HTTP v1 for physical device routing';
+                }
             } elseif ($result->getErrorCode() === 'SKIPPED') {
                 $this->warn("⚠ [{$targetLabel}] Skipped: " . $result->getErrorMessage());
+                $acceptanceStatus = '<comment>SKIPPED</comment>';
+                $note = 'Skipped by configuration';
             } else {
                 $hasErrors = true;
                 $this->error("✗ [{$targetLabel}] Failed: {$result->getErrorCode()} - " . $result->getErrorMessage());
+                $acceptanceStatus = '<error>FAILED</error>';
+                $note = 'Failed: ' . $result->getErrorCode();
+                if ($result->isUnregistered()) {
+                    $note .= ' [Token Deactivated]';
+                }
             }
 
             $details = $result->isSuccessful()
-                ? ($result->getMessageId() ?? 'Accepted')
+                ? $messageId
                 : ($result->getErrorCode() . ': ' . $result->getErrorMessage());
-
-            $note = $isDryRun ? 'Validate-only test (not sent to phone)' : 'Dispatched to Firebase';
-            if ($result->isUnregistered()) {
-                $note .= ' [Token Deactivated]';
-            }
 
             $rows[] = [
                 $targetLabel,
-                $status,
+                $acceptanceStatus,
                 $result->getStatusCode(),
                 $details,
                 $note,
@@ -187,9 +206,15 @@ class SendFcmTestNotification extends Command
         );
 
         $this->info('───────────────────────────────────────────────────────');
-        $this->comment('ℹ️ Notice: Firebase HTTP v1 acceptance confirms Firebase servers received');
-        $this->comment('the message for routing. It does not verify physical delivery on-device');
-        $this->comment('if the phone is offline, powered off, or battery-optimized.');
+        if ($isDryRun) {
+            $this->comment('ℹ️ Notice: Dry-run mode sends validate_only=true to Google Firebase HTTP v1 API.');
+            $this->comment('Google returns "fake_message_id" to certify that the credentials, project, and');
+            $this->comment('destination device registration token are valid without delivering to the phone.');
+        } else {
+            $this->comment('ℹ️ Notice: Firebase HTTP v1 acceptance confirms Firebase servers received');
+            $this->comment('the message for routing. It does not verify physical delivery on-device');
+            $this->comment('if the phone is offline, powered off, or battery-optimized.');
+        }
         $this->info('───────────────────────────────────────────────────────');
 
         return $hasErrors ? Command::FAILURE : Command::SUCCESS;

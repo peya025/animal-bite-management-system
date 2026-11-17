@@ -21,7 +21,7 @@ class FcmTestCommandTest extends TestCase
         Config::set('services.firebase.project_id', 'abtc-management-system');
         Config::set('services.firebase.channel_id', 'abtcare_reminders');
         Config::set('services.firebase.fcm_enabled', false);
-        Config::set('services.firebase.fcm_test_mode', true);
+        Config::set('services.firebase.fcm_test_mode', false);
     }
 
     protected function createPatientAccount(array $attributes = []): PatientAccount
@@ -243,5 +243,92 @@ class FcmTestCommandTest extends TestCase
 
         $deviceToken->refresh();
         $this->assertFalse($deviceToken->is_active);
+    }
+
+    public function test_command_simulates_response_when_fcm_test_mode_is_enabled(): void
+    {
+        $mockAuth = $this->createMock(FirebaseAuthService::class);
+        $mockAuth->method('validateCredentialsFile')->willReturn([
+            'project_id'   => 'abtc-management-system',
+            'client_email' => 'firebase-test@abtc-management-system.iam.gserviceaccount.com',
+            'type'         => 'service_account',
+        ]);
+        $mockAuth->method('getProjectId')->willReturn('abtc-management-system');
+        $this->app->instance(FirebaseAuthService::class, $mockAuth);
+
+        Config::set('services.firebase.fcm_test_mode', true);
+        Http::fake();
+
+        $this->artisan('fcm:test', [
+            '--token' => 'sample_token_xyz_1234567890',
+            '--force' => true,
+        ])
+            ->expectsOutputToContain('[SIMULATED TEST MODE]')
+            ->expectsOutputToContain('SIMULATED')
+            ->assertExitCode(0);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_command_explains_google_sentinel_fake_message_id_on_dry_run(): void
+    {
+        $mockAuth = $this->createMock(FirebaseAuthService::class);
+        $mockAuth->method('validateCredentialsFile')->willReturn([
+            'project_id'   => 'abtc-management-system',
+            'client_email' => 'firebase-test@abtc-management-system.iam.gserviceaccount.com',
+            'type'         => 'service_account',
+        ]);
+        $mockAuth->method('getProjectId')->willReturn('abtc-management-system');
+        $mockAuth->method('getAccessToken')->willReturn('mock-oauth-access-token');
+        $this->app->instance(FirebaseAuthService::class, $mockAuth);
+
+        Http::fake([
+            'https://fcm.googleapis.com/v1/projects/abtc-management-system/messages:send' => Http::response([
+                'name' => 'projects/abtc-management-system/messages/fake_message_id',
+            ], 200),
+        ]);
+
+        $this->artisan('fcm:test', [
+            '--token'   => 'test_fcm_token_1234567890',
+            '--dry-run' => true,
+        ])
+            ->expectsOutputToContain('Accepted by Firebase HTTP v1 (Validate-Only)')
+            ->expectsOutputToContain('Google Sentinel')
+            ->assertExitCode(0);
+    }
+
+    public function test_command_communicates_with_firebase_api_when_fcm_disabled_and_test_mode_false(): void
+    {
+        $mockAuth = $this->createMock(FirebaseAuthService::class);
+        $mockAuth->method('validateCredentialsFile')->willReturn([
+            'project_id'   => 'abtc-management-system',
+            'client_email' => 'firebase-test@abtc-management-system.iam.gserviceaccount.com',
+            'type'         => 'service_account',
+        ]);
+        $mockAuth->method('getProjectId')->willReturn('abtc-management-system');
+        $mockAuth->method('getAccessToken')->willReturn('mock-oauth-access-token');
+        $this->app->instance(FirebaseAuthService::class, $mockAuth);
+
+        Config::set('services.firebase.fcm_enabled', false);
+        Config::set('services.firebase.fcm_test_mode', false);
+
+        Http::fake([
+            'https://fcm.googleapis.com/v1/projects/abtc-management-system/messages:send' => Http::response([
+                'name' => 'projects/abtc-management-system/messages/real_live_msg_id',
+            ], 200),
+        ]);
+
+        $this->artisan('fcm:test', [
+            '--token' => 'sample_token_xyz_1234567890',
+            '--force' => true,
+        ])
+            ->expectsOutputToContain('Accepted by Firebase HTTP v1 & Dispatched')
+            ->expectsOutputToContain('real_live_msg_id')
+            ->assertExitCode(0);
+
+        Http::assertSent(function ($request) {
+            return !isset($request['validate_only'])
+                && $request['message']['token'] === 'sample_token_xyz_1234567890';
+        });
     }
 }

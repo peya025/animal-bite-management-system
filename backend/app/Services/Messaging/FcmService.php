@@ -87,17 +87,37 @@ class FcmService
         string $body,
         array $data = [],
         bool $validateOnly = false,
-        ?PatientDeviceToken $deviceToken = null
+        ?PatientDeviceToken $deviceToken = null,
+        bool $isControlledTest = false
     ): FcmResult {
         if (empty($token)) {
             return FcmResult::failure('INVALID_TOKEN', 'FCM device token cannot be empty.', 400);
         }
 
-        // Configuration gate: if disabled and not running a validateOnly check or test command
-        if (!$this->isEnabled() && !$validateOnly && !$this->isTestMode()) {
+        // Configuration gate:
+        // 1. If this is an automated dispatch (not a controlled test) and FCM is disabled globally:
+        if (!$isControlledTest && !$validateOnly && !$this->isEnabled()) {
             return FcmResult::skipped('FCM push delivery is disabled in application configuration (FCM_ENABLED=false).', [
                 'token' => $this->maskToken($token),
             ]);
+        }
+
+        // 2. Simulated test mode gate (when FCM_TEST_MODE=true)
+        if ($this->isTestMode()) {
+            $projectId = $this->authService->getProjectId();
+            $simulatedMessageId = sprintf('projects/%s/messages/simulated_%s', $projectId, bin2hex(random_bytes(8)));
+            Log::info("FCM simulated test mode active (FCM_TEST_MODE=true): Simulated push response for token {$this->maskToken($token)}");
+
+            return FcmResult::success(
+                messageId: $simulatedMessageId,
+                statusCode: 200,
+                details: [
+                    'token' => $this->maskToken($token),
+                    'simulated' => true,
+                    'test_mode' => true,
+                    'validate_only' => $validateOnly,
+                ]
+            );
         }
 
         $sanitizedData = $this->validateAndSanitizeData($data);
@@ -127,7 +147,7 @@ class FcmService
                     ->post($endpoint, $payload);
             }
 
-            return $this->handleFcmResponse($response, $token, $deviceToken);
+            return $this->handleFcmResponse($response, $token, $deviceToken, $validateOnly);
         } catch (FirebaseAuthenticationException $e) {
             Log::error('Firebase authentication failure during push dispatch: ' . $e->getMessage());
             return FcmResult::failure(
@@ -166,7 +186,8 @@ class FcmService
         string $title,
         string $body,
         array $data = [],
-        bool $validateOnly = false
+        bool $validateOnly = false,
+        bool $isControlledTest = false
     ): FcmResult {
         if (!$deviceToken->is_active) {
             return FcmResult::skipped('Device registration token is inactive or revoked.', [
@@ -201,10 +222,11 @@ class FcmService
             body: $body,
             data: $data,
             validateOnly: $validateOnly,
-            deviceToken: $deviceToken
+            deviceToken: $deviceToken,
+            isControlledTest: $isControlledTest
         );
 
-        if ($result->isSuccessful()) {
+        if ($result->isSuccessful() && !$result->isSimulated() && !$validateOnly) {
             $deviceToken->update(['last_used_at' => now()]);
         }
 
@@ -221,7 +243,8 @@ class FcmService
         string $title,
         string $body,
         array $data = [],
-        bool $validateOnly = false
+        bool $validateOnly = false,
+        bool $isControlledTest = false
     ): array {
         if (!$account->exists || !$account->is_active) {
             Log::info("FCM dispatch skipped: Patient account {$account->id} does not exist or is inactive.");
@@ -264,7 +287,8 @@ class FcmService
                 title: $title,
                 body: $body,
                 data: $data,
-                validateOnly: $validateOnly
+                validateOnly: $validateOnly,
+                isControlledTest: $isControlledTest
             );
         }
 
@@ -392,7 +416,8 @@ class FcmService
     protected function handleFcmResponse(
         Response $response,
         string $token,
-        ?PatientDeviceToken $deviceToken = null
+        ?PatientDeviceToken $deviceToken = null,
+        bool $validateOnly = false
     ): FcmResult {
         $status = $response->status();
         $body = $response->json() ?? [];
@@ -401,12 +426,19 @@ class FcmService
         // Success: HTTP 200 with name (projects/{project_id}/messages/{message_id})
         if ($response->successful()) {
             $messageId = $body['name'] ?? null;
-            Log::info("FCM push accepted by Firebase: messageId={$messageId}, token={$maskedToken}");
+            $isGoogleSentinel = $messageId !== null && str_contains($messageId, 'fake_message_id');
+
+            Log::info("FCM push accepted by Firebase: messageId={$messageId}, token={$maskedToken}" . ($isGoogleSentinel ? ' [Google validate_only sentinel]' : ''));
 
             return FcmResult::success(
                 messageId: $messageId ?? 'unknown_message_id',
                 statusCode: $status,
-                details: ['token' => $maskedToken]
+                details: [
+                    'token' => $maskedToken,
+                    'validate_only' => $validateOnly,
+                    'google_sentinel' => $isGoogleSentinel,
+                    'simulated' => false,
+                ]
             );
         }
 

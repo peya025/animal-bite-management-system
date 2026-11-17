@@ -65,6 +65,16 @@ class FcmResult
         return $this->successful;
     }
 
+    public function isSimulated(): bool
+    {
+        return (bool) ($this->details['simulated'] ?? false);
+    }
+
+    public function isGoogleSentinel(): bool
+    {
+        return (bool) ($this->details['google_sentinel'] ?? false);
+    }
+
     public function isSkipped(): bool
     {
         return $this->errorCode === 'SKIPPED';

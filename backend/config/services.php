@@ -39,7 +39,7 @@ return [
         'project_id' => env('FIREBASE_PROJECT_ID', 'abtc-management-system'),
         'credentials' => env('GOOGLE_APPLICATION_CREDENTIALS', 'storage/app/private/firebase-credentials.json'),
         'fcm_enabled' => (bool) env('FCM_ENABLED', false),
-        'fcm_test_mode' => (bool) env('FCM_TEST_MODE', true),
+        'fcm_test_mode' => (bool) env('FCM_TEST_MODE', false),
         'channel_id' => env('FCM_ANDROID_CHANNEL_ID', 'abtcare_reminders'),
         'cache_store' => env('FCM_CACHE_STORE', 'file'),
     ],

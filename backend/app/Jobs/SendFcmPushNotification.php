@@ -116,6 +116,12 @@ class SendFcmPushNotification implements ShouldQueue
             return;
         }
 
+        // Test allowlist enforcement for automatic push notifications
+        if (!app(FcmService::class)->isAccountAllowed($account)) {
+            Log::info("SendFcmPushNotification skipped: Patient account {$account->id} is not in the automatic FCM allowlist.");
+            return;
+        }
+
         // Backend notification preference enforcement
         $category = $this->data['category'] ?? 'general';
         if (method_exists($account, 'allowsNotificationCategory') && !$account->allowsNotificationCategory($category)) {

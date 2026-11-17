@@ -42,6 +42,7 @@ return [
         'fcm_test_mode' => (bool) env('FCM_TEST_MODE', false),
         'channel_id' => env('FCM_ANDROID_CHANNEL_ID', 'abtcare_reminders'),
         'cache_store' => env('FCM_CACHE_STORE', 'file'),
+        'allowed_patient_account_ids' => env('FCM_ALLOWED_PATIENT_ACCOUNT_IDS', '1'),
     ],
 
 ];

@@ -108,15 +108,19 @@ class PatientAccountAuthService
 
         Cache::forget("mobile:account:me:{$account->id}");
 
-        SendFcmPushNotification::dispatch(
-            patientAccountId: (int) $account->id,
-            title: 'Security Alert',
-            body: 'Your account password has been changed. Open the app if this was not you.',
-            data: [
-                'category' => 'general',
-                'route'    => '/settings',
-            ]
-        );
+        if (app(\App\Services\Messaging\FcmService::class)->isAccountAllowed($account)) {
+            SendFcmPushNotification::dispatch(
+                patientAccountId: (int) $account->id,
+                title: 'Security Alert',
+                body: 'Your account password has been changed. Open the app if this was not you.',
+                data: [
+                    'category' => 'general',
+                    'route'    => '/settings',
+                ]
+            );
+        } else {
+            \Illuminate\Support\Facades\Log::info("Security alert FCM skipped: Patient account #{$account->id} is not in the automatic FCM allowlist.");
+        }
     }
 
     /**

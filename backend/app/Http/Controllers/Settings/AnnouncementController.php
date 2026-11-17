@@ -68,21 +68,24 @@ class AnnouncementController extends Controller
         if ($oldPath && $oldPath !== $item->image_path) Storage::disk('public')->delete($oldPath);
 
         if ($item->is_published && ($item->wasRecentlyCreated || $item->wasChanged('is_published'))) {
+            $fcmService = app(\App\Services\Messaging\FcmService::class);
             \App\Models\PatientAccount::where('is_active', true)
                 ->whereHas('patients', fn ($q) => $q->where('clinic_id', $item->clinic_id))
                 ->limit(50)
                 ->get()
-                ->each(function ($acc) use ($item) {
-                    \App\Jobs\SendFcmPushNotification::dispatch(
-                        patientAccountId: (int) $acc->id,
-                        title: 'Clinic Announcement',
-                        body: 'A new clinic announcement has been posted. Open the app to view details.',
-                        data: [
-                            'category'        => 'announcement',
-                            'route'           => '/notifications',
-                            'announcement_id' => (string) $item->id,
-                        ]
-                    );
+                ->each(function ($acc) use ($item, $fcmService) {
+                    if ($fcmService->isAccountAllowed($acc->id)) {
+                        \App\Jobs\SendFcmPushNotification::dispatch(
+                            patientAccountId: (int) $acc->id,
+                            title: 'Clinic Announcement',
+                            body: 'A new clinic announcement has been posted. Open the app to view details.',
+                            data: [
+                                'category'        => 'announcement',
+                                'route'           => '/notifications',
+                                'announcement_id' => (string) $item->id,
+                            ]
+                        );
+                    }
                 });
         }
 

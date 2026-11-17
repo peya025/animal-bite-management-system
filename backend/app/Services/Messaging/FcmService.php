@@ -79,6 +79,49 @@ class FcmService
     }
 
     /**
+     * Get the configured allowlist of patient account IDs for automatic push notifications.
+     * Returns null if unrestricted (all accounts allowed), or array of int IDs if restricted.
+     *
+     * @return array<int>|null
+     */
+    public function getAllowedPatientAccountIds(): ?array
+    {
+        $raw = config('services.firebase.allowed_patient_account_ids');
+
+        if ($raw === null || $raw === '' || $raw === '*') {
+            return null;
+        }
+
+        if (is_array($raw)) {
+            return array_map('intval', $raw);
+        }
+
+        $tokens = array_filter(
+            array_map('trim', explode(',', (string) $raw)),
+            fn ($val) => $val !== '' && is_numeric($val)
+        );
+
+        return array_map('intval', array_values($tokens));
+    }
+
+    /**
+     * Check whether automatic push notification delivery is permitted for a given patient account ID.
+     */
+    public function isAccountAllowed(int|PatientAccount $account): bool
+    {
+        $allowedIds = $this->getAllowedPatientAccountIds();
+
+        // If allowlist is null, allowlist filtering is disabled (unrestricted)
+        if ($allowedIds === null) {
+            return true;
+        }
+
+        $accountId = $account instanceof PatientAccount ? $account->id : (int) $account;
+
+        return in_array($accountId, $allowedIds, true);
+    }
+
+    /**
      * Send a push notification to a specific FCM registration token.
      */
     public function sendToToken(
@@ -207,6 +250,15 @@ class FcmService
             ]);
         }
 
+        // Test allowlist enforcement for automatic push notifications
+        if (!$isControlledTest && !$this->isAccountAllowed($account)) {
+            Log::info("FCM dispatch skipped: Patient account {$account->id} is not in the automatic FCM allowlist.");
+            return FcmResult::skipped('Patient account is not in the automatic FCM allowlist.', [
+                'device_token_id' => $deviceToken->id,
+                'patient_account_id' => $account->id,
+            ]);
+        }
+
         $category = $data['category'] ?? 'general';
         if (method_exists($account, 'allowsNotificationCategory') && !$account->allowsNotificationCategory($category)) {
             return FcmResult::skipped('Notification category disabled by patient account preferences.', [
@@ -250,6 +302,16 @@ class FcmService
             Log::info("FCM dispatch skipped: Patient account {$account->id} does not exist or is inactive.");
             return [
                 0 => FcmResult::skipped('Patient account is inactive or does not exist.', [
+                    'patient_account_id' => $account->id,
+                ]),
+            ];
+        }
+
+        // Test allowlist enforcement for automatic push notifications
+        if (!$isControlledTest && !$this->isAccountAllowed($account)) {
+            Log::info("FCM dispatch skipped: Patient account {$account->id} is not in the automatic FCM allowlist.");
+            return [
+                0 => FcmResult::skipped('Patient account is not in the automatic FCM allowlist.', [
                     'patient_account_id' => $account->id,
                 ]),
             ];
@@ -304,6 +366,11 @@ class FcmService
         string $body,
         array $data = []
     ): void {
+        if (!$this->isAccountAllowed($account)) {
+            Log::info("FCM queue skipped: Patient account {$account->id} is not in the automatic FCM allowlist.");
+            return;
+        }
+
         SendFcmPushNotification::dispatch(
             patientAccountId: $account->id,
             title: $title,
@@ -321,6 +388,11 @@ class FcmService
         string $body,
         array $data = []
     ): void {
+        if (!$this->isAccountAllowed($deviceToken->patient_account_id)) {
+            Log::info("FCM queue skipped: Patient account {$deviceToken->patient_account_id} is not in the automatic FCM allowlist.");
+            return;
+        }
+
         SendFcmPushNotification::dispatch(
             patientAccountId: $deviceToken->patient_account_id,
             title: $title,

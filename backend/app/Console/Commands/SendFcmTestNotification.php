@@ -38,6 +38,11 @@ class SendFcmTestNotification extends Command
             $this->line("Android Channel:    <info>{$fcmService->getChannelId()}</info>");
             $this->line("FCM Enabled:        " . ($fcmService->isEnabled() ? '<info>true (automatic pushes enabled)</info>' : '<comment>false (automatic patient pushes disabled; testing permitted via test command)</comment>'));
             $this->line("FCM Test Mode:      " . ($fcmService->isTestMode() ? '<comment>true (simulated local responses)</comment>' : '<info>false (live Firebase HTTP v1 API)</info>'));
+            $allowedAccounts = $fcmService->getAllowedPatientAccountIds();
+            $allowlistDisplay = $allowedAccounts === null
+                ? '<comment>unrestricted (all accounts)</comment>'
+                : ('<info>' . implode(', ', $allowedAccounts) . '</info>');
+            $this->line("FCM Allowlist:      {$allowlistDisplay}");
         } catch (Throwable $e) {
             $this->error('Firebase configuration error: ' . $e->getMessage());
             return Command::FAILURE;
@@ -127,6 +132,9 @@ class SendFcmTestNotification extends Command
 
             $tokenCount = $activeTokens->count();
             $this->line("Target: Account [{$account->id}] {$account->email} with {$tokenCount} active device(s).");
+            if (!$fcmService->isAccountAllowed($account)) {
+                $this->comment("Notice: Account [{$account->id}] is not in the automatic FCM allowlist, but testing is permitted via controlled test command.");
+            }
 
             if (!$isDryRun && !$this->option('force')) {
                 if (!$this->confirm("Are you sure you want to dispatch a live test notification to all {$tokenCount} device(s) for this account?", false)) {

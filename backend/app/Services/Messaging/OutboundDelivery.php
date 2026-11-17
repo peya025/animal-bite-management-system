@@ -99,23 +99,27 @@ class OutboundDelivery
                 });
                 Cache::forget("mobile:notifications:account:{$account->id}:page:1");
 
-                // Enqueue automated FCM push notification to the patient account
+                // Enqueue automated FCM push notification to the patient account if allowlisted
                 $isAdvance = ($message->purpose === 'advance');
                 $pushTitle = 'Vaccination Reminder';
                 $pushBody  = $isAdvance
                     ? 'You have an upcoming appointment. Open the app to view your schedule.'
                     : 'You have an overdue appointment. Open the app to view your schedule.';
 
-                SendFcmPushNotification::dispatch(
-                    patientAccountId: (int) $account->id,
-                    title: $pushTitle,
-                    body: $pushBody,
-                    data: [
-                        'category'       => 'appointment_reminder',
-                        'route'          => '/calendar',
-                        'appointment_id' => (string) $message->appointment_id,
-                    ]
-                );
+                if (app(\App\Services\Messaging\FcmService::class)->isAccountAllowed($account)) {
+                    SendFcmPushNotification::dispatch(
+                        patientAccountId: (int) $account->id,
+                        title: $pushTitle,
+                        body: $pushBody,
+                        data: [
+                            'category'       => 'appointment_reminder',
+                            'route'          => '/calendar',
+                            'appointment_id' => (string) $message->appointment_id,
+                        ]
+                    );
+                } else {
+                    \Illuminate\Support\Facades\Log::info("Scheduled reminder FCM skipped: Patient account #{$account->id} is not in the automatic FCM allowlist.");
+                }
 
                 return;
             }

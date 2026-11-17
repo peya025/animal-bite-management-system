@@ -50,6 +50,12 @@ class SendAppointmentFcmNotification
             return;
         }
 
+        // Test allowlist enforcement for automatic appointment push notifications
+        if (!app(\App\Services\Messaging\FcmService::class)->isAccountAllowed($account)) {
+            Log::info("Appointment FCM skipped: Patient account #{$account->id} is not in the automatic FCM allowlist.");
+            return;
+        }
+
         // Explicit approved generic templates (zero PHI: no patient names, diagnosis, wound details)
         $notificationConfig = match ($action) {
             'confirmed' => [

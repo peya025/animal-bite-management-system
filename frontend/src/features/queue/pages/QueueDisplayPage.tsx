@@ -435,15 +435,13 @@ export default function QueueDisplayPage() {
     const channelName = `clinic.${clinicId}.queue`;
     let channel: any;
 
+    const handleQueueUpdate = () => {
+      scheduleLoadQueue();
+    };
+
     try {
       channel = echo.private(channelName);
-
-      const handleQueueUpdate = () => {
-        scheduleLoadQueue();
-      };
-
       channel.listen('.queue.updated', handleQueueUpdate);
-      channel.listen('queue.updated', handleQueueUpdate);
     } catch (err) {
       console.warn('[Echo] Queue Display subscription warning:', err);
     }
@@ -451,8 +449,7 @@ export default function QueueDisplayPage() {
     return () => {
       if (channel) {
         try {
-          channel.stopListening('.queue.updated');
-          channel.stopListening('queue.updated');
+          channel.stopListening('.queue.updated', handleQueueUpdate);
         } catch {
           // ignore
         }

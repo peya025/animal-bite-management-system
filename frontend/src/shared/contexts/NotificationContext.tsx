@@ -194,11 +194,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     try {
       clinicChannel = echo.private(clinicChannelName);
       clinicChannel.listen('.notification.created', handleNotificationEvent);
-      clinicChannel.listen('notification.created', handleNotificationEvent);
 
       userChannel = echo.private(userChannelName);
       userChannel.listen('.notification.created', handleNotificationEvent);
-      userChannel.listen('notification.created', handleNotificationEvent);
     } catch (err) {
       console.warn('[Echo] Failed to subscribe to notification channels:', err);
     }
@@ -206,18 +204,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => {
       if (clinicChannel) {
         try {
-          clinicChannel.stopListening('.notification.created');
-          clinicChannel.stopListening('notification.created');
+          clinicChannel.stopListening('.notification.created', handleNotificationEvent);
         } catch {}
       }
       if (userChannel) {
         try {
-          userChannel.stopListening('.notification.created');
-          userChannel.stopListening('notification.created');
+          userChannel.stopListening('.notification.created', handleNotificationEvent);
         } catch {}
       }
     };
-  }, [echo, clinicId, user, scheduleFetchNotifications]);
+  }, [echo, clinicId, user?.id, scheduleFetchNotifications]);
 
   const dismissToast = useCallback((id: number) => {
     // Auto-dismiss or close button click: Remove toast without marking it as read

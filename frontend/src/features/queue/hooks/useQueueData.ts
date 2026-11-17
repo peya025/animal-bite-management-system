@@ -85,17 +85,14 @@ export function useQueueData(onError?: (msg: string) => void) {
     const channelName = `clinic.${clinicId}.queue`;
     let channel: any;
 
+    const handleQueueEvent = () => {
+      scheduleSilentReload();
+    };
+
     try {
       channel = echo.private(channelName);
-
-      const handleQueueEvent = () => {
-        scheduleSilentReload();
-      };
-
       channel.listen('.queue.updated', handleQueueEvent);
-      channel.listen('queue.updated', handleQueueEvent);
       channel.listen('.appointment.changed', handleQueueEvent);
-      channel.listen('appointment.changed', handleQueueEvent);
     } catch (err) {
       console.warn('[Echo] Failed to subscribe to queue channel:', err);
     }
@@ -103,10 +100,8 @@ export function useQueueData(onError?: (msg: string) => void) {
     return () => {
       if (channel) {
         try {
-          channel.stopListening('.queue.updated');
-          channel.stopListening('queue.updated');
-          channel.stopListening('.appointment.changed');
-          channel.stopListening('appointment.changed');
+          channel.stopListening('.queue.updated', handleQueueEvent);
+          channel.stopListening('.appointment.changed', handleQueueEvent);
         } catch {
           // Ignore unbind errors
         }

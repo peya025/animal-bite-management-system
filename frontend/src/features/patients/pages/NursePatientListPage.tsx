@@ -266,17 +266,14 @@ export default function NursePatientListPage() {
     const channelName = `clinic.${clinicId}.queue`;
     let channel: any;
 
+    const handleLiveEvent = () => {
+      scheduleLoadPatients();
+    };
+
     try {
       channel = echo.private(channelName);
-
-      const handleLiveEvent = () => {
-        scheduleLoadPatients();
-      };
-
       channel.listen('.appointment.changed', handleLiveEvent);
-      channel.listen('appointment.changed', handleLiveEvent);
       channel.listen('.queue.updated', handleLiveEvent);
-      channel.listen('queue.updated', handleLiveEvent);
     } catch (err) {
       console.warn('[Echo] NursePatientListPage subscription warning:', err);
     }
@@ -287,10 +284,8 @@ export default function NursePatientListPage() {
       }
       if (channel) {
         try {
-          channel.stopListening('.appointment.changed');
-          channel.stopListening('appointment.changed');
-          channel.stopListening('.queue.updated');
-          channel.stopListening('queue.updated');
+          channel.stopListening('.appointment.changed', handleLiveEvent);
+          channel.stopListening('.queue.updated', handleLiveEvent);
         } catch {}
       }
     };

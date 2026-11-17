@@ -233,15 +233,13 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
     const channelName = `clinic.${clinicId}.inventory`;
     let channel: any;
 
+    const handleInventoryUpdate = () => {
+      scheduleLoadData();
+    };
+
     try {
       channel = echo.private(channelName);
-
-      const handleInventoryUpdate = () => {
-        scheduleLoadData();
-      };
-
       channel.listen('.inventory.updated', handleInventoryUpdate);
-      channel.listen('inventory.updated', handleInventoryUpdate);
     } catch (err) {
       console.warn('[Echo] VaccineInventoryPage subscription warning:', err);
     }
@@ -252,8 +250,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
       }
       if (channel) {
         try {
-          channel.stopListening('.inventory.updated');
-          channel.stopListening('inventory.updated');
+          channel.stopListening('.inventory.updated', handleInventoryUpdate);
         } catch {}
       }
     };

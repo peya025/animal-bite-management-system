@@ -40,7 +40,7 @@ Broadcast::channel('clinic.{clinicId}.user.{userId}.notifications', function ($u
 Broadcast::channel('clinic.{clinicId}.inventory', function ($user, int $clinicId) {
     return $user instanceof User
         && (int) $user->clinic_id === (int) $clinicId
-        && in_array($user->role, ['admin', 'treatment', 'nurse', 'doctor', 'developer', 'staff']);
+        && in_array($user->role, ['admin', 'treatment', 'nurse', 'doctor', 'triage', 'developer', 'staff']);
 }, ['guards' => ['sanctum']]);
 
 // 4. Patient Private Channel

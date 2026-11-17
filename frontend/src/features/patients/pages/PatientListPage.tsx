@@ -697,17 +697,14 @@ export default function PatientList() {
     const channelName = `clinic.${clinicId}.queue`;
     let channel: any;
 
+    const handleLiveEvent = () => {
+      scheduleFetchPatients();
+    };
+
     try {
       channel = echo.private(channelName);
-
-      const handleLiveEvent = () => {
-        scheduleFetchPatients();
-      };
-
       channel.listen('.appointment.changed', handleLiveEvent);
-      channel.listen('appointment.changed', handleLiveEvent);
       channel.listen('.queue.updated', handleLiveEvent);
-      channel.listen('queue.updated', handleLiveEvent);
     } catch (err) {
       console.warn('[Echo] PatientListPage subscription warning:', err);
     }
@@ -718,10 +715,8 @@ export default function PatientList() {
       }
       if (channel) {
         try {
-          channel.stopListening('.appointment.changed');
-          channel.stopListening('appointment.changed');
-          channel.stopListening('.queue.updated');
-          channel.stopListening('queue.updated');
+          channel.stopListening('.appointment.changed', handleLiveEvent);
+          channel.stopListening('.queue.updated', handleLiveEvent);
         } catch {}
       }
     };

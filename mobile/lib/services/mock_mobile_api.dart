@@ -11,6 +11,7 @@ import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
 import 'mock_data.dart';
 import 'psgc_service.dart';
+import 'fcm_device_registration_service.dart';
 
 class MockMobileApi {
   MockMobileApi._();
@@ -74,9 +75,13 @@ class MockMobileApi {
     }
 
     _isAuthenticated = true;
+    FcmDeviceRegistrationService.instance.syncDeviceToken().catchError((_) => false);
   }
 
   Future<void> logout() async {
+    try {
+      await FcmDeviceRegistrationService.instance.unregisterDeviceToken();
+    } catch (_) {}
     await Future.delayed(const Duration(milliseconds: 300));
     _isAuthenticated = false;
   }
@@ -695,6 +700,45 @@ class MockMobileApi {
         'facility_name': 'Tagoloan Animal Bite Treatment Center',
       },
     };
+  }
+
+  final List<Map<String, dynamic>> _mockDeviceTokens = [];
+
+  Future<Map<String, dynamic>> registerDeviceToken({
+    required String fcmToken,
+    String? deviceId,
+    String? deviceType,
+    String? deviceName,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    _mockDeviceTokens.removeWhere(
+      (t) => t['fcm_token'] == fcmToken || (deviceId != null && t['device_id'] == deviceId),
+    );
+    final entry = {
+      'id': _mockDeviceTokens.length + 1,
+      'fcm_token': fcmToken,
+      'device_id': deviceId,
+      'device_type': deviceType ?? 'android',
+      'device_name': deviceName,
+      'masked_token': fcmToken.length > 10
+          ? '${fcmToken.substring(0, 6)}...${fcmToken.substring(fcmToken.length - 4)}'
+          : '***',
+      'last_used_at': DateTime.now().toIso8601String(),
+    };
+    _mockDeviceTokens.add(entry);
+    return {'status': 'success', 'device': entry};
+  }
+
+  Future<void> deleteDeviceToken({
+    String? fcmToken,
+    String? deviceId,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    if (fcmToken != null) {
+      _mockDeviceTokens.removeWhere((t) => t['fcm_token'] == fcmToken);
+    } else if (deviceId != null) {
+      _mockDeviceTokens.removeWhere((t) => t['device_id'] == deviceId);
+    }
   }
 
   String _resolveString(

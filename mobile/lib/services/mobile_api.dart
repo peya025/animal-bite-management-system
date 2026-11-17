@@ -16,6 +16,7 @@ import '../models/appointment_summary.dart';
 import '../models/app_notification.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_account_profile.dart';
+import 'fcm_device_registration_service.dart';
 import 'psgc_service.dart';
 
 class ApiException implements Exception {
@@ -80,6 +81,7 @@ class MobileApi {
     } else {
       await _storage.delete(key: _tokenKey);
     }
+    unawaited(FcmDeviceRegistrationService.instance.syncDeviceToken());
   }
 
   Future<void> register({
@@ -176,6 +178,11 @@ class MobileApi {
   }
 
   Future<void> logout() async {
+    try {
+      await FcmDeviceRegistrationService.instance.unregisterDeviceToken();
+    } catch (_) {
+      // Safe fallback: network failure during logout must not prevent local session termination
+    }
     if (_token != null) await _send('POST', '/logout');
     _token = null;
     await _storage.delete(key: _tokenKey);
@@ -358,6 +365,41 @@ class MobileApi {
     await _send('PATCH', '/notifications/read-all');
   }
 
+  /// Register or refresh an FCM device registration token with the backend.
+  Future<Map<String, dynamic>> registerDeviceToken({
+    required String fcmToken,
+    String? deviceId,
+    String? deviceType,
+    String? deviceName,
+  }) async {
+    final data = await _send(
+      'POST',
+      '/device-token',
+      body: {
+        'fcm_token': fcmToken,
+        if (deviceId != null) 'device_id': deviceId,
+        if (deviceType != null) 'device_type': deviceType,
+        if (deviceName != null) 'device_name': deviceName,
+      },
+    );
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  /// Invalidate an FCM device registration token with the backend upon logout.
+  Future<void> deleteDeviceToken({
+    String? fcmToken,
+    String? deviceId,
+  }) async {
+    await _send(
+      'DELETE',
+      '/device-token',
+      body: {
+        if (fcmToken != null) 'fcm_token': fcmToken,
+        if (deviceId != null) 'device_id': deviceId,
+      },
+    );
+  }
+
   Future<Map<String, dynamic>> history({int? patientId}) async {
     final query = patientId != null ? '?patient_id=$patientId' : '';
     final data = await _send('GET', '/history$query') as Map<String, dynamic>;
@@ -465,6 +507,10 @@ class MobileApi {
         request = http.post(uri, headers: headers, body: encodedBody);
       case 'PATCH':
         request = http.patch(uri, headers: headers, body: encodedBody);
+      case 'PUT':
+        request = http.put(uri, headers: headers, body: encodedBody);
+      case 'DELETE':
+        request = http.delete(uri, headers: headers, body: encodedBody);
       default:
         throw ArgumentError.value(method, 'method');
     }

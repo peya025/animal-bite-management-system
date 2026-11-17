@@ -594,16 +594,13 @@ flowchart TD
 
 ## 3.7 Step-by-Step Implementation Tasks
 
-* [ ] **Task 3.1:** Create Firebase Console project and generate `google-services.json` and service account private key.
-* [ ] **Task 3.2:** Place `google-services.json` in `mobile/android/app/` and register Gradle plugins.
-* [ ] **Task 3.3:** Add `firebase_core`, `firebase_messaging`, and `flutter_local_notifications` to `mobile/pubspec.yaml`.
-* [ ] **Task 3.4:** Create `patient_device_tokens` migration and `PatientDeviceToken` model in Laravel backend.
-* [ ] **Task 3.5:** Create `PatientDeviceTokenController` to handle `POST /api/mobile/device-token` and `DELETE /api/mobile/device-token`.
-* [ ] **Task 3.6:** Implement `App\Services\Messaging\FcmService` using the FCM HTTP v1 API.
-* [ ] **Task 3.7:** Implement background message handler in `mobile/lib/main.dart` with `@pragma('vm:entry-point')`.
-* [ ] **Task 3.8:** Implement `PushNotificationService` in Flutter to manage permissions (`requestPermission()`), channel creation, token synchronization, and local notification display.
-* [ ] **Task 3.9:** Connect `OutboundDelivery` and `AppointmentReminderService` to trigger `FcmService` for vaccination reminders, missed appointment recalls, and booking updates.
-* [ ] **Task 3.10:** Wire deep-link routing on notification tap to open `AppRoutes.appointments` or `AppRoutes.digitalCard`.
+* [x] **Task 3.1:** Firebase Configuration & Mobile Gradle Integration (`google-services.json`, Gradle plugins, `firebase_core` & `firebase_messaging` dependencies, startup initialization).
+* [x] **Task 3.2:** FCM Device Token Management and Patient Account Registration (`patient_device_tokens` migration, `PatientDeviceToken` model, `DeviceTokenService`, `PatientDeviceTokenController` with `POST /api/mobile/device-token` and `DELETE /api/mobile/device-token`, `FcmDeviceRegistrationService`, login/session restoration/logout token lifecycle synchronization).
+* [ ] **Task 3.3:** Add `flutter_local_notifications` and configure foreground notification display with heads-up banners and chime.
+* [ ] **Task 3.4:** Implement `App\Services\Messaging\FcmService` using the FCM HTTP v1 API and Firebase service account credentials.
+* [ ] **Task 3.5:** Implement background top-level message handler in `mobile/lib/main.dart` with `@pragma('vm:entry-point')`.
+* [ ] **Task 3.6:** Connect `OutboundDelivery` and `AppointmentReminderService` to trigger `FcmService` for vaccination reminders, missed appointment recalls, and booking updates.
+* [ ] **Task 3.7:** Wire deep-link routing on notification tap to open `AppRoutes.appointments` or `AppRoutes.digitalCard`.
 
 ---
 

@@ -7,6 +7,7 @@ import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_profile_form_args.dart';
 import '../services/api.dart';
+import '../services/fcm_device_registration_service.dart';
 import '../widgets/common/app_toast.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
@@ -472,6 +473,7 @@ class _SettingsViewState extends State<SettingsView> {
                                 value: _notificationsEnabled,
                                 onChanged: (val) {
                                   setState(() => _notificationsEnabled = val);
+                                  FcmDeviceRegistrationService.instance.setNotificationsEnabled(val);
                                 },
                               ),
                             ),

@@ -64,4 +64,9 @@ class PatientAccount extends Authenticatable
     {
         return $this->hasMany(BiteIncidentIntake::class, 'patient_account_id');
     }
+
+    public function deviceTokens(): HasMany
+    {
+        return $this->hasMany(PatientDeviceToken::class, 'patient_account_id');
+    }
 }

@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -10,6 +11,16 @@ import 'services/mock_mobile_api.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Initialize Firebase (guarded against duplicate initialization and pending configuration)
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+      debugPrint('🔥 Firebase successfully initialized');
+    }
+  } catch (e) {
+    debugPrint('ℹ️ Firebase initialization pending configuration: $e');
+  }
+
   // Initialize stored language preference
   await LanguageController.instance.initialize();
 

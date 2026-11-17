@@ -19,6 +19,7 @@ use App\Http\Controllers\Clinical\TreatmentRecordController;
 use App\Http\Controllers\Inventory\VaccineInventoryController;
 use App\Http\Controllers\Mobile\MobileAppointmentController;
 use App\Http\Controllers\Mobile\MobileClinicResourceController;
+use App\Http\Controllers\Mobile\MobileHistoryController;
 use App\Http\Controllers\Mobile\MobileLocationController;
 use App\Http\Controllers\Mobile\MobileNotificationController;
 use App\Http\Controllers\Mobile\MobileVaccinationCardController;
@@ -31,9 +32,11 @@ use App\Http\Controllers\Operations\VaccinationJourneyController;
 use App\Http\Controllers\Operations\VaccinationRecordController;
 use App\Http\Controllers\Reports\PrintController;
 use App\Http\Controllers\Reports\ReportController;
+use App\Http\Controllers\Settings\AnnouncementController;
 use App\Http\Controllers\Settings\LandingPageSettingsController;
 use App\Http\Controllers\Settings\NotificationController;
 use App\Http\Controllers\Support\PublicStorageController;
+use App\Http\Middleware\EnsureStaffAccount;
 use Illuminate\Support\Facades\Route;
 
 // Public media / storage fallback route (works without symlink)
@@ -163,10 +166,7 @@ Route::prefix('mobile')->group(function () {
 
 use App\Http\Controllers\Auth\PatientInvitationController;
 use App\Http\Controllers\Auth\StaffSignatureController;
-use App\Http\Controllers\Mobile\MobileHistoryController;
 use App\Http\Controllers\Reports\RegistrationReportController;
-use App\Http\Controllers\Settings\AnnouncementController;
-use App\Http\Middleware\EnsureStaffAccount;
 use App\Models\Clinic;
 use App\Services\Messaging\DeliveryPolicy;
 

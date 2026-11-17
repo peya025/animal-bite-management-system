@@ -2,6 +2,7 @@
 
 namespace App\Services\Mobile;
 
+use App\Jobs\SendFcmPushNotification;
 use App\Models\PatientAccount;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
@@ -106,6 +107,16 @@ class PatientAccountAuthService
         }
 
         Cache::forget("mobile:account:me:{$account->id}");
+
+        SendFcmPushNotification::dispatch(
+            patientAccountId: (int) $account->id,
+            title: 'Security Alert',
+            body: 'Your account password has been changed. Open the app if this was not you.',
+            data: [
+                'category' => 'general',
+                'route'    => '/settings',
+            ]
+        );
     }
 
     /**
@@ -134,6 +145,7 @@ class PatientAccountAuthService
         }
 
         $account->tokens()->delete();
+        $account->deviceTokens()->update(['is_active' => false]);
         $account->update(['is_active' => false]);
 
         Cache::forget("mobile:account:me:{$account->id}");

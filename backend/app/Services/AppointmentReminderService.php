@@ -27,7 +27,7 @@ class AppointmentReminderService
 
     private function prepare(Appointment $appointment, string $purpose, string $channel, ?int $senderUserId, ?string $customMessage = null): array
     {
-        if (! in_array($channel, ['all', 'sms', 'email', 'in_app'])) {
+        if (! in_array($channel, ['all', 'sms', 'email', 'in_app', 'fcm', 'push'])) {
             throw ValidationException::withMessages(['channel' => 'Invalid channel.']);
         }
         if ($customMessage !== null && mb_strlen($customMessage) > 1000) {
@@ -57,7 +57,12 @@ class AppointmentReminderService
         $account = $patient->accounts->first(fn ($a) => $a->is_active && $a->pivot->status === 'verified'
             && ($appointment->booked_by_account_id ? $a->id == $appointment->booked_by_account_id : ($a->pivot->is_primary && $a->pivot->relationship === 'self')));
         $preferences = DB::table('communication_preferences')->where('patient_id', $patient->patient_id)->first();
-        foreach ($channel === 'all' ? ['in_app', 'sms', 'email'] : [$channel] as $selected) {
+        $resolvedChannels = match ($channel) {
+            'all' => ['in_app', 'sms', 'email'],
+            'push', 'fcm' => ['in_app'],
+            default => [$channel],
+        };
+        foreach ($resolvedChannels as $selected) {
             $recipient = match ($selected) {
                 'sms' => (string) $patient->contact_number,
                 'email' => trim((string) $patient->email),
@@ -145,7 +150,7 @@ class AppointmentReminderService
 
     public function runAutomatedSweep(string $channel = 'all', ?int $clinicId = null): array
     {
-        if (! in_array($channel, ['all', 'sms', 'email', 'in_app'])) {
+        if (! in_array($channel, ['all', 'sms', 'email', 'in_app', 'fcm', 'push'])) {
             throw ValidationException::withMessages(['channel' => 'Invalid channel.']);
         }
         $counts = ['advance_reminders_eligible' => 0, 'advance_reminders_sent' => 0, 'missed_recalls_eligible' => 0, 'missed_recalls_sent' => 0];

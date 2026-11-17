@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Events\AppointmentStatusChanged;
 use App\Events\QueueTicketUpdated;
+use App\Jobs\SendFcmPushNotification;
 use App\Models\Appointment;
 use App\Models\BiteIncident;
 use App\Models\Clinic;
@@ -618,6 +619,24 @@ class VaccinationRecordService
 
             Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
 
+            // Dispatch digital vaccination card update push notification to linked patient accounts
+            $patientObj = Patient::with(['accounts' => fn ($q) => $q->where('is_active', true)])->find($patientId);
+            if ($patientObj && $patientObj->accounts->isNotEmpty()) {
+                foreach ($patientObj->accounts as $acc) {
+                    $accId = (int) ($acc->patient_account_id ?? $acc->id);
+                    SendFcmPushNotification::dispatch(
+                        patientAccountId: $accId,
+                        title: 'Vaccination Card Updated',
+                        body: 'Your digital vaccination card has been updated. Open the app to view your record.',
+                        data: [
+                            'category'   => 'digital_card',
+                            'route'      => '/menu',
+                            'patient_id' => (string) $patientId,
+                        ]
+                    );
+                }
+            }
+
             DB::commit();
 
             return response()->json([
@@ -818,6 +837,17 @@ class VaccinationRecordService
                         'send_time'          => now(),
                     ]);
                     Cache::forget("mobile:notifications:account:{$accId}:page:1");
+
+                    SendFcmPushNotification::dispatch(
+                        patientAccountId: (int) $accId,
+                        title: 'Vaccination Reminder',
+                        body: 'You have an upcoming appointment. Open the app to view your schedule.',
+                        data: [
+                            'category'       => 'vaccination_schedule',
+                            'route'          => '/calendar',
+                            'appointment_id' => (string) $appt->appointment_id,
+                        ]
+                    );
                 }
             }
 

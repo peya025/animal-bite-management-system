@@ -2,6 +2,7 @@
 
 namespace App\Services\Messaging;
 
+use App\Jobs\SendFcmPushNotification;
 use App\Models\Appointment;
 use App\Models\AppointmentReminder;
 use App\Models\Notification;
@@ -97,6 +98,24 @@ class OutboundDelivery
                     $this->finish($message, new SmsResult('delivered'));
                 });
                 Cache::forget("mobile:notifications:account:{$account->id}:page:1");
+
+                // Enqueue automated FCM push notification to the patient account
+                $isAdvance = ($message->purpose === 'advance');
+                $pushTitle = 'Vaccination Reminder';
+                $pushBody  = $isAdvance
+                    ? 'You have an upcoming appointment. Open the app to view your schedule.'
+                    : 'You have an overdue appointment. Open the app to view your schedule.';
+
+                SendFcmPushNotification::dispatch(
+                    patientAccountId: (int) $account->id,
+                    title: $pushTitle,
+                    body: $pushBody,
+                    data: [
+                        'category'       => 'appointment_reminder',
+                        'route'          => '/calendar',
+                        'appointment_id' => (string) $message->appointment_id,
+                    ]
+                );
 
                 return;
             }

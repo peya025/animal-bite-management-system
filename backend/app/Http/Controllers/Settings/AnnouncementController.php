@@ -66,6 +66,26 @@ class AnnouncementController extends Controller
             throw $e;
         }
         if ($oldPath && $oldPath !== $item->image_path) Storage::disk('public')->delete($oldPath);
+
+        if ($item->is_published && ($item->wasRecentlyCreated || $item->wasChanged('is_published'))) {
+            \App\Models\PatientAccount::where('is_active', true)
+                ->whereHas('patients', fn ($q) => $q->where('clinic_id', $item->clinic_id))
+                ->limit(50)
+                ->get()
+                ->each(function ($acc) use ($item) {
+                    \App\Jobs\SendFcmPushNotification::dispatch(
+                        patientAccountId: (int) $acc->id,
+                        title: 'Clinic Announcement',
+                        body: 'A new clinic announcement has been posted. Open the app to view details.',
+                        data: [
+                            'category'        => 'announcement',
+                            'route'           => '/notifications',
+                            'announcement_id' => (string) $item->id,
+                        ]
+                    );
+                });
+        }
+
         return response()->json($this->present($item->load('author'), $request), $item->wasRecentlyCreated ? 201 : 200);
     }
 

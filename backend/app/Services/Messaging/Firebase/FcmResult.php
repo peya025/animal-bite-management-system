@@ -65,6 +65,16 @@ class FcmResult
         return $this->successful;
     }
 
+    public function isSkipped(): bool
+    {
+        return $this->errorCode === 'SKIPPED';
+    }
+
+    public function getSkippedReason(): ?string
+    {
+        return $this->isSkipped() ? $this->errorMessage : null;
+    }
+
     public function isRetryable(): bool
     {
         return $this->isRetryable;

@@ -186,6 +186,15 @@ class FcmService
             ]);
         }
 
+        $category = $data['category'] ?? 'general';
+        if (method_exists($account, 'allowsNotificationCategory') && !$account->allowsNotificationCategory($category)) {
+            return FcmResult::skipped('Notification category disabled by patient account preferences.', [
+                'device_token_id' => $deviceToken->id,
+                'patient_account_id' => $account->id,
+                'category' => $category,
+            ]);
+        }
+
         $result = $this->sendToToken(
             token: $deviceToken->fcm_token,
             title: $title,
@@ -219,6 +228,17 @@ class FcmService
             return [
                 0 => FcmResult::skipped('Patient account is inactive or does not exist.', [
                     'patient_account_id' => $account->id,
+                ]),
+            ];
+        }
+
+        $category = $data['category'] ?? 'general';
+        if (method_exists($account, 'allowsNotificationCategory') && !$account->allowsNotificationCategory($category)) {
+            Log::info("FCM dispatch skipped: Category '{$category}' is disabled by user preferences for account {$account->id}.");
+            return [
+                0 => FcmResult::skipped('Notification category disabled by patient account preferences.', [
+                    'patient_account_id' => $account->id,
+                    'category' => $category,
                 ]),
             ];
         }
@@ -409,11 +429,24 @@ class FcmService
             $errorCode = $error['status'] ?? ('HTTP_' . $status);
         }
 
-        // Handle UNREGISTERED token (HTTP 404 or errorCode UNREGISTERED)
-        $isUnregistered = ($status === 404)
-            || ($errorCode === 'UNREGISTERED')
-            || str_contains($errorMessage, 'Requested entity was not found')
-            || str_contains($errorMessage, 'UNREGISTERED');
+        // Handle UNREGISTERED token. Only deactivate registration tokens when the Firebase response
+        // specifically confirms an invalid or unregistered device token.
+        // Generic HTTP 404 project or endpoint errors must not deactivate valid tokens.
+        $isProjectOrEndpoint404 = ($status === 404) && (
+            str_contains(strtolower($errorMessage), 'project')
+            || str_contains(strtolower($errorMessage), 'not found on server')
+            || str_contains(strtolower($errorMessage), 'url')
+        );
+
+        $isUnregistered = false;
+        if (!$isProjectOrEndpoint404) {
+            $isUnregistered = ($errorCode === 'UNREGISTERED')
+                || str_contains($errorMessage, 'UNREGISTERED')
+                || ($status === 404 && (
+                    $errorCode === 'UNREGISTERED'
+                    || (str_contains($errorMessage, 'Requested entity was not found') && !str_contains(strtolower($errorMessage), 'project'))
+                ));
+        }
 
         if ($isUnregistered) {
             $this->deactivateInvalidToken($token, $deviceToken);
@@ -426,6 +459,19 @@ class FcmService
                 statusCode: $status,
                 isRetryable: false,
                 isUnregistered: true,
+                details: ['token' => $maskedToken]
+            );
+        }
+
+        if ($isProjectOrEndpoint404) {
+            Log::error("FCM endpoint or project not found (HTTP 404): {$errorMessage}. Token {$maskedToken} preserved.");
+
+            return FcmResult::failure(
+                errorCode: 'ENDPOINT_OR_PROJECT_NOT_FOUND',
+                errorMessage: 'Firebase project or endpoint not found: ' . $errorMessage,
+                statusCode: $status,
+                isRetryable: false,
+                isUnregistered: false,
                 details: ['token' => $maskedToken]
             );
         }

@@ -166,6 +166,8 @@ Route::prefix('mobile')->group(function () {
         // FCM Device Token Registration & Management
         Route::post('/device-token', [PatientDeviceTokenController::class, 'register']);
         Route::delete('/device-token', [PatientDeviceTokenController::class, 'destroy']);
+        Route::get('/notification-preferences', [PatientDeviceTokenController::class, 'preferences']);
+        Route::put('/notification-preferences', [PatientDeviceTokenController::class, 'updatePreferences']);
     });
 });
 

@@ -7,6 +7,7 @@ use App\Http\Requests\Mobile\Device\DeleteDeviceTokenRequest;
 use App\Http\Requests\Mobile\Device\RegisterDeviceTokenRequest;
 use App\Services\Mobile\DeviceTokenService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class PatientDeviceTokenController extends Controller
 {
@@ -50,6 +51,40 @@ class PatientDeviceTokenController extends Controller
         return response()->json([
             'status'  => 'success',
             'message' => 'Device registration removed successfully.',
+        ]);
+    }
+
+    /**
+     * Get backend notification preferences for the authenticated patient account.
+     */
+    public function preferences(Request $request): JsonResponse
+    {
+        return response()->json([
+            'status'      => 'success',
+            'preferences' => $request->user()->notificationPreferences(),
+        ]);
+    }
+
+    /**
+     * Update backend notification preferences for the authenticated patient account.
+     */
+    public function updatePreferences(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'push_enabled'        => 'sometimes|boolean',
+            'appointment_updates' => 'sometimes|boolean',
+            'reminders'           => 'sometimes|boolean',
+            'digital_card'        => 'sometimes|boolean',
+            'announcements'       => 'sometimes|boolean',
+        ]);
+
+        $account = $request->user();
+        $account->updateNotificationPreferences($validated);
+
+        return response()->json([
+            'status'      => 'success',
+            'message'     => 'Notification preferences updated successfully.',
+            'preferences' => $account->notificationPreferences(),
         ]);
     }
 }

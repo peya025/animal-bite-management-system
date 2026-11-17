@@ -41,7 +41,9 @@ class SendFcmPushNotification implements ShouldQueue
         public string $body,
         public array $data = [],
         public ?int $deviceTokenId = null,
-        ?string $idempotencyKey = null
+        ?string $idempotencyKey = null,
+        public bool $validateOnly = false,
+        public bool $isControlledTest = false
     ) {
         $this->idempotencyKey = $idempotencyKey ?? (string) Str::uuid();
         $this->onConnection(config('messaging.queue_connection', 'database'));
@@ -147,7 +149,9 @@ class SendFcmPushNotification implements ShouldQueue
                 deviceToken: $deviceToken,
                 title: $this->title,
                 body: $this->body,
-                data: $this->data
+                data: $this->data,
+                validateOnly: $this->validateOnly,
+                isControlledTest: $this->isControlledTest
             );
 
             if ($result->isSuccessful() || !$result->isRetryable()) {
@@ -167,7 +171,9 @@ class SendFcmPushNotification implements ShouldQueue
                 account: $account,
                 title: $this->title,
                 body: $this->body,
-                data: $this->data
+                data: $this->data,
+                validateOnly: $this->validateOnly,
+                isControlledTest: $this->isControlledTest
             );
 
             foreach ($results as $tokenId => $result) {
@@ -200,7 +206,9 @@ class SendFcmPushNotification implements ShouldQueue
                     deviceToken: $deviceToken,
                     title: $this->title,
                     body: $this->body,
-                    data: $this->data
+                    data: $this->data,
+                    validateOnly: $this->validateOnly,
+                    isControlledTest: $this->isControlledTest
                 );
 
                 if ($result->isSuccessful() || !$result->isRetryable()) {

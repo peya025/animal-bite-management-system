@@ -107,16 +107,38 @@ class OutboundDelivery
                     : 'You have an overdue appointment. Open the app to view your schedule.';
 
                 if (app(\App\Services\Messaging\FcmService::class)->isAccountAllowed($account)) {
-                    SendFcmPushNotification::dispatch(
-                        patientAccountId: (int) $account->id,
-                        title: $pushTitle,
-                        body: $pushBody,
-                        data: [
-                            'category'       => 'appointment_reminder',
-                            'route'          => '/calendar',
-                            'appointment_id' => (string) $message->appointment_id,
-                        ]
-                    );
+                    $isTest = (bool) ($message->context['is_test'] ?? false);
+                    $isSync = (bool) ($message->context['sync'] ?? false);
+                    $dryRun = (bool) ($message->context['dry_run'] ?? false);
+
+                    $pushData = [
+                        'category'       => 'appointment_reminder',
+                        'route'          => '/calendar',
+                        'appointment_id' => (string) $message->appointment_id,
+                    ];
+                    if ($isTest) {
+                        $pushData['is_test'] = 'true';
+                    }
+
+                    if ($isSync) {
+                        SendFcmPushNotification::dispatchSync(
+                            patientAccountId: (int) $account->id,
+                            title: $pushTitle,
+                            body: $pushBody,
+                            data: $pushData,
+                            validateOnly: $dryRun,
+                            isControlledTest: $isTest
+                        );
+                    } else {
+                        SendFcmPushNotification::dispatch(
+                            patientAccountId: (int) $account->id,
+                            title: $pushTitle,
+                            body: $pushBody,
+                            data: $pushData,
+                            validateOnly: $dryRun,
+                            isControlledTest: $isTest
+                        );
+                    }
                 } else {
                     \Illuminate\Support\Facades\Log::info("Scheduled reminder FCM skipped: Patient account #{$account->id} is not in the automatic FCM allowlist.");
                 }
@@ -155,7 +177,7 @@ class OutboundDelivery
                     'error_details' => $result->error,
                 ]);
             }
-            if (in_array($status, ['accepted', 'delivered'])) {
+            if (in_array($status, ['accepted', 'delivered']) && ! ($message->context['is_test'] ?? false)) {
                 Appointment::whereKey($message->appointment_id)->update([
                     'reminder_sent_count' => DB::raw('COALESCE(reminder_sent_count, 0) + 1'),
                     'last_reminded_at' => now(),

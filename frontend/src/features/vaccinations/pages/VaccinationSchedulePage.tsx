@@ -278,12 +278,92 @@ export default function VaccinationSchedulePage() {
     if (!id || !consentConfirmed) return;
     setSavingPreferences(true);
     try {
-      await api.put(`/appointments/${id}/messaging`, { ...preferences, consent_confirmed: true });
+      const res = await api.put(`/appointments/${id}/messaging`, { ...preferences, consent_confirmed: true });
+      if (res.data?.preferences) {
+        setPreferences({
+          sms: Boolean(res.data.preferences.sms),
+          email: Boolean(res.data.preferences.email),
+        });
+      }
+      if (res.data?.channels) {
+        setChannels(res.data.channels);
+      }
       setConsentConfirmed(false);
       setFeedback({ message: 'Communication preferences saved.', severity: 'success' });
     } catch {
       setFeedback({ message: 'Could not save communication preferences.', severity: 'error' });
-    } finally { setSavingPreferences(false); }
+    } finally {
+      setSavingPreferences(false);
+    }
+  };
+
+  // Determine if recall target's appointment is overdue/missed
+  const isRecallTargetOverdue = Boolean(
+    recallTarget && (
+      recallTarget.compliance_status === 'overdue_missed' ||
+      recallTarget.next_appointment?.is_missed ||
+      (recallTarget.next_appointment?.late_days && recallTarget.next_appointment.late_days > 0)
+    )
+  );
+
+  // Compute disabled reason for single recall alert dispatch
+  const getRecallDisabledReason = (): string | null => {
+    if (!recallTarget?.next_appointment?.appointment_id) {
+      return 'No scheduled follow-up appointment found.';
+    }
+    if (!messagingLoaded) {
+      return 'Loading messaging preferences and delivery history...';
+    }
+    if (savingPreferences) {
+      return 'Saving communication preferences in progress...';
+    }
+    if (sendingRecall) {
+      return 'Dispatching recall alert in progress...';
+    }
+
+    // Appointment eligibility: Only overdue/missed appointments can receive recall alerts
+    if (!isRecallTargetOverdue) {
+      const apptDate = recallTarget.next_appointment.scheduled_date_formatted || recallTarget.next_appointment.scheduled_date || 'scheduled date';
+      return `Appointment is not overdue (scheduled for ${apptDate}). Recall alerts can only be dispatched for overdue/missed appointments.`;
+    }
+
+    // Channel validation
+    if (recallChannel === 'in_app') {
+      if (recallTarget.channel !== 'online') {
+        return 'In-App delivery requires an active linked mobile app account. This patient is registered as an unlinked walk-in.';
+      }
+      // Note: In-App Only does NOT require SMS or email consent.
+    } else if (recallChannel === 'sms') {
+      if (!channels.sms) {
+        return 'SMS delivery channel is currently disabled or unavailable.';
+      }
+      if (!recallTarget.contact_number) {
+        return 'Patient has no contact phone number on file for SMS delivery.';
+      }
+      if (!preferences.sms) {
+        return 'SMS delivery requires confirmed patient consent. Enable "Allow SMS reminders" above and save preferences.';
+      }
+    } else if (recallChannel === 'email') {
+      if (!channels.email) {
+        return 'Email delivery channel is currently disabled or unavailable.';
+      }
+      if (!recallTarget.email) {
+        return 'Patient has no email address on file for email delivery.';
+      }
+      if (!preferences.email) {
+        return 'Email delivery requires confirmed patient consent. Enable "Allow email reminders" above and save preferences.';
+      }
+    } else if (recallChannel === 'all') {
+      const smsEligible = channels.sms && Boolean(recallTarget.contact_number) && preferences.sms;
+      const emailEligible = channels.email && Boolean(recallTarget.email) && preferences.email;
+      const inAppEligible = recallTarget.channel === 'online';
+
+      if (!smsEligible && !emailEligible && !inAppEligible) {
+        return 'No delivery channels are eligible. Please link an active mobile account or confirm and save SMS/Email consent above.';
+      }
+    }
+
+    return null;
   };
 
   // Bulk Recall Dialog
@@ -1005,8 +1085,8 @@ export default function VaccinationSchedulePage() {
 
                 <Stack spacing={2}>
                   {filteredPatients.map((patient) => {
-              const isMissed = patient.compliance_status === 'overdue_missed';
-              const isDueToday = patient.compliance_status === 'due_today';
+              const isMissed = patient.compliance_status === 'overdue_missed' || Boolean(patient.next_appointment?.is_missed) || Boolean(patient.next_appointment && patient.next_appointment.late_days > 0);
+              const isDueToday = patient.compliance_status === 'due_today' || Boolean(patient.next_appointment?.is_today);
               const showNextLabel = !isTriageDoctor && Boolean(patient.next_appointment);
               const showOverdueNotice = Boolean(isMissed && patient.next_appointment && patient.next_appointment.late_days > 0);
               const hasTextAbove = showNextLabel || showOverdueNotice;
@@ -1433,17 +1513,17 @@ export default function VaccinationSchedulePage() {
       {/* 1-Click Multi-Channel Recall Dialog */}
       <Dialog open={Boolean(recallTarget)} onClose={() => setRecallTarget(null)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ color: '#dc2626', display: 'flex', alignItems: 'center' }}>
-            <HugeiconsIcon icon={AlertCircleIcon} size={22} />
+          <Box sx={{ color: isRecallTargetOverdue ? '#dc2626' : '#2563eb', display: 'flex', alignItems: 'center' }}>
+            <HugeiconsIcon icon={isRecallTargetOverdue ? AlertCircleIcon : Notification01Icon} size={22} />
           </Box>
-          {recallTarget?.compliance_status === 'overdue_missed' ? 'Missed Appointment Recall' : 'Reminder Settings'}
+          {isRecallTargetOverdue ? 'Missed Appointment Recall' : 'Reminder Settings'}
         </DialogTitle>
         <DialogContent dividers>
           {recallTarget && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Alert severity={recallTarget.compliance_status === 'overdue_missed' ? 'warning' : 'info'} sx={{ borderRadius: '8px' }}>
-                <strong>{recallTarget.full_name}</strong>: appointment on {recallTarget.next_appointment?.scheduled_date_formatted}.
-                {recallTarget.compliance_status === 'overdue_missed' ? ' This appointment is overdue.' : ' Manage preferences for future reminders here.'}
+              <Alert severity={isRecallTargetOverdue ? 'warning' : 'info'} sx={{ borderRadius: '8px' }}>
+                <strong>{recallTarget.full_name}</strong>: appointment on {recallTarget.next_appointment?.scheduled_date_formatted || recallTarget.next_appointment?.scheduled_date}.
+                {isRecallTargetOverdue ? ' This appointment is overdue.' : ' Manage preferences for future reminders here.'}
               </Alert>
 
               <Box>
@@ -1488,7 +1568,9 @@ export default function VaccinationSchedulePage() {
                 <FormControlLabel control={<Checkbox checked={preferences.email} onChange={e => setPreferences(p => ({ ...p, email: e.target.checked }))} />} label="Allow email reminders" />
                 <FormControlLabel control={<Checkbox checked={consentConfirmed} onChange={e => setConsentConfirmed(e.target.checked)} />} label="I confirmed these preferences with the patient or authorized guardian." />
                 <Button onClick={savePreferences} disabled={!consentConfirmed || savingPreferences || !messagingLoaded}>Save preferences</Button>
-                <Typography variant="caption" sx={{ display: 'block' }}>Save changes before sending. Only the patient's recorded contacts are used. Unavailable channels are disabled.</Typography>
+                <Typography variant="caption" sx={{ display: 'block', color: '#64748b', mt: 0.5 }}>
+                  Save changes before sending. Only recorded contacts with patient consent are used. In-App notifications are delivered to linked mobile accounts and do not require SMS or email consent.
+                </Typography>
               </Box>
               <Box>
                 <Typography variant="subtitle2">Recent delivery history</Typography>
@@ -1529,27 +1611,48 @@ export default function VaccinationSchedulePage() {
             </Box>
           )}
         </DialogContent>
+        {getRecallDisabledReason() && (
+          <Box sx={{ px: 3, pt: 1.5, pb: 0 }}>
+            <Alert
+              severity={!isRecallTargetOverdue ? 'info' : 'warning'}
+              icon={<HugeiconsIcon icon={AlertCircleIcon} size={18} />}
+              sx={{
+                py: 0.5,
+                px: 1.5,
+                fontSize: '12.5px',
+                borderRadius: '8px',
+                '& .MuiAlert-message': { py: 0.25 },
+              }}
+            >
+              {getRecallDisabledReason()}
+            </Alert>
+          </Box>
+        )}
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setRecallTarget(null)} disabled={sendingRecall || savingPreferences} sx={{ textTransform: 'none' }}>
             Cancel
           </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleSendSingleRecall}
-            disabled={sendingRecall || savingPreferences || !messagingLoaded || recallTarget?.compliance_status !== 'overdue_missed'}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.75,
-            }}
-          >
-            <HugeiconsIcon icon={MailSend01Icon} size={16} />
-            {sendingRecall ? 'Dispatching...' : 'Dispatch Alert Now'}
-          </Button>
+          <Tooltip title={getRecallDisabledReason() || ''} arrow disableHoverListener={!getRecallDisabledReason()}>
+            <span>
+              <Button
+                variant="contained"
+                color="error"
+                onClick={handleSendSingleRecall}
+                disabled={Boolean(getRecallDisabledReason())}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                }}
+              >
+                <HugeiconsIcon icon={MailSend01Icon} size={16} />
+                {sendingRecall ? 'Dispatching...' : 'Dispatch Alert Now'}
+              </Button>
+            </span>
+          </Tooltip>
         </DialogActions>
       </Dialog>
 

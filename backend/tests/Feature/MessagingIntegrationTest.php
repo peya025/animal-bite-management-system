@@ -252,4 +252,133 @@ class MessagingIntegrationTest extends TestCase
         $this->assertSame(2, SmsLength::estimate(str_repeat('^', 81))['segments']);
         $this->assertSame(['encoding' => 'Unicode', 'segments' => 2], SmsLength::estimate(str_repeat('中', 71)));
     }
+
+    public function test_manual_in_app_recall_triggers_fcm_for_linked_account_without_sms_or_email_consent(): void
+    {
+        $appointment = $this->appointment(false);
+        $account = PatientAccount::create([
+            'name' => 'Patient User',
+            'email' => 'patient.user@example.test',
+            'password' => bcrypt('test-password'),
+            'is_active' => true,
+        ]);
+        $appointment->patient->accounts()->attach($account->id, [
+            'relationship' => 'self',
+            'is_primary' => true,
+            'status' => 'verified',
+        ]);
+
+        $user = User::factory()->create(['clinic_id' => $appointment->clinic_id, 'role' => 'treatment', 'is_active' => true]);
+        $this->actingAs($user);
+
+        $res = $this->postJson("/api/appointments/{$appointment->appointment_id}/recall", [
+            'channel' => 'in_app',
+        ]);
+
+        $res->assertSuccessful();
+        $this->assertDatabaseHas('outbound_messages', [
+            'appointment_id' => $appointment->appointment_id,
+            'channel' => 'in_app',
+            'status' => 'delivered',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'appointment_id' => $appointment->appointment_id,
+            'patient_account_id' => $account->id,
+            'type' => 'missed_appointment_recall',
+        ]);
+
+        Queue::assertPushed(\App\Jobs\SendFcmPushNotification::class, function ($job) use ($account, $appointment) {
+            return $job->patientAccountId === $account->id
+                && ($job->data['category'] ?? null) === 'appointment_reminder'
+                && ($job->data['appointment_id'] ?? null) === (string) $appointment->appointment_id;
+        });
+    }
+
+    public function test_manual_recall_rejects_ineligible_non_overdue_appointments(): void
+    {
+        $clinic = Clinic::create(['name' => 'Test clinic', 'contact_number' => '09171234567']);
+        $patient = Patient::create(['clinic_id' => $clinic->id, 'patient_number' => 'PAT-FUT-'.$clinic->id, 'first_name' => 'Future', 'last_name' => 'Appt', 'gender' => 'female', 'contact_number' => '09171234567']);
+        $futureAppointment = Appointment::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'scheduled_date' => today()->addDays(3),
+            'appointment_date' => today()->addDays(3),
+            'appointment_type' => 'vaccination',
+            'status' => 'scheduled',
+        ]);
+
+        $user = User::factory()->create(['clinic_id' => $clinic->id, 'role' => 'treatment', 'is_active' => true]);
+        $this->actingAs($user);
+
+        $res = $this->postJson("/api/appointments/{$futureAppointment->appointment_id}/recall", [
+            'channel' => 'in_app',
+        ]);
+
+        $res->assertUnprocessable();
+        $res->assertJsonFragment([
+            'appointment' => 'Appointment is not eligible for this reminder.',
+        ]);
+        $this->assertDatabaseMissing('outbound_messages', [
+            'appointment_id' => $futureAppointment->appointment_id,
+        ]);
+    }
+
+    public function test_manual_in_app_recall_fails_when_patient_has_no_linked_account(): void
+    {
+        $appointment = $this->appointment(false);
+        $user = User::factory()->create(['clinic_id' => $appointment->clinic_id, 'role' => 'treatment', 'is_active' => true]);
+        $this->actingAs($user);
+
+        $res = $this->postJson("/api/appointments/{$appointment->appointment_id}/recall", [
+            'channel' => 'in_app',
+        ]);
+
+        $res->assertUnprocessable();
+        $res->assertJsonFragment([
+            'in_app' => 'recipient_missing',
+        ]);
+    }
+
+    public function test_manual_recall_all_channels_delivers_in_app_even_when_sms_and_email_lack_consent(): void
+    {
+        $appointment = $this->appointment(false); // sms: false, email: false
+        $account = PatientAccount::create([
+            'name' => 'Patient User 2',
+            'email' => 'patient.user2@example.test',
+            'password' => bcrypt('test-password'),
+            'is_active' => true,
+        ]);
+        $appointment->patient->accounts()->attach($account->id, [
+            'relationship' => 'self',
+            'is_primary' => true,
+            'status' => 'verified',
+        ]);
+
+        $user = User::factory()->create(['clinic_id' => $appointment->clinic_id, 'role' => 'treatment', 'is_active' => true]);
+        $this->actingAs($user);
+
+        $res = $this->postJson("/api/appointments/{$appointment->appointment_id}/recall", [
+            'channel' => 'all',
+        ]);
+
+        $res->assertSuccessful();
+        $this->assertDatabaseHas('outbound_messages', [
+            'appointment_id' => $appointment->appointment_id,
+            'channel' => 'in_app',
+            'status' => 'delivered',
+        ]);
+        // SMS and email should be skipped due to missing consent
+        $this->assertDatabaseMissing('outbound_messages', [
+            'appointment_id' => $appointment->appointment_id,
+            'channel' => 'sms',
+        ]);
+        $this->assertDatabaseMissing('outbound_messages', [
+            'appointment_id' => $appointment->appointment_id,
+            'channel' => 'email',
+        ]);
+
+        Queue::assertPushed(\App\Jobs\SendFcmPushNotification::class, function ($job) use ($account) {
+            return $job->patientAccountId === $account->id;
+        });
+    }
 }

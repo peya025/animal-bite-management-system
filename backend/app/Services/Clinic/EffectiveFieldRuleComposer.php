@@ -345,16 +345,28 @@ class EffectiveFieldRuleComposer
         $rules['other_membership_no'] = 'nullable|string|max:500';
 
         // Additional registration / vitals fields
-        $rules['mode_of_transaction'] = 'nullable|in:walk-in,visited,referral';
-        $rules['reg_mode_of_transaction'] = 'nullable|in:walk-in,visited,referral';
+        $rules['mode_of_transaction'] = 'nullable|in:walk-in,visited,referral,online';
+        $rules['reg_mode_of_transaction'] = 'nullable|in:walk-in,visited,referral,online';
         $rules['reg_date_of_consultation'] = 'nullable|date';
         $rules['reg_consultation_time'] = 'nullable|string|max:10';
         $rules['reg_blood_pressure'] = 'nullable|string|max:20';
         $rules['reg_temperature'] = 'nullable|string|max:10';
         $rules['reg_height'] = 'nullable|string|max:10';
         $rules['reg_weight'] = 'nullable|string|max:10';
-        $rules['reg_attending_provider'] = 'nullable|string|max:255';
-        $rules['reg_referred_by'] = 'nullable|string|max:255';
+
+        $mode = strtolower((string)($input['mode_of_transaction'] ?? ($input['reg_mode_of_transaction'] ?? '')));
+        if ($mode === 'referral') {
+            $rules['reg_attending_provider'] = 'required_without:attending_provider|string|max:255';
+            $rules['attending_provider'] = 'nullable|string|max:255';
+            $rules['reg_referred_by'] = 'nullable|string|max:255';
+            $rules['referred_by'] = 'nullable|string|max:255';
+        } else {
+            $rules['reg_attending_provider'] = 'nullable|string|max:255';
+            $rules['attending_provider'] = 'nullable|string|max:255';
+            $rules['reg_referred_by'] = 'nullable|string|max:255';
+            $rules['referred_by'] = 'nullable|string|max:255';
+        }
+
         $rules['force_create'] = 'nullable|boolean';
 
         return $rules;

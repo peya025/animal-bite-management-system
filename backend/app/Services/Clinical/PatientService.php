@@ -499,7 +499,7 @@ class PatientService
                     : Carbon::now('Asia/Manila')->format('H:i');
 
                 $modeOfTx = $rawInput['mode_of_transaction'] ?? ($rawInput['reg_mode_of_transaction'] ?? null);
-                $validMode = in_array($modeOfTx, ['walk-in', 'visited', 'referral'], true) ? $modeOfTx : 'walk-in';
+                $validMode = in_array($modeOfTx, ['walk-in', 'visited', 'referral', 'online'], true) ? $modeOfTx : 'walk-in';
 
                 TreatmentRecord::create([
                     'clinic_id'             => $clinicId,
@@ -514,8 +514,8 @@ class PatientService
                     'temperature'           => $rawInput['reg_temperature'] ?? null,
                     'height'                => $rawInput['reg_height'] ?? null,
                     'weight'                => $rawInput['reg_weight'] ?? null,
-                    'attending_provider'    => $rawInput['reg_attending_provider'] ?? null,
-                    'referred_by'           => $rawInput['reg_referred_by'] ?? null,
+                    'attending_provider'    => $validMode === 'referral' ? ($rawInput['reg_attending_provider'] ?? null) : null,
+                    'referred_by'           => $validMode === 'referral' ? ($rawInput['reg_referred_by'] ?? null) : null,
                     'mode_of_transaction'   => $validMode,
                     'administered_by'       => $user->id,
                 ]);

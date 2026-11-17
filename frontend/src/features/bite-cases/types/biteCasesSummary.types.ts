@@ -128,6 +128,27 @@ export type ReportActionItem = {
   updated_at?: string | null;
 };
 
+export type OverdueDoseSlot = {
+  dose_number: number;
+  label: string;
+  due_date: string;
+  days_overdue: number;
+};
+
+export type PatientFollowupLog = {
+  id: number;
+  contact_type: 'call' | 'sms' | 'visit' | 'other' | string;
+  status: string;
+  recipient_number?: string | null;
+  message_body?: string | null;
+  notes?: string | null;
+  dose_label?: string | null;
+  days_overdue?: number | null;
+  created_by?: number | null;
+  created_by_name?: string | null;
+  created_at: string;
+};
+
 export type CaseSummary = {
   bite_id: number;
   case_number: string;
@@ -135,6 +156,11 @@ export type CaseSummary = {
   patient_name: string;
   age?: number | null;
   gender?: string;
+  contact_number?: string | null;
+  emergency_contact_number?: string | null;
+  emergency_contact_name?: string | null;
+  follow_up_contact_number?: string | null;
+  follow_up_contact_source?: 'patient' | 'guardian' | null;
   bite_date: string | null;
   location: string;
   normalized_barangay?: string;
@@ -163,7 +189,12 @@ export type CaseSummary = {
   is_overdue?: boolean;
   days_overdue?: number;
   overdue_dose?: string | null;
+  overdue_dose_day?: number | null;
+  overdue_due_date?: string | null;
+  overdue_dose_slots?: OverdueDoseSlot[];
   outstanding_dose_slot_count?: number;
+  followup_logs?: PatientFollowupLog[];
+  followup_logs_count?: number;
   is_unresolved_review?: boolean;
   review_age_days?: number | null;
   review_age_bucket?: '0_7_days' | '8_30_days' | 'over_30_days' | null;

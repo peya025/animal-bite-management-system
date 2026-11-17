@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\BiteIncident;
 use App\Models\Clinic;
 use App\Models\Patient;
+use App\Models\PatientFollowupLog;
 use App\Models\Queue;
 use App\Models\QueueHistory;
 use App\Models\TreatmentRecord;
@@ -22,6 +23,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class BiteCaseService
 {
@@ -1121,13 +1123,28 @@ class BiteCaseService
         if ($aggregateOnly) {
             $payload = $meetingService->applyConferencePrivacy($payload, true);
         } else {
+            $overdueBiteIds = $cases
+                ->filter(fn (BiteIncident $c) => (bool) ($resolvedMap[$c->bite_id]['course_outcome']['is_overdue'] ?? false))
+                ->pluck('bite_id')
+                ->all();
+
+            $followupLogsByBite = (!empty($overdueBiteIds) && Schema::hasTable('patient_followup_logs'))
+                ? PatientFollowupLog::where('clinic_id', $clinicId)
+                    ->whereIn('bite_id', $overdueBiteIds)
+                    ->with('creator:id,name,role')
+                    ->orderByDesc('id')
+                    ->get()
+                    ->groupBy('bite_id')
+                : collect();
+
             $payload['cases'] = $cases->sortByDesc('bite_date')->values()->map(function (BiteIncident $case) use (
                 $resolvedMap,
                 $reviewAgeMap,
                 $reportingQuery,
                 $clinicMunicipality,
                 $clinicProvince,
-                $cutoff
+                $cutoff,
+                $followupLogsByBite
             ) {
                 $state = $resolvedMap[$case->bite_id];
                 $stage = $state['stage_summary'];
@@ -1136,6 +1153,29 @@ class BiteCaseService
                 $reviewAge = $reviewAgeMap[$case->bite_id] ?? ['is_unresolved_review' => false, 'review_age_days' => null, 'review_age_bucket' => null];
                 $expGeo = $reportingQuery->normalizeExposureGeography($case, $clinicMunicipality, $clinicProvince);
 
+                $patientPhone = trim((string) ($case->patient?->contact_number ?? ''));
+                $guardianPhone = trim((string) ($case->patient?->emergency_contact_number ?? ''));
+                $followUpPhone = $patientPhone !== '' ? $patientPhone : ($guardianPhone !== '' ? $guardianPhone : null);
+                $followUpPhoneSource = $patientPhone !== '' ? 'patient' : ($guardianPhone !== '' ? 'guardian' : null);
+
+                $overdueSlots = $course['overdue_dose_slots'] ?? [];
+                $firstOverdueSlot = $overdueSlots[0] ?? null;
+
+                $logsForEpisode = $followupLogsByBite->get($case->bite_id, collect());
+                $formattedLogs = $logsForEpisode->take(5)->map(fn (PatientFollowupLog $log) => [
+                    'id' => $log->id,
+                    'contact_type' => $log->contact_type,
+                    'status' => $log->status,
+                    'recipient_number' => $log->recipient_number,
+                    'message_body' => $log->message_body,
+                    'notes' => $log->notes,
+                    'dose_label' => $log->dose_label,
+                    'days_overdue' => $log->days_overdue,
+                    'created_by' => $log->created_by,
+                    'created_by_name' => $log->created_by_name ?: $log->creator?->name,
+                    'created_at' => $log->created_at?->toIso8601String(),
+                ])->values()->all();
+
                 return [
                     'bite_id' => $case->bite_id,
                     'case_number' => $case->case_number,
@@ -1143,6 +1183,11 @@ class BiteCaseService
                     'patient_name' => $case->patient?->name ?? 'Unknown patient',
                     'age' => $case->patient?->ageAtDate($case->bite_date ?? $cutoff),
                     'gender' => $case->patient?->gender ? ucfirst(strtolower(trim((string) $case->patient->gender))) : 'Unknown',
+                    'contact_number' => $patientPhone !== '' ? $patientPhone : null,
+                    'emergency_contact_number' => $guardianPhone !== '' ? $guardianPhone : null,
+                    'emergency_contact_name' => $case->patient?->emergency_contact_name ?: null,
+                    'follow_up_contact_number' => $followUpPhone,
+                    'follow_up_contact_source' => $followUpPhoneSource,
                     'bite_date' => $case->bite_date?->format('M d, Y'),
                     'location' => trim((string) $case->bite_place) ?: 'Unknown',
                     'normalized_barangay' => $expGeo['barangay'],
@@ -1171,7 +1216,12 @@ class BiteCaseService
                     'is_overdue' => (bool) ($course['is_overdue'] ?? false),
                     'days_overdue' => (int) ($course['days_overdue'] ?? 0),
                     'overdue_dose' => $course['overdue_dose'] ?? null,
+                    'overdue_dose_day' => $firstOverdueSlot ? (int) $firstOverdueSlot['dose_number'] : null,
+                    'overdue_due_date' => $firstOverdueSlot['due_date'] ?? null,
+                    'overdue_dose_slots' => $overdueSlots,
                     'outstanding_dose_slot_count' => (int) ($course['outstanding_dose_slot_count'] ?? 0),
+                    'followup_logs' => $formattedLogs,
+                    'followup_logs_count' => $logsForEpisode->count(),
                     'is_unresolved_review' => $reviewAge['is_unresolved_review'],
                     'review_age_days' => $reviewAge['review_age_days'],
                     'review_age_bucket' => $reviewAge['review_age_bucket'],

@@ -70,6 +70,7 @@ import type {
   LocationSortKey,
   LocationSummary,
   OptionalBarangayColumn,
+  PatientFollowupLog,
   PriorityBreakdown,
   PriorityLevel,
   PrivacyMode,
@@ -835,6 +836,24 @@ export default function BiteCaseRiskDashboard() {
   const ownershipKnownCount = (activeDoh?.animals.owned ?? 0) + (activeDoh?.animals.stray ?? 0);
   const ownershipCompleteness = totalRecorded > 0 ? Math.round((ownershipKnownCount / totalRecorded) * 100) : 100;
 
+  const handleCaseLogsUpdated = (biteId: number, log: PatientFollowupLog) => {
+    setData((prev) => {
+      if (!prev?.cases) return prev;
+      return {
+        ...prev,
+        cases: prev.cases.map((c) =>
+          c.bite_id === biteId
+            ? {
+                ...c,
+                followup_logs: [log, ...(c.followup_logs ?? [])],
+                followup_logs_count: (c.followup_logs_count ?? 0) + 1,
+              }
+            : c
+        ),
+      };
+    });
+  };
+
   return (
     <Box sx={{ p: { xs: 1.5, md: 2.5 }, maxWidth: 1440, mx: 'auto' }}>
       {/* Clean Page Header & Concise 1-Line Scope Summary */}
@@ -1513,6 +1532,8 @@ export default function BiteCaseRiskDashboard() {
           <div role="tabpanel" aria-labelledby="tab-treatment" tabIndex={0}>
             <BiteCasesTreatmentTab
               doh={doh}
+              cases={cases}
+              privacyMode={privacyMode}
               totalRecorded={totalRecorded}
               finalizedCount={finalizedCount}
               awaitingAssessmentCount={awaitingAssessmentCount}
@@ -1529,6 +1550,9 @@ export default function BiteCaseRiskDashboard() {
               overdueCoursesCount={overdueCoursesCount}
               outstandingDoseSlotsCount={outstandingDoseSlotsCount}
               onDrillDownFilter={handleDrillDownFilter}
+              onSwitchToInternalMode={() => setPrivacyMode('internal_aggregate')}
+              onCaseLogsUpdated={handleCaseLogsUpdated}
+              onNotify={(msg) => setSnackbarMsg(msg)}
             />
           </div>
         )}

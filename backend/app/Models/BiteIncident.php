@@ -266,6 +266,11 @@ class BiteIncident extends Model
         return $this->hasOne(BiteIncidentIntake::class, 'bite_id', 'bite_id');
     }
 
+    public function followupLogs()
+    {
+        return $this->hasMany(PatientFollowupLog::class, 'bite_id', 'bite_id')->orderByDesc('id');
+    }
+
     public function getIncidentDateAttribute()
     {
         return $this->bite_date;

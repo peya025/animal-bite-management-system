@@ -14,6 +14,7 @@ use App\Http\Controllers\Auth\StaffSignatureController;
 use App\Http\Controllers\Clinical\BiteCaseController;
 use App\Http\Controllers\Clinical\BiteIncidentIntakeController;
 use App\Http\Controllers\Clinical\BiteIntakeSchemaController;
+use App\Http\Controllers\Clinical\EpisodeFollowupController;
 use App\Http\Controllers\Clinical\PatientController;
 use App\Http\Controllers\Clinical\RegistrationFeeController;
 use App\Http\Controllers\Clinical\TagoloanTreatmentCardController;
@@ -403,6 +404,13 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
             ->whereNumber('id')->middleware('role:admin,registration,triage,treatment,doctor,nurse,staff');
         Route::get('/{id}/vaccinations', [BiteCaseController::class, 'vaccinations']); // All roles
 
+        // Overdue Follow-up Outreach & SMS Reminders
+        Route::middleware('role:admin,registration,triage,treatment,doctor,nurse,developer')->group(function () {
+            Route::get('/{id}/followup-logs', [EpisodeFollowupController::class, 'index'])->whereNumber('id');
+            Route::post('/{id}/followup-logs', [EpisodeFollowupController::class, 'store'])->whereNumber('id');
+            Route::post('/{id}/send-reminder', [EpisodeFollowupController::class, 'sendReminder'])->whereNumber('id');
+        });
+
         // Create & Update (admin, triage only)
         Route::middleware('role:admin,triage')->group(function () {
             Route::post('/', [BiteCaseController::class, 'store']);
@@ -439,16 +447,23 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     });
 
     // Multi-Channel Missed Recall & Reminders
+    Route::middleware('role:admin,treatment,registration,triage,doctor,developer')->group(function () {
+        Route::get('/appointments/{id}/reminders', [VaccinationJourneyController::class, 'reminderHistory']);
+        Route::get('/appointments/{id}/messaging', [VaccinationJourneyController::class, 'messagingSettings']);
+        Route::get('/messaging/channels', fn () => response()->json(app(DeliveryPolicy::class)->availability()));
+    });
+
     Route::middleware('role:admin,treatment,registration')->group(function () {
         Route::post('/appointments/{id}/recall', [VaccinationJourneyController::class, 'recallSingle']);
         Route::post('/appointments/bulk-recall', [VaccinationJourneyController::class, 'recallBulk']);
         Route::post('/appointments/trigger-auto-recall', [VaccinationJourneyController::class, 'triggerAutoSweep']);
-        Route::get('/appointments/{id}/reminders', [VaccinationJourneyController::class, 'reminderHistory']);
         Route::post('/appointments/{id}/reminders/{messageId}/retry', [VaccinationJourneyController::class, 'retryMessage'])->middleware('throttle:10,1');
-        Route::get('/appointments/{id}/messaging', [VaccinationJourneyController::class, 'messagingSettings']);
         Route::put('/appointments/{id}/messaging', [VaccinationJourneyController::class, 'updateMessagingSettings']);
-        Route::get('/messaging/channels', fn () => response()->json(app(DeliveryPolicy::class)->availability()));
     });
+
+    Route::post('/v1/clinical/episodes/{id}/send-reminder', [EpisodeFollowupController::class, 'sendReminder'])
+        ->whereNumber('id')
+        ->middleware('role:admin,registration,triage,treatment,doctor,nurse,developer');
 
     // Treatment Records (Form 2 - Individual Treatment)
     Route::prefix('treatment-records')->group(function () {

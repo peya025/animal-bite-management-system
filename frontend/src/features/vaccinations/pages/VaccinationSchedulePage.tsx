@@ -375,6 +375,13 @@ export default function VaccinationSchedulePage() {
     setActiveTab(newTab);
     setPage(0);
     setDoseFilter('all'); // 8.3: reset dose filter on tab switch
+    const nextParams = new URLSearchParams(searchParams);
+    if (newTab === 'matrix') {
+      nextParams.delete('tab');
+    } else {
+      nextParams.set('tab', newTab);
+    }
+    setSearchParams(nextParams, { replace: true });
   };
 
   // Open single recall modal
@@ -707,10 +714,20 @@ export default function VaccinationSchedulePage() {
             ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
             : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
 
+          const targetFilterTab: 'matrix' | 'today' | 'missed' | null =
+            item.id === 'total'
+              ? 'matrix'
+              : item.id === 'due_today'
+              ? 'today'
+              : item.id === 'overdue_missed'
+              ? 'missed'
+              : null;
+
           return (
             <Paper
               key={item.id}
               elevation={0}
+              onClick={targetFilterTab ? () => handleTabChange(targetFilterTab) : undefined}
               sx={{
                 p: '16px 18px',
                 borderRadius: '20px',
@@ -719,7 +736,7 @@ export default function VaccinationSchedulePage() {
                 gap: 1.75,
                 position: 'relative',
                 overflow: 'hidden',
-                cursor: 'default',
+                cursor: targetFilterTab ? 'pointer' : 'default',
                 transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                 ...(isDark
                   ? {
@@ -825,6 +842,8 @@ export default function VaccinationSchedulePage() {
               >
                 <MenuItem value="matrix">All Patients ({kpi.total_patients})</MenuItem>
                 <MenuItem value="today">Today's Injections ({kpi.due_today})</MenuItem>
+                <MenuItem value="missed">Overdue / Missed ({kpi.overdue_missed})</MenuItem>
+                <MenuItem value="online">Online Bookings ({kpi.online_count})</MenuItem>
               </Select>
             </FormControl>
 
@@ -1007,7 +1026,7 @@ export default function VaccinationSchedulePage() {
                   {filteredPatients.map((patient) => {
               const isMissed = patient.compliance_status === 'overdue_missed';
               const isDueToday = patient.compliance_status === 'due_today';
-              const showNextLabel = !isTriageDoctor && Boolean(patient.next_appointment);
+              const showNextLabel = (!isTriageDoctor || isMissed) && Boolean(patient.next_appointment);
               const showOverdueNotice = Boolean(isMissed && patient.next_appointment && patient.next_appointment.late_days > 0);
               const hasTextAbove = showNextLabel || showOverdueNotice;
 

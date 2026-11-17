@@ -10,12 +10,20 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import type { DohSummary } from '../types/biteCasesSummary.types';
+import type {
+  CaseSummary,
+  DohSummary,
+  PatientFollowupLog,
+  PrivacyMode,
+} from '../types/biteCasesSummary.types';
 import { formatPct } from '../types/biteCasesSummary.types';
 import { BC_BORDER, DohStatLine } from './BiteCasesSharedUi';
+import { OverdueFollowupPatientsSection } from './OverdueFollowupPatientsSection';
 
 interface BiteCasesTreatmentTabProps {
   doh?: DohSummary;
+  cases: CaseSummary[];
+  privacyMode: PrivacyMode;
   totalRecorded: number;
   finalizedCount: number;
   awaitingAssessmentCount: number;
@@ -32,10 +40,15 @@ interface BiteCasesTreatmentTabProps {
   overdueCoursesCount: number;
   outstandingDoseSlotsCount: number;
   onDrillDownFilter: (next: { status?: string; severity?: string }) => void;
+  onSwitchToInternalMode: () => void;
+  onCaseLogsUpdated: (biteId: number, log: PatientFollowupLog) => void;
+  onNotify: (msg: string) => void;
 }
 
 export function BiteCasesTreatmentTab({
   doh,
+  cases,
+  privacyMode,
   totalRecorded,
   finalizedCount,
   awaitingAssessmentCount,
@@ -52,6 +65,9 @@ export function BiteCasesTreatmentTab({
   overdueCoursesCount,
   outstandingDoseSlotsCount,
   onDrillDownFilter,
+  onSwitchToInternalMode,
+  onCaseLogsUpdated,
+  onNotify,
 }: BiteCasesTreatmentTabProps) {
   const decisionPendingCount = doh?.form_2_decision_pending_count ?? 0;
 
@@ -161,11 +177,30 @@ export function BiteCasesTreatmentTab({
           />
           <Chip
             size="small"
+            clickable={overdueEpisodesCount > 0}
+            onClick={
+              overdueEpisodesCount > 0
+                ? () => {
+                    document
+                      .getElementById('bc-overdue-followup-section')
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                : undefined
+            }
             label={`Currently Overdue Follow-up (as of cutoff): ${overdueEpisodesCount} ep / ${outstandingDoseSlotsCount} slots`}
             sx={{ fontSize: 11.5, fontWeight: 700, bgcolor: overdueEpisodesCount > 0 ? 'var(--bc-danger-bg)' : 'var(--bc-surface-3)', color: overdueEpisodesCount > 0 ? 'var(--bc-red-strong)' : 'var(--bc-text-secondary)' }}
           />
         </Box>
       </Paper>
+
+      {/* Patients Who Did Not Return for Follow-up (Overdue >= 1 Day) */}
+      <OverdueFollowupPatientsSection
+        cases={cases}
+        privacyMode={privacyMode}
+        onSwitchToInternalMode={onSwitchToInternalMode}
+        onCaseLogsUpdated={onCaseLogsUpdated}
+        onNotify={onNotify}
+      />
 
       {/* Form 3 Cohort Breakdown by Category (Primary Treatment View) */}
       <Paper elevation={0} sx={{ border: BC_BORDER, borderRadius: '10px', p: 1.75 }}>

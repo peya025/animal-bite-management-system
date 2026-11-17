@@ -14,7 +14,7 @@ class DeleteDeviceTokenRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'fcm_token' => ['nullable', 'string', 'max:1024'],
+            'fcm_token' => ['nullable', 'string', 'max:500'],
             'device_id' => ['nullable', 'string', 'max:150'],
         ];
     }

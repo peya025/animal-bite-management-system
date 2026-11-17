@@ -18,6 +18,7 @@ import '../models/patient_profile.dart';
 import '../models/patient_account_profile.dart';
 import 'fcm_device_registration_service.dart';
 import 'psgc_service.dart';
+import 'push_notification_service.dart';
 
 class ApiException implements Exception {
   const ApiException(this.message);
@@ -178,6 +179,7 @@ class MobileApi {
   }
 
   Future<void> logout() async {
+    PushNotificationService.instance.clearNotificationState();
     try {
       await FcmDeviceRegistrationService.instance.unregisterDeviceToken();
     } catch (_) {
@@ -377,8 +379,11 @@ class MobileApi {
       '/device-token',
       body: {
         'fcm_token': fcmToken,
+        // ignore: use_null_aware_elements
         if (deviceId != null) 'device_id': deviceId,
+        // ignore: use_null_aware_elements
         if (deviceType != null) 'device_type': deviceType,
+        // ignore: use_null_aware_elements
         if (deviceName != null) 'device_name': deviceName,
       },
     );
@@ -394,7 +399,9 @@ class MobileApi {
       'DELETE',
       '/device-token',
       body: {
+        // ignore: use_null_aware_elements
         if (fcmToken != null) 'fcm_token': fcmToken,
+        // ignore: use_null_aware_elements
         if (deviceId != null) 'device_id': deviceId,
       },
     );

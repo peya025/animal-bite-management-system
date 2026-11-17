@@ -78,6 +78,13 @@ class PatientDeviceTokenApiTest extends TestCase
         ]);
         $shortResponse->assertStatus(422);
         $shortResponse->assertJsonValidationErrors(['fcm_token']);
+
+        // Token exceeds 500 characters database column limit
+        $overlongResponse = $this->actingAs($account, 'sanctum')->postJson('/api/mobile/device-token', [
+            'fcm_token' => str_repeat('a', 501),
+        ]);
+        $overlongResponse->assertStatus(422);
+        $overlongResponse->assertJsonValidationErrors(['fcm_token']);
     }
 
     public function test_successful_device_token_registration_masks_token(): void

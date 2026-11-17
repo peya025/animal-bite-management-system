@@ -62,6 +62,7 @@ class FcmDeviceRegistrationService {
   void _setupTokenRefreshListener() {
     _tokenRefreshSubscription?.cancel();
     try {
+      // ignore: deprecated_member_use
       _tokenRefreshSubscription = FirebaseMessaging.instance.onTokenRefresh.listen(
         (newToken) async {
           debugPrint('🔄 FCM registration token refreshed: ${maskToken(newToken)}');
@@ -110,6 +111,7 @@ class FcmDeviceRegistrationService {
     if (!isFirebaseAvailable) return null;
 
     try {
+      // ignore: deprecated_member_use
       final token = await FirebaseMessaging.instance.getToken();
       return token;
     } catch (e) {
@@ -184,6 +186,7 @@ class FcmDeviceRegistrationService {
       );
 
       _lastRegisteredToken = token;
+      await _storage.delete(key: 'fcm_pending_deregistration_token');
       debugPrint('✅ FCM device token successfully registered with backend: ${maskToken(token)}');
       completer.complete(true);
       return true;
@@ -198,6 +201,9 @@ class FcmDeviceRegistrationService {
 
   /// Invalidate and remove device registration from the backend upon patient logout.
   /// Handles network failures gracefully without preventing local logout.
+  /// Note: When offline, immediate server-side revocation is not guaranteed;
+  /// instead, a pending cleanup flag is recorded locally and server revocation occurs
+  /// upon next login, account switch, or server token cleanup.
   Future<void> unregisterDeviceToken() async {
     final tokenToRemove = _lastRegisteredToken;
     final deviceIdToRemove = _installationId;
@@ -211,9 +217,13 @@ class FcmDeviceRegistrationService {
         fcmToken: tokenToRemove,
         deviceId: deviceIdToRemove,
       );
+      await _storage.delete(key: 'fcm_pending_deregistration_token');
       debugPrint('🔒 FCM device token revoked from backend on logout: ${maskToken(tokenToRemove)}');
     } catch (e) {
-      debugPrint('ℹ️ Safe logout fallback: backend token removal failed ($e)');
+      if (tokenToRemove != null) {
+        await _storage.write(key: 'fcm_pending_deregistration_token', value: tokenToRemove);
+      }
+      debugPrint('ℹ️ Offline logout: device token could not be revoked from server immediately; local session cleared. Stale registration will be revoked upon next authentication or server token cleanup ($e)');
     }
   }
 

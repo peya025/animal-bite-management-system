@@ -12,6 +12,7 @@ import '../models/patient_profile.dart';
 import 'mock_data.dart';
 import 'psgc_service.dart';
 import 'fcm_device_registration_service.dart';
+import 'push_notification_service.dart';
 
 class MockMobileApi {
   MockMobileApi._();
@@ -41,6 +42,7 @@ class MockMobileApi {
     await Future.delayed(const Duration(seconds: 1));
     _account = {..._account, 'name': name, 'email': email, 'phone': phone};
     _isAuthenticated = true;
+    FcmDeviceRegistrationService.instance.syncDeviceToken().catchError((_) => false);
   }
 
   Future<String> requestPasswordReset({required String email}) async {
@@ -61,6 +63,7 @@ class MockMobileApi {
       );
     }
     _isAuthenticated = true;
+    FcmDeviceRegistrationService.instance.syncDeviceToken().catchError((_) => false);
   }
 
   Future<void> login({
@@ -79,6 +82,7 @@ class MockMobileApi {
   }
 
   Future<void> logout() async {
+    PushNotificationService.instance.clearNotificationState();
     try {
       await FcmDeviceRegistrationService.instance.unregisterDeviceToken();
     } catch (_) {}

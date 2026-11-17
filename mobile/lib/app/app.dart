@@ -8,16 +8,19 @@ import 'app_theme.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/language_controller.dart';
 import '../services/api.dart';
+import '../services/push_notification_service.dart';
 
 class AnimalCareApp extends StatefulWidget {
   const AnimalCareApp({super.key});
+
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   State<AnimalCareApp> createState() => _AnimalCareAppState();
 }
 
 class _AnimalCareAppState extends State<AnimalCareApp> with WidgetsBindingObserver {
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  GlobalKey<NavigatorState> get _navigatorKey => AnimalCareApp.navigatorKey;
   bool _isBackgrounded = false;
   DateTime? _pausedAt;
 
@@ -25,6 +28,8 @@ class _AnimalCareAppState extends State<AnimalCareApp> with WidgetsBindingObserv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Handle cold boot notification launch (terminated state)
+    PushNotificationService.instance.checkInitialMessage();
   }
 
   @override

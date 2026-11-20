@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import { useState, useMemo, useEffect } from 'react';
 import { BITE_CASE_STATUS_LABELS, formatAnimalConditionLabel, formatAnimalOwnershipLabel } from '../utils/biteCaseUtils';
+import { BITE_SUMMARY_AGE_GROUPS } from '../types/biteCasesSummary.types';
 import type { CaseSummary, PrivacyMode } from '../types/biteCasesSummary.types';
 import { BC_BORDER, DohStatLine, SemanticChip } from './BiteCasesSharedUi';
 
@@ -168,8 +169,12 @@ export function BiteCasesEpisodesTab({
                         <Typography sx={{ fontSize: 12, color: 'var(--bc-text-2)' }}>
                           {c.patient_name}
                         </Typography>
-                        <Typography sx={{ fontSize: 11, color: 'var(--bc-text-secondary)' }}>
-                          {c.age !== null && c.age !== undefined ? `${c.age}y` : 'Age Unk'} • {c.gender || 'Unknown'}
+                        <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)', mt: 0.2 }}>
+                          <Box component="span" sx={{ fontWeight: 600, color: 'var(--bc-text-2)' }}>
+                            {c.age !== null && c.age !== undefined ? `Age: ${c.age} yrs` : 'Age: Not recorded'}
+                          </Box>
+                          {' • '}
+                          {c.gender || 'Unknown'}
                         </Typography>
                       </TableCell>
                       <TableCell sx={{ minWidth: 145 }}>
@@ -338,6 +343,17 @@ export function BiteCasesEpisodesTab({
                   <Typography sx={{ fontSize: 12, fontWeight: 800, color: 'var(--bc-green-strong)', mb: 0.75 }}>
                     Form 1: Registration &amp; Exposure
                   </Typography>
+                  <DohStatLine
+                    label="Age at Exposure"
+                    value={
+                      selectedCase.age !== null && selectedCase.age !== undefined
+                        ? (() => {
+                            const matched = BITE_SUMMARY_AGE_GROUPS.find((g) => g.key === selectedCase.age_group);
+                            return matched ? `${selectedCase.age} yrs (${matched.label})` : `${selectedCase.age} yrs`;
+                          })()
+                        : 'Not recorded'
+                    }
+                  />
                   <DohStatLine label="Exposure Date" value={selectedCase.bite_date || 'Unknown'} />
                   <DohStatLine label="Normalized Barangay" value={selectedCase.normalized_barangay || selectedCase.location} />
                   <DohStatLine label="Raw Location" value={selectedCase.location} />

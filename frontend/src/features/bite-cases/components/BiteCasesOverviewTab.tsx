@@ -23,7 +23,7 @@ import {
   MapOutlined,
 } from '@mui/icons-material';
 import type { DescriptiveFinding, DohSummary, LocationSummary } from '../types/biteCasesSummary.types';
-import { formatPct } from '../types/biteCasesSummary.types';
+import { BITE_SUMMARY_AGE_GROUPS, formatPct } from '../types/biteCasesSummary.types';
 import { BC_BORDER, HorizontalDistBar, SemanticChip } from './BiteCasesSharedUi';
 import { ROUTES } from '../../../shared/config/routes';
 
@@ -49,6 +49,7 @@ interface BiteCasesOverviewTabProps {
     animal_status?: string;
     animal_condition?: string;
     channel?: string;
+    age_group?: string;
     search?: string;
   }) => void;
   onExportEpisodesCsv: () => void;
@@ -352,12 +353,14 @@ function CategoryRow({
 
 function ProfileMetricRow({
   label,
+  subLabel,
   count,
   total,
   color = '#0f766e',
   onClick,
 }: {
   label: string;
+  subLabel?: string;
   count: number;
   total: number;
   color?: string;
@@ -370,15 +373,17 @@ function ProfileMetricRow({
       component={onClick ? 'button' : 'div'}
       type={onClick ? 'button' : undefined}
       onClick={onClick}
-      aria-label={`${label}: ${count} cases (${formattedPct})`}
+      aria-label={`${label}${subLabel ? ` (${subLabel})` : ''}: ${count} cases (${formattedPct})`}
       sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: '90px 1fr 64px', sm: '100px 1fr 70px' },
+        gridTemplateColumns: subLabel
+          ? { xs: '122px 1fr 68px', sm: '128px 1fr 74px' }
+          : { xs: '90px 1fr 64px', sm: '100px 1fr 70px' },
         alignItems: 'center',
         gap: 1.25,
         width: '100%',
         minHeight: 36,
-        py: 0.75,
+        py: subLabel ? 0.65 : 0.75,
         px: 1,
         borderRadius: '8px',
         border: 0,
@@ -391,9 +396,25 @@ function ProfileMetricRow({
         '&:focus-visible': { outline: '2px solid var(--bc-focus-ring)', outlineOffset: '1px' },
       }}
     >
-      <Typography noWrap sx={{ fontSize: 13, fontWeight: 600, color: 'var(--bc-text)' }}>
-        {label}
-      </Typography>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography noWrap sx={{ fontSize: 13, fontWeight: 600, color: 'var(--bc-text)', lineHeight: 1.25 }}>
+          {label}
+        </Typography>
+        {subLabel && (
+          <Typography
+            sx={{
+              fontSize: 11.5,
+              fontWeight: 500,
+              color: 'var(--bc-text-secondary)',
+              lineHeight: 1.25,
+              mt: 0.15,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {subLabel}
+          </Typography>
+        )}
+      </Box>
       <Box sx={{ height: 8, borderRadius: 4, bgcolor: 'var(--bc-track)', overflow: 'hidden' }}>
         <Box
           sx={{
@@ -954,26 +975,26 @@ export function BiteCasesOverviewTab({
         {/* Card 2: Age group */}
         <Section title="Age group">
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-            <ProfileMetricRow
-              label="15 and above"
-              count={doh?.demographics.age_15_above ?? 0}
-              total={totalRecorded}
-              color="#0f766e"
-            />
-            <ProfileMetricRow
-              label="Under 15"
-              count={doh?.demographics.age_below_15 ?? 0}
-              total={totalRecorded}
-              color="#0f766e"
-            />
-            {(doh?.demographics.age_unknown ?? 0) > 0 && (
-              <ProfileMetricRow
-                label="Not recorded"
-                count={doh?.demographics.age_unknown ?? 0}
-                total={totalRecorded}
-                color="#94a3b8"
-              />
-            )}
+            {(() => {
+              const groups = doh?.age_groups;
+              const validAgeTotal =
+                groups?.valid_total ??
+                ((groups?.children ?? 0) +
+                  (groups?.teenagers ?? 0) +
+                  (groups?.adults ?? 0) +
+                  (groups?.senior_citizens ?? 0));
+              return BITE_SUMMARY_AGE_GROUPS.map((group) => (
+                <ProfileMetricRow
+                  key={group.key}
+                  label={group.label}
+                  subLabel={group.range}
+                  count={groups?.[group.key] ?? 0}
+                  total={validAgeTotal}
+                  color="#0f766e"
+                  onClick={() => onDrillDownFilter({ age_group: group.key })}
+                />
+              ));
+            })()}
           </Box>
         </Section>
 

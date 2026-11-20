@@ -53,6 +53,7 @@ import { BiteCasesPresentationDialog } from '../components/BiteCasesPresentation
 import { BC_BORDER, DohStatLine } from '../components/BiteCasesSharedUi';
 import { BiteCasesTreatmentTab } from '../components/BiteCasesTreatmentTab';
 import {
+  BITE_SUMMARY_AGE_GROUPS,
   computeDateRange,
   computePriorityBreakdown,
   formatDaysAgo,
@@ -364,6 +365,7 @@ export default function BiteCaseRiskDashboard() {
     animalStatus: '',
     animalCondition: '',
     channel: '',
+    ageGroup: '',
     range: rangeParam && ALLOWED_RANGES.includes(rangeParam) ? rangeParam : 'all',
     customFrom: '',
     customTo: '',
@@ -471,7 +473,7 @@ export default function BiteCaseRiskDashboard() {
   );
 
   const query = useMemo(() => {
-    const { cutoff, search, severity, status, animal, animalStatus, animalCondition, channel } = filters;
+    const { cutoff, search, severity, status, animal, animalStatus, animalCondition, channel, ageGroup } = filters;
     return {
       privacy_mode: privacyMode,
       ...(search ? { search } : {}),
@@ -481,6 +483,7 @@ export default function BiteCaseRiskDashboard() {
       ...(animalStatus ? { animal_status: animalStatus } : {}),
       ...(animalCondition ? { animal_condition: animalCondition } : {}),
       ...(channel ? { channel } : {}),
+      ...(ageGroup ? { age_group: ageGroup } : {}),
       ...(cutoff ? { cutoff } : {}),
       ...(activeDateRange.from ? { from: activeDateRange.from } : {}),
       ...(activeDateRange.to ? { to: activeDateRange.to } : {}),
@@ -510,7 +513,7 @@ export default function BiteCaseRiskDashboard() {
           const response = await api.get<DashboardData>('/cases/location-summary', { params: query });
           if (!active) return;
           setData(response.data);
-          if (!filters.search && !filters.severity && !filters.status && !filters.animal && !filters.animalStatus && !filters.animalCondition && !filters.channel) {
+          if (!filters.search && !filters.severity && !filters.status && !filters.animal && !filters.animalStatus && !filters.animalCondition && !filters.channel && !filters.ageGroup) {
             setBaselineData(response.data);
           }
         }
@@ -684,6 +687,7 @@ export default function BiteCaseRiskDashboard() {
       animalStatus: '',
       animalCondition: '',
       channel: '',
+      ageGroup: '',
       range: 'all',
       customFrom: '',
       customTo: '',
@@ -698,6 +702,7 @@ export default function BiteCaseRiskDashboard() {
       filters.animalStatus ||
       filters.animalCondition ||
       filters.channel ||
+      filters.ageGroup ||
       filters.cutoff ||
       filters.range !== 'all'
   );
@@ -763,6 +768,7 @@ export default function BiteCaseRiskDashboard() {
     animal_status?: string;
     animal_condition?: string;
     channel?: string;
+    age_group?: string;
     search?: string;
   }) => {
     setFilters((f) => ({
@@ -773,6 +779,7 @@ export default function BiteCaseRiskDashboard() {
       ...(next.animal_status !== undefined ? { animalStatus: next.animal_status } : {}),
       ...(next.animal_condition !== undefined ? { animalCondition: next.animal_condition } : {}),
       ...(next.channel !== undefined ? { channel: next.channel } : {}),
+      ...(next.age_group !== undefined ? { ageGroup: next.age_group } : {}),
       ...(next.search !== undefined ? { search: next.search } : {}),
     }));
     selectTab('cases');
@@ -785,7 +792,8 @@ export default function BiteCaseRiskDashboard() {
       filters.animal ||
       filters.animalStatus ||
       filters.animalCondition ||
-      filters.channel
+      filters.channel ||
+      filters.ageGroup
   );
   // When secondary drill-down filters (search, severity, status, animal) are active, keep the baseline cohort figures for headline KPI cards so the clinic's true total never vanishes to 0!
   const activeBaseline = hasSecondaryFilters && baselineData ? baselineData : data;
@@ -1327,6 +1335,23 @@ export default function BiteCaseRiskDashboard() {
               </Select>
             </FormControl>
 
+            <FormControl size="small" sx={{ minWidth: 190 }}>
+              <Select
+                displayEmpty
+                value={filters.ageGroup}
+                aria-label="Filter by Age Group"
+                onChange={(e) => updateFilter('ageGroup', e.target.value)}
+                sx={{ height: 34, fontSize: 12.5 }}
+              >
+                <MenuItem value="">All Age Groups</MenuItem>
+                {BITE_SUMMARY_AGE_GROUPS.map((group) => (
+                  <MenuItem key={group.key} value={group.key}>
+                    {group.label} ({group.range})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
             {filters.range === 'custom' && (
               <>
                 <TextField
@@ -1369,6 +1394,7 @@ export default function BiteCaseRiskDashboard() {
           Boolean(filters.animalStatus) ||
           Boolean(filters.animalCondition) ||
           Boolean(filters.channel) ||
+          Boolean(filters.ageGroup) ||
           Boolean(filters.search)) && (
           <Box
             sx={{
@@ -1437,6 +1463,17 @@ export default function BiteCaseRiskDashboard() {
                 size="small"
                 label={`Channel: ${filters.channel === 'walk_in' ? 'Walk-in' : 'Online'}`}
                 onDelete={() => updateFilter('channel', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.ageGroup && (
+              <Chip
+                size="small"
+                label={(() => {
+                  const matched = BITE_SUMMARY_AGE_GROUPS.find((g) => g.key === filters.ageGroup);
+                  return matched ? `Age group: ${matched.label} (${matched.range})` : `Age group: ${filters.ageGroup}`;
+                })()}
+                onDelete={() => updateFilter('ageGroup', '')}
                 sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
               />
             )}

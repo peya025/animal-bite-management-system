@@ -491,6 +491,8 @@ class BiteCaseService
         };
         $rawChannelFilter = !empty($validated['channel']) ? strtolower(trim((string) $validated['channel'])) : null;
         $channelFilter = ($rawChannelFilter && $rawChannelFilter !== 'all') ? $rawChannelFilter : null;
+        $rawAgeGroupFilter = !empty($validated['age_group']) ? strtolower(trim((string) $validated['age_group'])) : null;
+        $ageGroupFilter = ($rawAgeGroupFilter && $rawAgeGroupFilter !== 'all') ? $rawAgeGroupFilter : null;
         $statusFilter = !empty($validated['status']) ? strtolower(trim((string) $validated['status'])) : null;
         $searchFilter = !empty($validated['search']) ? trim((string) $validated['search']) : null;
 
@@ -507,7 +509,8 @@ class BiteCaseService
             $statusFilter,
             $searchFilter,
             $stateResolver,
-            $reportingQuery
+            $reportingQuery,
+            $ageGroupFilter
         );
 
         $cases = $currentResult['cases'];
@@ -534,7 +537,8 @@ class BiteCaseService
             $statusFilter,
             $searchFilter,
             $stateResolver,
-            $reportingQuery
+            $reportingQuery,
+            $ageGroupFilter
         );
 
         $groupByExposureBarangay = fn (BiteIncident $case): string => $reportingQuery->normalizeExposureGeography(
@@ -736,6 +740,13 @@ class BiteCaseService
         $pepCompliancePct = $pepPrescribed > 0 ? (int) round(($verifiedInitiation / $pepPrescribed) * 100) : 0;
 
         $dohDemographics = ['male' => 0, 'female' => 0, 'unknown_sex' => 0, 'age_below_15' => 0, 'age_15_above' => 0, 'age_unknown' => 0];
+        $summaryAgeGroups = [
+            'children' => 0,        // 1–12 years
+            'teenagers' => 0,       // 13–17 years
+            'adults' => 0,          // 18–59 years
+            'senior_citizens' => 0, // 60 years and above
+            'valid_total' => 0,
+        ];
         $dohAnimals = [
             'dog' => 0,
             'cat' => 0,
@@ -778,6 +789,13 @@ class BiteCaseService
                 $dohDemographics['age_below_15']++;
             } else {
                 $dohDemographics['age_15_above']++;
+            }
+
+            $summaryAge = $this->resolveSummaryAgeYears($case);
+            $summaryAgeGroup = $this->resolveSummaryAgeGroup($summaryAge);
+            if ($summaryAgeGroup !== null) {
+                $summaryAgeGroups[$summaryAgeGroup]++;
+                $summaryAgeGroups['valid_total']++;
             }
 
             $speciesDetail = $reportingQuery->normalizedAnimalSpeciesDetail($case);
@@ -950,6 +968,7 @@ class BiteCaseService
                 'cutoff' => $cutoff->toDateString(),
             ],
             'demographics' => $dohDemographics,
+            'age_groups' => $summaryAgeGroups,
             'categories' => [
                 'I' => (int) $reconciliation['cat_I'],
                 'II' => (int) $reconciliation['cat_II'],
@@ -1176,12 +1195,15 @@ class BiteCaseService
                     'created_at' => $log->created_at?->toIso8601String(),
                 ])->values()->all();
 
+                $summaryAge = $this->resolveSummaryAgeYears($case);
+
                 return [
                     'bite_id' => $case->bite_id,
                     'case_number' => $case->case_number,
                     'patient_id' => $case->patient_id,
                     'patient_name' => $case->patient?->name ?? 'Unknown patient',
-                    'age' => $case->patient?->ageAtDate($case->bite_date ?? $cutoff),
+                    'age' => $summaryAge,
+                    'age_group' => $this->resolveSummaryAgeGroup($summaryAge),
                     'gender' => $case->patient?->gender ? ucfirst(strtolower(trim((string) $case->patient->gender))) : 'Unknown',
                     'contact_number' => $patientPhone !== '' ? $patientPhone : null,
                     'emergency_contact_number' => $guardianPhone !== '' ? $guardianPhone : null,
@@ -1248,7 +1270,8 @@ class BiteCaseService
         ?string $statusFilter,
         ?string $searchFilter,
         EpisodeReportingStateResolver $stateResolver,
-        ExposureReportingQuery $reportingQuery
+        ExposureReportingQuery $reportingQuery,
+        ?string $ageGroupFilter = null
     ): array {
         $query = BiteIncident::where('clinic_id', $clinicId)
             ->with(['patient.details', 'intake', 'appointments', 'treatmentRecords', 'treatmentPlan']);
@@ -1280,6 +1303,7 @@ class BiteCaseService
             ->filter(fn (BiteIncident $case) => $animalStatusFilter === null || $reportingQuery->normalizedAnimalOwnership($case) === $animalStatusFilter)
             ->filter(fn (BiteIncident $case) => $animalConditionFilter === null || $reportingQuery->normalizedAnimalCondition($case) === $animalConditionFilter)
             ->filter(fn (BiteIncident $case) => $channelFilter === null || $reportingQuery->normalizedRegistrationChannel($case) === $channelFilter)
+            ->filter(fn (BiteIncident $case) => $ageGroupFilter === null || $this->resolveSummaryAgeGroup($this->resolveSummaryAgeYears($case)) === $ageGroupFilter)
             ->filter(function (BiteIncident $case) use ($severityFilter): bool {
                 if ($severityFilter === null || in_array($severityFilter, ['not_yet_assessed', 'assessed_category_missing'], true)) {
                     return true;
@@ -1356,6 +1380,60 @@ class BiteCaseService
             'resolved_map' => $resolvedMap,
             'unknown_exposure_date_count' => $unknownExposureDateCount,
         ];
+    }
+
+    /**
+     * Calculate exact patient age in full years at the bite incident date using date_of_birth.
+     * Used exclusively for Bite Cases Summary age group analytics (preserves DOH ageAtDate rules elsewhere).
+     * Returns null if birth date or bite date is missing, invalid, before 1900, or after the bite date.
+     */
+    private function resolveSummaryAgeYears(BiteIncident $case): ?int
+    {
+        $dob = $case->patient?->date_of_birth;
+        $biteDate = $case->bite_date;
+
+        if (!$dob || !$biteDate) {
+            return null;
+        }
+
+        try {
+            $dobCarbon = Carbon::parse($dob)->startOfDay();
+            $biteCarbon = Carbon::parse($biteDate)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if ($dobCarbon->year < 1900 || $dobCarbon->gt($biteCarbon)) {
+            return null;
+        }
+
+        return (int) $dobCarbon->diffInYears($biteCarbon);
+    }
+
+    /**
+     * Categorize a valid age into non-overlapping Bite Cases Summary age groups:
+     * Children (1–12), Teenagers (13–17), Adults (18–59), Senior Citizens (60+).
+     * Returns null for missing/invalid ages or ages under 1 so they are excluded from age percentages.
+     */
+    private function resolveSummaryAgeGroup(?int $age): ?string
+    {
+        if ($age === null || $age < 1) {
+            return null;
+        }
+
+        if ($age <= 12) {
+            return 'children';
+        }
+
+        if ($age <= 17) {
+            return 'teenagers';
+        }
+
+        if ($age <= 59) {
+            return 'adults';
+        }
+
+        return 'senior_citizens';
     }
 
     private function countCategorizedNewCompleted(Collection $resolvedStates): int

@@ -174,3 +174,123 @@ export async function discardVial(inventoryId: number, reason?: string): Promise
   });
   return response.data;
 }
+
+export interface VaccineVialWastageItem {
+  wastage_id: number;
+  portions_discarded: number;
+  reason: string;
+  disposed_at: string;
+  disposed_by_name: string;
+}
+
+export interface VaccineVialAdministrationItem {
+  treatment_id: number;
+  patient_id: number;
+  patient_name: string;
+  case_number?: string | null;
+  dose_number: number;
+  dose_label: string;
+  route: string;
+  vial_portion_number?: number | null;
+  treatment_date: string | null;
+  administered_at: string | null;
+  administered_by_name: string;
+}
+
+export interface VaccineVialDetail {
+  vial_id: number;
+  vial_code: string;
+  inventory_id: number;
+  vaccine_type: string;
+  batch_number: string;
+  total_portions: number;
+  administered_portions: number;
+  discarded_portions: number;
+  available_portions: number;
+  undisposed_portions: number;
+  status: 'opened' | 'depleted' | 'expired' | 'disposed';
+  effective_status: 'opened' | 'depleted' | 'expired' | 'disposed';
+  is_expired: boolean;
+  is_disposed: boolean;
+  open_vial_hours?: number | null;
+  opened_at?: string | null;
+  use_by_at?: string | null;
+  opened_by_name?: string | null;
+  expired_at?: string | null;
+  expired_by_name?: string | null;
+  expired_reason?: string | null;
+  disposed_at?: string | null;
+  disposed_by_name?: string | null;
+  wastage_reason?: string | null;
+  stock_deducted?: boolean;
+  summary_text: string;
+  wastages?: VaccineVialWastageItem[];
+  administrations?: VaccineVialAdministrationItem[];
+}
+
+export async function getVialDetail(vialId: number): Promise<VaccineVialDetail> {
+  const response = await api.get(`/inventory/vials/${vialId}`);
+  return response.data.vial;
+}
+
+export async function getVials(params?: {
+  page?: number;
+  per_page?: number;
+  status?: string;
+  vaccine_type?: string;
+  search?: string;
+}): Promise<{ data: VaccineVialDetail[]; total: number }> {
+  const response = await api.get('/inventory/vials', { params });
+  return {
+    data: response.data.data || [],
+    total: response.data.total || 0,
+  };
+}
+
+export interface WastageLogItem {
+  wastage_id: number;
+  vial_id: number;
+  vial_code?: string | null;
+  inventory_id: number;
+  vaccine_type: string;
+  batch_number: string;
+  portions_discarded: number;
+  reason: string;
+  disposed_at: string;
+  disposed_by_id?: number;
+  disposed_by_name: string;
+}
+
+export async function getWastages(params?: {
+  page?: number;
+  per_page?: number;
+  vaccine_type?: string;
+  date_from?: string;
+  date_to?: string;
+}): Promise<{
+  data: WastageLogItem[];
+  total: number;
+  summary: { total_portions_discarded: number; total_wastage_events: number };
+}> {
+  const response = await api.get('/inventory/wastages', { params });
+  return {
+    data: response.data.data || [],
+    total: response.data.total || 0,
+    summary: response.data.summary || { total_portions_discarded: 0, total_wastage_events: 0 },
+  };
+}
+
+export async function markVialExpired(vialId: number, reason?: string): Promise<{ message: string; vial: VaccineVialDetail }> {
+  const response = await api.post(`/inventory/vials/${vialId}/expire`, {
+    reason: reason?.trim() || undefined,
+  });
+  return response.data;
+}
+
+export async function disposeVialRecord(
+  vialId: number,
+  payload: { portions_discarded: number; reason: string; disposed_at?: string }
+): Promise<{ message: string; vial: VaccineVialDetail }> {
+  const response = await api.post(`/inventory/vials/${vialId}/dispose`, payload);
+  return response.data;
+}

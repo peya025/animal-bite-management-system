@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Mobile;
 
+use App\Http\Requests\Mobile\Concerns\UsesMobileProfilePolicy;
 use App\Models\Patient;
 use App\Services\PatientMembershipService;
 use Illuminate\Foundation\Http\FormRequest;
@@ -9,6 +10,7 @@ use Illuminate\Validation\Rule;
 
 class UpdateMobilePatientRequest extends FormRequest
 {
+    use UsesMobileProfilePolicy;
     public function authorize(): bool
     {
         return $this->user() instanceof \App\Models\PatientAccount;
@@ -23,6 +25,7 @@ class UpdateMobilePatientRequest extends FormRequest
                 $this->input('emergency_contact_phone'),
             ),
         ]);
+        $this->prepareConfiguredProfile();
     }
 
     public function rules(): array
@@ -31,7 +34,7 @@ class UpdateMobilePatientRequest extends FormRequest
         $patient = $this->route('patient');
         $detailsId = ($patient instanceof Patient) ? $patient->details?->id : null;
 
-        return array_merge([
+        return $this->configuredProfileRules(array_merge([
             'clinic_id'                => ['sometimes', 'integer', 'exists:clinics,id'],
             'relationship'             => ['required', 'in:self,child,dependent'],
             'first_name'               => ['required', 'string', 'max:255'],
@@ -71,7 +74,7 @@ class UpdateMobilePatientRequest extends FormRequest
             'other_membership'         => ['nullable', 'string', 'max:500'],
             'other_membership_name'    => ['nullable', 'string', 'max:500'],
             'other_membership_no'      => ['nullable', 'string', 'max:500'],
-        ], $membershipService->validationRules());
+        ], $membershipService->validationRules()), true);
     }
 
     public function messages(): array

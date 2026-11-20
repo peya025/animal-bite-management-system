@@ -7,6 +7,7 @@ import {
   ClinicConfigValidationError,
 } from '../../api/clinicConfigApi';
 import { useClinicModuleConfig } from '../../hooks/useClinicModuleConfig';
+import { SECTION_SURFACES, SURFACE_LABELS } from '../../shared/forms/configuredFieldPolicy';
 import { ROUTES } from '../../shared/config/routes';
 import { Icon } from '../../shared/components/ui/Icon';
 import ConfirmationDialog from '../../components/feedback/ConfirmationDialog';
@@ -112,8 +113,8 @@ const CANONICAL_SECTIONS: SectionMeta[] = [
       { key: 'site_washed', label: 'Site Washed with Soap and Water', description: 'Immediate pre-hospital first-aid washing' },
       { key: 'exposure_type', label: 'Type of Exposure', description: 'Bite, Scratch, or Non-bite contact' },
       { key: 'animal_type', label: 'Animal Type', description: 'Dog, Cat, or Other animal' },
-      { key: 'animal_status', label: 'Animal Status', description: 'Alive, Dead, Killed, or Lost' },
-      { key: 'animal_captured', label: 'Animal Captured / Quarantined', description: 'Available for 14-day observation' },
+      { key: 'animal_status', label: 'Animal Ownership', description: 'Owned, Stray, or Unknown (Mobile Intake and Web Form 1)' },
+      { key: 'animal_captured', label: 'Animal Captured / Restrained', description: 'Whether the animal was captured or restrained (Mobile Intake and Web Form 1)' },
       { key: 'wound_location', label: 'Wound Anatomical Location', description: 'Anatomical site on body' },
       { key: 'patient_description', label: 'Patient Remarks / Description', description: 'Additional incident notes' },
     ],
@@ -1677,6 +1678,16 @@ export default function ModuleConfigPage() {
                 }}
               >
                 {section.description}
+              </div>
+              <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', marginTop: '0.3rem' }} aria-label="Affected surfaces">
+                {(SECTION_SURFACES[section.id as keyof typeof SECTION_SURFACES] ?? []).map((surface) => (
+                  <span
+                    key={surface}
+                    style={{ fontSize: '0.62rem', fontWeight: 600, color: '#0369a1', background: '#e0f2fe', borderRadius: 4, padding: '1px 6px' }}
+                  >
+                    {SURFACE_LABELS[surface]}
+                  </span>
+                ))}
               </div>
             </div>
           </button>

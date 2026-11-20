@@ -7,8 +7,10 @@ import '../models/announcement.dart';
 import '../models/app_notification.dart';
 import '../models/appointment_summary.dart';
 import '../models/bite_intake_contract.dart';
+import '../models/form_configuration.dart';
 import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
+import 'form_configuration_repository.dart';
 import 'mock_data.dart';
 import 'psgc_service.dart';
 
@@ -16,6 +18,31 @@ class MockMobileApi {
   MockMobileApi._();
 
   static final instance = MockMobileApi._();
+
+  Future<FormConfiguration> Function({
+    int? clinicId,
+    int? patientId,
+    int? appointmentId,
+  })? debugFormConfigurationOverride;
+  void Function(Map<String, dynamic> payload)? debugOnCreatePatient;
+  void Function(int patientId, Map<String, dynamic> payload)?
+      debugOnUpdatePatient;
+  void Function(
+    PatientProfile patient,
+    dynamic booking,
+    dynamic intake,
+  )? debugOnBook;
+  void Function(int appointmentId, Map<String, dynamic> intake)?
+      debugOnUpdateIntake;
+
+  void resetDebugOverrides() {
+    debugFormConfigurationOverride = null;
+    debugOnCreatePatient = null;
+    debugOnUpdatePatient = null;
+    debugOnBook = null;
+    debugOnUpdateIntake = null;
+    _patients = _deepCopyList(MockData.samplePatients);
+  }
 
   bool _isAuthenticated = false;
   Map<String, dynamic> _account = _deepCopyMap(MockData.sampleAccount);
@@ -79,6 +106,7 @@ class MockMobileApi {
   Future<void> logout() async {
     await Future.delayed(const Duration(milliseconds: 300));
     _isAuthenticated = false;
+    FormConfigurationRepository.clearCache();
   }
 
   Future<PatientAccountProfile> account() async {
@@ -180,7 +208,69 @@ class MockMobileApi {
     return BiteIntakeContract.fallback;
   }
 
+  Future<FormConfiguration> formConfiguration({
+    int? clinicId,
+    int? patientId,
+    int? appointmentId,
+  }) async {
+    if (debugFormConfigurationOverride != null) {
+      return debugFormConfigurationOverride!(
+        clinicId: clinicId,
+        patientId: patientId,
+        appointmentId: appointmentId,
+      );
+    }
+    return FormConfiguration.fromJson({
+      'schema_version': 1,
+      'revision': 1,
+      'clinic_id': clinicId ?? 1,
+      'profile': {
+        'sections': {
+          'patient_registration_enabled': true,
+          'address_section_enabled': true,
+          'socioeconomic_section_enabled': true,
+          'gov_programs_section_enabled': true,
+        },
+        'field_rules': _profileDefaults,
+      },
+      'intake': {
+        'sections': {'bite_intake_section_enabled': true},
+        'field_rules': _intakeDefaults,
+        'payload_aliases': {
+          'bite_date': 'date_of_exposure',
+          'bite_place': 'place_of_exposure',
+          'exposure_type': 'reported_mode_of_exposure',
+          'animal_type': 'animal_species',
+          'animal_status': 'animal_ownership',
+          'wound_location': 'body_part_detail',
+          'patient_description': 'incident_narrative',
+        },
+      },
+    });
+  }
+
+  static const _profileDefaults = <String, String>{
+    'blood_type': 'optional', 'mother_maiden_name': 'optional',
+    'civil_status': 'optional', 'spouse_name': 'optional',
+    'address_municipality': 'required', 'address_barangay': 'required',
+    'address_purok': 'optional', 'province': 'required',
+    'educational_attainment': 'optional', 'employment_status': 'optional',
+    'family_member': 'optional', 'philhealth_member': 'optional',
+    'philhealth_status': 'optional', 'philhealth_no': 'optional',
+    'philhealth_category': 'optional', 'fourps_member': 'optional',
+    'dswd_nhts': 'optional',
+  };
+
+  static const _intakeDefaults = <String, String>{
+    'bite_date': 'required', 'bite_place': 'required',
+    'site_washed': 'required', 'exposure_type': 'required',
+    'animal_type': 'required', 'animal_status': 'required',
+    'animal_captured': 'optional', 'wound_location': 'required',
+    'patient_description': 'optional',
+  };
+
   Future<PatientProfile> createPatient(Map<String, dynamic> profile) async {
+    debugOnCreatePatient?.call(Map<String, dynamic>.from(profile));
     await Future.delayed(const Duration(seconds: 1));
 
     final nextId =
@@ -207,6 +297,7 @@ class MockMobileApi {
     required int patientId,
     required Map<String, dynamic> profile,
   }) async {
+    debugOnUpdatePatient?.call(patientId, Map<String, dynamic>.from(profile));
     await Future.delayed(const Duration(seconds: 1));
 
     final index = _patients.indexWhere(
@@ -257,7 +348,9 @@ class MockMobileApi {
     required PatientProfile patient,
     required dynamic booking,
     dynamic intake,
+    Map<String, dynamic>? intakePayload,
   }) async {
+    debugOnBook?.call(patient, booking, intakePayload ?? intake);
     await Future.delayed(const Duration(seconds: 1));
     final service = booking is Map
         ? booking['service']
@@ -478,6 +571,7 @@ class MockMobileApi {
     required int appointmentId,
     required Map<String, dynamic> intake,
   }) async {
+    debugOnUpdateIntake?.call(appointmentId, Map<String, dynamic>.from(intake));
     await Future.delayed(const Duration(milliseconds: 300));
     return {
       'appointment_id': appointmentId,

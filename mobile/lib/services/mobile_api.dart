@@ -12,15 +12,33 @@ import '../models/announcement.dart';
 import '../models/booking_draft.dart';
 import '../models/bite_intake_draft.dart';
 import '../models/bite_intake_contract.dart';
+import '../models/form_configuration.dart';
 import '../models/appointment_summary.dart';
 import '../models/app_notification.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_account_profile.dart';
+import 'form_configuration_repository.dart';
 import 'psgc_service.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message);
+  const ApiException(
+    this.message, {
+    this.statusCode,
+    this.fieldErrors = const <String, List<String>>{},
+  });
+
   final String message;
+  final int? statusCode;
+  final Map<String, List<String>> fieldErrors;
+
+  bool get hasProfileErrors =>
+      fieldErrors.keys.any((key) => key.startsWith('profile.'));
+
+  Map<String, List<String>> get profileErrors => {
+    for (final entry in fieldErrors.entries)
+      if (entry.key.startsWith('profile.'))
+        entry.key.substring('profile.'.length): entry.value,
+  };
 
   @override
   String toString() => message;
@@ -75,6 +93,7 @@ class MobileApi {
 
   Future<void> _setToken(String token, {required bool persist}) async {
     _token = token;
+    FormConfigurationRepository.clearCache();
     if (persist) {
       await _storage.write(key: _tokenKey, value: token);
     } else {
@@ -178,6 +197,7 @@ class MobileApi {
   Future<void> logout() async {
     if (_token != null) await _send('POST', '/logout');
     _token = null;
+    FormConfigurationRepository.clearCache();
     await _storage.delete(key: _tokenKey);
   }
 
@@ -277,6 +297,21 @@ class MobileApi {
     return BiteIntakeContract.fromJson(data);
   }
 
+  Future<FormConfiguration> formConfiguration({
+    int? clinicId,
+    int? patientId,
+    int? appointmentId,
+  }) async {
+    final query = <String, String>{
+      if (clinicId != null) 'clinic_id': '$clinicId',
+      if (patientId != null) 'patient_id': '$patientId',
+      if (appointmentId != null) 'appointment_id': '$appointmentId',
+    };
+    final path = Uri(path: '/form-configuration', queryParameters: query).toString();
+    final data = await _send('GET', path) as Map<String, dynamic>;
+    return FormConfiguration.fromJson(data);
+  }
+
   Future<PatientProfile> createPatient(Map<String, dynamic> profile) async {
     final data = await _send(
       'POST',
@@ -302,7 +337,9 @@ class MobileApi {
     required PatientProfile patient,
     required BookingDraft booking,
     BiteIntakeDraft? intake,
+    Map<String, dynamic>? intakePayload,
   }) async {
+    final resolvedIntake = intakePayload ?? intake?.toJson();
     await _send(
       'POST',
       '/appointments',
@@ -313,7 +350,7 @@ class MobileApi {
         'time_slot': booking.timeSlot.name,
         if (booking.notes != null && booking.notes!.trim().isNotEmpty)
           'notes': booking.notes!.trim(),
-        if (intake != null) 'intake': intake.toJson(),
+        'intake': ?resolvedIntake,
       },
     );
   }
@@ -463,8 +500,12 @@ class MobileApi {
         request = http.get(uri, headers: headers);
       case 'POST':
         request = http.post(uri, headers: headers, body: encodedBody);
+      case 'PUT':
+        request = http.put(uri, headers: headers, body: encodedBody);
       case 'PATCH':
         request = http.patch(uri, headers: headers, body: encodedBody);
+      case 'DELETE':
+        request = http.delete(uri, headers: headers, body: encodedBody);
       default:
         throw ArgumentError.value(method, 'method');
     }
@@ -520,14 +561,33 @@ class MobileApi {
     }
 
     if (decoded is Map<String, dynamic>) {
-      final errors = decoded['errors'];
-      if (errors is Map<String, dynamic> && errors.isNotEmpty) {
-        final first = errors.values.first;
-        if (first is List && first.isNotEmpty) {
-          throw ApiException(first.first.toString());
+      final rawErrors = decoded['errors'];
+      final parsedErrors = <String, List<String>>{};
+      if (rawErrors is Map<String, dynamic>) {
+        for (final entry in rawErrors.entries) {
+          final value = entry.value;
+          if (value is List) {
+            parsedErrors[entry.key] = value.map((e) => e.toString()).toList();
+          } else if (value != null) {
+            parsedErrors[entry.key] = [value.toString()];
+          }
         }
       }
-      throw ApiException(decoded['message']?.toString() ?? 'Request failed.');
+      if (parsedErrors.isNotEmpty) {
+        final firstList = parsedErrors.values.first;
+        if (firstList.isNotEmpty) {
+          throw ApiException(
+            firstList.first,
+            statusCode: response.statusCode,
+            fieldErrors: parsedErrors,
+          );
+        }
+      }
+      throw ApiException(
+        decoded['message']?.toString() ?? 'Request failed.',
+        statusCode: response.statusCode,
+        fieldErrors: parsedErrors,
+      );
     }
 
     throw const ApiException(

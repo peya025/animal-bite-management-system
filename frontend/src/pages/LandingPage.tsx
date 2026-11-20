@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AnnouncementHero from '../features/announcements/AnnouncementHero';
 import { API_BASE_URL } from '../shared/services/api';
 import PublicVaccineAvailability from '../features/inventory/components/PublicVaccineAvailability';
@@ -7,18 +7,61 @@ import GlobalStyles from '@mui/material/GlobalStyles';
 import { landingPageStyles } from '../styles/LandingPage.styles';
 import { ROUTES } from '../shared/config/routes';
 import ThemeToggle from '../shared/components/ThemeToggle';
-import { HugeiconsIcon } from '@hugeicons/react';
-import {
-  Book02Icon,
-  Video01Icon,
-  HelpCircleIcon,
-  Settings01Icon,
-} from '@hugeicons/core-free-icons';
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const tutorialsCarouselRef = useRef<HTMLDivElement>(null);
+
+  const scrollTutorials = (direction: 'left' | 'right') => {
+    if (tutorialsCarouselRef.current) {
+      const scrollAmount = 300;
+      tutorialsCarouselRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  const appTutorials = [
+    {
+      title: 'Getting Started',
+      category: 'Navigation & Access',
+      location: 'Tagoloan ABTC Portal',
+      image: '/assets/hero_medical_center.jpg',
+      badge: 'YouTube',
+      videoUrl: 'https://youtu.be/E6SURsrUisY?si=AvynIUApejFzwxB-',
+      description: 'Learn how to sign in and navigate the app.',
+    },
+    {
+      title: 'Patient Registration & Queue',
+      category: 'Intake & Triage Desk',
+      location: 'Patient Reception Desk',
+      image: '/assets/triage_facility.jpg',
+      badge: 'YouTube',
+      videoUrl: 'https://youtu.be/lfKCfBlt150?si=4i1BDzJ3KSRXkLzp',
+      description: 'Learn how to register patients and manage the queue.',
+    },
+    {
+      title: 'Treatment & Follow-ups',
+      category: 'Prophylaxis & Doses',
+      location: 'Clinical Treatment Room',
+      image: '/assets/doctor_consultation.jpg',
+      badge: 'YouTube',
+      videoUrl: 'https://youtu.be/2rMrL9UmJn8?si=HRT4wtzzUlZm4Ih6',
+      description: 'Learn how to record treatments and track follow-up visits.',
+    },
+    {
+      title: 'Vaccine Inventory & Stock',
+      category: 'Vials & Cold Chain',
+      location: 'Pharmacy & Cold Storage',
+      image: '/assets/vaccine_pep_kit.jpg',
+      badge: 'YouTube',
+      videoUrl: 'https://youtu.be/3I4WniXydag?si=sHgXyVk3ybAyuDeF',
+      description: 'Track vial usage, monitor batches, and record waste.',
+    },
+  ];
 
   const [dynSettings, setDynSettings] = useState({
     app_short_name: APP_SHORT_NAME || 'TABTA',
@@ -28,17 +71,15 @@ export default function LandingPage() {
     developed_for_text: 'Developed for Animal Bite Treatment Center',
     quick_links: [
       { label: 'YouTube Tutorials', url: '#tutorials' },
-      { label: 'Help Center', url: '#help' },
+      { label: 'Contact Support', url: '#contact' },
       { label: 'Staff Login', url: '#login' },
     ],
     support_links: [
       { label: 'Contact Support', url: '#contact' },
-      { label: 'User Guides', url: '#help' },
-      { label: 'FAQs', url: '#help' },
+      { label: 'YouTube Tutorials', url: '#tutorials' },
     ],
     system_info_links: [
       { label: 'YouTube Tutorials', url: '#tutorials' },
-      { label: 'Help Center', url: '#help' },
       { label: 'Report Issue', url: '#contact' },
     ],
     operating_schedule: 'SCHEDULE: MONDAYS & THURSDAYS',
@@ -100,12 +141,12 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Scroll Reveal Intersection Observer
+  // Bidirectional Scroll Reveal Intersection Observer (slow animation on scroll up & down)
   useEffect(() => {
     const revealElements = document.querySelectorAll('.scroll-reveal');
     if (!revealElements.length) return;
 
-    if (!('IntersectionObserver' in window)) {
+    if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       revealElements.forEach(el => el.classList.add('is-visible'));
       return;
     }
@@ -113,15 +154,25 @@ export default function LandingPage() {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach(entry => {
+          const el = entry.target as HTMLElement;
           if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
-            observer.unobserve(entry.target);
+            el.classList.remove('from-top', 'from-bottom');
+            el.classList.add('is-visible');
+          } else {
+            el.classList.remove('is-visible');
+            if (entry.boundingClientRect.top < 0) {
+              el.classList.add('from-top');
+              el.classList.remove('from-bottom');
+            } else {
+              el.classList.add('from-bottom');
+              el.classList.remove('from-top');
+            }
           }
         });
       },
       {
-        threshold: 0.1,
-        rootMargin: '0px 0px -40px 0px',
+        threshold: 0.08,
+        rootMargin: '0px 0px -30px 0px',
       }
     );
 
@@ -610,21 +661,45 @@ export default function LandingPage() {
           box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
         }
 
-        /* ===== Scroll Reveal System - Slower & Graceful ===== */
+        /* ===== Bidirectional Scroll Reveal System - Slow & Graceful ===== */
         .scroll-reveal {
           opacity: 0;
-          transform: translateY(28px);
-          transition: opacity 1.1s cubic-bezier(0.16, 1, 0.3, 1), transform 1.1s cubic-bezier(0.16, 1, 0.3, 1);
+          transform: translateY(36px);
+          transition: opacity 1.35s cubic-bezier(0.22, 1, 0.36, 1), transform 1.35s cubic-bezier(0.22, 1, 0.36, 1);
           will-change: opacity, transform;
+        }
+        .scroll-reveal.from-top {
+          transform: translateY(-36px);
+        }
+        .scroll-reveal.from-bottom {
+          transform: translateY(36px);
         }
         .scroll-reveal.is-visible {
           opacity: 1;
           transform: translateY(0);
         }
-        .stagger-1 { transition-delay: 140ms; }
-        .stagger-2 { transition-delay: 280ms; }
-        .stagger-3 { transition-delay: 420ms; }
-        .stagger-4 { transition-delay: 560ms; }
+        .scroll-reveal:not(.is-visible) {
+          transition-delay: 0ms !important;
+        }
+        .landing-page .tutorial-dest-card.scroll-reveal:not(.is-visible) {
+          transition: opacity 1.35s cubic-bezier(0.22, 1, 0.36, 1), transform 1.35s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .landing-page .tutorial-dest-card.scroll-reveal.is-visible {
+          transition: opacity 1.35s cubic-bezier(0.22, 1, 0.36, 1), transform 1.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.45s ease;
+        }
+        .stagger-1 { transition-delay: 120ms; }
+        .stagger-2 { transition-delay: 240ms; }
+        .stagger-3 { transition-delay: 360ms; }
+        .stagger-4 { transition-delay: 480ms; }
+        @media (prefers-reduced-motion: reduce) {
+          .scroll-reveal,
+          .scroll-reveal.from-top,
+          .scroll-reveal.from-bottom {
+            opacity: 1;
+            transform: none;
+            transition: none;
+          }
+        }
 
         /* Floating Back to Top Button */
         .back-to-top-btn {
@@ -751,7 +826,6 @@ export default function LandingPage() {
               <li><a href="#" className="active" onClick={closeMenu}>HOME</a></li>
               <li><a href="#vaccines" onClick={closeMenu}>AVAILABLE VACCINES</a></li>
               <li><a href="#tutorials" onClick={closeMenu}>YOUTUBE TUTORIALS</a></li>
-              <li><a href="#help" onClick={closeMenu}>HELP CENTER</a></li>
               <li><a href="#contact" onClick={closeMenu}>CONTACT SUPPORT</a></li>
             </ul>
           </div>
@@ -767,11 +841,11 @@ export default function LandingPage() {
           </div>
           <div className="hero-gradient-mask"></div>
 
-          <div className="hero-headline-block">
+          <div className="hero-headline-block scroll-reveal is-visible">
             <h1>ANIMAL BITE<br />TREATMENT CENTER</h1>
           </div>
 
-          <div className="hero-bottom-grid">
+          <div className="hero-bottom-grid scroll-reveal is-visible">
             <div className="hero-sub-tagline">
               <p>PROMPT PEP CARE.<br />SAVING LIVES IN POBLACION TAGOLOAN, MISAMIS ORIENTAL.</p>
             </div>
@@ -797,74 +871,128 @@ export default function LandingPage() {
         />
 
         <section id="tutorials" className="tutorials-section scroll-reveal" aria-labelledby="tutorials-title">
-          <div className="section-header">
-            <p className="section-tag">YouTube Tutorials</p>
-            <h2 id="tutorials-title">Learn How to Use the App</h2>
-            <p>Step-by-step video guides for staff. Tutorials are coming soon.</p>
-          </div>
-          <div className="tutorials-grid">
-            {[
-              { title: 'Getting Started', description: 'Learn how to sign in and navigate the app.' },
-              { title: 'Patient Registration & Queue', description: 'Learn how to register patients and manage the queue.' },
-              { title: 'Treatment & Follow-ups', description: 'Learn how to record treatments and track follow-up visits.' },
-            ].map((tutorial, idx) => (
-              <article className={`tutorial-card scroll-reveal stagger-${idx + 1}`} key={tutorial.title}>
-                <div className="tutorial-preview" aria-hidden="true">
-                  <HugeiconsIcon icon={Video01Icon} size={48} />
-                  <span>YouTube Tutorial</span>
-                </div>
-                <div className="tutorial-content">
-                  <span className="tutorial-status">Coming soon</span>
-                  <h3>{tutorial.title}</h3>
-                  <p>{tutorial.description}</p>
-                  <button className="tutorial-watch" disabled>Watch on YouTube • Coming soon</button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section id="help" className="help-center scroll-reveal">
-          <div className="section-header">
-            <h2>Help Center</h2>
-            <p>Quick guides and resources for staff members</p>
-          </div>
-
-          <div className="help-grid">
-            <div className="help-card scroll-reveal stagger-1">
-              <div className="help-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <HugeiconsIcon icon={Book02Icon} size={28} color="#059669" />
+          <div className="tutorials-container-card">
+            <div className="tutorials-header">
+              <div className="tutorials-header-left">
+                <span className="tutorials-eyebrow">YouTube Tutorials</span>
+                <h2 id="tutorials-title" className="tutorials-heading">Learn How to Use the App</h2>
               </div>
-              <h3>User Guides</h3>
-              <p>Step-by-step instructions for each role</p>
-              <a href="#contact" className="help-link">Learn more →</a>
+              <div className="tutorials-header-right">
+                <p className="tutorials-lead">
+                  Step-by-step video guides for staff. From patient intake to vaccine inventory, discover how to navigate the clinic system.
+                </p>
+              </div>
             </div>
 
-            <div className="help-card scroll-reveal stagger-2">
-              <div className="help-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <HugeiconsIcon icon={Video01Icon} size={28} color="#0284c7" />
-              </div>
-              <h3>Video Tutorials</h3>
-              <p>Watch demonstration videos</p>
-              <a href="#tutorials" className="help-link">View tutorials →</a>
+            <div
+              className="tutorials-grid"
+              ref={tutorialsCarouselRef}
+              role="region"
+              aria-label="Tutorial guides carousel"
+            >
+              {appTutorials.map((tutorial, idx) => (
+                <a
+                  href={tutorial.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`tutorial-dest-card scroll-reveal stagger-${idx + 1}`}
+                  key={tutorial.title}
+                  aria-label={`Watch ${tutorial.title} tutorial on YouTube`}
+                >
+                  <img
+                    src={tutorial.image}
+                    alt={tutorial.title}
+                    className="tutorial-cover-image"
+                    loading="lazy"
+                  />
+                  <div className="tutorial-gradient-scrim" />
+
+                  <span className="tutorial-top-badge">{tutorial.badge}</span>
+
+                  <div className="tutorial-play-icon-overlay" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                      <polygon points="5 3 19 12 5 21 5 3" />
+                    </svg>
+                  </div>
+
+                  <div className="tutorial-bottom-info">
+                    <h3 className="tutorial-card-title">{tutorial.title}</h3>
+                    <p className="tutorial-card-meta">
+                      <span>{tutorial.category}</span>
+                    </p>
+                    <p className="tutorial-card-location">
+                      <svg
+                        className="location-pin-icon"
+                        viewBox="0 0 24 24"
+                        width="13"
+                        height="13"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                        aria-hidden="true"
+                      >
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                        <circle cx="12" cy="10" r="3" />
+                      </svg>
+                      <span>{tutorial.location}</span>
+                    </p>
+                  </div>
+                </a>
+              ))}
             </div>
 
-            <div className="help-card scroll-reveal stagger-3">
-              <div className="help-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <HugeiconsIcon icon={HelpCircleIcon} size={28} color="#d97706" />
-              </div>
-              <h3>FAQs</h3>
-              <p>Common questions and answers</p>
-              <a href="#contact" className="help-link">View FAQs →</a>
-            </div>
+            <div className="tutorials-bottom-bar">
+              <a
+                href={appTutorials[0]?.videoUrl || 'https://www.youtube.com'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="tutorials-view-more-btn"
+              >
+                View more
+              </a>
 
-            <div className="help-card scroll-reveal stagger-4">
-              <div className="help-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <HugeiconsIcon icon={Settings01Icon} size={28} color="#6366f1" />
+              <div className="tutorials-nav-controls" aria-label="Tutorial carousel navigation">
+                <button
+                  type="button"
+                  className="carousel-arrow-btn"
+                  onClick={() => scrollTutorials('left')}
+                  aria-label="Previous tutorial"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className="carousel-arrow-btn"
+                  onClick={() => scrollTutorials('right')}
+                  aria-label="Next tutorial"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
               </div>
-              <h3>Technical Support</h3>
-              <p>Get help with system issues</p>
-              <a href="#contact" className="help-link">Contact us →</a>
             </div>
           </div>
         </section>

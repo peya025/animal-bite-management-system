@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\InventoryTransaction;
 use App\Models\VaccineInventory;
 use App\Models\VaccineTypePreset;
+use App\Models\VaccineVial;
 use Carbon\Carbon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
@@ -245,23 +246,88 @@ class VaccineInventoryService
         }
 
         return DB::transaction(function () use ($clinicId, $user, $id, $requestedHours, $maxHours) {
-            $inventory  = VaccineInventory::where('clinic_id', $clinicId)->lockForUpdate()->findOrFail($id);
-            $hours      = min((int) ($inventory->open_vial_hours ?: ($requestedHours ?: 6)), $maxHours);
-            $openedAt   = Carbon::now();
-            $discardAt  = (clone $openedAt)->addHours($hours);
+            $inventory = VaccineInventory::where('clinic_id', $clinicId)->lockForUpdate()->findOrFail($id);
+
+            if ((int) $inventory->current_quantity < 1) {
+                throw ValidationException::withMessages([
+                    'inventory' => 'No sealed vials remaining in this batch to open.',
+                ]);
+            }
+
+            if ($inventory->status === 'expired' || ($inventory->expiration_date && $inventory->expiration_date->toDateString() < now()->toDateString())) {
+                throw ValidationException::withMessages([
+                    'inventory' => 'Cannot open a vial from an expired batch.',
+                ]);
+            }
+
+            $existingOpen = VaccineVial::where('inventory_id', $inventory->inventory_id)
+                ->where('status', VaccineVial::STATUS_OPENED)
+                ->whereRaw('(administered_portions + discarded_portions) < total_portions')
+                ->where(fn ($q) => $q->whereNull('use_by_at')->orWhere('use_by_at', '>', now()))
+                ->lockForUpdate()
+                ->first();
+
+            if ($existingOpen) {
+                throw ValidationException::withMessages([
+                    'inventory' => "Vial {$existingOpen->vial_code} is already opened for this batch.",
+                ]);
+            }
+
+            $usageService  = app(VaccineInventoryUsageService::class);
+            $rules         = $usageService->resolveProductRules($clinicId, $inventory->vaccine_type, $inventory);
+            $totalPortions = $rules['total_portions'];
+            $hours         = $requestedHours !== null
+                ? min($requestedHours, $maxHours)
+                : min($rules['open_vial_hours'], $maxHours);
+
+            $openedAt  = Carbon::now();
+            $discardAt = (clone $openedAt)->addHours($hours);
+            if ($inventory->expiration_date) {
+                $batchEndOfDay = $inventory->expiration_date->copy()->endOfDay();
+                if ($batchEndOfDay->lt($discardAt)) {
+                    $discardAt = $batchEndOfDay;
+                }
+            }
+
+            $oldQuantity = (int) $inventory->current_quantity;
+            $newQuantity = $oldQuantity - 1;
+
+            $vial = VaccineVial::create([
+                'clinic_id'             => $clinicId,
+                'inventory_id'          => $inventory->inventory_id,
+                'vaccine_type'          => $inventory->vaccine_type,
+                'batch_number'          => $inventory->batch_number,
+                'total_portions'        => $totalPortions,
+                'administered_portions' => 0,
+                'discarded_portions'    => 0,
+                'open_vial_hours'       => $hours,
+                'opened_at'             => $openedAt,
+                'use_by_at'             => $discardAt,
+                'opened_by'             => $user->id,
+                'status'                => VaccineVial::STATUS_OPENED,
+                'stock_deducted'        => true,
+            ]);
+            $vial->update(['vial_code' => 'V-' . (100 + $vial->vial_id)]);
 
             $inventory->update([
-                'opened_at'             => $openedAt,
-                'open_vial_discard_at'  => $discardAt,
-                'open_vial_status'      => 'opened',
+                'current_quantity'     => $newQuantity,
+                'doses_per_vial'       => $totalPortions,
+                'open_vial_hours'      => $hours,
+                'opened_at'            => $openedAt,
+                'open_vial_discard_at' => $discardAt,
+                'open_vial_status'     => 'opened',
+                'open_vial_doses_used' => 0,
             ]);
 
             InventoryTransaction::create([
                 'inventory_id'     => $inventory->inventory_id,
                 'staff_id'         => $user->id,
-                'transaction_type' => 'adjusted',
-                'quantity'         => 0,
-                'remarks'          => "Vial marked OPENED by {$user->name}. Discard countdown ({$hours}h) active until {$discardAt->format('M d, Y h:i A')}.",
+                'transaction_type' => 'used',
+                'quantity'         => 1,
+                'dispensed'        => 1,
+                'balanced'         => $newQuantity,
+                'reference_id'     => $vial->vial_code,
+                'remarks'          => "Vial {$vial->vial_code} marked OPENED by {$user->name}. Use-by countdown ({$hours}h) active until {$discardAt->format('M d, Y h:i A')}.",
             ]);
 
             AuditLog::create([
@@ -270,9 +336,9 @@ class VaccineInventoryService
                 'action'      => 'inventory.open_vial',
                 'model'       => VaccineInventory::class,
                 'model_id'    => $inventory->inventory_id,
-                'old_values'  => ['open_vial_status' => 'unopened'],
-                'new_values'  => ['open_vial_status' => 'opened', 'open_vial_discard_at' => $discardAt->toIso8601String()],
-                'description' => "Vial opened manually for batch {$inventory->batch_number}",
+                'old_values'  => ['open_vial_status' => 'unopened', 'current_quantity' => $oldQuantity],
+                'new_values'  => ['open_vial_status' => 'opened', 'current_quantity' => $newQuantity, 'vial_id' => $vial->vial_id, 'vial_code' => $vial->vial_code, 'open_vial_discard_at' => $discardAt->toIso8601String()],
+                'description' => "Vial {$vial->vial_code} opened manually for batch {$inventory->batch_number}",
             ]);
 
             return $inventory->fresh();
@@ -291,6 +357,27 @@ class VaccineInventoryService
         return DB::transaction(function () use ($clinicId, $user, $id, $reason) {
             $inventory = VaccineInventory::where('clinic_id', $clinicId)->lockForUpdate()->findOrFail($id);
 
+            $activeVial = VaccineVial::where('inventory_id', $inventory->inventory_id)
+                ->whereIn('status', [VaccineVial::STATUS_OPENED, VaccineVial::STATUS_EXPIRED])
+                ->whereRaw('(administered_portions + discarded_portions) < total_portions')
+                ->orderBy('opened_at', 'asc')
+                ->lockForUpdate()
+                ->first();
+
+            if ($activeVial) {
+                $undisposed = max(0, (int) $activeVial->total_portions - (int) $activeVial->administered_portions - (int) $activeVial->discarded_portions);
+                if ($undisposed > 0) {
+                    app(VaccineInventoryUsageService::class)->disposeVial(
+                        $clinicId,
+                        $user,
+                        (int) $activeVial->vial_id,
+                        $undisposed,
+                        $reason
+                    );
+                    return $inventory->fresh();
+                }
+            }
+
             if ($inventory->open_vial_status !== 'opened') {
                 throw ValidationException::withMessages([
                     'inventory' => 'Only an opened vial can be discarded.',
@@ -307,6 +394,7 @@ class VaccineInventoryService
                 'open_vial_status'     => 'unopened',
                 'opened_at'            => null,
                 'open_vial_discard_at' => null,
+                'open_vial_doses_used' => 0,
             ]);
 
             InventoryTransaction::create([

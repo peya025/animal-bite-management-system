@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { clinicConfigApi } from '../api/clinicConfigApi';
 import { useAuth } from '../shared/contexts/AuthContext';
 import type {
@@ -10,9 +10,15 @@ import type {
 } from '../types';
 import {
   DEFAULT_CANONICAL_FIELD_RULES,
-  DEFAULT_CANONICAL_SECTIONS,
-  DEFAULT_CANONICAL_MODULES,
 } from '../types';
+import {
+  type FieldPolicyContext,
+  getRawFieldRule,
+  isEffectiveFieldRequired,
+  isEffectiveFieldVisible,
+  isEffectiveSectionEnabled,
+  isEffectiveStationEnabled,
+} from '../shared/forms/configuredFieldPolicy';
 
 export interface ClinicModuleConfigContextValue {
   config: ClinicModuleConfig | null;
@@ -23,9 +29,9 @@ export interface ClinicModuleConfigContextValue {
   canEdit: boolean;
   refreshConfig: () => Promise<ClinicModuleConfig | null>;
   invalidateConfig: () => void;
-  // Field-level helpers
-  isFieldVisible: (fieldName: keyof FieldRules) => boolean;
-  isFieldRequired: (fieldName: keyof FieldRules) => boolean;
+  // Field-level helpers (combine enclosing section + station module + conditional rules)
+  isFieldVisible: (fieldName: keyof FieldRules, context?: FieldPolicyContext) => boolean;
+  isFieldRequired: (fieldName: keyof FieldRules, context?: FieldPolicyContext) => boolean;
   getFieldRule: (fieldName: keyof FieldRules) => FieldRuleValue;
   // Section-level helpers
   isSectionEnabled: (sectionName: keyof ClinicModuleSections) => boolean;
@@ -99,35 +105,61 @@ export const ClinicModuleConfigProvider: React.FC<ClinicModuleConfigProviderProp
 
   const [loading, setLoading] = useState<boolean>(!config);
   const [error, setError] = useState<string | null>(null);
+  const requestSeqRef = useRef<number>(0);
+  const activeClinicIdRef = useRef<number | null>(currentClinicId);
+  const isAuthenticatedRef = useRef<boolean>(isAuthenticated);
 
-  // Clear cache if user logs out or changes clinic
+  activeClinicIdRef.current = currentClinicId;
+  isAuthenticatedRef.current = isAuthenticated;
+
+  // Clear cache and drop any in-flight responses if user logs out or changes clinic
   useEffect(() => {
+    requestSeqRef.current += 1;
+
     if (!isAuthenticated) {
       clinicConfigMemoryCache.clear();
       setConfig(null);
       setError(null);
+      setLoading(false);
       return;
     }
 
     if (currentClinicId && clinicConfigMemoryCache.has(currentClinicId)) {
       setConfig(clinicConfigMemoryCache.get(currentClinicId)!);
       setLoading(false);
+    } else if (!initialConfig) {
+      setConfig(null);
     }
-  }, [isAuthenticated, currentClinicId]);
+  }, [isAuthenticated, currentClinicId, initialConfig]);
 
   const fetchConfig = useCallback(async (forcedClinicId?: number): Promise<ClinicModuleConfig | null> => {
-    const targetClinicId = forcedClinicId ?? currentClinicId;
+    const seq = ++requestSeqRef.current;
+    const targetClinicId = forcedClinicId ?? activeClinicIdRef.current;
     setLoading(true);
     setError(null);
 
     try {
       const data = await clinicConfigApi.getModuleConfig();
+      if (seq !== requestSeqRef.current || !isAuthenticatedRef.current) {
+        return null;
+      }
       if (data.clinic_id) {
         clinicConfigMemoryCache.set(data.clinic_id, data);
+      }
+      if (
+        activeClinicIdRef.current != null &&
+        data.clinic_id != null &&
+        data.clinic_id !== activeClinicIdRef.current &&
+        forcedClinicId == null
+      ) {
+        return null;
       }
       setConfig(data);
       return data;
     } catch (err: any) {
+      if (seq !== requestSeqRef.current || !isAuthenticatedRef.current) {
+        return null;
+      }
       const errMsg = err.response?.data?.message || err.message || 'Failed to load clinic configuration';
       setError(errMsg);
       // Retain memory cache if available, otherwise preserve null
@@ -136,7 +168,9 @@ export const ClinicModuleConfigProvider: React.FC<ClinicModuleConfigProviderProp
       }
       return null;
     } finally {
-      setLoading(false);
+      if (seq === requestSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, [currentClinicId]);
 
@@ -160,57 +194,36 @@ export const ClinicModuleConfigProvider: React.FC<ClinicModuleConfigProviderProp
   }, [fetchConfig]);
 
   const isFieldVisible = useCallback(
-    (fieldName: keyof FieldRules): boolean => {
-      if (config?.field_rules) {
-        return config.field_rules[fieldName] !== 'hidden';
-      }
-      // Fail-safe default: Visible unless default rule is hidden
-      return DEFAULT_CANONICAL_FIELD_RULES[fieldName] !== 'hidden';
+    (fieldName: keyof FieldRules, context?: FieldPolicyContext): boolean => {
+      return isEffectiveFieldVisible(config, fieldName, context);
     },
     [config]
   );
 
   const isFieldRequired = useCallback(
-    (fieldName: keyof FieldRules): boolean => {
-      // Locked clinical safeguard LF1 invariant
-      if (fieldName === 'exposure_category') return true;
-
-      if (config?.field_rules) {
-        return config.field_rules[fieldName] === 'required';
-      }
-      // Baseline preservation: if config cannot load, DO NOT make all fields optional
-      return DEFAULT_CANONICAL_FIELD_RULES[fieldName] === 'required';
+    (fieldName: keyof FieldRules, context?: FieldPolicyContext): boolean => {
+      return isEffectiveFieldRequired(config, fieldName, context);
     },
     [config]
   );
 
   const getFieldRule = useCallback(
     (fieldName: keyof FieldRules): FieldRuleValue => {
-      if (fieldName === 'exposure_category') return 'required';
-      if (config?.field_rules) {
-        return config.field_rules[fieldName] ?? 'optional';
-      }
-      return DEFAULT_CANONICAL_FIELD_RULES[fieldName] ?? 'optional';
+      return getRawFieldRule(config, fieldName);
     },
     [config]
   );
 
   const isSectionEnabled = useCallback(
     (sectionName: keyof ClinicModuleSections): boolean => {
-      if (config) {
-        return config[sectionName] ?? true;
-      }
-      return DEFAULT_CANONICAL_SECTIONS[sectionName] ?? true;
+      return isEffectiveSectionEnabled(config, sectionName);
     },
     [config]
   );
 
   const isModuleEnabled = useCallback(
     (moduleName: keyof ClinicStationModules): boolean => {
-      if (config) {
-        return config[moduleName] ?? true;
-      }
-      return DEFAULT_CANONICAL_MODULES[moduleName] ?? true;
+      return isEffectiveStationEnabled(config, moduleName);
     },
     [config]
   );
@@ -289,11 +302,11 @@ export function useClinicModuleConfig(): ClinicModuleConfigContextValue {
     canEdit: false,
     refreshConfig: async () => null,
     invalidateConfig: () => {},
-    isFieldVisible: (f) => DEFAULT_CANONICAL_FIELD_RULES[f] !== 'hidden',
-    isFieldRequired: (f) => DEFAULT_CANONICAL_FIELD_RULES[f] === 'required',
-    getFieldRule: (f) => DEFAULT_CANONICAL_FIELD_RULES[f] ?? 'optional',
-    isSectionEnabled: (s) => DEFAULT_CANONICAL_SECTIONS[s] ?? true,
-    isModuleEnabled: (m) => DEFAULT_CANONICAL_MODULES[m] ?? true,
+    isFieldVisible: (f, ctx) => isEffectiveFieldVisible(null, f, ctx),
+    isFieldRequired: (f, ctx) => isEffectiveFieldRequired(null, f, ctx),
+    getFieldRule: (f) => getRawFieldRule(null, f),
+    isSectionEnabled: (s) => isEffectiveSectionEnabled(null, s),
+    isModuleEnabled: (m) => isEffectiveStationEnabled(null, m),
     isTriageModuleEnabled: () => true,
     isRegistrationModuleEnabled: () => true,
     isTreatmentModuleEnabled: () => true,

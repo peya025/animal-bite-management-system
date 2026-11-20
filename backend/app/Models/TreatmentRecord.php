@@ -27,6 +27,8 @@ class TreatmentRecord extends Model
         'bite_id',
         'appointment_id',
         'inventory_id',
+        'vial_id',
+        'vial_portion_number',
         'inventory_units_used',
         'protocol_type',
         'dose_number',
@@ -89,6 +91,7 @@ class TreatmentRecord extends Model
         'prophylaxis_orders' => 'array',
         'dose_iu' => 'decimal:2',
         'dose_number' => 'integer',
+        'vial_portion_number' => 'integer',
         'inventory_units_used' => 'integer',
         'scheduled_date' => 'date:Y-m-d',
         'treatment_date' => 'date:Y-m-d',
@@ -140,6 +143,14 @@ class TreatmentRecord extends Model
     public function inventory()
     {
         return $this->belongsTo(VaccineInventory::class, 'inventory_id', 'inventory_id');
+    }
+
+    /**
+     * Relationship: TreatmentRecord belongs to VaccineVial
+     */
+    public function vial()
+    {
+        return $this->belongsTo(VaccineVial::class, 'vial_id', 'vial_id');
     }
 
     /**

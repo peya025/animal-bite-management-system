@@ -199,12 +199,9 @@ export function BiteCasesEpisodesTab({
                           {formatAnimalOwnershipLabel(c.animal_ownership ?? c.animal_status)} · {formatAnimalConditionLabel(c.animal_condition)}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ minWidth: 175 }}>
-                        <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'var(--bc-text)' }}>
+                      <TableCell sx={{ minWidth: 140 }}>
+                        <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: 'var(--bc-text)' }}>
                           {c.stage_label || BITE_CASE_STATUS_LABELS[c.status] || c.status}
-                        </Typography>
-                        <Typography sx={{ fontSize: 11, color: 'var(--bc-text-secondary)' }}>
-                          {c.what_can_be_reported || '—'}
                         </Typography>
                       </TableCell>
                       <TableCell>

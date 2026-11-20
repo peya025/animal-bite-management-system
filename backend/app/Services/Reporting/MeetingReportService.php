@@ -117,35 +117,41 @@ class MeetingReportService
         $childrenCount = (int) ($demos['age_below_15'] ?? 0);
         $over30Days = (int) ($aging['over_30_days'] ?? 0);
 
+        $plural = static fn (int $n, string $singular, string $pluralForm): string => $n === 1 ? $singular : $pluralForm;
+
         $findings = [];
 
         $findings[] = [
             'finding_key' => 'exposure_and_assessment_coverage',
             'title' => 'Exposure Recording & Doctor Assessment Coverage',
-            'supporting_metric' => "{$assessed}/{$recorded} assessed ({$awaitingAssess} awaiting assessment) | Period: {$periodLabel} | Cutoff: {$cutoff} | Rule: {$ruleVersion}",
-            'statement' => "Of {$recorded} recorded exposure episode(s) in {$periodLabel}, {$assessed} had a finalized doctor assessment and {$awaitingAssess} remained at Form 1 awaiting assessment as of {$cutoff}.",
+            'supporting_metric' => $awaitingAssess > 0
+                ? "{$assessed}/{$recorded} assessed · {$awaitingAssess} awaiting"
+                : "{$assessed}/{$recorded} assessed",
+            'statement' => "Of {$recorded} recorded exposure " . $plural($recorded, 'episode', 'episodes') . ", {$assessed} had a completed doctor assessment and {$awaitingAssess} remained awaiting assessment as of {$cutoff}.",
             'recommended_review' => $awaitingAssess > 0
-                ? "Review {$awaitingAssess} registration-only encounter(s) (including {$over30Days} open >30 days) to verify whether patients are still awaiting consultation, departed, or need chart finalization."
+                ? "Review {$awaitingAssess} registration-only " . $plural($awaitingAssess, 'encounter', 'encounters') . ($over30Days > 0 ? " (including {$over30Days} open >30 days)" : '') . ' to verify whether patients are still awaiting consultation, departed, or need chart finalization.'
                 : 'Continue standard registration-to-doctor handoff verification.',
         ];
 
         $findings[] = [
             'finding_key' => 'pep_initiation_and_pending_admin',
             'title' => 'Prescribed PEP vs. Recorded Administration',
-            'supporting_metric' => "{$givenPep}/{$prescribed} started PEP ({$noAdmin} no administration recorded) | Cutoff: {$cutoff} | Rule: {$ruleVersion}",
-            'statement' => "Of {$prescribed} episode(s) prescribed PEP at Form 2, {$givenPep} had recorded vaccine administration at Form 3 and {$noAdmin} had no administration recorded by {$cutoff}.",
+            'supporting_metric' => $noAdmin > 0
+                ? "{$givenPep}/{$prescribed} started PEP · {$noAdmin} not started"
+                : "{$givenPep}/{$prescribed} started PEP",
+            'statement' => "Of {$prescribed} " . $plural($prescribed, 'episode', 'episodes') . " prescribed PEP, {$givenPep} had recorded vaccine administration and {$noAdmin} had no administration recorded by {$cutoff}.",
             'recommended_review' => $noAdmin > 0
-                ? "Review {$noAdmin} episode(s) with no administration recorded to verify nurse encoding or external facility treatment; do not assume treatment refusal."
+                ? "Review {$noAdmin} " . $plural($noAdmin, 'episode', 'episodes') . ' with no administration recorded to verify nurse encoding or external facility treatment; do not assume treatment refusal.'
                 : 'All prescribed PEP episodes in this cohort have recorded vaccine initiation.',
         ];
 
         $findings[] = [
             'finding_key' => 'severity_completion_and_followup',
             'title' => 'Category III Burden, Mature Completion & Follow-Up Backlog',
-            'supporting_metric' => "Cat III: {$cat3}/{$assessed} assessed | Mature Completion: {$completedMature}/{$maturedCourses} | Overdue: {$overdueEp} ep ({$overdueSlots} slots) | Children <15y: {$childrenCount}/{$recorded}",
-            'statement' => "Category III accounted for {$cat3} of {$assessed} assessed exposure(s) ({$rigGiven} with verified RIG). Among {$maturedCourses} mature D28 cohort course(s), {$completedMature} completed required doses, with {$overdueEp} episode(s) ({$overdueSlots} dose slot(s)) currently overdue.",
+            'supporting_metric' => "Cat III: {$cat3}/{$assessed} · Completed: {$completedMature}/{$maturedCourses} · Overdue: {$overdueEp}",
+            'statement' => "Category III accounted for {$cat3} of {$assessed} assessed " . $plural($assessed, 'exposure', 'exposures') . " ({$rigGiven} with verified RIG). Among {$maturedCourses} mature " . $plural($maturedCourses, 'course', 'courses') . ", {$completedMature} completed required doses, with {$overdueEp} " . $plural($overdueEp, 'episode', 'episodes') . " ({$overdueSlots} " . $plural($overdueSlots, 'dose slot', 'dose slots') . ') currently overdue.',
             'recommended_review' => ($overdueEp > 0 || $cat3 > 0)
-                ? "Consider targeted recall for {$overdueEp} overdue episode(s) and review RIG stock/documentation for Category III exposures and pediatric cases (<15y: {$childrenCount})."
+                ? "Consider targeted recall for {$overdueEp} overdue " . $plural($overdueEp, 'episode', 'episodes') . " and review RIG stock/documentation for Category III exposures and pediatric cases (<15y: {$childrenCount})."
                 : 'Maintain routine follow-up scheduling and stock monitoring.',
         ];
 

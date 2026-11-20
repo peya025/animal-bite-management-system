@@ -285,6 +285,7 @@ class TriageDoctorAndReExposureTest extends TestCase
             'mode_of_transaction' => 'referral',
             'reg_date_of_consultation' => Carbon::today()->toDateString(),
             'reg_referred_by' => 'Barangay Health Station',
+            'reg_attending_provider' => 'Dr. Santos',
         ])->assertCreated();
 
         $patientId = $registration->json('patient.patient_id');
@@ -346,6 +347,7 @@ class TriageDoctorAndReExposureTest extends TestCase
             'reg_date_of_consultation' => Carbon::today()->toDateString(),
             'reg_referred_by' => 'Barangay Health Station',
             'reg_weight' => '60',
+            'reg_attending_provider' => 'Dr. Santos',
         ])->assertCreated();
 
         $patientId = $registration->json('patient.patient_id');

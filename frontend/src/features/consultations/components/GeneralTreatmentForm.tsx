@@ -567,7 +567,7 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
 
         {/* Form action buttons for inline mode */}
         {inline && (
-          <div className="fm-footer" style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border-color, #e5e7eb)' }}>
+          <div className="fm-footer" style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border-color, #e5e7eb)', display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'flex-end' }}>
             <DraftStatusBadge status={draftStatus} savedAt={draftSavedAt} style={{ marginRight: 'auto' }} />
             {hasAdministeredVaccine ? (
               <span style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', fontStyle: 'italic' }}>

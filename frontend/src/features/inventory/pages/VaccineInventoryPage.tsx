@@ -192,7 +192,21 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
       void loadData();
     }, 0);
 
-    return () => window.clearTimeout(timer);
+    const handleFocus = () => {
+      void loadData();
+    };
+    const handleInventoryUpdated = () => {
+      void loadData();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('inventory-updated', handleInventoryUpdated);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('inventory-updated', handleInventoryUpdated);
+    };
   }, [loadData]);
 
   // Real-time WebSocket live updates for vaccine inventory changes
@@ -289,7 +303,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
             matchesStatus = derivedStatus === 'Expired';
             break;
           case 'depleted':
-            matchesStatus = derivedStatus === 'Depleted';
+            matchesStatus = (item.current_quantity ?? 0) <= 0 || derivedStatus === 'Depleted';
             break;
           case 'discard-pending':
             matchesStatus = derivedStatus === 'Discard-Pending';

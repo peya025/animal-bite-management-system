@@ -20,15 +20,18 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
+use Tests\ConfiguresTestEmail;
 use Tests\TestCase;
 
 class MessagingIntegrationTest extends TestCase
 {
+    use ConfiguresTestEmail;
     use RefreshDatabase;
 
     protected function setUp(): void
     {
         parent::setUp();
+        $this->configureTestEmail();
         Queue::fake();
         Http::preventStrayRequests();
         config([
@@ -130,7 +133,6 @@ class MessagingIntegrationTest extends TestCase
 
     public function test_email_has_recipient_and_is_only_accepted_not_delivered(): void
     {
-        Mail::fake();
         $message = $this->prepare($this->appointment(), 'email');
         $this->assertDatabaseHas('appointment_reminders', ['recipient' => 'patient@example.test', 'status' => 'pending']);
         app(OutboundDelivery::class)->deliver($message->id);
@@ -192,7 +194,7 @@ class MessagingIntegrationTest extends TestCase
         $this->assertSame('simulated', $message->fresh()->status);
         $this->assertNull($message->fresh()->accepted_at);
         $result = app(AppointmentReminderService::class)->sendRecallAlert($appointment, 'email');
-        $this->assertSame('delivery_mailer_required', $result['errors']['email']);
+        $this->assertSame('smtp_required', $result['errors']['email']);
         $this->assertSame('+639171234567', SmsManager::normalize('0917 123 4567'));
         Http::assertNothingSent();
     }
@@ -231,7 +233,7 @@ class MessagingIntegrationTest extends TestCase
         $result = app(StaffInvitationService::class)->invite($user, ['email' => 'staff@example.test', 'role' => 'registration']);
         $this->assertFalse($result['email_sent']);
         Mail::assertNothingSent();
-        $this->assertDatabaseHas('outbound_messages', ['purpose' => 'staff_invitation', 'status' => 'skipped', 'error_code' => 'delivery_mailer_required']);
+        $this->assertDatabaseHas('outbound_messages', ['purpose' => 'staff_invitation', 'status' => 'skipped', 'error_code' => 'smtp_required']);
     }
 
     public function test_worker_crash_is_marked_unknown_and_not_requeued(): void

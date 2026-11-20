@@ -70,6 +70,7 @@ import type {
   LocationSortKey,
   LocationSummary,
   OptionalBarangayColumn,
+  PatientFollowupLog,
   PriorityBreakdown,
   PriorityLevel,
   PrivacyMode,
@@ -360,6 +361,9 @@ export default function BiteCaseRiskDashboard() {
     severity: normalizeSeverityParam(severityParam),
     status: '',
     animal: '',
+    animalStatus: '',
+    animalCondition: '',
+    channel: '',
     range: rangeParam && ALLOWED_RANGES.includes(rangeParam) ? rangeParam : 'all',
     customFrom: '',
     customTo: '',
@@ -467,13 +471,16 @@ export default function BiteCaseRiskDashboard() {
   );
 
   const query = useMemo(() => {
-    const { cutoff, search, severity, status, animal } = filters;
+    const { cutoff, search, severity, status, animal, animalStatus, animalCondition, channel } = filters;
     return {
       privacy_mode: privacyMode,
       ...(search ? { search } : {}),
       ...(severity ? { severity } : {}),
       ...(status ? { status } : {}),
       ...(animal ? { animal } : {}),
+      ...(animalStatus ? { animal_status: animalStatus } : {}),
+      ...(animalCondition ? { animal_condition: animalCondition } : {}),
+      ...(channel ? { channel } : {}),
       ...(cutoff ? { cutoff } : {}),
       ...(activeDateRange.from ? { from: activeDateRange.from } : {}),
       ...(activeDateRange.to ? { to: activeDateRange.to } : {}),
@@ -503,7 +510,7 @@ export default function BiteCaseRiskDashboard() {
           const response = await api.get<DashboardData>('/cases/location-summary', { params: query });
           if (!active) return;
           setData(response.data);
-          if (!filters.search && !filters.severity && !filters.status && !filters.animal) {
+          if (!filters.search && !filters.severity && !filters.status && !filters.animal && !filters.animalStatus && !filters.animalCondition && !filters.channel) {
             setBaselineData(response.data);
           }
         }
@@ -674,6 +681,9 @@ export default function BiteCaseRiskDashboard() {
       severity: '',
       status: '',
       animal: '',
+      animalStatus: '',
+      animalCondition: '',
+      channel: '',
       range: 'all',
       customFrom: '',
       customTo: '',
@@ -685,6 +695,9 @@ export default function BiteCaseRiskDashboard() {
       filters.severity ||
       filters.status ||
       filters.animal ||
+      filters.animalStatus ||
+      filters.animalCondition ||
+      filters.channel ||
       filters.cutoff ||
       filters.range !== 'all'
   );
@@ -747,6 +760,9 @@ export default function BiteCaseRiskDashboard() {
     status?: string;
     severity?: string;
     animal?: string;
+    animal_status?: string;
+    animal_condition?: string;
+    channel?: string;
     search?: string;
   }) => {
     setFilters((f) => ({
@@ -754,12 +770,23 @@ export default function BiteCaseRiskDashboard() {
       ...(next.status !== undefined ? { status: next.status } : {}),
       ...(next.severity !== undefined ? { severity: next.severity } : {}),
       ...(next.animal !== undefined ? { animal: next.animal } : {}),
+      ...(next.animal_status !== undefined ? { animalStatus: next.animal_status } : {}),
+      ...(next.animal_condition !== undefined ? { animalCondition: next.animal_condition } : {}),
+      ...(next.channel !== undefined ? { channel: next.channel } : {}),
       ...(next.search !== undefined ? { search: next.search } : {}),
     }));
     selectTab('cases');
   };
 
-  const hasSecondaryFilters = Boolean(filters.search || filters.severity || filters.status || filters.animal);
+  const hasSecondaryFilters = Boolean(
+    filters.search ||
+      filters.severity ||
+      filters.status ||
+      filters.animal ||
+      filters.animalStatus ||
+      filters.animalCondition ||
+      filters.channel
+  );
   // When secondary drill-down filters (search, severity, status, animal) are active, keep the baseline cohort figures for headline KPI cards so the clinic's true total never vanishes to 0!
   const activeBaseline = hasSecondaryFilters && baselineData ? baselineData : data;
   const activeDoh = activeBaseline?.doh_summary ?? doh;
@@ -808,6 +835,24 @@ export default function BiteCaseRiskDashboard() {
   const animalCompleteness = totalRecorded > 0 ? Math.round(((totalRecorded - animalUnknownCount) / totalRecorded) * 100) : 100;
   const ownershipKnownCount = (activeDoh?.animals.owned ?? 0) + (activeDoh?.animals.stray ?? 0);
   const ownershipCompleteness = totalRecorded > 0 ? Math.round((ownershipKnownCount / totalRecorded) * 100) : 100;
+
+  const handleCaseLogsUpdated = (biteId: number, log: PatientFollowupLog) => {
+    setData((prev) => {
+      if (!prev?.cases) return prev;
+      return {
+        ...prev,
+        cases: prev.cases.map((c) =>
+          c.bite_id === biteId
+            ? {
+                ...c,
+                followup_logs: [log, ...(c.followup_logs ?? [])],
+                followup_logs_count: (c.followup_logs_count ?? 0) + 1,
+              }
+            : c
+        ),
+      };
+    });
+  };
 
   return (
     <Box sx={{ p: { xs: 1.5, md: 2.5 }, maxWidth: 1440, mx: 'auto' }}>
@@ -1268,7 +1313,56 @@ export default function BiteCaseRiskDashboard() {
                 <MenuItem value="dog">Dog</MenuItem>
                 <MenuItem value="cat">Cat</MenuItem>
                 <MenuItem value="other">Other Animal</MenuItem>
+                <MenuItem value="species_unknown">Species Unknown</MenuItem>
+                <MenuItem value="species_not_recorded">Species Not Recorded</MenuItem>
                 <MenuItem value="unknown">Animal Unknown / Unspecified</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 155 }}>
+              <Select
+                displayEmpty
+                value={filters.animalStatus}
+                aria-label="Filter by Animal Ownership"
+                onChange={(e) => updateFilter('animalStatus', e.target.value)}
+                sx={{ height: 34, fontSize: 12.5 }}
+              >
+                <MenuItem value="">All Ownership</MenuItem>
+                <MenuItem value="owned">Owned</MenuItem>
+                <MenuItem value="stray">Stray</MenuItem>
+                <MenuItem value="unknown">Ownership Unknown</MenuItem>
+                <MenuItem value="not_recorded">Ownership Not Recorded</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 165 }}>
+              <Select
+                displayEmpty
+                value={filters.animalCondition}
+                aria-label="Filter by Animal Condition"
+                onChange={(e) => updateFilter('animalCondition', e.target.value)}
+                sx={{ height: 34, fontSize: 12.5 }}
+              >
+                <MenuItem value="">All Animal Conditions</MenuItem>
+                <MenuItem value="healthy">Healthy</MenuItem>
+                <MenuItem value="sick">Sick</MenuItem>
+                <MenuItem value="died">Dead / Died</MenuItem>
+                <MenuItem value="unknown">Condition Unknown</MenuItem>
+                <MenuItem value="not_recorded">Condition Not Recorded</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 145 }}>
+              <Select
+                displayEmpty
+                value={filters.channel}
+                aria-label="Filter by Registration Channel"
+                onChange={(e) => updateFilter('channel', e.target.value)}
+                sx={{ height: 34, fontSize: 12.5 }}
+              >
+                <MenuItem value="">All Channels</MenuItem>
+                <MenuItem value="walk_in">Walk-in</MenuItem>
+                <MenuItem value="online">Online</MenuItem>
               </Select>
             </FormControl>
 
@@ -1308,7 +1402,13 @@ export default function BiteCaseRiskDashboard() {
         </Collapse>
 
         {/* Visible Active Filters Strip (makes active filters transparent, readable, and dismissible) */}
-        {(Boolean(filters.severity) || Boolean(filters.status) || Boolean(filters.animal) || Boolean(filters.search)) && (
+        {(Boolean(filters.severity) ||
+          Boolean(filters.status) ||
+          Boolean(filters.animal) ||
+          Boolean(filters.animalStatus) ||
+          Boolean(filters.animalCondition) ||
+          Boolean(filters.channel) ||
+          Boolean(filters.search)) && (
           <Box
             sx={{
               display: 'flex',
@@ -1350,8 +1450,32 @@ export default function BiteCaseRiskDashboard() {
             {filters.animal && (
               <Chip
                 size="small"
-                label={`Animal: ${filters.animal.toUpperCase()}`}
+                label={`Animal: ${filters.animal.replace(/_/g, ' ').toUpperCase()}`}
                 onDelete={() => updateFilter('animal', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.animalStatus && (
+              <Chip
+                size="small"
+                label={`Ownership: ${filters.animalStatus.replace(/_/g, ' ')}`}
+                onDelete={() => updateFilter('animalStatus', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.animalCondition && (
+              <Chip
+                size="small"
+                label={`Condition: ${filters.animalCondition === 'died' ? 'dead / died' : filters.animalCondition.replace(/_/g, ' ')}`}
+                onDelete={() => updateFilter('animalCondition', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.channel && (
+              <Chip
+                size="small"
+                label={`Channel: ${filters.channel === 'walk_in' ? 'Walk-in' : 'Online'}`}
+                onDelete={() => updateFilter('channel', '')}
                 sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
               />
             )}
@@ -1408,6 +1532,8 @@ export default function BiteCaseRiskDashboard() {
           <div role="tabpanel" aria-labelledby="tab-treatment" tabIndex={0}>
             <BiteCasesTreatmentTab
               doh={doh}
+              cases={cases}
+              privacyMode={privacyMode}
               totalRecorded={totalRecorded}
               finalizedCount={finalizedCount}
               awaitingAssessmentCount={awaitingAssessmentCount}
@@ -1424,6 +1550,9 @@ export default function BiteCaseRiskDashboard() {
               overdueCoursesCount={overdueCoursesCount}
               outstandingDoseSlotsCount={outstandingDoseSlotsCount}
               onDrillDownFilter={handleDrillDownFilter}
+              onSwitchToInternalMode={() => setPrivacyMode('internal_aggregate')}
+              onCaseLogsUpdated={handleCaseLogsUpdated}
+              onNotify={(msg) => setSnackbarMsg(msg)}
             />
           </div>
         )}

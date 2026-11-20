@@ -259,7 +259,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(response.user);
       setClinic(response.clinic);
       lastRecordedRef.current = Date.now();
-      sessionStorage.setItem('abtc_show_welcome_on_login', 'true');
 
       if (!response.clinic?.is_setup_complete && response.user.role === 'admin') {
         navigate(ROUTES.SETUP);

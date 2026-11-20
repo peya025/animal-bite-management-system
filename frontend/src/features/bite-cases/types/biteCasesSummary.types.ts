@@ -128,6 +128,27 @@ export type ReportActionItem = {
   updated_at?: string | null;
 };
 
+export type OverdueDoseSlot = {
+  dose_number: number;
+  label: string;
+  due_date: string;
+  days_overdue: number;
+};
+
+export type PatientFollowupLog = {
+  id: number;
+  contact_type: 'call' | 'sms' | 'visit' | 'other' | string;
+  status: string;
+  recipient_number?: string | null;
+  message_body?: string | null;
+  notes?: string | null;
+  dose_label?: string | null;
+  days_overdue?: number | null;
+  created_by?: number | null;
+  created_by_name?: string | null;
+  created_at: string;
+};
+
 export type CaseSummary = {
   bite_id: number;
   case_number: string;
@@ -135,12 +156,21 @@ export type CaseSummary = {
   patient_name: string;
   age?: number | null;
   gender?: string;
+  contact_number?: string | null;
+  emergency_contact_number?: string | null;
+  emergency_contact_name?: string | null;
+  follow_up_contact_number?: string | null;
+  follow_up_contact_source?: 'patient' | 'guardian' | null;
   bite_date: string | null;
   location: string;
   normalized_barangay?: string;
   category: string;
   animal_type: string;
+  animal_type_detail?: string;
   animal_status?: string;
+  animal_ownership?: string;
+  animal_condition?: string;
+  registration_channel?: 'walk_in' | 'online';
   status: string;
   last_completed_stage?: string;
   stage_label?: string;
@@ -159,7 +189,12 @@ export type CaseSummary = {
   is_overdue?: boolean;
   days_overdue?: number;
   overdue_dose?: string | null;
+  overdue_dose_day?: number | null;
+  overdue_due_date?: string | null;
+  overdue_dose_slots?: OverdueDoseSlot[];
   outstanding_dose_slot_count?: number;
+  followup_logs?: PatientFollowupLog[];
+  followup_logs_count?: number;
   is_unresolved_review?: boolean;
   review_age_days?: number | null;
   review_age_bucket?: '0_7_days' | '8_30_days' | 'over_30_days' | null;
@@ -225,12 +260,23 @@ export type DohSummary = {
     cat: number;
     other: number;
     unknown: number;
+    species_unknown?: number;
+    species_not_recorded?: number;
     stray: number;
     owned: number;
+    ownership_unknown?: number;
+    ownership_not_recorded?: number;
     animal_status_unknown: number;
+    condition_healthy?: number;
+    condition_sick?: number;
+    condition_died?: number;
+    condition_unknown?: number;
+    condition_not_recorded?: number;
   };
   pep_and_biologics: {
     recorded_exposures: number;
+    walk_in_registrations?: number;
+    online_registrations?: number;
     finalized_assessments: number;
     awaiting_assessment: number;
     pep_prescribed: number;
@@ -452,6 +498,9 @@ export type Filters = {
   severity: string;
   status: string;
   animal: string;
+  animalStatus: string;
+  animalCondition: string;
+  channel: string;
   range: string;
   customFrom: string;
   customTo: string;

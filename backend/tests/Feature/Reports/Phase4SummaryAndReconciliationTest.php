@@ -4,6 +4,7 @@ namespace Tests\Feature\Reports;
 
 use App\Models\Appointment;
 use App\Models\BiteIncident;
+use App\Models\BiteIncidentIntake;
 use App\Models\Clinic;
 use App\Models\Patient;
 use App\Models\PatientAccount;
@@ -1209,5 +1210,259 @@ class Phase4SummaryAndReconciliationTest extends TestCase
             $this->assertIsInt($row['review_age_days']);
             $this->assertContains($row['review_age_bucket'], ['0_7_days', '8_30_days', 'over_30_days']);
         }
+    }
+
+    public function test_location_summary_categorizes_animal_condition_ownership_and_unknown_filters(): void
+    {
+        $patient = $this->createPatient('Animal', 'Profile', 'female', '1992-04-12');
+
+        // 1. Owned, healthy dog
+        BiteIncident::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'case_number' => 'ANI-01',
+            'episode_type' => 'primary',
+            'bite_date' => '2026-11-05',
+            'bite_date_is_provisional' => false,
+            'bite_place' => 'Poblacion, Tagoloan',
+            'severity' => 'moderate',
+            'animal_type' => 'dog',
+            'animal_status' => 'owned',
+            'animal_observation_status' => 'healthy',
+            'status' => 'active',
+            'confirmed_at' => '2026-11-05 09:00:00',
+            'created_by' => $this->admin->id,
+        ]);
+
+        // 2. Stray, sick cat
+        BiteIncident::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'case_number' => 'ANI-02',
+            'episode_type' => 'primary',
+            'bite_date' => '2026-11-06',
+            'bite_date_is_provisional' => false,
+            'bite_place' => 'Baluarte, Tagoloan',
+            'severity' => 'severe',
+            'animal_type' => 'cat',
+            'animal_status' => 'stray',
+            'animal_observation_status' => 'sick',
+            'status' => 'active',
+            'confirmed_at' => '2026-11-06 09:00:00',
+            'created_by' => $this->admin->id,
+        ]);
+
+        // 3. Explicitly unknown species, unknown ownership, died animal
+        BiteIncident::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'case_number' => 'ANI-03',
+            'episode_type' => 'primary',
+            'bite_date' => '2026-11-07',
+            'bite_date_is_provisional' => false,
+            'bite_place' => 'Baluarte, Tagoloan',
+            'severity' => 'severe',
+            'animal_type' => 'unknown',
+            'animal_status' => 'unknown',
+            'animal_observation_status' => 'died',
+            'status' => 'active',
+            'confirmed_at' => '2026-11-07 09:00:00',
+            'created_by' => $this->admin->id,
+        ]);
+
+        // 4. Unassessed / not recorded species, ownership, and condition + 5. Explicitly unknown condition
+        BiteIncident::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'case_number' => 'ANI-04',
+            'episode_type' => 'pending_assessment',
+            'bite_date' => '2026-11-08',
+            'bite_date_is_provisional' => false,
+            'bite_place' => 'Sta. Cruz, Tagoloan',
+            'severity' => 'unassessed',
+            'animal_type' => null,
+            'animal_status' => 'unassessed',
+            'animal_observation_status' => null,
+            'status' => 'awaiting_assessment',
+            'created_by' => $this->admin->id,
+        ]);
+
+        BiteIncident::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'case_number' => 'ANI-05',
+            'episode_type' => 'primary',
+            'bite_date' => '2026-11-09',
+            'bite_date_is_provisional' => false,
+            'bite_place' => 'Sta. Cruz, Tagoloan',
+            'severity' => 'minor',
+            'animal_type' => 'dog',
+            'animal_status' => 'stray',
+            'animal_observation_status' => 'unknown',
+            'status' => 'completed_no_pep',
+            'confirmed_at' => '2026-11-09 09:00:00',
+            'created_by' => $this->admin->id,
+        ]);
+
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30')
+            ->assertOk()
+            ->assertJsonPath('doh_summary.animals.dog', 2)
+            ->assertJsonPath('doh_summary.animals.cat', 1)
+            ->assertJsonPath('doh_summary.animals.unknown', 2)
+            ->assertJsonPath('doh_summary.animals.species_unknown', 1)
+            ->assertJsonPath('doh_summary.animals.species_not_recorded', 1)
+            ->assertJsonPath('doh_summary.animals.owned', 1)
+            ->assertJsonPath('doh_summary.animals.stray', 2)
+            ->assertJsonPath('doh_summary.animals.ownership_unknown', 1)
+            ->assertJsonPath('doh_summary.animals.ownership_not_recorded', 1)
+            ->assertJsonPath('doh_summary.animals.animal_status_unknown', 2)
+            ->assertJsonPath('doh_summary.animals.condition_healthy', 1)
+            ->assertJsonPath('doh_summary.animals.condition_sick', 1)
+            ->assertJsonPath('doh_summary.animals.condition_died', 1)
+            ->assertJsonPath('doh_summary.animals.condition_unknown', 1)
+            ->assertJsonPath('doh_summary.animals.condition_not_recorded', 1);
+
+        // Filter by animal_status=stray
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30&animal_status=stray')
+            ->assertOk()
+            ->assertJsonPath('summary.total_cases', 2);
+
+        // Filter by animal_status=unknown (only explicitly unknown, not unassessed/not_recorded)
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30&animal_status=unknown')
+            ->assertOk()
+            ->assertJsonPath('summary.total_cases', 1)
+            ->assertJsonPath('cases.0.case_number', 'ANI-03');
+
+        // Filter by animal_status=not_recorded
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30&animal_status=not_recorded')
+            ->assertOk()
+            ->assertJsonPath('summary.total_cases', 1)
+            ->assertJsonPath('cases.0.case_number', 'ANI-04');
+
+        // Filter by animal_condition=died
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30&animal_condition=died')
+            ->assertOk()
+            ->assertJsonPath('summary.total_cases', 1)
+            ->assertJsonPath('cases.0.case_number', 'ANI-03')
+            ->assertJsonPath('cases.0.animal_condition', 'died');
+
+        // Filter by animal=species_unknown vs animal=species_not_recorded
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30&animal=species_unknown')
+            ->assertOk()
+            ->assertJsonPath('summary.total_cases', 1)
+            ->assertJsonPath('cases.0.case_number', 'ANI-03');
+
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30&animal=species_not_recorded')
+            ->assertOk()
+            ->assertJsonPath('summary.total_cases', 1)
+            ->assertJsonPath('cases.0.case_number', 'ANI-04');
+    }
+
+    public function test_location_summary_counts_walk_in_and_online_registrations_and_filters_by_channel(): void
+    {
+        $patient = $this->createPatient('Channel', 'Fixture', 'male', '1990-01-15');
+        $account = PatientAccount::create([
+            'name' => 'Channel Account',
+            'email' => 'channel.fixture@example.com',
+            'password' => bcrypt('Secret123!'),
+        ]);
+
+        // 1. Walk-in case
+        $walkIn = BiteIncident::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'case_number' => 'CH-WALKIN-01',
+            'episode_type' => 'pending_assessment',
+            'bite_date' => '2026-11-10',
+            'bite_date_is_provisional' => false,
+            'bite_place' => 'Poblacion, Tagoloan',
+            'severity' => 'unassessed',
+            'animal_type' => 'dog',
+            'animal_status' => 'owned',
+            'status' => 'awaiting_assessment',
+            'created_by' => $this->admin->id,
+        ]);
+        TreatmentRecord::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $walkIn->bite_id,
+            'dose_number' => null,
+            'status' => 'scheduled',
+            'consultation_date' => '2026-11-10',
+            'treatment_date' => '2026-11-10',
+            'mode_of_transaction' => 'walk-in',
+            'administered_by' => $this->admin->id,
+        ]);
+
+        // 2. Online via mobile BiteIncidentIntake (even if referral paper is checked in)
+        $onlineIntakeCase = BiteIncident::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'case_number' => 'CH-ONLINE-INTAKE-02',
+            'episode_type' => 'pending_assessment',
+            'bite_date' => '2026-11-11',
+            'bite_date_is_provisional' => false,
+            'bite_place' => 'Baluarte, Tagoloan',
+            'severity' => 'unassessed',
+            'animal_type' => 'cat',
+            'animal_status' => 'stray',
+            'status' => 'awaiting_assessment',
+            'created_by' => $this->admin->id,
+        ]);
+        BiteIncidentIntake::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'patient_account_id' => $account->id,
+            'bite_id' => $onlineIntakeCase->bite_id,
+            'bite_date' => '2026-11-11',
+            'site_washed' => true,
+            'exposure_type' => 'scratch_abrasion',
+            'animal_type' => 'cat',
+            'animal_status' => 'stray',
+            'status' => 'converted',
+        ]);
+
+        // 3. Online via booked appointment
+        $onlineBookedCase = BiteIncident::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'case_number' => 'CH-ONLINE-APPT-03',
+            'episode_type' => 'primary',
+            'bite_date' => '2026-11-12',
+            'bite_date_is_provisional' => false,
+            'bite_place' => 'Sta. Cruz, Tagoloan',
+            'severity' => 'moderate',
+            'animal_type' => 'dog',
+            'animal_status' => 'owned',
+            'status' => 'active',
+            'confirmed_at' => '2026-11-12 09:00:00',
+            'created_by' => $this->admin->id,
+        ]);
+        Appointment::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $onlineBookedCase->bite_id,
+            'appointment_type' => 'consultation',
+            'appointment_date' => '2026-11-12',
+            'scheduled_date' => '2026-11-12',
+            'booked_by_account_id' => $account->id,
+            'status' => 'completed',
+        ]);
+
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30')
+            ->assertOk()
+            ->assertJsonPath('doh_summary.pep_and_biologics.recorded_exposures', 3)
+            ->assertJsonPath('doh_summary.pep_and_biologics.walk_in_registrations', 1)
+            ->assertJsonPath('doh_summary.pep_and_biologics.online_registrations', 2);
+
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30&channel=walk_in')
+            ->assertOk()
+            ->assertJsonPath('summary.total_cases', 1)
+            ->assertJsonPath('cases.0.case_number', 'CH-WALKIN-01')
+            ->assertJsonPath('cases.0.registration_channel', 'walk_in');
+
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30&channel=online')
+            ->assertOk()
+            ->assertJsonPath('summary.total_cases', 2);
     }
 }

@@ -207,4 +207,39 @@ class PatientController extends Controller
 
         return $this->json($result['data'], $result['status']);
     }
+
+    /**
+     * Merge an online-booked mobile patient profile into an existing canonical clinic chart.
+     * POST /api/patients/{id}/merge-online-booking
+     * Access: admin, registration
+     */
+    public function mergeOnlineBooking(Request $request, int|string $id): JsonResponse
+    {
+        if ($denied = $this->guardStation($request->user()->clinic_id, StationCapabilityPolicy::STATION_REGISTRATION, 'merge online patient booking')) {
+            return $denied;
+        }
+
+        $request->validate([
+            'canonical_patient_id' => ['required', 'integer', 'exists:patients,patient_id'],
+            'consultation_date'    => ['nullable', 'date_format:Y-m-d'],
+            'consultation_time'    => ['nullable', 'date_format:H:i'],
+            'blood_pressure'       => ['nullable', 'string', 'regex:/^\d{2,3}\/\d{2,3}$/'],
+            'temperature'          => ['nullable', 'numeric', 'between:30.0,45.0'],
+            'weight'               => ['nullable', 'numeric', 'between:1.0,300.0'],
+            'height'               => ['nullable', 'numeric', 'between:30.0,250.0'],
+            'attending_provider'   => ['nullable', 'string', 'max:255'],
+            'referred_by'          => ['nullable', 'string', 'max:255'],
+            'mode_of_transaction'  => ['nullable', 'string', 'in:walk_in,referral,online,consultation,booster,animal_bite,post_exposure,pre_exposure'],
+        ]);
+
+        $result = $this->patientService->mergeMobileBookingIntoExistingChart(
+            $request->user()->clinic_id,
+            (int) $id,
+            (int) $request->input('canonical_patient_id'),
+            $request->user(),
+            $request->all()
+        );
+
+        return $this->json($result);
+    }
 }

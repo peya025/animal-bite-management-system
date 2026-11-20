@@ -16,7 +16,7 @@ export const defaultWalkthroughContext: WalkthroughContextType = {
   totalSteps: 0, isRegistrationStaff: false, modules: [], activeModuleId: null, progress: {},
   startGuide: noop, skipGuide: noop, finishGuide: noop,
   startWalkthrough: noop, stopWalkthrough: noop, nextStep: noop, prevStep: noop,
-  goToStep: noop, dismissWelcomeModal: noop, restartWalkthrough: noop,
+  goToStep: noop, dismissWelcomeModal: noop, openWelcomeModal: noop, restartWalkthrough: noop,
 };
 const WalkthroughContext = createContext<WalkthroughContextType>(defaultWalkthroughContext);
 
@@ -30,6 +30,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
   const [reachedRoute, setReachedRoute] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [welcomeModuleId, setWelcomeModuleId] = useState<string>(ROUTES.DASHBOARD);
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
 
@@ -56,40 +57,25 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     catch { setProgress({}); }
   }, [storageKey]);
 
-  // Welcome Modal pops up on login and on first-time visit to /dashboard
+  // Clean up any legacy welcome flag without auto-opening modal
   useEffect(() => {
-    if (!user?.id) return;
+    try {
+      sessionStorage.removeItem('abtc_show_welcome_on_login');
+    } catch { /* ignore */ }
+  }, []);
+
+  // Welcome modal is strictly user-initiated. Only close if navigating to public/landing pages.
+  useEffect(() => {
     const isLandingOrPublic = location.pathname === '/' || location.pathname === ROUTES.HOME || location.pathname === ROUTES.LOGIN;
     if (isLandingOrPublic) {
       setIsWelcomeModalOpen(false);
-      return;
     }
+  }, [location.pathname]);
 
-    const isDashboard = location.pathname === ROUTES.DASHBOARD || location.pathname === `${ROUTES.DASHBOARD}/` || location.pathname.includes('/walkthrough.html');
-    if (!isDashboard) {
-      setIsWelcomeModalOpen(false);
-      return;
-    }
-
-    // Always pop up welcome modal when user just logged in
-    const justLoggedIn = sessionStorage.getItem('abtc_show_welcome_on_login') === 'true';
-    if (justLoggedIn) {
-      sessionStorage.removeItem('abtc_show_welcome_on_login');
-      setIsWelcomeModalOpen(true);
-      return;
-    }
-
-    const isCompletedOrSkipped =
-      progress[ROUTES.DASHBOARD]?.status === 'completed' ||
-      progress[ROUTES.DASHBOARD]?.status === 'skipped' ||
-      localStorage.getItem(`abtc_walkthrough_status_${user.id}`) === 'completed' ||
-      localStorage.getItem(`abtc_walkthrough_status_admin_${user.id}`) === 'completed' ||
-      localStorage.getItem(`abtc_walkthrough_registration_seen_v1_${user.id}`) === 'true';
-
-    if (!isCompletedOrSkipped && !activeModuleId) {
-      setIsWelcomeModalOpen(true);
-    }
-  }, [user?.id, location.pathname, progress, activeModuleId]);
+  const openWelcomeModal = useCallback((moduleId: string = ROUTES.DASHBOARD) => {
+    setWelcomeModuleId(moduleId);
+    setIsWelcomeModalOpen(true);
+  }, []);
 
   const saveProgress = useCallback((id: string, value: GuideProgress) => {
     setProgress(previous => {
@@ -216,7 +202,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     totalSteps: activeModule?.steps.length || 0, isRegistrationStaff: user?.role === 'registration',
     modules, activeModuleId, progress, startGuide, skipGuide, finishGuide,
     startWalkthrough: () => startGuide(ROUTES.DASHBOARD, true), stopWalkthrough: skipGuide,
-    nextStep, prevStep, goToStep, dismissWelcomeModal,
+    nextStep, prevStep, goToStep, dismissWelcomeModal, openWelcomeModal,
     restartWalkthrough: () => {
       if (activeModuleId) {
         startGuide(activeModuleId, true);
@@ -226,7 +212,13 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
     },
   }), [activeModuleId, activeModule, isWelcomeModalOpen, currentStepIndex, currentStep, user?.role, modules, progress,
-    startGuide, skipGuide, finishGuide, nextStep, prevStep, goToStep, dismissWelcomeModal, location.pathname]);
+    startGuide, skipGuide, finishGuide, nextStep, prevStep, goToStep, dismissWelcomeModal, openWelcomeModal, location.pathname]);
+
+  const welcomeModule = useMemo(() => {
+    return modules.find(m => m.id === welcomeModuleId) || dashboardModule || null;
+  }, [modules, welcomeModuleId, dashboardModule]);
+
+  const isWelcomeDashboard = welcomeModuleId === ROUTES.DASHBOARD || !welcomeModule || welcomeModule.id === ROUTES.DASHBOARD;
 
   const roleLabel = user?.role === 'admin' ? 'Administrator'
     : user?.role === 'registration' ? 'Registration Staff'
@@ -239,14 +231,32 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     <WalkthroughContext.Provider value={value}>
       {children}
 
-      {/* First-time Welcome Modal */}
+      {/* Centered Welcome Modal (User-Initiated Only) */}
       <WalkthroughWelcomeModal
         open={isWelcomeModalOpen && !isLandingOrPublic}
-        roleName={getDashboardModuleInfoForRole(user?.role).name}
-        totalSteps={dashboardModule?.steps.length || getDashboardStepsForRole(user?.role).length || 16}
+        roleName={
+          isWelcomeDashboard
+            ? getDashboardModuleInfoForRole(user?.role).name
+            : (welcomeModule?.name || getDashboardModuleInfoForRole(user?.role).name)
+        }
+        title={
+          isWelcomeDashboard
+            ? 'Explore Your Dashboard'
+            : (welcomeModule ? `Explore ${welcomeModule.name}` : 'Explore Your Dashboard')
+        }
+        description={
+          isWelcomeDashboard
+            ? undefined
+            : (welcomeModule?.description || undefined)
+        }
+        totalSteps={
+          isWelcomeDashboard
+            ? (dashboardModule?.steps.length || getDashboardStepsForRole(user?.role).length || 16)
+            : (welcomeModule?.steps.length || 16)
+        }
         onStart={() => {
           setIsWelcomeModalOpen(false);
-          startGuide(ROUTES.DASHBOARD, true);
+          startGuide(welcomeModuleId || ROUTES.DASHBOARD, true);
         }}
         onDismiss={dismissWelcomeModal}
       />

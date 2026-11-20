@@ -7,12 +7,13 @@ use App\Models\Role;
 use App\Models\StaffInvitation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
+use Tests\ConfiguresTestEmail;
 use Tests\TestCase;
 
 class StaffInvitationCharacterizationTest extends TestCase
 {
+    use ConfiguresTestEmail;
     use RefreshDatabase;
 
     private Clinic $clinic;
@@ -24,8 +25,8 @@ class StaffInvitationCharacterizationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->configureTestEmail();
         config(['messaging.email_enabled' => true, 'messaging.test_mode' => false]);
-        Mail::fake();
 
         $this->clinic = Clinic::create(['name' => 'Tagoloan ABTC']);
 

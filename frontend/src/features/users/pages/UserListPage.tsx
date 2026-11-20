@@ -467,6 +467,7 @@ export default function UserListPage() {
 
   // Send invitation
   const sendInvitation = async () => {
+    if (inviting) return;
     if (!inviteData.email) {
       setNotice('Email is required.');
       return;
@@ -474,6 +475,10 @@ export default function UserListPage() {
     setInviting(true);
     try {
       const response = await api.post('/staff-invitations', inviteData);
+      if (!response.data.email_sent) {
+        setNotice(response.data.message || 'Unable to send the invitation email.');
+        return;
+      }
       setInviteLink(response.data.invitation_link);
       setSuccessModal({
         open: true,
@@ -482,7 +487,9 @@ export default function UserListPage() {
       });
       load();
     } catch (error: any) {
-      setNotice(error.response?.data?.message || 'Unable to send invitation.');
+      setNotice(error.response?.status >= 500
+        ? 'Unable to send the invitation email. Please try again or contact the system administrator.'
+        : error.response?.data?.message || 'Unable to send invitation.');
     } finally {
       setInviting(false);
     }
@@ -2459,7 +2466,7 @@ export default function UserListPage() {
         onClose={() => setNotice('')}
       >
         <Alert
-          severity={notice.includes('Unable') ? 'error' : 'success'}
+          severity="error"
           onClose={() => setNotice('')}
         >
           {notice}

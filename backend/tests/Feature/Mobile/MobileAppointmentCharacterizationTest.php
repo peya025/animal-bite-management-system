@@ -3,9 +3,11 @@
 namespace Tests\Feature\Mobile;
 
 use App\Models\Appointment;
+use App\Models\BiteIncident;
 use App\Models\Clinic;
 use App\Models\Patient;
 use App\Models\PatientAccount;
+use App\Models\Queue;
 use App\Models\TreatmentRecord;
 use App\Models\User;
 use Carbon\Carbon;
@@ -286,5 +288,164 @@ class MobileAppointmentCharacterizationTest extends TestCase
 
         $day3Appointment->refresh();
         $this->assertEquals('scheduled', $day3Appointment->status);
+    }
+
+    public function test_cannot_book_second_consultation_when_active_consultation_already_scheduled(): void
+    {
+        Sanctum::actingAs($this->patientAccount);
+
+        $date1 = Carbon::today()->addDays(2)->toDateString();
+        $date2 = Carbon::today()->addDays(4)->toDateString();
+
+        // 1. First consultation booking succeeds
+        $res1 = $this->postJson('/api/mobile/appointments', [
+            'patient_id'       => $this->patient->patient_id,
+            'appointment_type' => 'consultation',
+            'scheduled_date'   => $date1,
+            'intake'           => $this->validIntakePayload(),
+        ]);
+        $res1->assertStatus(201);
+
+        // 2. Second consultation booking rejected under Option A
+        $res2 = $this->postJson('/api/mobile/appointments', [
+            'patient_id'       => $this->patient->patient_id,
+            'appointment_type' => 'consultation',
+            'scheduled_date'   => $date2,
+            'intake'           => $this->validIntakePayload(),
+        ]);
+        $res2->assertStatus(422)
+            ->assertJsonPath('existing_appointment.scheduled_date', $date1)
+            ->assertJsonStructure(['message', 'existing_appointment' => ['appointment_id', 'scheduled_date', 'time_slot']]);
+    }
+
+    public function test_can_book_consultation_after_cancelling_previous_consultation(): void
+    {
+        Sanctum::actingAs($this->patientAccount);
+
+        $date1 = Carbon::today()->addDays(2)->toDateString();
+        $date2 = Carbon::today()->addDays(4)->toDateString();
+
+        // 1. First consultation booking
+        $res1 = $this->postJson('/api/mobile/appointments', [
+            'patient_id'       => $this->patient->patient_id,
+            'appointment_type' => 'consultation',
+            'scheduled_date'   => $date1,
+            'intake'           => $this->validIntakePayload(),
+        ]);
+        $res1->assertStatus(201);
+        $appointmentId = $res1->json('appointment_id');
+
+        // 2. Cancel first consultation
+        $this->patchJson("/api/mobile/appointments/{$appointmentId}/cancel", [
+            'reason' => 'Need to change date',
+        ])->assertStatus(200);
+
+        // 3. New consultation booking succeeds
+        $res2 = $this->postJson('/api/mobile/appointments', [
+            'patient_id'       => $this->patient->patient_id,
+            'appointment_type' => 'consultation',
+            'scheduled_date'   => $date2,
+            'intake'           => $this->validIntakePayload(),
+        ]);
+        $res2->assertStatus(201);
+    }
+
+    public function test_cannot_book_duplicate_booster_series(): void
+    {
+        Sanctum::actingAs($this->patientAccount);
+
+        // Primary PEP series completion
+        $bite = BiteIncident::create([
+            'clinic_id'     => $this->clinic->id,
+            'patient_id'    => $this->patient->patient_id,
+            'bite_date'     => Carbon::today()->subDays(60)->toDateString(),
+            'exposure_type' => 'transdermal_bite',
+            'status'        => 'completed',
+            'created_by'    => $this->staffUser->id,
+        ]);
+
+        foreach ([0, 3, 7] as $dose) {
+            TreatmentRecord::create([
+                'clinic_id'         => $this->clinic->id,
+                'patient_id'        => $this->patient->patient_id,
+                'bite_id'           => $bite->bite_id,
+                'dose_number'       => $dose,
+                'treatment_date'    => Carbon::today()->subDays(60 - $dose)->toDateString(),
+                'consultation_date' => Carbon::today()->subDays(60 - $dose)->toDateString(),
+                'status'            => 'completed',
+            ]);
+        }
+
+        $date1 = Carbon::today()->addDays(2)->toDateString();
+        $date2 = Carbon::today()->addDays(7)->toDateString();
+
+        // 1. Book first booster series
+        $res1 = $this->postJson('/api/mobile/appointments', [
+            'patient_id'       => $this->patient->patient_id,
+            'appointment_type' => 'booster',
+            'scheduled_date'   => $date1,
+        ]);
+        $res1->assertStatus(201);
+
+        // 2. Second booster rejected
+        $res2 = $this->postJson('/api/mobile/appointments', [
+            'patient_id'       => $this->patient->patient_id,
+            'appointment_type' => 'booster',
+            'scheduled_date'   => $date2,
+        ]);
+        $res2->assertStatus(422)
+            ->assertJsonPath('existing_appointment.scheduled_date', $date1);
+    }
+
+    public function test_cannot_book_appointment_on_same_date_as_existing_appointment(): void
+    {
+        Sanctum::actingAs($this->patientAccount);
+
+        $date = Carbon::today()->addDays(3)->toDateString();
+
+        // 1. Book a vaccination appointment
+        $res1 = $this->postJson('/api/mobile/appointments', [
+            'patient_id'       => $this->patient->patient_id,
+            'appointment_type' => 'vaccination',
+            'scheduled_date'   => $date,
+        ]);
+        $res1->assertStatus(201);
+
+        // 2. Attempt to book another appointment on that same date
+        $res2 = $this->postJson('/api/mobile/appointments', [
+            'patient_id'       => $this->patient->patient_id,
+            'appointment_type' => 'vaccination',
+            'scheduled_date'   => $date,
+        ]);
+        $res2->assertStatus(422)
+            ->assertJsonPath('existing_appointment.scheduled_date', $date);
+    }
+
+    public function test_cannot_book_appointment_when_active_in_today_queue(): void
+    {
+        Sanctum::actingAs($this->patientAccount);
+
+        // Patient is currently in today's clinic queue
+        Queue::create([
+            'clinic_id'     => $this->clinic->id,
+            'patient_id'    => $this->patient->patient_id,
+            'queue_number'  => 42,
+            'queue_date'    => Carbon::today()->toDateString(),
+            'visit_type'    => 'consultation',
+            'status'        => 'waiting',
+            'checked_in_by' => $this->staffUser->id,
+            'checked_in_at' => now(),
+        ]);
+
+        $res = $this->postJson('/api/mobile/appointments', [
+            'patient_id'       => $this->patient->patient_id,
+            'appointment_type' => 'consultation',
+            'scheduled_date'   => Carbon::today()->toDateString(),
+            'intake'           => $this->validIntakePayload(),
+        ]);
+
+        $res->assertStatus(422)
+            ->assertJsonPath('active_queue.queue_number', 42)
+            ->assertJsonPath('active_queue.status', 'waiting');
     }
 }

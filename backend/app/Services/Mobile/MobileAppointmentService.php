@@ -7,6 +7,7 @@ use App\Models\Appointment;
 use App\Models\BiteIncidentIntake;
 use App\Models\Notification;
 use App\Models\PatientAccount;
+use App\Models\Queue;
 use App\Services\NotificationService;
 use App\Support\BiteIntakeContract;
 use Carbon\Carbon;
@@ -109,13 +110,140 @@ class MobileAppointmentService
             ->wherePivotIn('status', ['pending', 'verified'])
             ->firstOrFail();
 
-        // Booster appointment requires completed primary PEP series
+        // 1. Queue Lock Guard: Patient currently active in today's clinic queue
+        $activeQueue = Queue::where('clinic_id', $patient->clinic_id)
+            ->where('patient_id', $patient->patient_id)
+            ->whereDate('queue_date', Carbon::today())
+            ->whereNull('deleted_at')
+            ->whereIn('status', ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'])
+            ->first();
+
+        if ($activeQueue) {
+            throw new HttpResponseException(
+                response()->json([
+                    'message'      => "This patient is currently active in today's clinic queue (Queue #{$activeQueue->queue_number}, Status: {$activeQueue->status}). Please proceed directly to the clinic desk.",
+                    'active_queue' => [
+                        'queue_id'     => $activeQueue->queue_id,
+                        'queue_number' => $activeQueue->queue_number,
+                        'status'       => $activeQueue->status,
+                    ],
+                ], 422)
+            );
+        }
+
+        // 2. Option A Consultation Check: Block duplicate active/upcoming bite consultation
+        if ($validated['appointment_type'] === 'consultation') {
+            $existingConsultation = Appointment::where('patient_id', $patient->patient_id)
+                ->whereIn('status', ['scheduled', 'confirmed'])
+                ->where('appointment_type', 'consultation')
+                ->where(function ($q) {
+                    $today = Carbon::today()->toDateString();
+                    $q->whereDate('scheduled_date', '>=', $today)
+                      ->orWhereDate('appointment_date', '>=', $today);
+                })
+                ->first();
+
+            if ($existingConsultation) {
+                $rawDate = $existingConsultation->scheduled_date ?? $existingConsultation->appointment_date;
+                $dateStr = Carbon::parse($rawDate)->format('F j, Y');
+                $timeSlot = ucfirst($existingConsultation->time_slot ?? 'morning');
+                throw new HttpResponseException(
+                    response()->json([
+                        'message'              => "This patient profile already has an upcoming bite consultation scheduled for {$dateStr} ({$timeSlot}). Please reschedule or cancel the existing appointment if you need a different date.",
+                        'existing_appointment' => [
+                            'appointment_id' => $existingConsultation->appointment_id,
+                            'scheduled_date' => Carbon::parse($rawDate)->format('Y-m-d'),
+                            'time_slot'      => $existingConsultation->time_slot ?? 'morning',
+                        ],
+                    ], 422)
+                );
+            }
+        }
+
+        // 3. Option A Booster Checks: Completed primary PEP series & no active booster series
         if ($validated['appointment_type'] === 'booster') {
             if (!$patient->has_completed_primary) {
                 throw new HttpResponseException(
                     response()->json([
                         'message'               => 'Booster booking requires completion of the primary 3-dose vaccine series (Day 0, Day 3, Day 7) first.',
                         'has_completed_primary' => false,
+                    ], 422)
+                );
+            }
+
+            $existingBooster = Appointment::where('patient_id', $patient->patient_id)
+                ->whereIn('status', ['scheduled', 'confirmed'])
+                ->where('appointment_type', 'booster')
+                ->where(function ($q) {
+                    $today = Carbon::today()->toDateString();
+                    $q->whereDate('scheduled_date', '>=', $today)
+                      ->orWhereDate('appointment_date', '>=', $today);
+                })
+                ->first();
+
+            if ($existingBooster) {
+                $rawDate = $existingBooster->scheduled_date ?? $existingBooster->appointment_date;
+                $dateStr = Carbon::parse($rawDate)->format('F j, Y');
+                $timeSlot = ucfirst($existingBooster->time_slot ?? 'morning');
+                throw new HttpResponseException(
+                    response()->json([
+                        'message'              => "This patient profile already has an active rabies booster series scheduled starting on {$dateStr} ({$timeSlot}). Please reschedule or cancel the existing booster appointment if needed.",
+                        'existing_appointment' => [
+                            'appointment_id' => $existingBooster->appointment_id,
+                            'scheduled_date' => Carbon::parse($rawDate)->format('Y-m-d'),
+                            'time_slot'      => $existingBooster->time_slot ?? 'morning',
+                        ],
+                    ], 422)
+                );
+            }
+        }
+
+        // 4. Same-Day Conflict Check: No two active appointments on the same calendar day
+        $targetDate = Carbon::parse($validated['scheduled_date'])->toDateString();
+        $sameDayAppointment = Appointment::where('patient_id', $patient->patient_id)
+            ->whereIn('status', ['scheduled', 'confirmed'])
+            ->where(function ($q) use ($targetDate) {
+                $q->whereDate('scheduled_date', $targetDate)
+                  ->orWhereDate('appointment_date', $targetDate);
+            })
+            ->first();
+
+        if ($sameDayAppointment) {
+            $rawDate = $sameDayAppointment->scheduled_date ?? $sameDayAppointment->appointment_date;
+            $dateStr = Carbon::parse($rawDate)->format('F j, Y');
+            throw new HttpResponseException(
+                response()->json([
+                    'message'              => "This patient already has an appointment scheduled on {$dateStr}. Please select a different date or manage the existing appointment.",
+                    'existing_appointment' => [
+                        'appointment_id' => $sameDayAppointment->appointment_id,
+                        'scheduled_date' => $targetDate,
+                        'time_slot'      => $sameDayAppointment->time_slot ?? 'morning',
+                    ],
+                ], 422)
+            );
+        }
+
+        if ($validated['appointment_type'] === 'booster') {
+            $day3Target = Carbon::parse($validated['scheduled_date'])->addDays(3)->toDateString();
+            $sameDayDay3 = Appointment::where('patient_id', $patient->patient_id)
+                ->whereIn('status', ['scheduled', 'confirmed'])
+                ->where(function ($q) use ($day3Target) {
+                    $q->whereDate('scheduled_date', $day3Target)
+                      ->orWhereDate('appointment_date', $day3Target);
+                })
+                ->first();
+
+            if ($sameDayDay3) {
+                $rawDate = $sameDayDay3->scheduled_date ?? $sameDayDay3->appointment_date;
+                $dateStr = Carbon::parse($rawDate)->format('F j, Y');
+                throw new HttpResponseException(
+                    response()->json([
+                        'message'              => "This patient already has an appointment scheduled on {$dateStr} (conflicts with booster Day 3). Please select a different starting date.",
+                        'existing_appointment' => [
+                            'appointment_id' => $sameDayDay3->appointment_id,
+                            'scheduled_date' => $day3Target,
+                            'time_slot'      => $sameDayDay3->time_slot ?? 'morning',
+                        ],
                     ], 422)
                 );
             }

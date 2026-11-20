@@ -31,10 +31,12 @@ async function setupAdminSession(page: Page, seen = false) {
       if (seenVal) {
         localStorage.setItem('abtc_walkthrough_status_admin_1', 'completed');
         localStorage.setItem('abtc_walkthrough_status_1', 'completed');
+        localStorage.setItem('abtc_walkthrough_indicator_dismissed_1', 'true');
       } else {
         localStorage.removeItem('abtc_walkthrough_status_admin_1');
         localStorage.removeItem('abtc_walkthrough_status_1');
         localStorage.removeItem('abtc_guides_v3_1');
+        localStorage.removeItem('abtc_walkthrough_indicator_dismissed_1');
       }
     },
     { seenVal: seen },
@@ -42,14 +44,33 @@ async function setupAdminSession(page: Page, seen = false) {
 }
 
 test.describe('Administrator Module-Based Interactive Walkthrough & UX Improvements', () => {
-  test('1. First-time Admin login triggers Welcome Modal with 16-step progress indicator and controls', async ({
+  test('1. First-time Admin login does not popup modal; shows guide indicator and opens modal on request', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1366, height: 632 });
     await setupAdminSession(page, false);
     await page.goto('/tests/registration/walkthrough.html');
 
+    // Automatic popup must NOT appear
     const welcomeModal = page.getByTestId('walkthrough-welcome-modal');
+    await expect(welcomeModal).toHaveCount(0);
+
+    // Subtle guide indicator appears directly below walkthrough icon
+    const indicator = page.getByTestId('walkthrough-guide-indicator');
+    await expect(indicator).toBeVisible();
+    await expect(indicator).toContainText('Need help? Start a tour');
+
+    // Clicking walkthrough icon opens the menu
+    await page.getByTestId('walkthrough-help-button').click();
+    const menu = page.getByTestId('walkthrough-help-menu');
+    await expect(menu).toBeVisible();
+
+    // Selecting "Explore Your Dashboard" opens the centered Welcome Modal
+    const dashboardOption = page.getByTestId('menu-start-dashboard-tour');
+    await expect(dashboardOption).toBeVisible();
+    await dashboardOption.click();
+
+    // Modal now visible
     await expect(welcomeModal).toBeVisible();
     await expect(welcomeModal).toContainText('Explore Your Dashboard');
 
@@ -66,6 +87,8 @@ test.describe('Administrator Module-Based Interactive Walkthrough & UX Improveme
     await expect(page.getByTestId('walkthrough-dismiss-btn')).toHaveText('Skip Tour');
     const startBtn = page.getByTestId('walkthrough-start-btn');
     await expect(startBtn).toHaveText('Start Tour');
+
+    // Interactive tour starts ONLY on clicking Start Tour
     await startBtn.click();
 
     // Verify tour launches into Step 1 of 16
@@ -94,8 +117,11 @@ test.describe('Administrator Module-Based Interactive Walkthrough & UX Improveme
     const menu = page.getByTestId('walkthrough-help-menu');
     await expect(menu).toBeVisible();
 
-    // Click Dashboard Tour
+    // Click Dashboard Tour to open modal
     await page.getByTestId('menu-start-dashboard-tour').click();
+    const welcomeModal = page.getByTestId('walkthrough-welcome-modal');
+    await expect(welcomeModal).toBeVisible();
+    await page.getByTestId('walkthrough-start-btn').click();
 
     // Step 1 of 16
     await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 16');
@@ -159,6 +185,7 @@ test.describe('Administrator Module-Based Interactive Walkthrough & UX Improveme
     // Open Guide Tour menu and start Dashboard tour
     await page.getByTestId('walkthrough-help-button').click();
     await page.getByTestId('menu-start-dashboard-tour').click();
+    await page.getByTestId('walkthrough-start-btn').click();
 
     // Verify Step 1
     await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 16');
@@ -193,9 +220,34 @@ test.describe('Administrator Module-Based Interactive Walkthrough & UX Improveme
     // Launch tour then press Escape to skip
     await page.getByTestId('walkthrough-help-button').click();
     await page.getByTestId('menu-start-dashboard-tour').click();
+    await page.getByTestId('walkthrough-start-btn').click();
     await expect(page.getByTestId('walkthrough-tooltip')).toBeVisible();
 
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('walkthrough-tooltip')).toHaveCount(0);
+  });
+
+  test('5. Guide indicator is dismissible via close button and persists', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1366, height: 632 });
+    await setupAdminSession(page, false);
+    await page.goto('/tests/registration/walkthrough.html');
+
+    const indicator = page.getByTestId('walkthrough-guide-indicator');
+    await expect(indicator).toBeVisible();
+    await expect(indicator).toContainText('Need help? Start a tour');
+
+    // Click dismiss 'x'
+    await page.getByTestId('walkthrough-indicator-dismiss').click();
+    await expect(page.getByTestId('walkthrough-guide-indicator')).toHaveCount(0);
+
+    // Verify localStorage has persisted dismissal for this user
+    const isDismissed = await page.evaluate(() => localStorage.getItem('abtc_walkthrough_indicator_dismissed_1'));
+    expect(isDismissed).toBe('true');
+
+    // But guide button remains completely functional
+    await page.getByTestId('walkthrough-help-button').click();
+    await expect(page.getByTestId('walkthrough-help-menu')).toBeVisible();
   });
 });

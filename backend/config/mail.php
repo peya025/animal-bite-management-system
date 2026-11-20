@@ -39,12 +39,15 @@ return [
 
         'smtp' => [
             'transport' => 'smtp',
-            'scheme' => env('MAIL_SCHEME'),
+            'scheme' => env('MAIL_SCHEME', env('SMTP_SECURE', false) ? 'smtps' : 'smtp'),
+            'require_tls' => true,
+            'auto_tls' => true,
+            'verify_peer' => true,
             'url' => env('MAIL_URL'),
-            'host' => env('MAIL_HOST', '127.0.0.1'),
-            'port' => env('MAIL_PORT', 2525),
-            'username' => env('MAIL_USERNAME'),
-            'password' => env('MAIL_PASSWORD'),
+            'host' => env('MAIL_HOST', env('SMTP_HOST')),
+            'port' => env('MAIL_PORT', env('SMTP_PORT', 587)),
+            'username' => env('MAIL_USERNAME', env('SMTP_USER')),
+            'password' => env('MAIL_PASSWORD', env('SMTP_PASSWORD')),
             'timeout' => 15,
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) config('app.url'), PHP_URL_HOST)),
         ],
@@ -111,8 +114,8 @@ return [
     */
 
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
+        'address' => env('MAIL_FROM_ADDRESS', env('SMTP_FROM_EMAIL')),
+        'name' => env('MAIL_FROM_NAME', env('SMTP_FROM_NAME', 'Tagoloan Animal Bite Treatment Center')),
     ],
 
 ];

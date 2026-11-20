@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Clinic extends Model
 {
@@ -67,7 +68,7 @@ class Clinic extends Model
     public function getLogoUrlAttribute(): ?string
     {
         if ($this->logo_path) {
-            return asset('storage/' . $this->logo_path);
+            return Storage::disk('public')->url($this->logo_path);
         }
         return null;
     }
@@ -78,7 +79,9 @@ class Clinic extends Model
     public function getLeftPrintLogoUrlAttribute(): ?string
     {
         if ($this->left_print_logo_path) {
-            return url('api/storage/' . $this->left_print_logo_path);
+            return env('FILESYSTEM_DISK') === 's3'
+                ? Storage::disk('public')->url($this->left_print_logo_path)
+                : url('api/storage/' . $this->left_print_logo_path);
         }
         return null;
     }
@@ -89,7 +92,9 @@ class Clinic extends Model
     public function getRightPrintLogoUrlAttribute(): ?string
     {
         if ($this->right_print_logo_path) {
-            return url('api/storage/' . $this->right_print_logo_path);
+            return env('FILESYSTEM_DISK') === 's3'
+                ? Storage::disk('public')->url($this->right_print_logo_path)
+                : url('api/storage/' . $this->right_print_logo_path);
         }
         return null;
     }

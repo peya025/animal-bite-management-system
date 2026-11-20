@@ -48,10 +48,12 @@ export default function AddPatientModal({
         }
       : undefined;
 
+    const isSavedReferral = (saved.mode_of_transaction || '').toLowerCase() === 'referral';
     return {
       ...saved,
       reg_date_of_consultation: saved.reg_date_of_consultation || fresh.reg_date_of_consultation,
       reg_consultation_time: saved.reg_consultation_time || fresh.reg_consultation_time,
+      reg_attending_provider: isSavedReferral ? (saved.reg_attending_provider || '') : '',
       registration_fee: restoredFee,
     };
   });
@@ -215,32 +217,50 @@ export default function AddPatientModal({
     } else if (key === 'other_membership_no' && enrolment.other_membership === 'pwd') {
       value = formatPWDNumber(value);
     }
-    const next = { ...enrolment, [key]: value };
+    let next = { ...enrolment, [key]: value };
+    if (key === 'mode_of_transaction' && String(value).toLowerCase() !== 'referral') {
+      next = {
+        ...next,
+        reg_attending_provider: '',
+        reg_referred_by: '',
+      };
+    }
     setEnrolment(next);
     draft.saveDraft(next);
-    if (fieldErrors[key]) {
-      setFieldErrors(prev => {
-        const e = { ...prev };
-        delete e[key];
-        return e;
-      });
-    }
+    setFieldErrors(prev => {
+      const e = { ...prev };
+      delete e[key];
+      if (key === 'mode_of_transaction' && String(value).toLowerCase() !== 'referral') {
+        delete e.reg_attending_provider;
+        delete e.reg_referred_by;
+      }
+      return e;
+    });
   };
 
   // Direct setter for array values or non-string fields (used by GovProgramsSection & RegistrationVitalsSection)
   const handleDirectChange = (key: keyof EnrolmentFormData, value: EnrolmentFormData[keyof EnrolmentFormData]) => {
     setEnrolment(prev => {
-      const next = { ...prev, [key]: value };
+      let next = { ...prev, [key]: value };
+      if (key === 'mode_of_transaction' && String(value).toLowerCase() !== 'referral') {
+        next = {
+          ...next,
+          reg_attending_provider: '',
+          reg_referred_by: '',
+        };
+      }
       draft.saveDraft(next);
       return next;
     });
-    if (fieldErrors[key]) {
-      setFieldErrors(prev => {
-        const e = { ...prev };
-        delete e[key];
-        return e;
-      });
-    }
+    setFieldErrors(prev => {
+      const e = { ...prev };
+      delete e[key];
+      if (key === 'mode_of_transaction' && String(value).toLowerCase() !== 'referral') {
+        delete e.reg_attending_provider;
+        delete e.reg_referred_by;
+      }
+      return e;
+    });
   };
 
   const handleSubmit = async () => {
@@ -421,8 +441,10 @@ export default function AddPatientModal({
         }
       }
 
-      if (!enrolment.reg_attending_provider || !enrolment.reg_attending_provider.trim()) {
-        newFieldErrors.reg_attending_provider = 'Name of attending provider is required.';
+      if ((enrolment.mode_of_transaction || '').toLowerCase() === 'referral') {
+        if (!enrolment.reg_attending_provider || !enrolment.reg_attending_provider.trim()) {
+          newFieldErrors.reg_attending_provider = 'Name of attending provider is required.';
+        }
       }
     }
 
@@ -555,7 +577,7 @@ export default function AddPatientModal({
         queue_priority_level: enrolment.queue_priority_group === 'normal' ? 'normal' : 'priority',
         registration_fee: cleanedFee,
       };
-      await createPatientRecord(submissionEnrolment, {
+      const createdResult = await createPatientRecord(submissionEnrolment, {
         full: loc.full,
         munName: loc.munName,
         brgyName: loc.brgyName,
@@ -565,7 +587,8 @@ export default function AddPatientModal({
         forceCreate: confirmedDifferentPerson,
       });
       draft.clearDraft();
-      onSuccess();
+      const newPatient = createdResult?.patient || createdResult?.data || createdResult;
+      onSuccess(newPatient);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Failed to save patient record.';
       const causeResponse = (e as { cause?: { response?: { status?: number; data?: { code?: string; duplicates?: DuplicatePatientMatch[] } } } })?.cause?.response;

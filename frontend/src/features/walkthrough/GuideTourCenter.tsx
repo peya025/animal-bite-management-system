@@ -19,6 +19,7 @@ import {
   ChevronRight,
 } from '@mui/icons-material';
 import { useAuth } from '../../shared/contexts/AuthContext';
+import { ROUTES } from '../../shared/config/routes';
 import { useWalkthrough } from './WalkthroughContext';
 
 function ModuleIcon({ route, id }: { route: string; id: string }) {
@@ -40,24 +41,65 @@ function ModuleIcon({ route, id }: { route: string; id: string }) {
 export const GuideTourCenter: React.FC = () => {
   const { user } = useAuth();
   const location = useLocation();
-  const { modules, progress, startGuide, isActive, stopWalkthrough, activeModuleId } = useWalkthrough();
+  const { modules, progress, startGuide, isActive, stopWalkthrough, activeModuleId, openWelcomeModal, isWelcomeModalOpen } = useWalkthrough();
   const [open, setOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const isMenuOpen = Boolean(anchorEl);
   const visitedKey = user?.id ? `abtc_guide_center_visited_v1_${user.id}` : null;
+  const indicatorStorageKey = user?.id ? `abtc_walkthrough_indicator_dismissed_${user.id}` : null;
+
+  const isDashboard = location.pathname === ROUTES.DASHBOARD || location.pathname === `${ROUTES.DASHBOARD}/` || location.pathname.includes('/walkthrough.html');
+  const isLandingOrPublic = location.pathname === '/' || location.pathname === ROUTES.HOME || location.pathname === ROUTES.LOGIN;
+
+  const [indicatorDismissed, setIndicatorDismissed] = useState<boolean>(() => {
+    if (!user?.id) return true;
+    try {
+      return localStorage.getItem(`abtc_walkthrough_indicator_dismissed_${user.id}`) === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
-    setOpen(false);
-    if (!visitedKey || !modules.length) return;
+    if (!user?.id) {
+      setIndicatorDismissed(true);
+      return;
+    }
     try {
-      if (!localStorage.getItem(visitedKey)) {
-        const saved = JSON.parse(localStorage.getItem(`abtc_guides_v2_${user?.id}`) || '{}');
-        const previouslyUsed = Object.keys(saved || {}).length > 0 || !!localStorage.getItem(`abtc_walkthrough_status_${user?.id}`);
-        setOpen(!previouslyUsed);
-        localStorage.setItem(visitedKey, 'true');
-      }
-    } catch { /* The guide remains available when browser storage is unavailable. */ }
-  }, [visitedKey, modules.length, user?.id]);
+      const dismissed = localStorage.getItem(`abtc_walkthrough_indicator_dismissed_${user.id}`) === 'true';
+      setIndicatorDismissed(dismissed);
+    } catch {
+      setIndicatorDismissed(false);
+    }
+  }, [user?.id]);
+
+  const handleDismissIndicator = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIndicatorDismissed(true);
+    if (indicatorStorageKey) {
+      try {
+        localStorage.setItem(indicatorStorageKey, 'true');
+      } catch { /* storage fallback */ }
+    }
+  };
+
+  const handleIndicatorClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIndicatorDismissed(true);
+    if (indicatorStorageKey) {
+      try {
+        localStorage.setItem(indicatorStorageKey, 'true');
+      } catch { /* storage fallback */ }
+    }
+    openWelcomeModal(ROUTES.DASHBOARD);
+  };
+
+  // Walkthrough guide chooser dialog is strictly user-initiated
+  useEffect(() => {
+    setOpen(false);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -71,6 +113,16 @@ export const GuideTourCenter: React.FC = () => {
   }, [open, anchorEl]);
 
   if (!modules.length) return null;
+
+  const showIndicator =
+    Boolean(user?.id) &&
+    isDashboard &&
+    !isLandingOrPublic &&
+    !indicatorDismissed &&
+    !isActive &&
+    !isWelcomeModalOpen &&
+    !isMenuOpen &&
+    !open;
 
   const currentModule = modules.find(
     m => m.route === location.pathname || m.steps.some(step => step.route === location.pathname)
@@ -102,17 +154,45 @@ export const GuideTourCenter: React.FC = () => {
   };
 
   return <>
-    <Tooltip title="Interactive Guide (Resume / Restart)" arrow>
-      <button
-        type="button"
-        className="guide-header-icon"
-        aria-label="Interactive Guide"
-        data-testid="walkthrough-help-button"
-        onClick={(e) => setAnchorEl(e.currentTarget)}
-      >
-        <MenuBookOutlined sx={{ fontSize: 20 }} />
-      </button>
-    </Tooltip>
+    <div className="guide-tour-indicator-anchor">
+      <Tooltip title="Interactive Guide (Resume / Restart)" arrow>
+        <button
+          type="button"
+          className="guide-header-icon"
+          aria-label="Interactive Guide"
+          data-testid="walkthrough-help-button"
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+        >
+          <MenuBookOutlined sx={{ fontSize: 20 }} />
+        </button>
+      </Tooltip>
+
+      {/* Guide Discovery Indicator Tooltip/Bubble directly below the icon */}
+      {showIndicator && (
+        <div
+          className="guide-tour-indicator"
+          data-testid="walkthrough-guide-indicator"
+          role="status"
+          aria-live="polite"
+          onClick={handleIndicatorClick}
+          title="Click to start interactive dashboard tour"
+        >
+          <span className="guide-tour-indicator-pointer" aria-hidden="true" />
+          <span className="guide-tour-indicator-dot" aria-hidden="true" />
+          <span className="guide-tour-indicator-text">Need help? Start a tour</span>
+          <button
+            type="button"
+            className="guide-tour-indicator-close"
+            data-testid="walkthrough-indicator-dismiss"
+            onClick={handleDismissIndicator}
+            aria-label="Dismiss tour guide prompt"
+            title="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
+    </div>
 
     <Menu
       anchorEl={anchorEl}
@@ -123,6 +203,7 @@ export const GuideTourCenter: React.FC = () => {
       slotProps={{
         paper: {
           className: 'guide-quick-menu',
+          'data-testid': 'walkthrough-help-menu',
           sx: {
             borderRadius: '20px',
             width: 330,
@@ -137,7 +218,7 @@ export const GuideTourCenter: React.FC = () => {
               overflow: 'hidden',
             },
           },
-        },
+        } as any,
       }}
     >
       {/* ── Card Header ── */}
@@ -210,15 +291,13 @@ export const GuideTourCenter: React.FC = () => {
 
       {/* ── Actions List ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        {/* Resume Guide */}
+        {/* Explore Your Dashboard */}
         <MenuItem
           onClick={() => {
             setAnchorEl(null);
-            if (activeOrRelevantModule) {
-              startGuide(activeOrRelevantModule.id, false);
-            }
+            openWelcomeModal(ROUTES.DASHBOARD);
           }}
-          data-testid="walkthrough-menu-resume"
+          data-testid="menu-start-dashboard-tour"
           sx={{
             borderRadius: '14px',
             padding: '10px 12px',
@@ -245,27 +324,11 @@ export const GuideTourCenter: React.FC = () => {
               flexShrink: 0,
             }}
           >
-            <PlayArrowOutlined sx={{ fontSize: 22, color: '#059669' }} />
+            <DashboardOutlined sx={{ fontSize: 21, color: '#059669' }} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '13.5px', fontWeight: 650, color: '#0f172a' }}>
-                {hasSavedProgress ? 'Resume Guide' : 'Start Guide'}
-              </span>
-              {hasSavedProgress && (
-                <span
-                  style={{
-                    fontSize: '10.5px',
-                    fontWeight: 700,
-                    color: '#047857',
-                    background: '#d1fae5',
-                    padding: '1px 6px',
-                    borderRadius: '6px',
-                  }}
-                >
-                  Step {currentStepNum}/{totalModuleSteps}
-                </span>
-              )}
+            <div style={{ fontSize: '13.5px', fontWeight: 650, color: '#0f172a' }}>
+              Explore Your Dashboard
             </div>
             <div
               style={{
@@ -277,11 +340,84 @@ export const GuideTourCenter: React.FC = () => {
                 textOverflow: 'ellipsis',
               }}
             >
-              {hasSavedProgress ? `Continue ${activeOrRelevantModule?.name}` : `Begin tour from Step 1`}
+              Essential tools, queues & surveillance
             </div>
           </div>
           <ChevronRight sx={{ fontSize: 18, color: '#94a3b8', flexShrink: 0 }} />
         </MenuItem>
+
+        {/* Current Module Guide (if active module is not Dashboard) */}
+        {activeOrRelevantModule && activeOrRelevantModule.id !== ROUTES.DASHBOARD && (
+          <MenuItem
+            onClick={() => {
+              setAnchorEl(null);
+              openWelcomeModal(activeOrRelevantModule.id);
+            }}
+            data-testid="menu-start-module-tour"
+            sx={{
+              borderRadius: '14px',
+              padding: '10px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                background: '#ecfdf5',
+                transform: 'translateX(2px)',
+              },
+            }}
+          >
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '11px',
+                background: '#ecfdf5',
+                border: '1px solid #a7f3d0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <PlayArrowOutlined sx={{ fontSize: 22, color: '#059669' }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '13.5px', fontWeight: 650, color: '#0f172a' }}>
+                  {hasSavedProgress ? 'Resume Guide' : 'Start Guide'}
+                </span>
+                {hasSavedProgress && (
+                  <span
+                    style={{
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      color: '#047857',
+                      background: '#d1fae5',
+                      padding: '1px 6px',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    Step {currentStepNum}/{totalModuleSteps}
+                  </span>
+                )}
+              </div>
+              <div
+                style={{
+                  fontSize: '11.5px',
+                  color: '#64748b',
+                  marginTop: '2px',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {activeOrRelevantModule.name}
+              </div>
+            </div>
+            <ChevronRight sx={{ fontSize: 18, color: '#94a3b8', flexShrink: 0 }} />
+          </MenuItem>
+        )}
 
         {/* Restart Guide */}
         <MenuItem
@@ -444,7 +580,7 @@ export const GuideTourCenter: React.FC = () => {
                       aria-label={`Resume Guide: ${module.name}`}
                       onClick={() => {
                         setOpen(false);
-                        startGuide(module.id, false);
+                        openWelcomeModal(module.id);
                       }}
                     >
                       Resume
@@ -469,7 +605,7 @@ export const GuideTourCenter: React.FC = () => {
                     aria-label={`Start Guide: ${module.name}`}
                     onClick={() => {
                       setOpen(false);
-                      startGuide(module.id, true);
+                      openWelcomeModal(module.id);
                     }}
                   >
                     Start Guide

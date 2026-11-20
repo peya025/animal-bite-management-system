@@ -3,6 +3,7 @@
 namespace App\Services\Messaging;
 
 use App\Jobs\SendFcmPushNotification;
+use App\Mail\ClinicEmail;
 use App\Models\Appointment;
 use App\Models\AppointmentReminder;
 use App\Models\Notification;
@@ -11,7 +12,6 @@ use App\Services\Messaging\Sms\SmsManager;
 use App\Services\Messaging\Sms\SmsResult;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 
 class OutboundDelivery
@@ -35,11 +35,15 @@ class OutboundDelivery
             }
             $appointment = Appointment::with(['patient.accounts', 'clinic'])->find($message->appointment_id);
             $date = $appointment?->scheduled_date ?? $appointment?->appointment_date;
-            if (! $appointment || ! $appointment->patient || ! $appointment->clinic || $appointment->status !== 'scheduled'
+            $isEvent = $message->purpose === 'appointment_update';
+            $eventValid = $isEvent && $appointment && AppointmentEmailEvents::snapshot($appointment) === ($message->context['snapshot'] ?? null)
+                && now()->lessThan($message->context['expires_at'] ?? now());
+            if (! $appointment || ! $appointment->patient || ! $appointment->clinic || (! $isEvent && $appointment->status !== 'scheduled')
                 || $appointment->clinic_id != $message->clinic_id
                 || $appointment->patient->clinic_id != $message->clinic_id
-                || $date?->toDateString() !== ($message->context['scheduled_date'] ?? null)
-                || now()->toDateString() !== ($message->context['occurrence_date'] ?? null)) {
+                || ($isEvent && ! $eventValid)
+                || (! $isEvent && ($date?->toDateString() !== ($message->context['scheduled_date'] ?? null)
+                || now()->toDateString() !== ($message->context['occurrence_date'] ?? null)))) {
                 $this->finish($message, new SmsResult('skipped', error: 'appointment_changed_or_message_expired'));
 
                 return;
@@ -78,8 +82,7 @@ class OutboundDelivery
             if ($message->channel === 'sms') {
                 $result = app(SmsManager::class)->provider($message->provider)->send($message->recipient, $message->body, $message->idempotency_key);
             } elseif ($message->channel === 'email') {
-                Mail::mailer($message->provider)->raw($message->body, fn ($mail) => $mail->to($message->recipient)->subject($message->subject));
-                $result = new SmsResult('accepted');
+                $result = app(SmtpEmailService::class)->send($message->recipient, new ClinicEmail($message->subject, [$message->body]), $message->provider);
             } else {
                 // Recheck verified account linkage; never choose an arbitrary account.
                 $account = $appointment->patient->accounts->first(fn ($a) => $a->id == $message->recipient && $a->is_active && $a->pivot->status === 'verified');
@@ -183,7 +186,7 @@ class OutboundDelivery
                     'error_details' => $result->error,
                 ]);
             }
-            if (in_array($status, ['accepted', 'delivered']) && ! ($message->context['is_test'] ?? false)) {
+            if ($message->purpose !== 'appointment_update' && in_array($status, ['accepted', 'delivered']) && ! ($message->context['is_test'] ?? false)) {
                 Appointment::whereKey($message->appointment_id)->update([
                     'reminder_sent_count' => DB::raw('COALESCE(reminder_sent_count, 0) + 1'),
                     'last_reminded_at' => now(),

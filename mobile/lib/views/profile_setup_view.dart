@@ -88,6 +88,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
   final _indigenousTribe = TextEditingController();
   final _otherMembershipCustomName = TextEditingController();
   final _otherMembershipCustomId = TextEditingController();
+  final _scrollController = ScrollController();
 
   int _currentStep = 0; // 0: Step 1, 1: Step 2, 2: Step 3
 
@@ -112,6 +113,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
   DateTime? _selectedBirthDate;
   bool _isLoading = false;
   String? _error;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
 
   // Address (PSGC)
   List<PsgcLocation> _municipalities = [];
@@ -136,6 +138,53 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
       _autoFillFromAccount();
     }
     _loadMunicipalities();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _firstName.dispose();
+    _middleName.dispose();
+    _lastName.dispose();
+    _suffix.dispose();
+    _birthDate.dispose();
+    _contactNumber.dispose();
+    _email.dispose();
+    _emergencyContactName.dispose();
+    _emergencyContactNumber.dispose();
+    _motherMaidenName.dispose();
+    _spouseName.dispose();
+    _purok.dispose();
+    _municipalityText.dispose();
+    _barangayText.dispose();
+    _philhealthNo.dispose();
+    _seniorCitizenId.dispose();
+    _pwdId.dispose();
+    _indigenousTribe.dispose();
+    _otherMembershipCustomName.dispose();
+    _otherMembershipCustomId.dispose();
+    super.dispose();
+  }
+
+  void _scrollToTop() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _setError(String message) {
+    setState(() {
+      _isLoading = false;
+      _error = message;
+    });
+    _scrollToTop();
   }
 
   Future<void> _autoFillFromAccount() async {
@@ -452,63 +501,30 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
   void _nextStep() {
     setState(() => _error = null);
 
+    final invalid = _formKey.currentState!.validateGranularly();
+    if (invalid.isNotEmpty) {
+      setState(() {
+        _autoValidateMode = AutovalidateMode.onUserInteraction;
+      });
+      final firstError = invalid.first.errorText ?? 'Please resolve highlighted form errors.';
+      _setError(firstError);
+      return;
+    }
+
     if (_currentStep == 0) {
-      // Validate Step 1: Basic info
-      final fnError = AppValidators.name(_firstName.text, 'First name');
-      if (fnError != null) {
-        setState(() => _error = fnError);
-        return;
-      }
-      final lnError = AppValidators.name(_lastName.text, 'Last name');
-      if (lnError != null) {
-        setState(() => _error = lnError);
-        return;
-      }
-      if (_gender == null) {
-        setState(() => _error = 'Please select a gender.');
-        return;
-      }
-      final dobError = AppValidators.dateOfBirth(_selectedBirthDate, required: false);
-      if (dobError != null) {
-        setState(() => _error = dobError);
-        return;
-      }
-      setState(() => _currentStep = 1);
+      setState(() {
+        _error = null;
+        _currentStep = 1;
+        _autoValidateMode = AutovalidateMode.disabled;
+      });
+      _scrollToTop();
     } else if (_currentStep == 1) {
-      // Validate Step 2: Address & Contact
-      if (_useManualAddressFields) {
-        if (_municipalityText.text.trim().isEmpty ||
-            _barangayText.text.trim().isEmpty) {
-          setState(() => _error = 'Please enter municipality and barangay.');
-          return;
-        }
-      } else {
-        if (_selectedMunicipalityCode == null ||
-            _selectedBarangayCode == null) {
-          setState(() => _error = 'Please select municipality and barangay.');
-          return;
-        }
-      }
-
-      final contactError = AppValidators.phMobile(_contactNumber.text, required: false);
-      if (contactError != null) {
-        setState(() => _error = contactError);
-        return;
-      }
-
-      final emailError = AppValidators.email(_email.text, required: false);
-      if (emailError != null) {
-        setState(() => _error = emailError);
-        return;
-      }
-
-      final emgContactError = AppValidators.phMobile(_emergencyContactNumber.text, required: false);
-      if (emgContactError != null) {
-        setState(() => _error = 'Emergency contact: $emgContactError');
-        return;
-      }
-
-      setState(() => _currentStep = 2);
+      setState(() {
+        _error = null;
+        _currentStep = 2;
+        _autoValidateMode = AutovalidateMode.disabled;
+      });
+      _scrollToTop();
     }
   }
 
@@ -517,7 +533,9 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
       setState(() {
         _error = null;
         _currentStep--;
+        _autoValidateMode = AutovalidateMode.disabled;
       });
+      _scrollToTop();
     } else {
       Navigator.of(context).maybePop();
     }
@@ -526,20 +544,25 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
   Future<void> _save() async {
     if (_isLoading) return;
 
-    if (!_formKey.currentState!.validate()) {
-      setState(() => _error = 'Please resolve highlighted form errors.');
+    final invalid = _formKey.currentState!.validateGranularly();
+    if (invalid.isNotEmpty) {
+      setState(() {
+        _autoValidateMode = AutovalidateMode.onUserInteraction;
+      });
+      final firstError = invalid.first.errorText ?? 'Please resolve highlighted form errors.';
+      _setError(firstError);
       return;
     }
 
     if (_gender == null) {
-      setState(() => _error = 'Gender is required.');
+      _setError('Gender is required.');
       return;
     }
 
     if (_philhealthMember == 'yes') {
       final phError = AppValidators.philHealth(_philhealthNo.text, isMember: true);
       if (phError != null) {
-        setState(() => _error = phError);
+        _setError(phError);
         return;
       }
     }
@@ -551,32 +574,21 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
 
     try {
       final emailValue = _email.text.trim();
-      final emailPattern = RegExp("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+\$");
+      final emailPattern = RegExp(r"^[^@\s]+@[^@\s]+\.[^@\s]+$");
       if (emailValue.isNotEmpty && !emailPattern.hasMatch(emailValue)) {
-        setState(() {
-          _isLoading = false;
-          _error = 'Please enter a valid email address.';
-        });
+        _setError('Please enter a valid email address.');
         return;
       }
 
       if (_philhealthNo.text.trim().isNotEmpty &&
           _philhealthNo.text.replaceAll(RegExp(r'\D'), '').length != 12) {
-        setState(() {
-          _isLoading = false;
-          _error =
-              'PhilHealth number must contain exactly 12 digits (XX-XXXXXXXXX-X).';
-        });
+        _setError('PhilHealth number must contain exactly 12 digits (XX-XXXXXXXXX-X).');
         return;
       }
 
       final memberships = _buildMembershipPayload();
       if (_hasMembership == 'yes' && memberships.isEmpty) {
-        setState(() {
-          _isLoading = false;
-          _error =
-              'Please select at least one membership or government program.';
-        });
+        _setError('Please select at least one membership or government program.');
         return;
       }
 
@@ -666,7 +678,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         context,
       ).pushNamedAndRemoveUntil(AppRoutes.menu, (route) => false);
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) _setError(error.toString());
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -689,9 +701,11 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
               child: SingleChildScrollView(
+                controller: _scrollController,
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 child: Form(
                   key: _formKey,
+                  autovalidateMode: _autoValidateMode,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -764,6 +778,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                                     _firstName,
                                     hint: 'e.g. Juan',
                                     required: true,
+                                    validator: (v) => AppValidators.name(v, 'First name', required: true),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -773,6 +788,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                                     _lastName,
                                     hint: 'e.g. Dela Cruz',
                                     required: true,
+                                    validator: (v) => AppValidators.name(v, 'Last name', required: true),
                                   ),
                                 ),
                               ],
@@ -802,6 +818,9 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                               label: 'Gender',
                               selectedValue: _gender,
                               required: true,
+                              validator: (v) => (_gender == null || _gender!.isEmpty)
+                                  ? 'Please select a gender.'
+                                  : null,
                               options: const [
                                 MapEntry('male', 'Male'),
                                 MapEntry('female', 'Female'),
@@ -821,6 +840,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                                     hint: 'MM / DD / YYYY',
                                     readOnly: true,
                                     onTap: _chooseBirthDate,
+                                    validator: (v) => AppValidators.dateOfBirth(_selectedBirthDate, required: false),
                                     suffixIcon: IconButton(
                                       onPressed: _chooseBirthDate,
                                       icon: const Icon(
@@ -1182,6 +1202,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                                   _philhealthNo,
                                   hint: 'XX-XXXXXXXXX-X',
                                   philhealth: true,
+                                  required: true,
                                 ),
                               ],
                               _chipSelector<String>(
@@ -1441,14 +1462,17 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               percent,
               style: const TextStyle(
@@ -1521,12 +1545,14 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
             children: [
               Icon(icon, size: 18, color: AppColors.primary),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF111827),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111827),
+                  ),
                 ),
               ),
             ],
@@ -1544,39 +1570,88 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     required List<MapEntry<T, String>> options,
     required ValueChanged<T> onSelected,
     bool required = false,
+    String? Function(T?)? validator,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sentenceLabel(label, required: required),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: options.map((option) {
-            final isSelected = selectedValue == option.key;
-            return ChoiceChip(
-              label: Text(option.value),
-              selected: isSelected,
-              selectedColor: const Color(0xFFE1F5EE),
-              backgroundColor: Colors.white,
-              side: BorderSide(
-                color: isSelected ? AppColors.primary : Colors.grey.shade300,
-                width: isSelected ? 1.5 : 0.5,
+    return FormField<T>(
+      key: ValueKey(selectedValue),
+      initialValue: selectedValue,
+      validator: validator ??
+          (value) {
+            final current = selectedValue ?? value;
+            if (required && current == null) {
+              return '$label is required.';
+            }
+            return null;
+          },
+      builder: (state) {
+        final hasError = state.hasError;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sentenceLabel(label, required: required),
+              const SizedBox(height: 6),
+              Container(
+                decoration: hasError
+                    ? BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.error,
+                          width: 1.5,
+                        ),
+                      )
+                    : null,
+                padding: hasError ? const EdgeInsets.all(8) : EdgeInsets.zero,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: options.map((option) {
+                    final isSelected = selectedValue == option.key;
+                    return ChoiceChip(
+                      label: Text(option.value),
+                      selected: isSelected,
+                      selectedColor: const Color(0xFFE1F5EE),
+                      backgroundColor: Colors.white,
+                      side: BorderSide(
+                        color: isSelected
+                            ? AppColors.primary
+                            : (hasError ? AppColors.error : Colors.grey.shade300),
+                        width: isSelected ? 1.5 : (hasError ? 1.0 : 0.5),
+                      ),
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? const Color(0xFF085041)
+                            : (hasError ? AppColors.error : const Color(0xFF374151)),
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                      onSelected: _isLoading
+                          ? null
+                          : (_) {
+                              state.didChange(option.key);
+                              onSelected(option.key);
+                            },
+                    );
+                  }).toList(),
+                ),
               ),
-              labelStyle: TextStyle(
-                color: isSelected
-                    ? const Color(0xFF085041)
-                    : const Color(0xFF374151),
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
-              onSelected: _isLoading ? null : (_) => onSelected(option.key),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 12),
-      ],
+              if (hasError) ...[
+                const SizedBox(height: 6),
+                Text(
+                  state.errorText ?? '',
+                  style: const TextStyle(
+                    color: AppColors.error,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1591,6 +1666,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     Widget? suffixIcon,
     VoidCallback? onTap,
     bool readOnly = false,
+    String? Function(String?)? validator,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -1641,16 +1717,35 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                   width: 1.5,
                 ),
               ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.error,
+                  width: 1.5,
+                ),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.error,
+                  width: 1.5,
+                ),
+              ),
+              errorStyle: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: AppColors.error,
+              ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 12,
               ),
               suffixIcon: suffixIcon,
             ),
-            validator: (value) {
+            validator: validator ?? (value) {
               final trimmed = value?.trim() ?? '';
               if (required && trimmed.isEmpty) {
-                return '$label is required';
+                return '$label is required.';
               }
               if (phone && trimmed.isNotEmpty) {
                 return AppValidators.phMobile(trimmed, required: required);
@@ -1676,6 +1771,7 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
     required ValueChanged<T?>? onChanged,
     String? hint,
     bool required = false,
+    String? Function(T?)? validator,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -1684,6 +1780,8 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
         children: [
           _sentenceLabel(label, required: required),
           DropdownButtonFormField<T>(
+            key: ValueKey(selectedValue),
+            isExpanded: true,
             initialValue: selectedValue,
             hint: hint != null
                 ? Text(
@@ -1708,13 +1806,42 @@ class _ProfileSetupViewState extends State<ProfileSetupView> {
                 borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(color: Colors.grey.shade200, width: 0.5),
               ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 1.5,
+                ),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.error,
+                  width: 1.5,
+                ),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: AppColors.error,
+                  width: 1.5,
+                ),
+              ),
+              errorStyle: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: AppColors.error,
+              ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 12,
               ),
             ),
-            validator: (value) =>
-                (required && value == null) ? '$label is required' : null,
+            validator: validator ??
+                (value) =>
+                    (required && (value == null || (value is String && value.isEmpty)))
+                        ? '$label is required.'
+                        : null,
           ),
         ],
       ),

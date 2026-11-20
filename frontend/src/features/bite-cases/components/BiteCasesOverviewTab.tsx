@@ -42,7 +42,15 @@ interface BiteCasesOverviewTabProps {
   completedMatureTotal?: number;
   overdueEpisodesCount?: number;
   onDrillDownToStage: (stageKey: string) => void;
-  onDrillDownFilter: (next: { status?: string; severity?: string; animal?: string; search?: string }) => void;
+  onDrillDownFilter: (next: {
+    status?: string;
+    severity?: string;
+    animal?: string;
+    animal_status?: string;
+    animal_condition?: string;
+    channel?: string;
+    search?: string;
+  }) => void;
   onExportEpisodesCsv: () => void;
 }
 
@@ -369,6 +377,7 @@ function ProfileMetricRow({
         alignItems: 'center',
         gap: 1.25,
         width: '100%',
+        minHeight: 36,
         py: 0.75,
         px: 1,
         borderRadius: '8px',
@@ -429,6 +438,8 @@ export function BiteCasesOverviewTab({
   const catIII = doh?.categories.III ?? 0;
   const notYetAssessed = doh?.categories.not_yet_assessed ?? awaitingAssessmentCount;
   const catMissing = doh?.categories.assessed_category_missing ?? 0;
+  const walkInCount = doh?.pep_and_biologics.walk_in_registrations ?? 0;
+  const onlineCount = doh?.pep_and_biologics.online_registrations ?? 0;
   const explicitNoPepCount = doh?.pep_and_biologics.explicit_no_pep ?? 0;
   const transferredCount = doh?.completion_and_outcomes.transferred_referred ?? 0;
   const decisionPendingCount =
@@ -487,6 +498,16 @@ export function BiteCasesOverviewTab({
             valueLabel="registered"
             progressPct={100}
           >
+            <StageRow
+              label="Walk-in"
+              count={walkInCount}
+              onClick={() => onDrillDownFilter({ channel: 'walk_in' })}
+            />
+            <StageRow
+              label="Online"
+              count={onlineCount}
+              onClick={() => onDrillDownFilter({ channel: 'online' })}
+            />
             <StageAlertBox
               label="Awaiting assessment"
               count={awaitingAssessmentCount}
@@ -907,33 +928,26 @@ export function BiteCasesOverviewTab({
                 onClick={() => onDrillDownFilter({ animal: 'other' })}
               />
             )}
+            {(doh?.animals.species_unknown ?? 0) > 0 && (
+              <ProfileMetricRow
+                label="Unknown"
+                count={doh?.animals.species_unknown ?? 0}
+                total={totalRecorded}
+                color="#64748b"
+                onClick={() => onDrillDownFilter({ animal: 'species_unknown' })}
+              />
+            )}
             <ProfileMetricRow
               label="Not recorded"
-              count={doh?.animals.unknown ?? 0}
+              count={doh?.animals.species_not_recorded ?? doh?.animals.unknown ?? 0}
               total={totalRecorded}
               color="#94a3b8"
-              onClick={() => onDrillDownFilter({ animal: 'unknown' })}
+              onClick={() =>
+                onDrillDownFilter({
+                  animal: doh?.animals.species_not_recorded !== undefined ? 'species_not_recorded' : 'unknown',
+                })
+              }
             />
-          </Box>
-          <Box sx={{ mt: 'auto', pt: 2, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.6 }}>
-            <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)' }}>
-              Ownership: {doh?.animals.owned ?? 0} owned · {doh?.animals.stray ?? 0} stray ·
-            </Typography>
-            <Box
-              component="span"
-              sx={{
-                px: 0.8,
-                py: 0.15,
-                borderRadius: '6px',
-                bgcolor: '#fffbeb',
-                border: '1px solid #fde68a',
-                color: '#92400e',
-                fontSize: 11.5,
-                fontWeight: 600,
-              }}
-            >
-              {doh?.animals.animal_status_unknown ?? Math.max(0, totalRecorded - (doh?.animals.owned ?? 0) - (doh?.animals.stray ?? 0))} not recorded
-            </Box>
           </Box>
         </Section>
 
@@ -986,6 +1000,64 @@ export function BiteCasesOverviewTab({
                 color="#94a3b8"
               />
             )}
+          </Box>
+        </Section>
+      </Box>
+
+      {/* ── 4. Animal ownership & Animal condition (last overview cards) ── */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
+        <Section
+          title="Animal ownership"
+          hint="Categorized as owned, stray, unknown, or not yet recorded. Select a row to view cases."
+        >
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+            {[
+              { label: 'Owned', count: doh?.animals.owned ?? 0, color: '#059669', value: 'owned' },
+              { label: 'Stray', count: doh?.animals.stray ?? 0, color: '#d97706', value: 'stray' },
+              { label: 'Unknown', count: doh?.animals.ownership_unknown ?? 0, color: '#64748b', value: 'unknown' },
+              {
+                label: 'Not recorded',
+                count:
+                  doh?.animals.ownership_not_recorded ??
+                  doh?.animals.animal_status_unknown ??
+                  Math.max(0, totalRecorded - (doh?.animals.owned ?? 0) - (doh?.animals.stray ?? 0)),
+                color: '#94a3b8',
+                value: 'not_recorded',
+              },
+            ].map((row) => (
+              <ProfileMetricRow
+                key={row.value}
+                label={row.label}
+                count={row.count}
+                total={totalRecorded}
+                color={row.color}
+                onClick={() => onDrillDownFilter({ animal_status: row.value })}
+              />
+            ))}
+          </Box>
+        </Section>
+
+        <Section
+          title="Animal condition"
+          hint="Observed or reported condition of the biting animal. Select a row to view cases."
+        >
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+            {[
+              { label: 'Healthy', count: doh?.animals.condition_healthy ?? 0, color: '#059669', value: 'healthy' },
+              { label: 'Sick', count: doh?.animals.condition_sick ?? 0, color: '#d97706', value: 'sick' },
+              { label: 'Dead / Died', count: doh?.animals.condition_died ?? 0, color: '#dc2626', value: 'died' },
+              { label: 'Unknown', count: doh?.animals.condition_unknown ?? 0, color: '#64748b', value: 'unknown' },
+              { label: 'Not recorded', count: doh?.animals.condition_not_recorded ?? 0, color: '#94a3b8', value: 'not_recorded' },
+            ].map((row) => (
+              <ProfileMetricRow
+                key={row.value}
+                label={row.label}
+                count={row.count}
+                total={totalRecorded}
+                color={row.color}
+                onClick={() => onDrillDownFilter({ animal_condition: row.value })}
+              />
+            ))}
           </Box>
         </Section>
       </Box>

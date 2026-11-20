@@ -16,7 +16,8 @@ docs/tasks/
 ├── 05-mobile-app-tasks/        # Mobile-specific implementation plans & architecture
 ├── 06-deployment-and-audits/   # Deployment runbooks, pre-release checklists, and audits
 ├── 07-mobile-push-alerts-fcm/  # Firebase Cloud Messaging background push alerts
-└── 08-google-sign-in-sso/      # Google OAuth 2.0 Single Sign-On integration
+├── 08-google-sign-in-sso/      # Google OAuth 2.0 Single Sign-On integration
+└── 09-cloud-file-storage-s3-r2/# S3 / Cloudflare R2 / Spaces cloud file storage
 ```
 
 ---
@@ -83,3 +84,9 @@ Firebase Cloud Messaging (FCM) push notification integration:
 ### 8. [08-google-sign-in-sso](./08-google-sign-in-sso/)
 Google OAuth 2.0 Single Sign-On (SSO) credentials and configuration:
 * [`PLAN.md`](./08-google-sign-in-sso/PLAN.md): Complete setup guide for Google Cloud Console Client IDs (Web & Android), SHA-1 signing keys, `.env` settings, and role verification.
+
+### 9. [09-cloud-file-storage-s3-r2](./09-cloud-file-storage-s3-r2/)
+Cloud Object Storage (AWS S3, Cloudflare R2, DigitalOcean Spaces) integration & ephemeral persistence:
+* [`PLAN.md`](./09-cloud-file-storage-s3-r2/PLAN.md): Complete technical implementation plan covering `league/flysystem-aws-s3-v3` installation, filesystem disks, public/private asset security, service refactoring, and zero-downtime migration command.
+* [`PROVIDER_SETUP_GUIDES.md`](./09-cloud-file-storage-s3-r2/PROVIDER_SETUP_GUIDES.md): Step-by-step setup guides for Cloudflare R2 (recommended 10GB free tier, $0 egress), AWS S3, and DigitalOcean Spaces.
+

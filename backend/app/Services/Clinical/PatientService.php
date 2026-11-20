@@ -9,12 +9,15 @@ use App\Http\Controllers\Operations\QueueController;
 use App\Models\Appointment;
 use App\Models\AuditLog;
 use App\Models\BiteIncident;
+use App\Models\BiteIncidentIntake;
+use App\Models\Notification;
 use App\Models\Patient;
 use App\Models\Queue;
 use App\Models\QueueHistory;
 use App\Models\Station;
 use App\Models\TreatmentRecord;
 use App\Models\User;
+use App\Services\Clinical\BiteIncidentIntakeService;
 use App\Services\NotificationService;
 use App\Services\PatientMembershipService;
 use Carbon\Carbon;
@@ -498,7 +501,7 @@ class PatientService
                     : Carbon::now('Asia/Manila')->format('H:i');
 
                 $modeOfTx = $rawInput['mode_of_transaction'] ?? ($rawInput['reg_mode_of_transaction'] ?? null);
-                $validMode = in_array($modeOfTx, ['walk-in', 'visited', 'referral'], true) ? $modeOfTx : 'walk-in';
+                $validMode = in_array($modeOfTx, ['walk-in', 'visited', 'referral', 'online'], true) ? $modeOfTx : 'walk-in';
 
                 TreatmentRecord::create([
                     'clinic_id'             => $clinicId,
@@ -513,8 +516,8 @@ class PatientService
                     'temperature'           => $rawInput['reg_temperature'] ?? null,
                     'height'                => $rawInput['reg_height'] ?? null,
                     'weight'                => $rawInput['reg_weight'] ?? null,
-                    'attending_provider'    => $rawInput['reg_attending_provider'] ?? null,
-                    'referred_by'           => $rawInput['reg_referred_by'] ?? null,
+                    'attending_provider'    => $validMode === 'referral' ? ($rawInput['reg_attending_provider'] ?? null) : null,
+                    'referred_by'           => $validMode === 'referral' ? ($rawInput['reg_referred_by'] ?? null) : null,
                     'mode_of_transaction'   => $validMode,
                     'administered_by'       => $user->id,
                 ]);
@@ -1442,6 +1445,143 @@ class PatientService
                     DB::statement("SELECT RELEASE_LOCK(?)", [$lockName]);
                 }
             }
+        });
+    }
+
+    /**
+     * Merge an online-booked mobile patient profile into an existing canonical clinic chart.
+     * Reassigns appointments, bite intakes, and account links, then checks in the patient if vitals are provided.
+     *
+     * @param int $clinicId
+     * @param int $mobilePatientId
+     * @param int $canonicalPatientId
+     * @param User $user
+     * @param array<string, mixed> $checkInPayload
+     * @return array<string, mixed>
+     */
+    public function mergeMobileBookingIntoExistingChart(
+        int $clinicId,
+        int $mobilePatientId,
+        int $canonicalPatientId,
+        User $user,
+        array $checkInPayload = []
+    ): array {
+        if ($mobilePatientId === $canonicalPatientId) {
+            throw new \InvalidArgumentException('Cannot merge a patient record into itself.');
+        }
+
+        return DB::transaction(function () use ($clinicId, $mobilePatientId, $canonicalPatientId, $user, $checkInPayload) {
+            /** @var Patient $mobilePatient */
+            $mobilePatient = Patient::where('clinic_id', $clinicId)
+                ->with(['accounts', 'biteIncidents', 'treatmentRecords'])
+                ->lockForUpdate()
+                ->findOrFail($mobilePatientId);
+
+            /** @var Patient $canonicalPatient */
+            $canonicalPatient = Patient::where('clinic_id', $clinicId)
+                ->with(['details', 'accounts'])
+                ->lockForUpdate()
+                ->findOrFail($canonicalPatientId);
+
+            // 1. Reassign Appointments
+            Appointment::where('patient_id', $mobilePatientId)
+                ->update(['patient_id' => $canonicalPatientId]);
+
+            // 2. Reassign Bite Incident Intakes
+            BiteIncidentIntake::where('patient_id', $mobilePatientId)
+                ->update(['patient_id' => $canonicalPatientId]);
+
+            // 3. Reassign Bite Incidents (if any exist)
+            BiteIncident::where('patient_id', $mobilePatientId)
+                ->update(['patient_id' => $canonicalPatientId]);
+
+            // 4. Reassign Treatment Records (if any exist)
+            TreatmentRecord::where('patient_id', $mobilePatientId)
+                ->update(['patient_id' => $canonicalPatientId]);
+
+            // 5. Reassign Notifications
+            Notification::where('patient_id', $mobilePatientId)
+                ->update(['patient_id' => $canonicalPatientId]);
+
+            // 6. Link Mobile Patient Account(s) to Canonical Patient Chart
+            foreach ($mobilePatient->accounts as $account) {
+                $pivot = $account->pivot;
+                $alreadyLinked = $canonicalPatient->accounts()
+                    ->where('patient_accounts.id', $account->id)
+                    ->exists();
+
+                if ($alreadyLinked) {
+                    $canonicalPatient->accounts()->updateExistingPivot($account->id, [
+                        'status'      => 'verified',
+                        'verified_at' => now(),
+                        'verified_by' => $user->id,
+                    ]);
+                } else {
+                    $canonicalPatient->accounts()->attach($account->id, [
+                        'relationship' => $pivot->relationship ?? 'self',
+                        'is_primary'   => $pivot->is_primary ?? false,
+                        'status'       => 'verified',
+                        'verified_at'  => now(),
+                        'verified_by'  => $user->id,
+                    ]);
+                }
+
+                Cache::forget("mobile:patients:account:{$account->id}");
+                Cache::forget("mobile:appointments:account:{$account->id}");
+            }
+
+            // 7. Clean up Mobile Patient placeholder
+            $mobilePatientNo = $mobilePatient->patient_number;
+            $mobilePatientName = $mobilePatient->name;
+
+            $mobilePatient->accounts()->detach();
+            $mobilePatient->details()?->delete();
+            $mobilePatient->memberships()->delete();
+            $mobilePatient->delete();
+
+            // 8. If check-in vitals payload is provided, check in the intake into triage
+            $checkInResult = null;
+            $hasCheckIn = !empty($checkInPayload['consultation_date']) || !empty($checkInPayload['blood_pressure']) || !empty($checkInPayload['attending_provider']);
+
+            if ($hasCheckIn) {
+                $intake = BiteIncidentIntake::where('patient_id', $canonicalPatientId)
+                    ->where('status', 'pending')
+                    ->latest('intake_id')
+                    ->first();
+
+                if ($intake) {
+                    $intakeService = app(BiteIncidentIntakeService::class);
+                    $checkInResult = $intakeService->checkIn($intake, $user, $checkInPayload);
+                }
+            }
+
+            // 9. Audit trail
+            AuditLog::create([
+                'clinic_id'   => $clinicId,
+                'user_id'     => $user->id,
+                'action'      => 'patient.merge_online_booking',
+                'model'       => Patient::class,
+                'model_id'    => $canonicalPatientId,
+                'old_values'  => [
+                    'source_mobile_patient_id' => $mobilePatientId,
+                    'source_patient_number'    => $mobilePatientNo,
+                ],
+                'new_values'  => [
+                    'canonical_patient_id'     => $canonicalPatientId,
+                    'canonical_patient_number' => $canonicalPatient->patient_number,
+                    'has_check_in'             => $hasCheckIn,
+                ],
+                'description' => "Staff {$user->name} merged online mobile booking for {$mobilePatientName} (#{$mobilePatientNo}) into existing clinic chart #{$canonicalPatient->patient_number}.",
+                'ip_address'  => request()->ip() ?? '127.0.0.1',
+            ]);
+
+            $this->clearPatientListCache($clinicId);
+
+            return [
+                'message'   => "Successfully linked and merged online booking into {$canonicalPatient->name}'s clinic chart (#{$canonicalPatient->patient_number}).",
+                'patient'   => $canonicalPatient->fresh(['details', 'accounts', 'biteIncidents', 'treatmentRecords']),
+                'check_in'  => $checkInResult['data'] ?? $checkInResult,
+            ];
         });
     }
 

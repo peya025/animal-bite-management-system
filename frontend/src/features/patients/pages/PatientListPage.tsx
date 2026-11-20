@@ -11,6 +11,7 @@ import InvitePatientModal from '../components/InvitePatientModal';
 import PatientEditModal from '../components/PatientEditModal';
 import PatientDetailsModal from '../components/PatientDetailsModal';
 import ReturningPatientCheckInModal from '../components/ReturningPatientCheckInModal';
+import OnlineIntakeCheckInModal from '../components/OnlineIntakeCheckInModal';
 import { PatientListRoot } from '../styles/PatientList.styles';
 import PrintPreviewModal from '../../../components/print/PrintPreviewModal';
 import { printDocument } from '../../../components/print/printDocument';
@@ -96,6 +97,12 @@ export default function PatientList() {
 
   // Returning Patient Reassessment Check-In state
   const [reassessmentCheckInPatient, setReassessmentCheckInPatient] = useState<Patient | null>(null);
+
+  // Online Mobile Booking Intake Check-In state
+  const [onlineCheckInTarget, setOnlineCheckInTarget] = useState<{
+    patient: Patient;
+    intake: any;
+  } | null>(null);
 
   const { clinic: authClinic, user: authUser } = useAuth();
   const { echo, isConnected } = useEcho();
@@ -316,6 +323,10 @@ export default function PatientList() {
     const today = new Date().toISOString().slice(0, 10);
 
     return Boolean(scheduledDate && scheduledDate <= today);
+  };
+
+  const handleOpenMobileIntakeCheckIn = (patient: Patient, intake: any) => {
+    setOnlineCheckInTarget({ patient, intake });
   };
 
   const handleMobileIntakeCheckIn = async (patient: Patient, intake: any) => {
@@ -1573,12 +1584,12 @@ export default function PatientList() {
                             ) : mobileIntakeIsDue && mobileIntakeForCheckIn ? (
                               <button
                                 className="pm-btn-checkin"
-                                title="Confirm the patient has arrived, then send their submitted bite intake to the Doctor queue"
+                                title="Review submitted bite intake and referral details, record baseline vitals, and check in to Doctor queue"
                                 data-patient-action="checkin-mobile"
                                 disabled={checkingInIntakeId === mobileIntakeForCheckIn.intake_id}
                                 onClick={(event) => {
                                   (event.currentTarget as HTMLElement).blur();
-                                  handleMobileIntakeCheckIn(p, mobileIntakeForCheckIn);
+                                  handleOpenMobileIntakeCheckIn(p, mobileIntakeForCheckIn);
                                 }}
                               >
                                 {checkingInIntakeId === mobileIntakeForCheckIn.intake_id ? 'Checking In…' : 'Check In to Triage'}
@@ -1814,13 +1825,47 @@ export default function PatientList() {
               })
               .catch(() => {});
           }}
-          onSuccess={() => {
+          onSuccess={(createdPatient) => {
             setShowAddModal(false);
             fetchPatients();
             setSuccessModal({
               open: true,
               title: 'Patient Registered',
-              message: 'Patient enrolment record has been saved successfully.',
+              message: (
+                <div>
+                  <p style={{ margin: 0, fontSize: 14 }}>Patient enrolment record has been saved successfully.</p>
+                  {createdPatient && (
+                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #e5e7eb' }}>
+                      <p style={{ fontSize: 13, color: '#4b5563', marginBottom: 8 }}>
+                        Enable online appointment booking and digital treatment card tracking:
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSuccessModal(null);
+                          setSelectedInvitePatient(createdPatient);
+                          setShowInviteModal(true);
+                        }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '8px 14px',
+                          backgroundColor: '#0284c7',
+                          color: '#ffffff',
+                          borderRadius: 6,
+                          fontWeight: 600,
+                          fontSize: 13,
+                          cursor: 'pointer',
+                          border: 'none',
+                        }}
+                      >
+                        📱 Send Mobile Portal Invite
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ),
             });
           }}
         />
@@ -2029,6 +2074,21 @@ export default function PatientList() {
           onClose={() => setReassessmentCheckInPatient(null)}
           onSuccess={(modalData) => {
             setReassessmentCheckInPatient(null);
+            setCheckInModalData(modalData);
+            fetchPatients();
+          }}
+        />
+      )}
+
+      {/* ── Online Booking Mobile Intake Check-In Modal ── */}
+      {onlineCheckInTarget && (
+        <OnlineIntakeCheckInModal
+          open={Boolean(onlineCheckInTarget)}
+          patient={onlineCheckInTarget.patient}
+          intake={onlineCheckInTarget.intake}
+          onClose={() => setOnlineCheckInTarget(null)}
+          onSuccess={(modalData) => {
+            setOnlineCheckInTarget(null);
             setCheckInModalData(modalData);
             fetchPatients();
           }}

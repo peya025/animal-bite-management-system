@@ -163,24 +163,37 @@ class BiteIncident extends Model
     /**
      * Generate unique case number: BC-2024-0001
      */
-    public static function generateCaseNumber($clinicId)
+    public static function generateCaseNumber($clinicId = null)
     {
         $year = date('Y');
         $prefix = "BC-{$year}-";
-        
-        $lastCase = static::where('clinic_id', $clinicId)
-            ->where('case_number', 'like', "{$prefix}%")
-            ->orderBy('bite_id', 'desc')
-            ->first();
 
-        if ($lastCase) {
-            $lastNumber = (int) substr($lastCase->case_number, -4);
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
+        // Must include soft-deleted records because case_number has a table-wide unique constraint in MySQL
+        $existingNumbers = static::withTrashed()
+            ->where('case_number', 'like', "{$prefix}%")
+            ->pluck('case_number');
+
+        $maxNumber = 0;
+        foreach ($existingNumbers as $num) {
+            $digits = substr($num, strlen($prefix));
+            if (is_numeric($digits)) {
+                $val = (int) $digits;
+                if ($val > $maxNumber) {
+                    $maxNumber = $val;
+                }
+            }
         }
 
-        return sprintf('%s%04d', $prefix, $nextNumber);
+        $nextNumber = $maxNumber + 1;
+        $candidate = sprintf('%s%04d', $prefix, $nextNumber);
+
+        // Guard against any race condition or collision
+        while (static::withTrashed()->where('case_number', $candidate)->exists()) {
+            $nextNumber++;
+            $candidate = sprintf('%s%04d', $prefix, $nextNumber);
+        }
+
+        return $candidate;
     }
 
     /**
@@ -251,6 +264,11 @@ class BiteIncident extends Model
     public function intake()
     {
         return $this->hasOne(BiteIncidentIntake::class, 'bite_id', 'bite_id');
+    }
+
+    public function followupLogs()
+    {
+        return $this->hasMany(PatientFollowupLog::class, 'bite_id', 'bite_id')->orderByDesc('id');
     }
 
     public function getIncidentDateAttribute()

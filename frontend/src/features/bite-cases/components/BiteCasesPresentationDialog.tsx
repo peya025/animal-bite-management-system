@@ -358,7 +358,16 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
                       {animals?.stray ?? 0} Stray / {animals?.owned ?? 0} Owned
                     </Typography>
                     <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)' }}>
-                      Unknown status: {animals?.animal_status_unknown ?? 0}
+                      Unknown: {animals?.ownership_unknown ?? animals?.animal_status_unknown ?? 0} • Not recorded: {animals?.ownership_not_recorded ?? 0}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: 'var(--bc-surface-alt)', gridColumn: '1 / -1' }}>
+                    <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: 'var(--bc-text-secondary)' }}>Animal Condition</Typography>
+                    <Typography sx={{ fontSize: 18, fontWeight: 800, color: 'var(--bc-text)' }}>
+                      {animals?.condition_healthy ?? 0} Healthy / {animals?.condition_sick ?? 0} Sick / {animals?.condition_died ?? 0} Dead
+                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)' }}>
+                      Unknown: {animals?.condition_unknown ?? 0} • Not recorded: {animals?.condition_not_recorded ?? 0}
                     </Typography>
                   </Box>
                   <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: 'var(--bc-surface-alt)' }}>

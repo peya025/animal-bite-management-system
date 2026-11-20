@@ -42,6 +42,8 @@ class AppServiceProvider extends ServiceProvider
             \Illuminate\Support\Facades\URL::forceScheme('https');
         }
 
+        \App\Models\Appointment::observe(\App\Observers\AppointmentEmailObserver::class);
+
         Gate::policy(Patient::class, PatientPolicy::class);
         Gate::policy(PatientAccount::class, PatientAccountPolicy::class);
         Gate::policy(Queue::class, QueuePolicy::class);

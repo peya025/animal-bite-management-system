@@ -720,7 +720,7 @@ class ClinicModuleConfigPerson1Test extends TestCase
             'revision',
         ]));
 
-        // 2. Perform rollback of the intended migration directly to avoid rolling back unrelated newer migrations
+        // 2. Perform rollback of this migration specifically; newer unrelated migrations may follow it in the sequence.
         $migration = require database_path('migrations/2026_11_11_100000_update_clinic_module_configs_add_stations_and_revision.php');
         $migration->down();
 

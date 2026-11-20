@@ -455,6 +455,13 @@ export default function VaccinationSchedulePage() {
     setActiveTab(newTab);
     setPage(0);
     setDoseFilter('all'); // 8.3: reset dose filter on tab switch
+    const nextParams = new URLSearchParams(searchParams);
+    if (newTab === 'matrix') {
+      nextParams.delete('tab');
+    } else {
+      nextParams.set('tab', newTab);
+    }
+    setSearchParams(nextParams, { replace: true });
   };
 
   // Open single recall modal
@@ -595,7 +602,10 @@ export default function VaccinationSchedulePage() {
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: isDark ? 'transparent' : '#f8fafc', minHeight: '100vh' }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+      <Box
+        data-walkthrough="vax-sched-header"
+        sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, flexWrap: 'wrap', gap: 2 }}
+      >
         <Box>
           <Typography
             component="h1"
@@ -643,6 +653,7 @@ export default function VaccinationSchedulePage() {
           <Tooltip title="Scheduled engine runs daily at 8:00 AM (SMS, Email, In-App)">
             <span>
               <Button
+                data-walkthrough="vax-sched-btn-auto-recall"
                 variant="outlined"
                 size="small"
                 onClick={handleTriggerAutoRecall}
@@ -671,6 +682,7 @@ export default function VaccinationSchedulePage() {
 
           {kpi.overdue_missed > 0 && (
             <Button
+              data-walkthrough="vax-sched-btn-bulk-recall"
               variant="contained"
               color="error"
               onClick={() => setBulkRecallOpen(true)}
@@ -693,6 +705,7 @@ export default function VaccinationSchedulePage() {
           )}
 
           <Button
+            data-walkthrough="vax-sched-btn-refresh"
             variant="outlined"
             onClick={fetchJourneyData}
             disabled={loading}
@@ -726,6 +739,7 @@ export default function VaccinationSchedulePage() {
 
       {/* KPI Cards Grid */}
       <Box
+        data-walkthrough="vax-sched-kpi-grid"
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' },
@@ -787,10 +801,21 @@ export default function VaccinationSchedulePage() {
             ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
             : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
 
+          const targetFilterTab: 'matrix' | 'today' | 'missed' | null =
+            item.id === 'total'
+              ? 'matrix'
+              : item.id === 'due_today'
+              ? 'today'
+              : item.id === 'overdue_missed'
+              ? 'missed'
+              : null;
+
           return (
             <Paper
               key={item.id}
+              data-walkthrough={`vax-sched-kpi-${item.id}`}
               elevation={0}
+              onClick={targetFilterTab ? () => handleTabChange(targetFilterTab) : undefined}
               sx={{
                 p: '16px 18px',
                 borderRadius: '20px',
@@ -799,7 +824,7 @@ export default function VaccinationSchedulePage() {
                 gap: 1.75,
                 position: 'relative',
                 overflow: 'hidden',
-                cursor: 'default',
+                cursor: targetFilterTab ? 'pointer' : 'default',
                 transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                 ...(isDark
                   ? {
@@ -880,14 +905,17 @@ export default function VaccinationSchedulePage() {
       </Box>
 
       {/* Filters & Search Bar — 8.3: Status dropdown + Dose dropdown + Search */}
-      <Paper sx={{ p: 2, borderRadius: '14px', border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? '#111827' : 'var(--card-bg-solid, #fff)', mb: 3 }}>
+      <Paper
+        data-walkthrough="vax-sched-filters-bar"
+        sx={{ p: 2, borderRadius: '14px', border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e2e8f0', bgcolor: isDark ? '#111827' : 'var(--card-bg-solid, #fff)', mb: 3 }}
+      >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
 
           {/* Left: Status + Channel + Dose dropdowns */}
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
 
             {/* Status dropdown (replaces 4 tab buttons) */}
-            <FormControl size="small" sx={{ minWidth: 200 }}>
+            <FormControl size="small" sx={{ minWidth: 200 }} data-walkthrough="vax-sched-filter-status">
               <Select
                 value={activeTab}
                 onChange={(e) => { handleTabChange(e.target.value as any); }}
@@ -905,11 +933,13 @@ export default function VaccinationSchedulePage() {
               >
                 <MenuItem value="matrix">All Patients ({kpi.total_patients})</MenuItem>
                 <MenuItem value="today">Today's Injections ({kpi.due_today})</MenuItem>
+                <MenuItem value="missed">Overdue / Missed ({kpi.overdue_missed})</MenuItem>
+                <MenuItem value="online">Online Bookings ({kpi.online_count})</MenuItem>
               </Select>
             </FormControl>
 
             {/* Channel dropdown */}
-            <FormControl size="small" sx={{ minWidth: 155 }}>
+            <FormControl size="small" sx={{ minWidth: 155 }} data-walkthrough="vax-sched-filter-channel">
               <Select
                 value={channelFilter}
                 onChange={(e) => { setChannelFilter(e.target.value as any); setPage(0); }}
@@ -922,7 +952,7 @@ export default function VaccinationSchedulePage() {
             </FormControl>
 
             {/* Dose filter dropdown — 8.3 */}
-            <FormControl size="small" sx={{ minWidth: 155 }}>
+            <FormControl size="small" sx={{ minWidth: 155 }} data-walkthrough="vax-sched-filter-dose">
               <Select
                 value={doseFilter}
                 onChange={(e) => { setDoseFilter(e.target.value as any); setPage(0); }}
@@ -941,6 +971,7 @@ export default function VaccinationSchedulePage() {
 
           {/* Right: Search */}
           <TextField
+            data-walkthrough="vax-sched-search"
             size="small"
             placeholder="Search patient name, ID..."
             value={search}
@@ -1009,6 +1040,7 @@ export default function VaccinationSchedulePage() {
               <>
                 {/* Batch Print Selection Bar */}
                 <Box
+                  data-walkthrough="vax-sched-batch-select"
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1083,11 +1115,11 @@ export default function VaccinationSchedulePage() {
                   )}
                 </Box>
 
-                <Stack spacing={2}>
-                  {filteredPatients.map((patient) => {
+                <Stack spacing={2} data-walkthrough="vax-sched-patient-list">
+                  {filteredPatients.map((patient, pIdx) => {
               const isMissed = patient.compliance_status === 'overdue_missed' || Boolean(patient.next_appointment?.is_missed) || Boolean(patient.next_appointment && patient.next_appointment.late_days > 0);
               const isDueToday = patient.compliance_status === 'due_today' || Boolean(patient.next_appointment?.is_today);
-              const showNextLabel = !isTriageDoctor && Boolean(patient.next_appointment);
+              const showNextLabel = (!isTriageDoctor || isMissed) && Boolean(patient.next_appointment);
               const showOverdueNotice = Boolean(isMissed && patient.next_appointment && patient.next_appointment.late_days > 0);
               const hasTextAbove = showNextLabel || showOverdueNotice;
 
@@ -1095,6 +1127,7 @@ export default function VaccinationSchedulePage() {
                 <Paper
                   key={`journey-p-${patient.patient_id}`}
                   id={`journey-patient-${patient.patient_id}`}
+                  data-walkthrough={isMissed ? 'vax-sched-overdue-alert' : (pIdx === 0 ? 'vax-sched-patient-card' : undefined)}
                   sx={{
                     p: 2.5,
                     borderRadius: '12px',
@@ -1117,7 +1150,10 @@ export default function VaccinationSchedulePage() {
                     }}
                   >
                     {/* Left Column: Patient Profile & Incident Summary */}
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                    <Box
+                      data-walkthrough={pIdx === 0 ? 'vax-sched-patient-profile' : undefined}
+                      sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}
+                    >
                       <Checkbox
                         checked={isPatientSelected(patient.patient_id)}
                         onChange={() => handleTogglePatient(patient)}
@@ -1195,6 +1231,7 @@ export default function VaccinationSchedulePage() {
 
                     {/* Middle Column: PEP Dose Stepper Matrix */}
                     <Box
+                      data-walkthrough={pIdx === 0 ? 'vax-sched-dose-stepper' : undefined}
                       sx={{
                         display: 'flex',
                         gap: 1,
@@ -1241,6 +1278,7 @@ export default function VaccinationSchedulePage() {
                             <Tooltip title={tooltipText} arrow>
                               <Box
                                 id={`dose-pill-${patient.patient_id}-${dose.dose_number}`}
+                                data-walkthrough={pIdx === 0 && idx === 0 ? 'vax-sched-dose-badge' : undefined}
                                 sx={{
                                   px: 1.5, py: 0.75,
                                   borderRadius: '8px',
@@ -1337,6 +1375,7 @@ export default function VaccinationSchedulePage() {
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                         {patient.next_appointment && (
                           <Button
+                            data-walkthrough={isMissed ? 'vax-sched-btn-single-recall' : undefined}
                             size="small"
                             variant="contained"
                             color="error"
@@ -1390,6 +1429,7 @@ export default function VaccinationSchedulePage() {
 
                         <Tooltip title="View / Print Official Tagoloan Treatment Card">
                           <Button
+                            data-walkthrough={pIdx === 0 ? 'vax-sched-btn-card' : undefined}
                             size="small"
                             variant="outlined"
                             onClick={() => {
@@ -1434,14 +1474,16 @@ export default function VaccinationSchedulePage() {
           })()}
 
           {/* Server-side Pagination Controls */}
-          <TablePager
-            count={totalCount}
-            page={page}
-            rowsPerPage={rowsPerPage}
-            onPageChange={(newPage) => setPage(newPage)}
-            onRowsPerPageChange={(newRowsPerPage) => setRowsPerPage(newRowsPerPage)}
-            rowsPerPageOptions={[10, 25, 50]}
-          />
+          <Box data-walkthrough="vax-sched-pagination">
+            <TablePager
+              count={totalCount}
+              page={page}
+              rowsPerPage={rowsPerPage}
+              onPageChange={(newPage) => setPage(newPage)}
+              onRowsPerPageChange={(newRowsPerPage) => setRowsPerPage(newRowsPerPage)}
+              rowsPerPageOptions={[10, 25, 50]}
+            />
+          </Box>
         </Paper>
       )}
 

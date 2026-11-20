@@ -212,7 +212,7 @@ export interface DuplicateCheckResponse {
 
 export interface AddPatientModalProps {
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (patient?: any) => void;
   onSelectExistingPatient?: (patientId: number) => void;
   role?: string;
 }

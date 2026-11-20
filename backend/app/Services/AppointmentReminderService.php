@@ -83,6 +83,9 @@ class AppointmentReminderService
         $body = $customMessage ?: ($purpose === 'advance'
             ? "Reminder: your appointment at {$clinic->name} is tomorrow, {$date->format('M j, Y')}."
             : "You missed your appointment at {$clinic->name} on {$date->format('M j, Y')}. Please contact the clinic to arrange your follow-up.");
+        if (! $customMessage && $appointment->appointment_time) {
+            $body .= ' Time: '.$appointment->appointment_time->format('g:i A').'.';
+        }
         $phone = $clinic->contact_number ?: $clinic->phone;
         if (! $customMessage && $phone) {
             $body .= " Contact: {$phone}.";

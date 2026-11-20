@@ -736,7 +736,8 @@ export function OverdueFollowupPatientsSection({
       >
         <Box
           sx={{
-            p: 1.75,
+            px: 2,
+            py: 1.5,
             borderBottom: BC_BORDER,
             display: 'flex',
             justifyContent: 'space-between',
@@ -745,25 +746,20 @@ export function OverdueFollowupPatientsSection({
             gap: 1.25,
           }}
         >
-          <Box sx={{ minWidth: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Typography sx={{ fontSize: 14.5, fontWeight: 800, color: 'var(--bc-text)' }}>
-                Patients Who Did Not Return for Follow-up
-              </Typography>
-              <Chip
-                size="small"
-                label={`${overdueCases.length} overdue (\u2265 1d past due)`}
-                sx={{
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  bgcolor: overdueCases.length > 0 ? 'var(--bc-danger-bg)' : 'var(--bc-success-bg)',
-                  color: overdueCases.length > 0 ? 'var(--bc-red-strong)' : 'var(--bc-green-strong)',
-                }}
-              />
-            </Box>
-            <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', mt: 0.25 }}>
-              Patients whose scheduled anti-rabies follow-up dose is at least 1 day past due. Contact them via mobile copy, DOH SMS reminder, or log outreach attempts.
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', minWidth: 0 }}>
+            <Typography sx={{ fontSize: 14.5, fontWeight: 800, color: 'var(--bc-text)' }}>
+              Patients Who Did Not Return for Follow-up
             </Typography>
+            <Chip
+              size="small"
+              label={`${overdueCases.length} overdue (\u2265 1d past due)`}
+              sx={{
+                fontSize: 11.5,
+                fontWeight: 700,
+                bgcolor: overdueCases.length > 0 ? 'var(--bc-danger-bg)' : 'var(--bc-success-bg)',
+                color: overdueCases.length > 0 ? 'var(--bc-red-strong)' : 'var(--bc-green-strong)',
+              }}
+            />
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -784,7 +780,7 @@ export function OverdueFollowupPatientsSection({
                   ),
                 },
               }}
-              sx={{ width: { xs: '100%', sm: 230 }, '& .MuiOutlinedInput-root': { height: 34, fontSize: 12.5 } }}
+              sx={{ width: { xs: '100%', sm: 215 }, '& .MuiOutlinedInput-root': { height: 34, fontSize: 12.5 } }}
             />
 
             {canOpenVaccinationSchedule && (
@@ -802,10 +798,11 @@ export function OverdueFollowupPatientsSection({
                   bgcolor: '#0f766e',
                   color: '#ffffff',
                   height: 34,
+                  whiteSpace: 'nowrap',
                   '&:hover': { bgcolor: '#0d655e' },
                 }}
               >
-                Open Overdue in Vaccination Schedule
+                Open Overdue in Schedule
               </Button>
             )}
           </Box>
@@ -851,7 +848,7 @@ export function OverdueFollowupPatientsSection({
 
                   return (
                     <TableRow key={c.bite_id} hover>
-                      <TableCell component="th" scope="row" sx={{ minWidth: 185 }}>
+                      <TableCell component="th" scope="row" sx={{ minWidth: 160 }}>
                         <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: 'var(--bc-text)' }}>
                           {c.patient_name}
                         </Typography>
@@ -863,14 +860,14 @@ export function OverdueFollowupPatientsSection({
                         </Typography>
                       </TableCell>
 
-                      <TableCell sx={{ minWidth: 130 }}>
+                      <TableCell sx={{ minWidth: 115 }}>
                         <SemanticChip label={c.category || 'Unassessed'} />
                         <Typography sx={{ fontSize: 11, color: 'var(--bc-text-secondary)', mt: 0.4, textTransform: 'capitalize' }}>
                           {c.animal_type || 'Unknown'} · {c.bite_date || 'Date Unk'}
                         </Typography>
                       </TableCell>
 
-                      <TableCell sx={{ minWidth: 170 }}>
+                      <TableCell sx={{ minWidth: 155 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                           <Chip
                             size="small"
@@ -892,7 +889,7 @@ export function OverdueFollowupPatientsSection({
                         </Typography>
                       </TableCell>
 
-                      <TableCell sx={{ minWidth: 170 }}>
+                      <TableCell sx={{ minWidth: 135 }}>
                         {phone ? (
                           <CopyPhoneControl
                             phone={phone}
@@ -907,7 +904,7 @@ export function OverdueFollowupPatientsSection({
                         )}
                       </TableCell>
 
-                      <TableCell sx={{ minWidth: 210, maxWidth: 260 }}>
+                      <TableCell sx={{ minWidth: 150, maxWidth: 220 }}>
                         {latestLog && logTone ? (
                           <Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>

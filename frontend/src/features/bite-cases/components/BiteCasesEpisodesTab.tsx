@@ -102,10 +102,7 @@ export function BiteCasesEpisodesTab({
         >
           <Box>
             <Typography sx={{ fontSize: 14.5, fontWeight: 800, color: 'var(--bc-text)' }}>
-              All Recorded Exposure Episodes (Form 1, Form 2 &amp; Form 3)
-            </Typography>
-            <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)' }}>
-              Includes patients whose encounter stopped at Form 1 or Form 2, keeping unknown/pending fields explicit. Click any episode to inspect full stage evidence.
+              All Recorded Exposure Episodes
             </Typography>
           </Box>
 
@@ -126,12 +123,9 @@ export function BiteCasesEpisodesTab({
           className="bc-table-scroll-region"
           tabIndex={0}
           role="region"
-          aria-labelledby="cases-table-caption"
+          aria-label="All Recorded Exposure Episodes"
         >
           <Table size="small" stickyHeader>
-            <caption id="cases-table-caption" className="bc-table-caption">
-              Authorized clinical drill-down of recorded exposure episodes with Form 1 exposure details, Form 2 assessment decision, Form 3 vaccine/RIG administration, and follow-up age.
-            </caption>
             <TableHead>
               <TableRow>
                 <TableCell component="th" scope="col" sx={{ fontWeight: 700, fontSize: 12 }}>Case # &amp; Patient</TableCell>

@@ -825,17 +825,6 @@ export default function BiteCaseRiskDashboard() {
           ? `Up to ${activeDateRange.to}`
           : 'All recorded dates';
 
-  const unrecordedLocationsCount = (locations || []).filter((l) => {
-    const raw = (l.normalized_barangay || l.location || '').trim().toLowerCase();
-    return raw === 'unknown' || raw === 'not recorded' || raw === 'unrecorded' || raw === '';
-  }).reduce((sum, l) => sum + l.total_cases, 0);
-
-  const placeCompleteness = totalRecorded > 0 ? Math.round(((totalRecorded - unrecordedLocationsCount) / totalRecorded) * 100) : 100;
-  const animalUnknownCount = activeDoh?.animals.unknown ?? 0;
-  const animalCompleteness = totalRecorded > 0 ? Math.round(((totalRecorded - animalUnknownCount) / totalRecorded) * 100) : 100;
-  const ownershipKnownCount = (activeDoh?.animals.owned ?? 0) + (activeDoh?.animals.stray ?? 0);
-  const ownershipCompleteness = totalRecorded > 0 ? Math.round((ownershipKnownCount / totalRecorded) * 100) : 100;
-
   const handleCaseLogsUpdated = (biteId: number, log: PatientFollowupLog) => {
     setData((prev) => {
       if (!prev?.cases) return prev;
@@ -1022,26 +1011,6 @@ export default function BiteCaseRiskDashboard() {
         </Box>
       </Box>
 
-      {/* Metadata Line */}
-      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: { xs: 1, md: 2.25 }, mb: 2, fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
-        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
-          Period <strong style={{ color: 'var(--bc-text)' }}>{periodSummaryText}</strong>
-        </Typography>
-        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
-          Basis <strong style={{ color: 'var(--bc-text)' }}>Verified exposure date</strong>
-        </Typography>
-        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
-          Outcome cutoff <strong style={{ color: 'var(--bc-text)' }}>{cutoffLabel}</strong>
-        </Typography>
-        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
-          Episodes <strong style={{ color: 'var(--bc-text)' }}>{totalRecorded} recorded</strong>
-        </Typography>
-        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
-          Completeness <strong style={{ color: 'var(--bc-text)' }}>Place {placeCompleteness}% · Animal {animalCompleteness}% · </strong>
-          <strong style={{ color: ownershipCompleteness < 50 ? '#b45309' : 'var(--bc-text)' }}>Ownership {ownershipCompleteness}%</strong>
-        </Typography>
-      </Box>
-
       {error && (
         <Alert severity="error" sx={{ mb: 1.5 }} action={<Button size="small" onClick={() => setFilters((f) => ({ ...f }))}>Retry</Button>}>
           {error}
@@ -1076,14 +1045,6 @@ export default function BiteCaseRiskDashboard() {
               title="Recorded Exposures"
               value={totalRecorded}
               subtext={`${awaitingAssessmentCount} awaiting assessment`}
-              badgeText={
-                doh?.period_comparison?.indicators?.recorded_episodes
-                  ? `${doh.period_comparison.indicators.recorded_episodes.delta >= 0 ? '+' : ''}${doh.period_comparison.indicators.recorded_episodes.delta} vs prior`
-                  : '+9 vs prior'
-              }
-              badgeBg="#ecfdf5"
-              badgeColor="#0f766e"
-              badgeBorder="#d1fae5"
             />
 
             {/* Card 2: Category III Exposures */}
@@ -1119,7 +1080,7 @@ export default function BiteCaseRiskDashboard() {
               progressValue={completedMatureTotal}
               progressTotal={maturedCoursesTotal}
               progressColor="#0f766e"
-              subtext={`${formatPct(completedMatureTotal, maturedCoursesTotal)} · ${doh?.completion_and_outcomes.immature_courses ?? 1} active in window`}
+              subtext={`${formatPct(completedMatureTotal, maturedCoursesTotal)} · ${doh?.completion_and_outcomes.immature_courses ?? 0} ongoing treatment`}
             />
           </Box>
         )}

@@ -2,12 +2,14 @@
 
 namespace App\Http\Requests\Mobile;
 
+use App\Http\Requests\Mobile\Concerns\UsesMobileProfilePolicy;
 use App\Services\PatientMembershipService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreMobilePatientRequest extends FormRequest
 {
+    use UsesMobileProfilePolicy;
     public function authorize(): bool
     {
         return $this->user() instanceof \App\Models\PatientAccount;
@@ -22,13 +24,14 @@ class StoreMobilePatientRequest extends FormRequest
                 $this->input('emergency_contact_phone'),
             ),
         ]);
+        $this->prepareConfiguredProfile();
     }
 
     public function rules(): array
     {
         $membershipService = app(PatientMembershipService::class);
 
-        return array_merge([
+        return $this->configuredProfileRules(array_merge([
             'patient_number'           => ['nullable', 'string', 'max:50'],
             'clinic_id'                => ['sometimes', 'integer', 'exists:clinics,id'],
             'relationship'             => ['required', 'in:self,child,dependent'],
@@ -69,7 +72,7 @@ class StoreMobilePatientRequest extends FormRequest
             'other_membership'         => ['nullable', 'string', 'max:500'],
             'other_membership_name'    => ['nullable', 'string', 'max:500'],
             'other_membership_no'      => ['nullable', 'string', 'max:500'],
-        ], $membershipService->validationRules());
+        ], $membershipService->validationRules()), false);
     }
 
     public function messages(): array

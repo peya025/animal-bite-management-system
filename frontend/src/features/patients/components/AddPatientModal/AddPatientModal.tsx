@@ -563,6 +563,7 @@ export default function AddPatientModal({
       }, {
         autoQueue: canQueuePatient,
         forceCreate: confirmedDifferentPerson,
+        config,
       });
       draft.clearDraft();
       const newPatient = createdResult?.patient || createdResult?.data || createdResult;

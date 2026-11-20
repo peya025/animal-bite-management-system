@@ -22,6 +22,7 @@ use App\Http\Controllers\Clinical\TreatmentRecordController;
 use App\Http\Controllers\Developer\AppointmentDiagnosticController;
 use App\Http\Controllers\Inventory\VaccineInventoryController;
 use App\Http\Controllers\Mobile\MobileAppointmentController;
+use App\Http\Controllers\Mobile\MobileFormConfigurationController;
 use App\Http\Controllers\Mobile\MobileClinicResourceController;
 use App\Http\Controllers\Mobile\MobileHistoryController;
 use App\Http\Controllers\Mobile\MobileLocationController;
@@ -159,6 +160,7 @@ Route::prefix('mobile')->group(function () {
         Route::get('/locations/municipalities', [MobileLocationController::class, 'municipalities']);
         Route::get('/locations/barangays', [MobileLocationController::class, 'barangays']);
         Route::get('/bite-intake-schema', BiteIntakeSchemaController::class);
+        Route::get('/form-configuration', MobileFormConfigurationController::class);
 
         Route::get('/appointments', [MobileAppointmentController::class, 'index']);
         Route::post('/appointments', [MobileAppointmentController::class, 'store']);
@@ -505,6 +507,15 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     // Vaccine Inventory (accessible to clinic staff & admins)
     Route::prefix('inventory')->middleware('role:admin,treatment,developer,triage,registration')->group(function () {
         Route::get('/statistics', [VaccineInventoryController::class, 'statistics']);
+        Route::get('/vials', [VaccineInventoryController::class, 'listVials']);
+        Route::get('/vials/{vialId}', [VaccineInventoryController::class, 'showVial'])->whereNumber('vialId');
+        Route::post('/vials/{vialId}/expire', [VaccineInventoryController::class, 'expireVial'])
+            ->whereNumber('vialId')
+            ->middleware('role:admin,treatment,developer');
+        Route::post('/vials/{vialId}/dispose', [VaccineInventoryController::class, 'disposeVialRecord'])
+            ->whereNumber('vialId')
+            ->middleware('role:admin,treatment,developer');
+        Route::get('/wastages', [VaccineInventoryController::class, 'listWastages']);
         Route::get('/', [VaccineInventoryController::class, 'index']);
         Route::post('/', [VaccineInventoryController::class, 'store']);
         Route::get('/{id}', [VaccineInventoryController::class, 'show']);

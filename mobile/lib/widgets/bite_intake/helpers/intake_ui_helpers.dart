@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_theme.dart';
+import '../../../utils/configured_field_policy.dart';
 import '../../buttons/primary_action_button.dart';
 
 /// Standard form field label for intake steps.
@@ -215,31 +216,45 @@ class IntakeReadOnlyField extends StatelessWidget {
   }
 }
 
-/// Step progress indicator showing step title, percentage, and 5 progress segments.
+/// Step progress indicator showing step title, percentage, and active progress segments.
 class IntakeStepProgress extends StatelessWidget {
-  const IntakeStepProgress({super.key, required this.currentStep});
+  const IntakeStepProgress({
+    super.key,
+    required this.currentStep,
+    this.activeSteps = const [
+      IntakeStepId.patient,
+      IntakeStepId.incident,
+      IntakeStepId.animal,
+      IntakeStepId.history,
+      IntakeStepId.review,
+    ],
+    this.currentStepId,
+  });
 
   final int currentStep;
+  final List<IntakeStepId> activeSteps;
+  final IntakeStepId? currentStepId;
 
   @override
   Widget build(BuildContext context) {
-    final title = switch (currentStep) {
-      0 => 'Step 1 of 5 — Patient',
-      1 => 'Step 2 of 5 — Incident details',
-      2 => 'Step 3 of 5 — Animal details',
-      3 => 'Step 4 of 5 — Previous history',
-      4 => 'Step 5 of 5 — Review and book',
-      _ => 'Step 1 of 5 — Patient',
+    final total = activeSteps.length;
+    final resolvedStepId =
+        currentStepId ??
+        (currentStep >= 0 && currentStep < total
+            ? activeSteps[currentStep]
+            : activeSteps.first);
+    final stepIndex = activeSteps.indexOf(resolvedStepId).clamp(0, total - 1);
+    final label = switch (resolvedStepId) {
+      IntakeStepId.patient => 'Patient',
+      IntakeStepId.incident => 'Incident details',
+      IntakeStepId.animal => 'Animal details',
+      IntakeStepId.history => 'Previous history',
+      IntakeStepId.review => 'Review and book',
     };
-
-    final percent = switch (currentStep) {
-      0 => '20%',
-      1 => '40%',
-      2 => '60%',
-      3 => '80%',
-      4 => '100%',
-      _ => '20%',
-    };
+    final title = 'Step ${stepIndex + 1} of $total — $label';
+    final percent = stepIndex == total - 1
+        ? '100%'
+        : '${((stepIndex + 1) * 100 ~/ total)}%';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -247,14 +262,17 @@ class IntakeStepProgress extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               percent,
               style: const TextStyle(
@@ -268,13 +286,13 @@ class IntakeStepProgress extends StatelessWidget {
         const SizedBox(height: 8),
         Row(
           children: [
-            for (int i = 0; i < 5; i++) ...[
+            for (int i = 0; i < total; i++) ...[
               if (i > 0) const SizedBox(width: 6),
               Expanded(
                 child: Container(
                   height: 4,
                   decoration: BoxDecoration(
-                    color: currentStep >= i
+                    color: stepIndex >= i
                         ? AppColors.primary
                         : const Color(0xFFE1F5EE),
                     borderRadius: BorderRadius.circular(2),
@@ -289,7 +307,7 @@ class IntakeStepProgress extends StatelessWidget {
   }
 }
 
-/// Step navigation bar providing Back and Next/Submit buttons.
+/// Step navigation bar providing Back and Next/Submit buttons driven by active step IDs.
 class IntakeStepNavigation extends StatelessWidget {
   const IntakeStepNavigation({
     super.key,
@@ -301,6 +319,14 @@ class IntakeStepNavigation extends StatelessWidget {
     required this.onNextStep2,
     required this.onNextStep3,
     required this.onSubmitStep4,
+    this.activeSteps = const [
+      IntakeStepId.patient,
+      IntakeStepId.incident,
+      IntakeStepId.animal,
+      IntakeStepId.history,
+      IntakeStepId.review,
+    ],
+    this.currentStepId,
   });
 
   final int currentStep;
@@ -311,134 +337,105 @@ class IntakeStepNavigation extends StatelessWidget {
   final VoidCallback onNextStep2;
   final VoidCallback onNextStep3;
   final VoidCallback onSubmitStep4;
+  final List<IntakeStepId> activeSteps;
+  final IntakeStepId? currentStepId;
+
+  String _nextLabel(IntakeStepId nextId) {
+    return switch (nextId) {
+      IntakeStepId.patient => 'Next: Patient',
+      IntakeStepId.incident => 'Next: Incident details',
+      IntakeStepId.animal => 'Next: Animal details',
+      IntakeStepId.history => 'Next: Previous history',
+      IntakeStepId.review => 'Next: Review and book',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
-    switch (currentStep) {
-      case 0:
-        return PrimaryActionButton(
-          label: 'Next: Incident details',
-          onPressed: onNextStep0,
-        );
-      case 1:
-        return Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: onBack,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: const BorderSide(color: Color(0xFFD1D5DB)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text(
-                  'Back',
-                  style: TextStyle(color: Color(0xFF374151)),
+    final resolvedStepId =
+        currentStepId ??
+        (currentStep >= 0 && currentStep < activeSteps.length
+            ? activeSteps[currentStep]
+            : activeSteps.first);
+    final idx = activeSteps.indexOf(resolvedStepId);
+
+    if (resolvedStepId == IntakeStepId.review) {
+      return Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: isSubmitting ? null : onBack,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                side: const BorderSide(color: Color(0xFFD1D5DB)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: PrimaryActionButton(
-                label: 'Next: Animal details',
-                onPressed: onNextStep1,
+              child: const Text(
+                'Back',
+                style: TextStyle(color: Color(0xFF374151)),
               ),
             ),
-          ],
-        );
-      case 2:
-        return Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: onBack,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: const BorderSide(color: Color(0xFFD1D5DB)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text(
-                  'Back',
-                  style: TextStyle(color: Color(0xFF374151)),
-                ),
-              ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: PrimaryActionButton(
+              label: 'Confirm and book',
+              isLoading: isSubmitting,
+              onPressed: onSubmitStep4,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: PrimaryActionButton(
-                label: 'Next: Previous history',
-                onPressed: onNextStep2,
-              ),
-            ),
-          ],
-        );
-      case 3:
-        return Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: onBack,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: const BorderSide(color: Color(0xFFD1D5DB)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text(
-                  'Back',
-                  style: TextStyle(color: Color(0xFF374151)),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: PrimaryActionButton(
-                label: 'Next: Review and book',
-                onPressed: onNextStep3,
-              ),
-            ),
-          ],
-        );
-      case 4:
-        return Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: isSubmitting ? null : onBack,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: const BorderSide(color: Color(0xFFD1D5DB)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text(
-                  'Back',
-                  style: TextStyle(color: Color(0xFF374151)),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: PrimaryActionButton(
-                label: 'Confirm and book',
-                isLoading: isSubmitting,
-                onPressed: onSubmitStep4,
-              ),
-            ),
-          ],
-        );
-      default:
-        return const SizedBox.shrink();
+          ),
+        ],
+      );
     }
+
+    final nextStepId = (idx >= 0 && idx + 1 < activeSteps.length)
+        ? activeSteps[idx + 1]
+        : IntakeStepId.review;
+    final onNext = switch (resolvedStepId) {
+      IntakeStepId.patient => onNextStep0,
+      IntakeStepId.incident => onNextStep1,
+      IntakeStepId.animal => onNextStep2,
+      IntakeStepId.history => onNextStep3,
+      IntakeStepId.review => onSubmitStep4,
+    };
+
+    if (idx <= 0) {
+      return PrimaryActionButton(
+        label: _nextLabel(nextStepId),
+        onPressed: onNext,
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: isSubmitting ? null : onBack,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: const BorderSide(color: Color(0xFFD1D5DB)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text(
+              'Back',
+              style: TextStyle(color: Color(0xFF374151)),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: PrimaryActionButton(
+            label: _nextLabel(nextStepId),
+            onPressed: onNext,
+          ),
+        ),
+      ],
+    );
   }
 }

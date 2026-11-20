@@ -75,7 +75,7 @@ export function DoseRow({
         {isCompleted ? (
           <span style={{ color: '#15803d', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} color="#15803d" />
-            <span>Administered {Number(dose.total_doses) > 1 ? `(${dose.next_dose_index || 1}/${dose.total_doses} of 1 vial)` : ''}</span>
+            <span>Administered {Number(dose.total_doses) > 1 ? `(Dose ${dose.next_dose_index || 1} of ${dose.total_doses})` : ''}</span>
             {(dose.signature_path || dose.signature) && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginLeft: 4, color: '#047857' }}>
                 · <HugeiconsIcon icon={SignatureIcon} size={12} color="#047857" /> Signed

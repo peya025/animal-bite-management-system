@@ -2,11 +2,13 @@
 
 namespace App\Http\Requests\Mobile;
 
+use App\Http\Requests\Mobile\Concerns\UsesMobileIntakePolicy;
 use App\Support\BiteIntakeContract;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateMobileAppointmentIntakeRequest extends FormRequest
 {
+    use UsesMobileIntakePolicy;
     public function authorize(): bool
     {
         return $this->user() !== null;
@@ -14,23 +16,15 @@ class UpdateMobileAppointmentIntakeRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $input = $this->all();
-        if (isset($input['intake']) && is_array($input['intake'])) {
-            $this->merge([
-                'intake' => BiteIntakeContract::normalize($input['intake']),
-            ]);
-        } else {
-            $this->merge([
-                'intake' => BiteIntakeContract::normalize($input),
-            ]);
-        }
+        $this->prepareConfiguredIntake(true);
     }
 
     public function rules(): array
     {
+        $policy = $this->intakePolicy(true);
         return [
-            'intake' => ['required', 'array'],
-            ...BiteIntakeContract::validationRules('intake.'),
+            'intake' => $policy->intakeEnabled() ? ['required', 'array'] : ['nullable', 'array'],
+            ...$policy->intakeRules(true),
         ];
     }
 

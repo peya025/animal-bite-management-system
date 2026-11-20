@@ -1,6 +1,8 @@
 import type { DuplicateCheckResponse, EnrolmentFormData } from '../types';
+import type { ClinicModuleConfig } from '../../../types';
 import api from '../../../shared/services/api';
 import { buildLegacyMembershipFields } from '../utils/memberships';
+import { filterConfiguredPatientCreatePayload } from '../../../shared/forms/configuredPayload';
 
 export async function fetchPatientsList(params: { page?: number; perPage?: number; search?: string }) {
   const response = await api.get('/patients', {
@@ -44,7 +46,7 @@ export async function checkDuplicatePatients(
 export async function createPatientRecord(
   enrolment: EnrolmentFormData,
   addressDetails: { full: string; munName: string; brgyName: string; purok: string },
-  options: { autoQueue?: boolean; forceCreate?: boolean } = {}
+  options: { autoQueue?: boolean; forceCreate?: boolean; config?: ClinicModuleConfig | null } = {}
 ) {
   // Map and clean payload to prevent 422 errors (empty strings failing enum validation)
   const cleanField = (val: string) => val.trim() === '' ? null : val;
@@ -129,7 +131,10 @@ export async function createPatientRecord(
   };
 
   try {
-    const res = await api.post('/patients', payload);
+    const body = options.config
+      ? filterConfiguredPatientCreatePayload(options.config, payload as Record<string, unknown>)
+      : payload;
+    const res = await api.post('/patients', body);
     const patientData = res.data;
     const patientId = patientData.patient?.patient_id || patientData.data?.patient_id || patientData.patient_id;
 

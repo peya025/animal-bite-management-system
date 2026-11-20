@@ -7,6 +7,8 @@ import '../models/booking_draft.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_profile_form_args.dart';
 import '../services/api.dart';
+import '../services/form_configuration_repository.dart';
+import '../utils/configured_field_policy.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../widgets/booking/booking_summary.dart';
 import '../widgets/booking/date_selector.dart';
@@ -351,6 +353,77 @@ class _BookingViewState extends State<BookingView> {
     );
 
     if (_service == BookingService.consultation) {
+      setState(() => _booking = true);
+      try {
+        final config = await const FormConfigurationRepository().forPatient(
+          patient.id,
+          forceRefresh: true,
+        );
+        if (!mounted) return;
+        final policy = ConfiguredFieldPolicy(config);
+        final missingFields = policy.missingRequiredProfileFields(patient);
+        if (missingFields.isNotEmpty) {
+          setState(() => _booking = false);
+          final labels = missingFields
+              .map(ConfiguredFieldPolicy.labelForProfileField)
+              .toList();
+          final shouldEdit = await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              icon: const Icon(
+                Icons.assignment_late_outlined,
+                color: AppColors.primary,
+                size: 32,
+              ),
+              title: const Text('Complete patient profile'),
+              content: Text(
+                'Before booking a consultation, please complete the required profile details for ${patient.name}:\n\n• ${labels.join('\n• ')}',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Update profile'),
+                ),
+              ],
+            ),
+          );
+          if (shouldEdit == true && mounted) {
+            final updated = await Navigator.of(context).pushNamed(
+              AppRoutes.profileSetup,
+              arguments: PatientProfileFormArgs(
+                patient: patient,
+                returnToBooking: true,
+              ),
+            );
+            if (updated is PatientProfile && mounted) {
+              await _loadPatients(selectPatientId: updated.id);
+              if (mounted) {
+                setState(() => _selectedPatient = updated);
+              }
+            }
+          }
+          return;
+        }
+      } catch (error) {
+        if (mounted) {
+          setState(() => _booking = false);
+          AppToast.error(context, error.toString());
+        }
+        return;
+      } finally {
+        if (mounted && _booking) {
+          setState(() => _booking = false);
+        }
+      }
+
+      if (!mounted) return;
       await Navigator.of(context).pushNamed(
         AppRoutes.biteIntake,
         arguments: BiteIntakeRouteArgs(patient: patient, booking: booking),

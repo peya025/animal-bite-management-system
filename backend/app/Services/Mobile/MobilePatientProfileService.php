@@ -5,6 +5,7 @@ namespace App\Services\Mobile;
 use App\Models\Patient;
 use App\Models\PatientAccount;
 use App\Services\PatientMembershipService;
+use App\Services\Clinic\MobileFormPolicy;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -129,6 +130,11 @@ class MobilePatientProfileService
         }
 
         if ($matchedPatient) {
+            if ((int) $matchedPatient->clinic_id !== (int) $validated['clinic_id']) {
+                throw ValidationException::withMessages([
+                    'patient_number' => ['This clinic cannot link a chart from a different clinic.'],
+                ]);
+            }
             // Check if already linked to this account
             if ($account->patients()->where('patients.patient_id', $matchedPatient->patient_id)->exists()) {
                 throw ValidationException::withMessages([
@@ -171,17 +177,11 @@ class MobilePatientProfileService
                 $detailsData = array_diff_key($validated, array_flip(self::PATIENT_FIELDS));
                 $detailsPayload = array_filter(array_map(fn($value) => ($value === '' ? null : $value), $detailsData));
 
-                if (!empty($detailsPayload)) {
-                    if ($matchedPatient->details) {
-                        $matchedPatient->details->update($detailsPayload);
-                    } else {
-                        $matchedPatient->details()->create($detailsPayload);
-                    }
-                }
-
-                $memberships = $this->membershipService->membershipsFromPayload($rawInput);
-                if (!empty($memberships)) {
-                    $this->membershipService->syncForPatient($matchedPatient, $memberships);
+                $this->mergeMobileMemberships($matchedPatient, $rawInput, $detailsPayload);
+                if ($matchedPatient->details && $detailsPayload) {
+                    $matchedPatient->details->update($detailsPayload);
+                } elseif (! $matchedPatient->details && $detailsPayload) {
+                    $matchedPatient->details()->create($detailsPayload);
                 }
             });
 
@@ -206,14 +206,11 @@ class MobilePatientProfileService
             ]);
 
             $detailsPayload = array_map(fn($value) => ($value === '' ? null : $value), $detailsData);
-            $memberships = $this->membershipService->membershipsFromPayload($rawInput);
-            $detailsPayload = array_merge($detailsPayload, $this->membershipService->legacyFieldsFromMemberships($memberships));
+            $this->mergeMobileMemberships($patient, $rawInput, $detailsPayload);
 
             if (!empty(array_filter($detailsPayload, fn($value) => !is_null($value)))) {
                 $patient->details()->create($detailsPayload);
             }
-
-            $this->membershipService->syncForPatient($patient, $memberships);
 
             $account->patients()->attach($patient->patient_id, [
                 'relationship' => $relationship,
@@ -264,16 +261,13 @@ class MobilePatientProfileService
             $linkedPatient->update($patientData);
 
             $detailsPayload = array_map(fn($value) => ($value === '' ? null : $value), $detailsData);
-            $memberships = $this->membershipService->membershipsFromPayload($rawInput);
-            $detailsPayload = array_merge($detailsPayload, $this->membershipService->legacyFieldsFromMemberships($memberships));
+            $this->mergeMobileMemberships($linkedPatient, $rawInput, $detailsPayload);
 
             if ($linkedPatient->details) {
                 $linkedPatient->details->update($detailsPayload);
             } elseif (!empty(array_filter($detailsPayload, fn($value) => !is_null($value)))) {
                 $linkedPatient->details()->create($detailsPayload);
             }
-
-            $this->membershipService->syncForPatient($linkedPatient, $memberships);
 
             $account->patients()->updateExistingPivot($linkedPatient->patient_id, [
                 'relationship' => $relationship,
@@ -286,5 +280,77 @@ class MobilePatientProfileService
         Cache::forget("mobile:account:me:{$account->id}");
 
         return $updatedPatient;
+    }
+
+    /** Merge only membership types the current clinic allows this mobile form to edit. */
+    private function mergeMobileMemberships(Patient $patient, array $input, array &$detailsPayload): void
+    {
+        $policy = app()->makeWith(MobileFormPolicy::class, ['clinicId' => (int) $patient->clinic_id]);
+        $editable = $policy->editableMembershipTypes();
+        if ($editable === [] || ! $this->membershipService->payloadHasMembershipData($input)) {
+            return;
+        }
+
+        $existing = $patient->memberships()->get()->mapWithKeys(
+            fn ($membership) => [$membership->membership_type => $membership->only([
+                'membership_type', 'is_active', 'status_value', 'category',
+                'relationship_value', 'registered_beneficiary', 'membership_id_no',
+                'membership_label', 'extra_value',
+            ])]
+        )->all();
+
+        $hasCollection = array_key_exists('memberships', $input);
+        $touched = $hasCollection ? $editable : [];
+        if (! $hasCollection) {
+            foreach ([
+                'philhealth' => ['philhealth_member', 'philhealth_status', 'philhealth_no', 'philhealth_category'],
+                'fourps' => ['fourps_member', 'fourps_category', 'fourps_relationship', 'registered_fourps_beneficiary'],
+                'dswd_nhts' => ['dswd_nhts'],
+                'other' => ['other_membership', 'other_membership_name', 'other_membership_no'],
+            ] as $type => $keys) {
+                if (array_intersect($keys, array_keys($input))) {
+                    $touched[] = $type;
+                }
+            }
+            if (($input['has_membership'] ?? null) === 'no') {
+                $touched = $editable;
+            }
+        }
+
+        $incoming = $this->membershipService->membershipsFromPayload($input);
+        $merged = $existing;
+        foreach ($touched as $type) {
+            if (in_array($type, $editable, true)) {
+                unset($merged[$type]);
+            }
+        }
+        foreach ($incoming as $membership) {
+            $type = $membership['membership_type'];
+            if (! in_array($type, $editable, true) || (! $hasCollection && ! in_array($type, $touched, true))) {
+                continue;
+            }
+            // A hidden detail must keep the value already stored for this membership.
+            if ($type === 'philhealth') {
+                foreach (['philhealth_status' => 'status_value', 'philhealth_no' => 'membership_id_no',
+                    'philhealth_category' => 'category'] as $field => $attribute) {
+                    if (! $policy->visible($field)) {
+                        $membership[$attribute] = $existing[$type][$attribute] ?? null;
+                    }
+                }
+            }
+            $merged[$type] = $membership;
+        }
+        $final = array_values($merged);
+        $this->membershipService->syncForPatient($patient, $final);
+
+        $legacy = $this->membershipService->legacyFieldsFromMemberships($final);
+        foreach ($legacy as $key => $value) {
+            if (($policy->visible($key) && array_key_exists($key, $input)) ||
+                (in_array($key, ['has_membership', 'other_membership', 'other_membership_name',
+                    'other_membership_no', 'fourps_category', 'fourps_relationship',
+                    'registered_fourps_beneficiary'], true) && $hasCollection)) {
+                $detailsPayload[$key] = $value;
+            }
+        }
     }
 }

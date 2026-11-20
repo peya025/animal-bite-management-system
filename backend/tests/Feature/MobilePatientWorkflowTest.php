@@ -41,7 +41,19 @@ class MobilePatientWorkflowTest extends TestCase
             'last_name'    => 'Dela Cruz',
             'gender'       => 'male',
             'date_of_birth' => '2010-01-10',
+            'address_municipality' => 'Tagoloan',
+            'address_barangay' => 'Poblacion',
+            'province' => 'Misamis Oriental',
         ];
+    }
+
+    private function completeBookingProfile(Patient $patient): void
+    {
+        $patient->details()->updateOrCreate([], [
+            'address_municipality' => 'Tagoloan',
+            'address_barangay' => 'Poblacion',
+            'province' => 'Misamis Oriental',
+        ]);
     }
 
     private function intakePayload(): array
@@ -206,6 +218,7 @@ class MobilePatientWorkflowTest extends TestCase
             'gender'              => 'male',
             'registration_source' => 'mobile',
         ]);
+        $this->completeBookingProfile($patient);
         $account->patients()->attach($patient, ['relationship' => 'self', 'status' => 'pending']);
         Sanctum::actingAs($account);
 
@@ -244,6 +257,7 @@ class MobilePatientWorkflowTest extends TestCase
             'gender' => 'male',
             'registration_source' => 'mobile',
         ]);
+        $this->completeBookingProfile($patient);
         $account->patients()->attach($patient, ['relationship' => 'self', 'status' => 'verified']);
         Sanctum::actingAs($account);
 
@@ -324,6 +338,7 @@ class MobilePatientWorkflowTest extends TestCase
             'gender' => 'male',
             'registration_source' => 'mobile',
         ]);
+        $this->completeBookingProfile($patient);
         $account->patients()->attach($patient, ['relationship' => 'self', 'status' => 'verified']);
 
         Sanctum::actingAs($account);
@@ -410,6 +425,7 @@ class MobilePatientWorkflowTest extends TestCase
             'gender' => 'Female',
             'contact_number' => '09123456789',
         ]);
+        $this->completeBookingProfile($patient);
         $patient->accounts()->attach($account->id, ['relationship' => 'self', 'status' => 'verified']);
 
         $staff = $this->registrationStaff($clinic);
@@ -472,6 +488,7 @@ class MobilePatientWorkflowTest extends TestCase
                 'gender'              => 'male',
                 'registration_source' => 'mobile',
             ]);
+            $this->completeBookingProfile($patient);
             $account->patients()->attach($patient, ['relationship' => 'self', 'status' => 'pending']);
             Sanctum::actingAs($account);
 
@@ -739,6 +756,9 @@ class MobilePatientWorkflowTest extends TestCase
                 'date_of_birth'  => '1995-05-20',
                 'gender'         => 'female',
                 'contact_number' => '09171234567',
+                'address_municipality' => 'Tagoloan',
+                'address_barangay' => 'Poblacion',
+                'province' => 'Misamis Oriental',
             ]);
 
         $res->assertStatus(201)
@@ -794,6 +814,9 @@ class MobilePatientWorkflowTest extends TestCase
                 'last_name'      => 'Nandong',
                 'date_of_birth'  => '1995-05-20',
                 'gender'         => 'female',
+                'address_municipality' => 'Tagoloan',
+                'address_barangay' => 'Poblacion',
+                'province' => 'Misamis Oriental',
             ]);
 
         $res->assertStatus(422)

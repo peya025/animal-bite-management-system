@@ -65,6 +65,15 @@ void main() {
     await tester.pumpWidget(buildIntakeView());
     await tester.pump(const Duration(milliseconds: 300));
     await tapVisible(tester, find.text('Next: Incident details'));
+    await tapVisible(tester, find.text('Select municipality'));
+    await tapVisible(tester, find.text('Tagoloan').last);
+    await tapVisible(
+      tester,
+      find.descendant(
+        of: find.byKey(const ValueKey('site-washed-validation')),
+        matching: find.text('Yes'),
+      ),
+    );
     await tapVisible(tester, find.text('Transdermal bite'));
     await tapVisible(tester, find.text('Upper extremities (arm or hand)'));
     await tapVisible(tester, find.byType(Switch));
@@ -172,6 +181,15 @@ void main() {
     await tapVisible(tester, find.text('Next: Incident details'));
 
     // Fill Step 2 required fields
+    await tapVisible(tester, find.text('Select municipality'));
+    await tapVisible(tester, find.text('Tagoloan').last);
+    await tapVisible(
+      tester,
+      find.descendant(
+        of: find.byKey(const ValueKey('site-washed-validation')),
+        matching: find.text('Yes'),
+      ),
+    );
     await tapVisible(tester, find.text('Transdermal bite'));
     await tapVisible(tester, find.text('Upper extremities (arm or hand)'));
 
@@ -219,6 +237,15 @@ void main() {
       await tapVisible(tester, find.text('Next: Incident details'));
 
       // Step 2 fields
+      await tapVisible(tester, find.text('Select municipality'));
+      await tapVisible(tester, find.text('Tagoloan').last);
+      await tapVisible(
+        tester,
+        find.descendant(
+          of: find.byKey(const ValueKey('site-washed-validation')),
+          matching: find.text('Yes'),
+        ),
+      );
       await tapVisible(tester, find.text('Transdermal bite'));
       await tapVisible(tester, find.text('Upper extremities (arm or hand)'));
 

@@ -180,7 +180,11 @@ export default function PatientEditModal({
       };
 
       if (isSectionEnabled('address_section_enabled')) {
-        payload.address = formData.address || null;
+        // Only send the composite address when both municipality and barangay are editable,
+        // otherwise a partial/stale string could overwrite the saved address.
+        if (isFieldVisible('address_municipality') && isFieldVisible('address_barangay')) {
+          payload.address = formData.address || null;
+        }
         if (isFieldVisible('address_purok')) {
           payload.address_purok = formData.address_purok || null;
         }

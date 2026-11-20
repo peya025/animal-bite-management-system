@@ -95,6 +95,9 @@ class MobilePatientProfileCharacterizationTest extends TestCase
             'contact_number'          => '09171234567',
             'blood_type'              => 'O+',
             'civil_status'            => 'married',
+            'address_municipality'    => 'Tagoloan',
+            'address_barangay'        => 'Poblacion',
+            'province'                => 'Misamis Oriental',
         ];
 
         $res1 = $this->postJson('/api/mobile/patients', $selfPayload);
@@ -114,6 +117,9 @@ class MobilePatientProfileCharacterizationTest extends TestCase
             'last_name'      => 'dela Cruz',
             'gender'         => 'male',
             'date_of_birth'  => '2015-08-20',
+            'address_municipality' => 'Tagoloan',
+            'address_barangay' => 'Poblacion',
+            'province' => 'Misamis Oriental',
         ];
 
         $res2 = $this->postJson('/api/mobile/patients', $childPayload);
@@ -135,6 +141,9 @@ class MobilePatientProfileCharacterizationTest extends TestCase
             'last_name'     => 'dela Cruz',
             'gender'        => 'male',
             'date_of_birth' => '1990-05-15',
+            'address_municipality' => 'Tagoloan',
+            'address_barangay' => 'Poblacion',
+            'province' => 'Misamis Oriental',
         ];
 
         $this->postJson('/api/mobile/patients', $payload)->assertStatus(201);
@@ -158,6 +167,9 @@ class MobilePatientProfileCharacterizationTest extends TestCase
             'last_name'               => 'Santos',
             'sex'                     => 'female', // Alias for gender
             'date_of_birth'           => '1992-03-10',
+            'address_municipality'    => 'Tagoloan',
+            'address_barangay'        => 'Poblacion',
+            'province'                => 'Misamis Oriental',
             'emergency_contact_name'  => 'Carlos Santos',
             'emergency_contact_phone' => '09189876543', // Alias for emergency_contact_number
         ];
@@ -179,6 +191,7 @@ class MobilePatientProfileCharacterizationTest extends TestCase
         Sanctum::actingAs($this->account);
 
         $payload = [
+            'clinic_id'      => $this->clinic->id,
             'relationship'   => 'self',
             'first_name'     => 'Bad',
             'last_name'      => 'Input',
@@ -332,6 +345,9 @@ class MobilePatientProfileCharacterizationTest extends TestCase
             'first_name'   => 'Juan',
             'last_name'    => 'dela Cruz',
             'gender'       => 'male',
+            'address_municipality' => 'Tagoloan',
+            'address_barangay' => 'Poblacion',
+            'province' => 'Misamis Oriental',
         ])->assertStatus(201);
 
         $this->assertFalse(Cache::has($cacheKey));

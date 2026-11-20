@@ -11,6 +11,7 @@ import { buildEnrolmentFromPatient, buildLegacyMembershipFields, toRecord } from
 import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
+import { filterConfiguredPatientUpdatePayload } from '../../../shared/forms/configuredPayload';
 import {
   PatientInfoSection,
   AddressSection,
@@ -27,7 +28,7 @@ interface EditPatientModalProps {
 }
 
 export default function EditPatientModal({ open, patient, onClose, onSuccess }: EditPatientModalProps) {
-  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
+  const { isFieldVisible, isFieldRequired, isSectionEnabled, config } = useClinicModuleConfig();
   const patientId = patient ? (patient.patient_id ?? patient.id) : null;
   const draft = useFormDraft(patientId ? `edit-patient-${patientId}` : null);
 
@@ -266,8 +267,10 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
       payload.memberships = membershipFields.memberships;
     }
 
+    const safePayload = filterConfiguredPatientUpdatePayload(config, payload);
+
     try {
-      await api.put(`/patients/${patientId}`, payload);
+      await api.put(`/patients/${patientId}`, safePayload);
       draft.clearDraft();
       onSuccess();
     } catch (err: unknown) {

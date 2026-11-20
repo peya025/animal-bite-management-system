@@ -11,6 +11,8 @@ use App\Models\Patient;
 use App\Models\Queue;
 use App\Models\TagoloanTreatmentCard;
 use App\Models\TreatmentRecord;
+use App\Models\VaccineVial;
+use App\Models\VaccineVialWastage;
 use App\Services\Clinic\StationCapabilityPolicy;
 use App\Services\VaccinationRecordService;
 use App\Services\VaccineInventoryUsageService;
@@ -113,7 +115,12 @@ class VaccinationRecordController extends Controller
             ->with([
                 'patient.details',
                 'administeredBy:id,name,role,professional_license_no,signature_path',
-                'inventory:inventory_id,batch_number,vaccine_type,doses_per_vial',
+                'inventory:inventory_id,batch_number,vaccine_type,doses_per_vial,expiration_date,status',
+                'vial.inventory:inventory_id,batch_number,vaccine_type,expiration_date,status',
+                'vial.openedBy:id,name',
+                'vial.expiredBy:id,name',
+                'vial.disposedBy:id,name',
+                'vial.wastages.disposedBy:id,name',
                 'biteIncident:bite_id,case_number,bite_date,severity,exposure_type,wound_description',
             ]);
 
@@ -126,6 +133,8 @@ class VaccinationRecordController extends Controller
                        ->orWhere('patient_id', 'like', "%{$search}%")
                 )->orWhereHas('biteIncident', fn($bq) =>
                     $bq->where('case_number', 'like', "%{$search}%")
+                )->orWhereHas('vial', fn($vq) =>
+                    $vq->where('vial_code', 'like', "%{$search}%")
                 )->orWhere('treatment_records.batch_no', 'like', "%{$search}%")
             );
         }
@@ -138,6 +147,33 @@ class VaccinationRecordController extends Controller
         }
         if ($request->filled('dose') && $request->dose !== 'all') {
             $query->where('treatment_records.dose_number', (int) $request->dose);
+        }
+        if ($request->filled('vial_status') && $request->vial_status !== 'all') {
+            $vialStatus = $request->vial_status;
+            if ($vialStatus === VaccineVial::STATUS_OPENED) {
+                $query->whereHas('vial', fn($vq) =>
+                    $vq->where('status', VaccineVial::STATUS_OPENED)
+                       ->where(fn($tq) => $tq->whereNull('use_by_at')->orWhere('use_by_at', '>', now()))
+                );
+            } elseif ($vialStatus === VaccineVial::STATUS_EXPIRED) {
+                $query->whereHas('vial', fn($vq) =>
+                    $vq->where('status', VaccineVial::STATUS_EXPIRED)
+                       ->orWhere(fn($oq) =>
+                           $oq->where('status', VaccineVial::STATUS_OPENED)
+                              ->whereNotNull('use_by_at')
+                              ->where('use_by_at', '<=', now())
+                       )
+                );
+            } elseif ($vialStatus === VaccineVial::STATUS_DEPLETED) {
+                $query->whereHas('vial', fn($vq) => $vq->where('status', VaccineVial::STATUS_DEPLETED));
+            } elseif ($vialStatus === VaccineVial::STATUS_DISPOSED) {
+                $query->whereHas('vial', fn($vq) => $vq->where('status', VaccineVial::STATUS_DISPOSED));
+            } elseif ($vialStatus === 'external') {
+                $query->where('treatment_records.is_external', true);
+            } elseif ($vialStatus === 'unlinked') {
+                $query->whereNull('treatment_records.vial_id')
+                      ->where(fn($eq) => $eq->whereNull('treatment_records.is_external')->orWhere('treatment_records.is_external', false));
+            }
         }
         if ($request->filled('date')) {
             $query->whereDate('treatment_records.treatment_date', $request->date);
@@ -160,23 +196,69 @@ class VaccinationRecordController extends Controller
         $catMap   = ['minor' => 'Category I', 'moderate' => 'Category II', 'severe' => 'Category III'];
 
         $transformed = $paginated->getCollection()->map(function ($r) use ($doseMap, $catMap) {
-            $dpv        = max(1, (int) ($r->inventory?->doses_per_vial ?? 3));
             $units      = (int) ($r->inventory_units_used ?? 0);
             $isExternal = (bool) $r->is_external;
+            $vial       = $r->vial;
             $isShared   = ($units === 0 && !$isExternal);
 
-            $doseLabel  = $doseMap[$r->dose_number] ?? "Dose {$r->dose_number}";
-            $doseIndex  = 1;
-            if (preg_match('/Dose\s+(\d+)\s+of\s+(\d+)/i', (string) ($r->administration_notes ?? $r->remarks), $matches)) {
-                $doseIndex = (int) $matches[1];
-            } elseif ($isShared) {
-                $doseIndex = 2;
+            $doseLabel = $doseMap[$r->dose_number] ?? "Dose {$r->dose_number}";
+
+            if ($vial) {
+                $dpv       = max(1, (int) $vial->total_portions);
+                $doseIndex = (int) ($r->vial_portion_number ?? 1);
+            } else {
+                $parsedTotal = null;
+                $doseIndex   = null;
+                if (preg_match('/Dose\s+(\d+)\s+of\s+(\d+)/i', (string) ($r->administration_notes ?? $r->remarks), $matches)) {
+                    $doseIndex   = (int) $matches[1];
+                    $parsedTotal = (int) $matches[2];
+                }
+                $dpv = $parsedTotal ?? ($r->inventory?->doses_per_vial ? max(1, (int) $r->inventory->doses_per_vial) : null);
             }
 
-            $sev              = strtolower((string) ($r->biteIncident?->severity ?? ''));
-            $patientName      = $r->patient
+            $sev         = strtolower((string) ($r->biteIncident?->severity ?? ''));
+            $patientName = $r->patient
                 ? trim("{$r->patient->last_name}, {$r->patient->first_name} " . ($r->patient->middle_name ?? ''))
                 : 'Unknown Patient';
+
+            $vialPayload = null;
+            if ($vial) {
+                $effectiveStatus = $vial->effective_status;
+                $vialPayload     = [
+                    'vial_id'               => $vial->vial_id,
+                    'vial_code'             => $vial->vial_code ?: "V-{$vial->vial_id}",
+                    'inventory_id'          => $vial->inventory_id,
+                    'vaccine_type'          => $vial->vaccine_type,
+                    'batch_number'          => $vial->batch_number,
+                    'total_portions'        => (int) $vial->total_portions,
+                    'administered_portions' => (int) $vial->administered_portions,
+                    'discarded_portions'    => (int) $vial->discarded_portions,
+                    'available_portions'    => (int) $vial->available_portions,
+                    'undisposed_portions'   => (int) $vial->undisposed_portions,
+                    'status'                => $vial->status,
+                    'effective_status'      => $effectiveStatus,
+                    'is_expired'            => $effectiveStatus === VaccineVial::STATUS_EXPIRED,
+                    'is_disposed'           => $effectiveStatus === VaccineVial::STATUS_DISPOSED,
+                    'open_vial_hours'       => $vial->open_vial_hours,
+                    'opened_at'             => $vial->opened_at?->format('Y-m-d H:i:s'),
+                    'use_by_at'             => $vial->use_by_at?->format('Y-m-d H:i:s'),
+                    'opened_by_name'        => $vial->openedBy?->name,
+                    'expired_at'            => $vial->expired_at?->format('Y-m-d H:i:s'),
+                    'expired_by_name'       => $vial->expiredBy?->name,
+                    'expired_reason'        => $vial->expired_reason,
+                    'disposed_at'           => $vial->disposed_at?->format('Y-m-d H:i:s'),
+                    'disposed_by_name'      => $vial->disposedBy?->name,
+                    'wastage_reason'        => $vial->wastage_reason,
+                    'summary_text'          => $vial->buildSummaryText(),
+                    'wastages'              => $vial->wastages->map(fn ($w) => [
+                        'wastage_id'         => $w->wastage_id,
+                        'portions_discarded' => (int) $w->portions_discarded,
+                        'reason'             => $w->reason,
+                        'disposed_at'        => $w->disposed_at?->format('Y-m-d H:i:s'),
+                        'disposed_by_name'   => $w->disposedBy?->name ?: 'Staff',
+                    ])->values(),
+                ];
+            }
 
             return [
                 'treatment_id'              => $r->treatment_id,
@@ -199,12 +281,17 @@ class VaccinationRecordController extends Controller
                 'administered_by_signature' => $r->signature,
                 'is_external'               => $isExternal,
                 'external_facility_name'    => $r->external_facility_name,
+                'vial_id'                   => $vial?->vial_id,
+                'vial_code'                 => $vialPayload['vial_code'] ?? null,
+                'vial_portion_number'       => $vial ? (int) ($r->vial_portion_number ?? 1) : null,
+                'vial'                      => $vialPayload,
+                'is_legacy_unlinked'        => !$isExternal && !$vial,
                 'doses_per_vial'            => $dpv,
                 'inventory_units_used'      => $units,
                 'is_shared'                 => $isShared,
                 'dose_index'                => $doseIndex,
-                'fraction_used'             => $isExternal ? 'External Clinic (0 vials)' : ($dpv > 1 ? "1/{$dpv} vial" : '1 vial'),
-                'usage_badge'               => $isExternal ? 'External' : ($isShared ? 'Shared Open Vial (0 deducted)' : 'New Vial Opened (1 deducted)'),
+                'fraction_used'             => $isExternal ? 'External (0 vials)' : ($dpv && $dpv > 1 ? "1 dose (1/{$dpv} vial)" : ($dpv ? '1 vial' : 'Legacy record')),
+                'usage_badge'               => $isExternal ? 'External · 0 deducted' : ($vial ? ($units === 0 ? 'Shared Open Vial · 0 deducted' : 'New Vial · 1 deducted') : 'Legacy Record'),
                 'diagnosis_category'        => $catMap[$sev] ?? ($r->biteIncident?->severity ? ucfirst($r->biteIncident->severity) : 'Category II'),
                 'diagnosis_notes'           => $r->biteIncident?->wound_description ?: $r->biteIncident?->remarks,
                 'remarks'                   => $r->remarks,
@@ -217,6 +304,25 @@ class VaccinationRecordController extends Controller
         $todayCount     = TreatmentRecord::where('clinic_id', $clinicId)->whereNotNull('dose_number')->whereDate('treatment_date', $today)->count();
         $uniquePatients = TreatmentRecord::where('clinic_id', $clinicId)->whereNotNull('dose_number')->distinct('patient_id')->count('patient_id');
 
+        $openVialsCount = VaccineVial::where('clinic_id', $clinicId)
+            ->where('status', VaccineVial::STATUS_OPENED)
+            ->where(fn ($q) => $q->whereNull('use_by_at')->orWhere('use_by_at', '>', now()))
+            ->count();
+
+        $expiredPendingDisposalCount = VaccineVial::where('clinic_id', $clinicId)
+            ->where(function ($q) {
+                $q->where('status', VaccineVial::STATUS_EXPIRED)
+                  ->orWhere(function ($oq) {
+                      $oq->where('status', VaccineVial::STATUS_OPENED)
+                         ->whereNotNull('use_by_at')
+                         ->where('use_by_at', '<=', now());
+                  });
+            })
+            ->whereRaw('(total_portions - administered_portions - discarded_portions) > 0')
+            ->count();
+
+        $totalDiscardedPortions = (int) VaccineVialWastage::where('clinic_id', $clinicId)->sum('portions_discarded');
+
         return response()->json([
             'data'         => $transformed,
             'total'        => $paginated->total(),
@@ -224,9 +330,12 @@ class VaccinationRecordController extends Controller
             'last_page'    => $paginated->lastPage(),
             'per_page'     => $paginated->perPage(),
             'stats'        => [
-                'total_administrations' => $totalCount,
-                'today_administrations' => $todayCount,
-                'unique_patients'       => $uniquePatients,
+                'total_administrations'          => $totalCount,
+                'today_administrations'          => $todayCount,
+                'unique_patients'                => $uniquePatients,
+                'open_vials_count'               => $openVialsCount,
+                'expired_pending_disposal_count' => $expiredPendingDisposalCount,
+                'total_discarded_portions'       => $totalDiscardedPortions,
             ],
         ]);
     }

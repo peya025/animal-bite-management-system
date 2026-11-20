@@ -4,11 +4,12 @@ import 'package:flutter/foundation.dart';
 class BiteIntakeDraft {
   const BiteIntakeDraft({
     required this.schemaVersion,
-    required this.dateOfExposure,
-    this.siteWashed = false,
-    required this.reportedModeOfExposure,
-    required this.animalSpecies,
-    required this.animalOwnership,
+    this.dateOfExposure,
+    this.siteWashed,
+    this.reportedModeOfExposure,
+    this.animalSpecies,
+    this.animalOwnership,
+    this.animalCaptured,
     this.timeOfExposure,
     this.placeOfExposure,
     this.animalSpeciesOther,
@@ -37,14 +38,15 @@ class BiteIntakeDraft {
   });
 
   final String schemaVersion;
-  final DateTime dateOfExposure;
+  final DateTime? dateOfExposure;
   final String? timeOfExposure;
   final String? placeOfExposure;
-  final bool siteWashed;
-  final String reportedModeOfExposure;
-  final String animalSpecies;
+  final bool? siteWashed;
+  final String? reportedModeOfExposure;
+  final String? animalSpecies;
   final String? animalSpeciesOther;
-  final String animalOwnership;
+  final String? animalOwnership;
+  final bool? animalCaptured;
   final bool? animalAvailableForObservation;
   final String? animalConditionReported;
   final String? bodyPartGroup;
@@ -68,37 +70,49 @@ class BiteIntakeDraft {
   final DateTime? priorPepDate;
   final String? priorPepFacility;
 
-  Map<String, dynamic> toJson() => {
-    'schema_version': schemaVersion,
-    'date_of_exposure': dateOfExposure.toIso8601String().split('T').first,
-    'time_of_exposure': timeOfExposure,
-    'place_of_exposure': placeOfExposure,
-    'site_washed': siteWashed,
-    'wash_method': washMethod,
-    'wash_duration_minutes': washDurationMinutes,
-    'reported_mode_of_exposure': reportedModeOfExposure,
-    'animal_species': animalSpecies,
-    'animal_species_other': animalSpeciesOther,
-    'animal_ownership': animalOwnership,
-    'animal_available_for_observation': animalAvailableForObservation,
-    'animal_condition_reported': animalConditionReported,
-    'body_part_group': bodyPartGroup,
-    'body_part_detail': bodyPartDetail,
-    'laterality': laterality,
-    'incident_narrative': incidentNarrative,
-    'care_received': careReceived,
-    'referral_source': referralSource,
-    'referral_facility': referralFacility,
-    'referral_blood_pressure': referralBloodPressure,
-    'referral_temperature': referralTemperature,
-    'referral_height': referralHeight,
-    'referral_weight': referralWeight,
-    'referral_provider_name': referralProviderName,
-    'referral_document_photo': referralDocumentPhoto,
-    'past_bite_history': pastBiteHistory,
-    'past_bite_dates': pastBiteDates,
-    'prior_pep_status': priorPepStatus,
-    'prior_pep_date': priorPepDate?.toIso8601String().split('T').first,
-    'prior_pep_facility': priorPepFacility,
-  };
+  Map<String, dynamic> toJson() {
+    final map = <String, dynamic>{'schema_version': schemaVersion};
+    void put(String key, dynamic value) {
+      if (value != null) {
+        map[key] = value;
+      }
+    }
+
+    if (dateOfExposure != null) {
+      map['date_of_exposure'] = dateOfExposure!.toIso8601String().split('T').first;
+    }
+    put('time_of_exposure', timeOfExposure);
+    put('place_of_exposure', placeOfExposure);
+    put('site_washed', siteWashed);
+    put('wash_method', washMethod);
+    put('wash_duration_minutes', washDurationMinutes);
+    put('reported_mode_of_exposure', reportedModeOfExposure);
+    put('animal_species', animalSpecies);
+    put('animal_species_other', animalSpeciesOther);
+    put('animal_ownership', animalOwnership);
+    put('animal_captured', animalCaptured);
+    put('animal_available_for_observation', animalAvailableForObservation);
+    put('animal_condition_reported', animalConditionReported);
+    put('body_part_group', bodyPartGroup);
+    put('body_part_detail', bodyPartDetail);
+    put('laterality', laterality);
+    put('incident_narrative', incidentNarrative);
+    put('care_received', careReceived);
+    put('referral_source', referralSource);
+    put('referral_facility', referralFacility);
+    put('referral_blood_pressure', referralBloodPressure);
+    put('referral_temperature', referralTemperature);
+    put('referral_height', referralHeight);
+    put('referral_weight', referralWeight);
+    put('referral_provider_name', referralProviderName);
+    put('referral_document_photo', referralDocumentPhoto);
+    put('past_bite_history', pastBiteHistory);
+    put('past_bite_dates', pastBiteDates);
+    put('prior_pep_status', priorPepStatus);
+    if (priorPepDate != null) {
+      map['prior_pep_date'] = priorPepDate!.toIso8601String().split('T').first;
+    }
+    put('prior_pep_facility', priorPepFacility);
+    return map;
+  }
 }

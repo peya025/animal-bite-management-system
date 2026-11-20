@@ -290,8 +290,8 @@ class PatientService
 
             // Detect explicit suffix conflict (e.g. "Sr." vs "Jr.", or one has "Jr." while the other has "Sr.")
             $hasExplicitSuffixConflict = ($suffix !== '' && $candSuffix !== '' && $suffix !== $candSuffix)
-                || ($suffix !== '' && $candSuffix === '' && in_array($suffix, ['jr', 'sr', 'ii', 'iii', 'iv'], true))
-                || ($suffix === '' && $candSuffix !== '' && in_array($candSuffix, ['jr', 'sr', 'ii', 'iii', 'iv'], true));
+                || ($suffix !== '' && $candSuffix === '' && in_array($suffix, ['jr', 'sr', 'ii', 'iii', 'iv', 'v'], true))
+                || ($suffix === '' && $candSuffix !== '' && in_array($candSuffix, ['jr', 'sr', 'ii', 'iii', 'iv', 'v'], true));
 
             if ($dob !== null && $candDob !== null) {
                 if ($dob === $candDob && $isExactFirst && !$hasExplicitSuffixConflict) {
@@ -413,7 +413,7 @@ class PatientService
                 'first_name' => $validated['first_name'],
                 'middle_name' => $validated['middle_name'] ?? null,
                 'last_name' => $validated['last_name'],
-                'suffix' => $validated['suffix'] ?? null,
+                'suffix' => isset($validated['suffix']) && trim((string) $validated['suffix']) !== '' ? trim((string) $validated['suffix']) : null,
                 'gender' => $validated['gender'],
                 'age' => $validated['age'] ?? null,
                 'date_of_birth' => $validated['date_of_birth'] ?? null,
@@ -618,7 +618,9 @@ class PatientService
             $patientUpdate = [];
             foreach ($patientFields as $f) {
                 if (array_key_exists($f, $validated)) {
-                    $patientUpdate[$f] = $validated[$f];
+                    $patientUpdate[$f] = ($f === 'suffix' && trim((string) ($validated[$f] ?? '')) === '')
+                        ? null
+                        : $validated[$f];
                 }
             }
             $patient->update($patientUpdate);

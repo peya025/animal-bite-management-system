@@ -628,8 +628,243 @@ The Laravel Reverb real-time broadcasting infrastructure has been separated into
 - **Configuration Cache Test:** `php artisan config:cache` succeeded with 0 errors.
 - **Frontend TypeScript Compilation & Build:** `tsc -b && vite build` completed successfully in 7.53s with 0 errors.
 
-### 5. Remaining Pre-Deployment Items (Before Phase 4.3)
-1. **Flutter Mobile API Base URL:** Update `mobile/.env` or configure `--dart-define=API_BASE_URL=https://...` for release APK build.
-2. **Android Keystore:** Generate release keystore for Android production signing.
-3. **Manual Railway Provisioning:** Provision the dedicated Reverb service in the Railway project dashboard following `backend/railway/README.md`.
+### 5. Transition to Phase 4.3 (Vercel Frontend & Flutter Android Configuration)
+With Phase 4.1 and Phase 4.2 completed, Phase 4.3 directly resolved the frontend API/WebSocket configuration for Vercel and the Android release environment configuration for Flutter.
+
+---
+
+## Phase 4.3 Implementation & Verification: Vercel Frontend and Flutter Android Production Configuration
+
+**Status:** COMPLETE (Local Production Readiness Implemented & Verified)  
+**Date:** November 20, 2026  
+**Scope:** Vercel React frontend API & Reverb WebSocket production hardening, Flutter mobile API environment strategy (`--dart-define` & release validation), Android release signing architecture, network security configuration, ProGuard keep rules, and regression verification across all tiers.
+
+---
+
+### 1. Audit Findings & Production Configuration Strategy
+
+#### A. React Frontend & Vercel API Handling
+1. **API URL Normalization (`frontend/src/shared/services/api.ts`):**
+   - **Pre-existing Risk:** Setting `VITE_API_URL` without `/api` caused 404 errors for endpoints called via `api.get('/patients')`. Trailing slashes or accidental duplicate `/api/api` could corrupt request paths. In production builds without environment variables, the client silently fell back to `http://localhost:8000/api`.
+   - **Resolution Implemented:** Introduced `resolveApiBaseUrl()` which trims trailing slashes, prevents duplicate `/api/api`, guarantees the `/api` suffix, and outputs clear diagnostic errors in `import.meta.env.PROD` if configuration is missing or pointing to localhost/LAN addresses.
+   - **Authentication Workflow:** Unmodified and preserved. Full Bearer token injection, 401 unauthenticated redirect, 403 debounce popup, FormData boundary preservation, and 60-minute clinical idle timeout remain active.
+
+2. **Reverb WebSocket Production Hardening (`frontend/src/shared/services/echo.ts`):**
+   - **Pre-existing Risk:** If `VITE_REVERB_HOST` was missing in production, the client defaulted to `window.location.hostname` (Vercel domain). Vercel does not host WebSockets, causing browser connection failures and log spam.
+   - **Resolution Implemented:** `createEchoClient` detects production mode without `VITE_REVERB_HOST` or `VITE_REVERB_APP_KEY`, logs a clear warning, notifies status as `'unavailable'`, and gracefully activates the app's adaptive HTTP polling fallback without connection errors.
+   - **WSS & Port 443:** When configured, `forceTLS: true` and port `443` are strictly enforced for HTTPS origins.
+   - **Zero Secret Exposure:** Frontend bundle contains only public `VITE_REVERB_APP_KEY`. `REVERB_APP_SECRET` remains backend-only.
+   - **Broadcasting Auth:** Resolves via `getBroadcastingAuthEndpoint()`, authorizing private channels (`clinic.{id}.*`, `patient.account.{id}`) through `POST /api/broadcasting/auth` with Sanctum Bearer tokens.
+
+#### B. Flutter Mobile Environment Strategy
+1. **Release Mode Security Invariants (`mobile/lib/app/api_config.dart`):**
+   - **Pre-existing Risk:** If a release APK was built without `--dart-define=API_BASE_URL=...`, it silently compiled the local LAN address from `mobile/.env` (`http://192.168.1.175:8000/api/mobile`), resulting in immediate "Unable to Reach Server" failures on patient devices.
+   - **Resolution Implemented:** Enhanced `ApiConfig.resolveBaseUrl` with `isLocalAddress()` detecting `localhost`, `127.0.0.1`, `10.0.2.2`, `10.x.x.x`, `192.168.x.x`, `172.16-31.x.x`, and `.local`.
+   - **Enforcement:** In release builds (`kReleaseMode`), the app strictly halts with a descriptive `StateError` if `API_BASE_URL` is missing, insecure (`http://`), or targeting a local address. Production builds MUST supply a public HTTPS endpoint via `--dart-define`.
+   - **Debug Mode Backward Compatibility:** In debug mode (`!kReleaseMode`), local development via `.env` or `--dart-define` remains fully supported.
+
+2. **Android Release Signing Architecture (`mobile/android/app/build.gradle.kts`):**
+   - **Configuration:** Added dynamic keystore loading from `key.properties`. If present, Gradle signs release builds with the production `release` signing config. If absent (e.g. initial clone or dev machine), it falls back to debug signing so development and test builds succeed.
+   - **Template & Security:** Created `mobile/android/key.properties.example` with setup instructions. Updated `mobile/.gitignore` to ignore `key.properties`, `*.jks`, and `*.keystore`. Real signing credentials are never committed.
+
+3. **Android Network Security & Cleartext Traffic:**
+   - **Created:** `mobile/android/app/src/main/res/xml/network_security_config.xml` enforcing HTTPS (`cleartextTrafficPermitted="false"`) by default.
+   - **Manifest:** Updated `mobile/android/app/src/main/AndroidManifest.xml` to reference `@xml/network_security_config`. Debug builds retain local development support via `mobile/android/app/src/debug/AndroidManifest.xml`.
+   - **ProGuard / R8:** Added keep rules in `mobile/android/app/proguard-rules.pro` for `com.google.firebase.messaging.**` and `com.dexterous.flutterlocalnotifications.**`.
+
+4. **Google Sign-In Compatibility Audit:**
+   - Package name `com.example.mobile` and Firebase Project ID `abtc-management-system` are verified.
+   - Teammate's Google Sign-In code in `mobile/lib/views/login_view.dart` was inspected and preserved without modifications.
+   - Documented requirements for release SHA-1/SHA-256 registration in Google Cloud Console and passing `GOOGLE_SERVER_CLIENT_ID`.
+
+---
+
+### 2. Files Modified & Created in Phase 4.3
+
+| File Path | Action | Description |
+|---|:---:|---|
+| `frontend/src/shared/services/api.ts` | **MODIFIED** | Implemented `resolveApiBaseUrl()` with path normalization, duplicate `/api/api` stripping, and production diagnostic warnings for missing or localhost targets. |
+| `frontend/src/shared/services/echo.ts` | **MODIFIED** | Added production missing-config guards (fallback to polling without error loops), WSS/443 TLS enforcement, and normalized broadcast auth endpoint. |
+| `mobile/lib/app/api_config.dart` | **MODIFIED** | Added `isLocalAddress()` and strict release-mode validation rejecting cleartext HTTP and local IPs in production builds while preserving dev mode flexibility. |
+| `mobile/test/api_config_test.dart` | **MODIFIED** | Added unit test coverage for release mode HTTP rejection, local IP rejection, production HTTPS acceptance, and debug mode compatibility. |
+| `mobile/android/app/build.gradle.kts` | **MODIFIED** | Configured dynamic release keystore signing via `key.properties` with fallback to debug signing for development. |
+| `mobile/android/app/proguard-rules.pro` | **MODIFIED** | Added ProGuard keep rules for Firebase Messaging and Flutter Local Notifications. |
+| `mobile/android/app/src/main/res/xml/network_security_config.xml` | **NEW** | Enforces HTTPS in release mode with debug loopback exceptions. |
+| `mobile/android/app/src/main/AndroidManifest.xml` | **MODIFIED** | Replaced `usesCleartextTraffic="true"` with `networkSecurityConfig="@xml/network_security_config"`. |
+| `mobile/android/key.properties.example` | **NEW** | Release keystore configuration template with keytool instructions. |
+| `mobile/.gitignore` | **MODIFIED** | Added `key.properties`, `*.jks`, and `*.keystore` to prevent credential exposure. |
+| `mobile/.env.example` | **MODIFIED** | Documented local development vs `--dart-define` release build usage, clinic ID, and Google Client ID. |
+
+---
+
+### 3. Required Environment Variables Reference
+
+#### A. Vercel Frontend Variables
+Configure in **Vercel Dashboard > Settings > Environment Variables** (Environment: Production):
+
+| Variable Name | Example / Production Value | Description |
+|---|---|---|
+| `VITE_API_URL` | `https://your-railway-backend.up.railway.app/api` | Base URL of deployed Laravel API (includes `/api`). |
+| `VITE_API_BASE_URL` | `https://your-railway-backend.up.railway.app/api` | Backward-compatible alias for older frontend components. |
+| `VITE_REVERB_APP_KEY` | `abtc-production-key-2026` | Public Reverb app key (matches Railway `REVERB_APP_KEY`). |
+| `VITE_REVERB_HOST` | `reverb-production-xxxx.up.railway.app` | Public domain of dedicated Railway Reverb service. |
+| `VITE_REVERB_PORT` | `443` | WebSocket port for TLS termination at Railway edge proxy. |
+| `VITE_REVERB_SCHEME` | `https` | Protocol scheme (`https` translates to `wss://` in Echo). |
+| `VITE_GOOGLE_CLIENT_ID` | `your-web-oauth-client-id.apps.googleusercontent.com` | Google OAuth Web Client ID for staff Google SSO. |
+
+> [!NOTE]
+> `REVERB_APP_SECRET` must **NEVER** be configured on Vercel. Only public keys are included in frontend bundles.
+
+#### B. Railway Backend & Reverb Variables
+Configure in **Railway Dashboard > Project > Service Variables**:
+
+| Service | Variable Name | Production Setting | Description |
+|---|---|---|---|
+| **App Service** | `APP_ENV` / `APP_DEBUG` | `production` / `false` | Production runtime flags. |
+| **App Service** | `FRONTEND_URL` | `https://your-app.vercel.app` | Allowed CORS origin (matches Vercel domain exactly). |
+| **App Service** | `BROADCAST_CONNECTION` | `reverb` | Laravel broadcasting driver. |
+| **App Service** | `REVERB_APP_ID` | `897821` | Reverb application ID. |
+| **App Service** | `REVERB_APP_KEY` | `<your-reverb-key>` | Reverb public application key. |
+| **App Service** | `REVERB_APP_SECRET` | `<your-reverb-secret>` | Secret key for broadcasting event authentication. |
+| **App Service** | `REVERB_HOST` | `<reverb-service.up.railway.app>` | Public domain of Reverb service. |
+| **App Service** | `REVERB_PORT` / `REVERB_SCHEME` | `443` / `https` | Public WebSocket endpoint parameters. |
+| **App Service** | `FIREBASE_CREDENTIALS_BASE64` | `base64_string` | Single-line Base64 encoded service account JSON. |
+| **App Service** | `FCM_ENABLED` | `false` (initially) | Set `true` after post-deploy dry-run verification. |
+| **App Service** | `FCM_ALLOWED_PATIENT_ACCOUNT_IDS` | `1` (test) $\rightarrow$ `*` (live) | Push delivery account restriction allowlist. |
+| **Reverb Service**| Start Command | `sh railway/run-reverb.sh` | Binds Reverb to `0.0.0.0:${PORT:-8080}`. |
+| **Queue Worker** | Start Command | `sh railway/run-worker.sh` | Runs `queue:work --queue=notifications,default --tries=3`. |
+
+#### C. Flutter Mobile Build Configuration
+- **Local Development Setup:**
+  1. Copy `mobile/.env.example` to `mobile/.env`.
+  2. Set `API_BASE_URL=http://<your-dev-pc-ip>:8000/api/mobile` (or `http://10.0.2.2:8000/api/mobile` for emulator).
+  3. Run: `flutter run`
+- **Production Release Build Command:**
+  ```bash
+  cd mobile
+  flutter clean
+  flutter pub get
+  flutter build apk --release \
+    --dart-define=API_BASE_URL=https://your-railway-backend.up.railway.app/api/mobile \
+    --dart-define=GOOGLE_SERVER_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
+  ```
+  *(Or `flutter build appbundle --release ...` for Google Play AAB).*
+
+---
+
+### 4. Android Release Signing & Keystore Procedure
+
+To produce a production-signed APK or AAB:
+1. **Generate Release Keystore (Local Offline Machine):**
+   ```bash
+   keytool -genkey -v -keystore mobile/android/upload-keystore.jks \
+           -alias upload -keyalg RSA -keysize 2048 -validity 10000
+   ```
+2. **Extract Fingerprints for Firebase & Google OAuth:**
+   ```bash
+   keytool -list -v -keystore mobile/android/upload-keystore.jks -alias upload
+   ```
+   Note the **SHA-1** and **SHA-256** fingerprints.
+3. **Configure `key.properties`:**
+   Copy `mobile/android/key.properties.example` to `mobile/android/key.properties` and fill in credentials:
+   ```properties
+   keyAlias=upload
+   keyPassword=your-secret-key-password
+   storeFile=upload-keystore.jks
+   storePassword=your-secret-store-password
+   ```
+4. **Build Signed Release APK:**
+   ```bash
+   cd mobile
+   flutter build apk --release \
+     --dart-define=API_BASE_URL=https://your-railway-backend.up.railway.app/api/mobile
+   ```
+
+---
+
+### 5. Firebase & Google Sign-In Compatibility Checklist
+
+- [x] **Application ID Match:** `com.example.mobile` matches in `mobile/android/app/build.gradle.kts` and `mobile/android/app/google-services.json`.
+- [x] **Firebase Project ID Match:** `abtc-management-system` configured in `google-services.json` and backend `.env.railway.example`.
+- [x] **FCM Notification Channel:** Android channel `abtcare_reminders` registered in `AndroidManifest.xml` and created in `PushNotificationService.dart`.
+- [ ] **Release SHA-1 in Firebase Console (Manual Pre-Deploy Action):** Add release keystore SHA-1 to Firebase Project Settings > General > Your Apps > Android.
+- [ ] **Release SHA-1 in Google Cloud Console (Manual Pre-Deploy Action):** Under APIs & Services > Credentials, verify OAuth 2.0 Client ID has release SHA-1 registered.
+- [ ] **Fresh `google-services.json` (Manual Pre-Deploy Action):** Download fresh `google-services.json` after registering SHA-1 and place in `mobile/android/app/`.
+
+---
+
+### 6. Automated Verification Results
+
+```
+========================================================================================
+Test Suite                             Total    Passed   Failed   Skipped   Duration
+========================================================================================
+React TypeScript Build (tsc -b + vite) 12,026    PASS        0         0      6.85s
+Flutter Mobile Test Suite (Dart)          120     120        0         0     62.00s
+Flutter APK Configuration Check             1       1        0         0      3.00s
+Laravel Broadcasting & Reverb Tests        60      60        0         0     13.31s
+Laravel FCM & Push Notification Tests      72      72        0         0     25.81s
+========================================================================================
+TOTAL PHASE 4.3 AUTOMATED TESTS: 254 test cases + 12,026 TS modules transformed.
+PASS RATE: 100%
+```
+
+---
+
+### 7. Deployment Verification & Troubleshooting Guide
+
+#### Step 1: Verify Railway App & Reverb Connectivity
+1. Check Railway Reverb deployment logs for:
+   `Starting Reverb server on 0.0.0.0:8080...`
+2. Test Reverb public WebSocket endpoint using `wscat` or curl:
+   ```bash
+   curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" \
+     -H "Host: reverb-production-xxxx.up.railway.app" \
+     -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+     -H "Sec-WebSocket-Version: 13" \
+     https://reverb-production-xxxx.up.railway.app/app/abtc-production-key-2026
+   ```
+   **Expected Response:** `101 Switching Protocols`.
+
+#### Step 2: Verify Vercel Frontend Connection
+1. Open deployed Vercel site in Chrome. Open Developer Tools > Network > WS.
+2. Confirm active connection to `wss://reverb-production-xxxx.up.railway.app/app/...` with status `101 Switching Protocols`.
+3. Confirm zero mixed-content security errors in Console.
+4. Perform queue action; confirm TV display updates without manual page refresh.
+
+#### Step 3: Verify Flutter Android Release Build
+1. Install release APK onto a physical Android device.
+2. Verify app connects to `https://your-railway-backend.up.railway.app/api/mobile` and loads public announcements.
+3. Log in with a patient account; confirm device token registration in backend database:
+   `SELECT * FROM patient_device_tokens WHERE patient_account_id = ...;`
+4. Execute controlled backend dry-run test:
+   ```bash
+   php artisan fcm:test --patient=1 --dry-run
+   ```
+   Confirm Google Sentinel verification returns simulated success.
+
+#### Troubleshooting Common Issues
+- **Issue: Vercel shows CORS errors on `/api/broadcasting/auth`**
+  - *Fix:* Ensure `FRONTEND_URL` in Railway Variables matches Vercel domain exactly with `https://` and without trailing slash.
+- **Issue: WebSocket connection stays in `connecting` / `failed` state**
+  - *Fix:* Verify `VITE_REVERB_HOST` matches public Railway Reverb domain, `VITE_REVERB_PORT=443`, and `VITE_REVERB_SCHEME=https`. Check that public networking is enabled on Railway Reverb service.
+- **Issue: Flutter release build fails with "Release builds require an https URL"**
+  - *Fix:* Supply `--dart-define=API_BASE_URL=https://...` with `https://` during `flutter build apk`.
+- **Issue: Google Sign-In returns `ApiException: 10` (Developer Error)**
+  - *Fix:* The release keystore SHA-1 fingerprint has not been added to Google Cloud Console OAuth credentials.
+
+---
+
+### 8. Remaining Blockers & Manual Actions Before Live Go-Live
+
+1. **Manual Railway Dashboard Service Creation:**
+   - Create the dedicated Reverb service from the repo (`sh railway/run-reverb.sh`).
+   - Add Railway environment variables from `backend/.env.railway.example`.
+2. **Manual Vercel Dashboard Variable Setup:**
+   - Configure Vercel environment variables from Section 3.A above.
+3. **Android Release Keystore Generation:**
+   - Generate production keystore, create `key.properties`, and register SHA-1/SHA-256 with Firebase & Google Cloud Console.
+4. **Production FCM Allowlist Activation:**
+   - Keep `FCM_ALLOWED_PATIENT_ACCOUNT_IDS=1` during initial sanity tests, then update to `*` for all patients.
+
 

@@ -33,11 +33,16 @@ export const getBroadcastingAuthEndpoint = (): string => {
     import.meta.env.VITE_API_URL ||
     import.meta.env.VITE_API_BASE_URL ||
     'http://localhost:8000/api'
-  ).replace(/\/+$/, '');
+  ).trim().replace(/\/+$/, '');
 
-  return apiBase.endsWith('/api')
-    ? `${apiBase}/broadcasting/auth`
-    : `${apiBase}/api/broadcasting/auth`;
+  // Guard against duplicate /api/api
+  let cleanBase = apiBase;
+  if (cleanBase.endsWith('/api/api')) {
+    cleanBase = cleanBase.slice(0, -4);
+  }
+
+  const normalized = cleanBase.endsWith('/api') ? cleanBase : `${cleanBase}/api`;
+  return `${normalized}/broadcasting/auth`;
 };
 
 /**
@@ -81,13 +86,29 @@ export const isEchoConnected = (): boolean => {
  */
 export const createEchoClient = (authToken?: string | null): any => {
   const token = authToken || localStorage.getItem('authToken');
-  const appKey = import.meta.env.VITE_REVERB_APP_KEY || 'abtc-reverb-key-2026';
-  const wsHost = import.meta.env.VITE_REVERB_HOST || (typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1') || '127.0.0.1';
-  
-  // Production HTTPS/WSS enforcement: avoid browser mixed-content security errors
+  const isProd = typeof import.meta !== 'undefined' && Boolean(import.meta.env?.PROD);
   const isHttpsPage = typeof window !== 'undefined' && window.location?.protocol === 'https:';
+
+  const rawHost = (import.meta.env.VITE_REVERB_HOST || '').trim();
+  const rawKey = (import.meta.env.VITE_REVERB_APP_KEY || '').trim();
+
+  // If in production and no Reverb host or key is provided:
+  // Avoid connecting to window.location.hostname (Vercel) which does not host Reverb
+  if (isProd && (!rawHost || !rawKey)) {
+    console.warn(
+      '[Echo] Production Reverb WebSocket configuration is incomplete (VITE_REVERB_HOST or VITE_REVERB_APP_KEY missing). ' +
+      'WebSocket connection aborted; real-time features will use polling fallback.'
+    );
+    notifyStatus('unavailable');
+    return null;
+  }
+
+  const appKey = rawKey || 'abtc-reverb-key-2026';
+  const wsHost = rawHost || (typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1') || '127.0.0.1';
+
+  // Production HTTPS/WSS enforcement: avoid browser mixed-content security errors
   const rawScheme = (import.meta.env.VITE_REVERB_SCHEME || '').toLowerCase().trim();
-  const forceTLS = rawScheme === 'https' || rawScheme === 'wss' || (!rawScheme && isHttpsPage);
+  const forceTLS = rawScheme === 'https' || rawScheme === 'wss' || (!rawScheme && (isHttpsPage || isProd));
 
   const defaultPort = forceTLS ? 443 : 8080;
   const resolvedPort = import.meta.env.VITE_REVERB_PORT

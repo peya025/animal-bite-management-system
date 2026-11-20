@@ -17,6 +17,13 @@
 -keep class io.flutter.plugins.imagepicker.** { *; }
 -keep class io.flutter.plugins.urllauncher.** { *; }
 
+# Firebase Cloud Messaging & Notifications
+-keep class com.google.firebase.messaging.** { *; }
+-dontwarn com.google.firebase.messaging.**
+
+# Flutter Local Notifications
+-keep class com.dexterous.flutterlocalnotifications.** { *; }
+
 # Keep native methods and classes with annotations
 -keepclasseswithmembernames class * {
     native <methods>;

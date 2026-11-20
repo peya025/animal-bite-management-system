@@ -17,6 +17,7 @@ void main() {
       ApiConfig.resolveBaseUrl(
         buildUrl: '',
         envUrl: ' http://10.0.2.2:8000/api/mobile/ ',
+        isRelease: false,
       ),
       'http://10.0.2.2:8000/api/mobile',
     );
@@ -36,10 +37,71 @@ void main() {
 
   test('selected build configuration is available at runtime', () {
     expect(
-      ApiConfig.resolveBaseUrl(envUrl: 'http://fallback.example/api/mobile'),
+      ApiConfig.resolveBaseUrl(
+        envUrl: 'https://fallback.example/api/mobile',
+        isRelease: true,
+      ),
       ApiConfig.buildBaseUrl.isEmpty
-          ? 'http://fallback.example/api/mobile'
+          ? 'https://fallback.example/api/mobile'
           : ApiConfig.buildBaseUrl,
+    );
+  });
+
+  test('release mode strictly rejects cleartext http endpoints', () {
+    expect(
+      () => ApiConfig.resolveBaseUrl(
+        buildUrl: 'http://animal-bite-management.railway.app/api/mobile',
+        isRelease: true,
+      ),
+      throwsA(isA<StateError>().having(
+        (e) => e.message,
+        'message',
+        contains('Insecure cleartext HTTP is prohibited in production builds'),
+      )),
+    );
+  });
+
+  test('release mode strictly rejects local development IP addresses', () {
+    for (final localUrl in [
+      'https://192.168.1.175:8000/api/mobile',
+      'https://127.0.0.1:8000/api/mobile',
+      'https://localhost:8000/api/mobile',
+      'https://10.0.2.2:8000/api/mobile',
+      'https://10.10.0.5:8000/api/mobile',
+      'https://172.20.10.3:8000/api/mobile',
+      'https://devhost.local:8000/api/mobile',
+    ]) {
+      expect(
+        () => ApiConfig.resolveBaseUrl(
+          buildUrl: localUrl,
+          isRelease: true,
+        ),
+        throwsA(isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('must not connect to a local development IP or loopback'),
+        )),
+      );
+    }
+  });
+
+  test('release mode accepts public production HTTPS endpoints', () {
+    expect(
+      ApiConfig.resolveBaseUrl(
+        buildUrl: 'https://animal-bite-management-system-production.up.railway.app/api/mobile',
+        isRelease: true,
+      ),
+      'https://animal-bite-management-system-production.up.railway.app/api/mobile',
+    );
+  });
+
+  test('debug mode allows local development endpoints', () {
+    expect(
+      ApiConfig.resolveBaseUrl(
+        buildUrl: 'http://192.168.1.175:8000/api/mobile',
+        isRelease: false,
+      ),
+      'http://192.168.1.175:8000/api/mobile',
     );
   });
 }

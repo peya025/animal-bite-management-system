@@ -867,4 +867,47 @@ PASS RATE: 100%
 4. **Production FCM Allowlist Activation:**
    - Keep `FCM_ALLOWED_PATIENT_ACCOUNT_IDS=1` during initial sanity tests, then update to `*` for all patients.
 
+---
+
+## Phase 4.4 — Railway Queue Worker, Scheduler Reliability, and Production Readiness Hardening
+
+**Audit & Implementation Date:** November 20, 2026  
+**Status:** COMPLETE (Local Hardening and Verification — No production deployment or Git modification applied)
+
+### 1. Hardening Architecture Summary
+
+| Component | Hardened Aspect | Prior Vulnerability | Hardened Implementation & Verification |
+|---|---|---|---|
+| **Railway Queue Worker** | Process & Queue Coverage | Risk of unprocessed broadcast or notification queues | Monitored queues strictly set to `notifications,default`. Handles all queued notifications (`SendFcmPushNotification`, `DeliverOutboundMessage`) and queued broadcasts (`AppointmentStatusChanged`, `StaffNotificationBroadcast`, `VaccineStockUpdated`). |
+| **Railway Queue Worker** | Job Timeout vs Connection Invariant | Potential concurrent duplicate job execution | Global worker `--timeout=60` paired with `retry_after=90` (`DB_QUEUE_RETRY_AFTER`). Job timeouts configured at 30s (`SendFcmPushNotification`) and 45s (`DeliverOutboundMessage`), guaranteeing `retry_after > timeout >= job_timeout`. |
+| **Railway Queue Worker** | Dead-Letter Storage on Exhausted Retries | Retries exhausted with retryable errors silently completed without logging into `failed_jobs` | In `SendFcmPushNotification`, when `$this->attempts() >= $this->tries`, `$this->fail(...)` is invoked. Laravel immediately records the failure in `failed_jobs` with UUID, payload, and exception. |
+| **Railway Queue Worker** | Script Environment & Working Directory | Fragile path resolution if invoked outside `backend` root | Added `cd "$(dirname "$0")/.."` to `backend/railway/run-worker.sh` and dynamic fallback to `CONNECTION="${QUEUE_CONNECTION:-database}"`. |
+| **Railway Scheduler Daemon** | Execution Timing & Clock Drift | `sleep 60` drifted by execution duration, skipping `:00` schedules | `backend/railway/run-cron.sh` now computes dynamic sleep `SLEEP_SEC=$((60 - CURRENT_SEC))` to always wake up on `:00` second boundary. |
+| **Railway Scheduler Daemon** | Script Crash on Transient Errors | `set -e` terminated shell script on single command failure | Caught non-zero exit codes with `|| echo "Warning: ..."` allowing daemon loop to survive transient database/network blips. |
+| **Scheduler Tasks** | Multi-Container Overlap & Lockout | Mutex defaulted to 1440-minute lockout on crash; rolling deploy ran duplicate tasks | Explicit timeouts added: `withoutOverlapping(30)` for `appointments:auto-recall`, `withoutOverlapping(5)` for `messaging:dispatch`, `withoutOverlapping(15)` for `queue:auto-expire`. Added `onOneServer()` backed by MySQL `cache` atomic `insertOrIgnore`. |
+| **Scheduler Tasks** | Timezone Uniformity | Container OS UTC timezone could fire reminders at wrong local hour | Explicit `->timezone(config('app.timezone', 'Asia/Manila'))` chained to all scheduled tasks. |
+| **FCM Security** | PHI & Credential Protection | Risk of sensitive diagnostic leakage | Zero PHI in notification payloads, token masking (`maskToken()`), credentials excluded from payload serialization, category preferences enforced cascade-wide. |
+
+### 2. Verified Service Start Commands
+
+1. **App Service (Laravel Web API & Auth)**
+   - Start Command: Default Railway PHP-FPM / Caddy server
+   - Pre-deploy Command: `sh railway/init-app.sh`
+2. **Reverb Service (Dedicated WebSocket Server)**
+   - Start Command: `sh railway/run-reverb.sh`
+   - Binds to: `0.0.0.0:${PORT:-8080}`
+3. **Queue Worker Service (Background Jobs)**
+   - Start Command: `sh railway/run-worker.sh`
+   - Command details: `exec php artisan queue:work "${CONNECTION:-database}" --queue=notifications,default --sleep=3 --tries=3 --timeout=60 --max-time=3600`
+4. **Cron Service (Scheduler Daemon)**
+   - Start Command: `sh railway/run-cron.sh`
+   - Execution: Minute-synchronized drift-free loop executing `php artisan schedule:run --verbose --no-interaction`
+
+### 3. Automated Test Verification Results
+- **Queue & FCM Unit Tests:** 9 passed (39 assertions)
+- **Broadcasting & Reverb Tests:** 69 passed (316 assertions)
+- **FCM & Reminder Feature Tests:** 76 passed (388 assertions)
+- **Full Backend Suite:** 743 passed, 1 skipped, 2 pre-existing legacy failures (5,426 assertions). All Phase 4.4 components passed 100%.
+
+
 

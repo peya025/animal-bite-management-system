@@ -3,6 +3,9 @@
 # Railway pre-deploy command: sh railway/init-app.sh
 set -eu
 
+# Ensure working directory is always backend root regardless of invocation context
+cd "$(dirname "$0")/.."
+
 # Materialize Firebase credentials from environment variables if provided
 CREDS_DIR="storage/app/private"
 CREDS_FILE="${CREDS_DIR}/firebase-credentials.json"

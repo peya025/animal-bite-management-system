@@ -224,19 +224,27 @@ class SendFcmPushNotification implements ShouldQueue
             }
         }
 
-        if ($hasRetryableFailure && $this->attempts() < $this->tries) {
-            $delay = $maxRetryAfter ?? ($this->backoff[$this->attempts() - 1] ?? 60);
-            Log::warning("SendFcmPushNotification encountered retryable failure for account {$account->id}. Re-queueing with {$delay}s delay (attempt {$this->attempts()}/{$this->tries}) for pending devices.");
-            $this->release($delay);
+        if ($hasRetryableFailure) {
+            if ($this->attempts() < $this->tries) {
+                $delay = $maxRetryAfter ?? ($this->backoff[$this->attempts() - 1] ?? 60);
+                Log::warning("SendFcmPushNotification encountered retryable failure for account {$account->id}. Re-queueing with {$delay}s delay (attempt {$this->attempts()}/{$this->tries}) for pending devices.");
+                $this->release($delay);
+            } else {
+                $this->fail(new \RuntimeException("SendFcmPushNotification exhausted max retries ({$this->tries}) for account {$account->id} with pending retryable device failures."));
+            }
         }
     }
 
     protected function evaluateResult(FcmResult $result): void
     {
-        if ($result->isRetryable() && $this->attempts() < $this->tries) {
-            $delay = $result->getRetryAfter() ?? ($this->backoff[$this->attempts() - 1] ?? 60);
-            Log::warning("SendFcmPushNotification single device encountered retryable failure. Re-queueing with {$delay}s delay (attempt {$this->attempts()}/{$this->tries}).");
-            $this->release($delay);
+        if ($result->isRetryable()) {
+            if ($this->attempts() < $this->tries) {
+                $delay = $result->getRetryAfter() ?? ($this->backoff[$this->attempts() - 1] ?? 60);
+                Log::warning("SendFcmPushNotification single device encountered retryable failure. Re-queueing with {$delay}s delay (attempt {$this->attempts()}/{$this->tries}).");
+                $this->release($delay);
+            } else {
+                $this->fail(new \RuntimeException("SendFcmPushNotification exhausted max retries ({$this->tries}) for device token {$this->deviceTokenId}: " . $result->getErrorMessage()));
+            }
         }
     }
 

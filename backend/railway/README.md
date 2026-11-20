@@ -127,6 +127,7 @@ Add these in the Railway Queue Worker Service -> **Variables**:
 ```dotenv
 APP_ENV=production
 APP_KEY=base64:... (same APP_KEY as App service)
+APP_TIMEZONE=Asia/Manila
 DB_CONNECTION=mysql
 DB_HOST=${{MySQL.MYSQLHOST}}
 DB_PORT=${{MySQL.MYSQLPORT}}
@@ -152,7 +153,34 @@ FIREBASE_CREDENTIALS_BASE64=...
 FCM_ENABLED=false
 ```
 
-### 4. Vercel Frontend Environment Variables
+### 4. Cron Service (Scheduler) Environment Variables
+Add these in the Railway Cron Service -> **Variables**:
+```dotenv
+APP_ENV=production
+APP_KEY=base64:... (same APP_KEY as App service)
+APP_TIMEZONE=Asia/Manila
+DB_CONNECTION=mysql
+DB_HOST=${{MySQL.MYSQLHOST}}
+DB_PORT=${{MySQL.MYSQLPORT}}
+DB_DATABASE=${{MySQL.MYSQLDATABASE}}
+DB_USERNAME=${{MySQL.MYSQLUSER}}
+DB_PASSWORD=${{MySQL.MYSQLPASSWORD}}
+
+CACHE_STORE=database
+QUEUE_CONNECTION=database
+MESSAGING_QUEUE_CONNECTION=database
+
+# Broadcasting configuration for dispatched events
+BROADCAST_CONNECTION=reverb
+REVERB_APP_ID=897821
+REVERB_APP_KEY=your-production-reverb-app-key
+REVERB_APP_SECRET=your-production-reverb-app-secret
+REVERB_HOST=reverb-production-xxxx.up.railway.app
+REVERB_PORT=443
+REVERB_SCHEME=https
+```
+
+### 5. Vercel Frontend Environment Variables
 Add these in your Vercel Dashboard -> **Settings** -> **Environment Variables**:
 ```dotenv
 VITE_API_URL=https://animal-bite-backend.up.railway.app/api
@@ -290,3 +318,89 @@ Once all services are provisioned on Railway and Vercel:
 If WebSockets need to be temporarily disabled in production:
 1. In Vercel environment variables, clear `VITE_REVERB_HOST`.
 2. The React application automatically detects the missing host and falls back silently to adaptive HTTP polling (5s queue polling, 12s notification polling) with zero user-facing errors.
+
+---
+
+## Queue Worker Reliability & Production Hardening
+
+### 1. Queue Topology & Process Allocation
+- **Monitored Queues:** `notifications` (high priority) followed by `default` (standard priority).
+- **Worker Command:**
+  ```bash
+  exec php artisan queue:work "${CONNECTION:-database}" --queue=notifications,default --sleep=3 --tries=3 --timeout=60 --max-time=3600
+  ```
+- **Job-to-Queue Mapping:**
+  - `SendFcmPushNotification`: Enqueued on `notifications` (`config('messaging.queue')`).
+  - `DeliverOutboundMessage`: Enqueued on `notifications` (`config('messaging.queue')`).
+  - Broadcast Events (`AppointmentStatusChanged`, `StaffNotificationBroadcast`, `VaccineStockUpdated`): Placed on `notifications` (`public string $broadcastQueue = 'notifications'`).
+  - Instant Broadcast Events (`QueueTicketUpdated`): Implements `ShouldBroadcastNow`, dispatched synchronously directly to Reverb without queuing delay.
+
+### 2. Job Retries, Timeouts, and Dead-Letter Recovery
+- **Global Worker Timeout:** `--timeout=60` (terminates jobs exceeding 60 seconds).
+- **Database Connection Retry After:** `retry_after = 90` (`DB_QUEUE_RETRY_AFTER`).
+  - *Invariant:* `retry_after (90s) > worker timeout (60s) >= job timeouts (30s/45s)`. This prevents premature job re-reservation by another worker while the current worker is still processing.
+- **Job-Specific Retry Policies:**
+  - `DeliverOutboundMessage`: Strictly `public int $tries = 1;` with `$timeout = 45;`. Outbound messages are never automatically re-sent on interruption to prevent duplicate SMS/emails.
+  - `SendFcmPushNotification`: `public int $tries = 3;`, `$timeout = 30;`, `$backoff = [30, 120, 300];`. Retries are scheduled with exponential backoff on retryable HTTP errors (429 Rate Limit, 500, 502, 503 Service Unavailable, network timeouts).
+  - *Deduplication across Retries:* `SendFcmPushNotification` records delivered device IDs in `fcm:job:delivered:{idempotencyKey}` in cache (24h TTL). Retries target only devices that experienced retryable errors.
+  - *Failed Job Recording:* When all 3 attempts are exhausted with retryable errors, `$this->fail(...)` is invoked, permanently recording the failure in `failed_jobs`.
+
+### 3. Failed Job Inspection and Management
+All unrecoverable job exceptions are recorded in the MySQL `failed_jobs` table.
+
+- **List Failed Jobs:**
+  ```bash
+  php artisan queue:failed
+  ```
+- **Inspect Specific Failed Job:**
+  Inspect the `failed_jobs` table via database query or `queue:failed`. Diagnostics strictly mask tokens and exclude private medical information / service account credentials.
+- **Retry a Failed Job by UUID/ID:**
+  ```bash
+  php artisan queue:retry <uuid|id>
+  ```
+- **Delete / Forget a Failed Job:**
+  ```bash
+  php artisan queue:forget <uuid|id>
+  ```
+- **Prune Old Failed Jobs (older than 48 hours):**
+  ```bash
+  php artisan queue:prune-failed --hours=48
+  ```
+
+---
+
+## Scheduler (Cron) Reliability & Distributed Execution
+
+### 1. Cron Service Architecture
+- **Start Command:** `sh railway/run-cron.sh`
+- **Execution Mechanism:** A persistent Railway worker container executing a drift-synchronized loop that aligns with the `:00` second of each minute:
+  ```sh
+  while true; do
+      php artisan schedule:run --verbose --no-interaction || echo "Warning: schedule:run failed..."
+      CURRENT_SEC=$(date +%S | sed 's/^0*//')
+      CURRENT_SEC=${CURRENT_SEC:-0}
+      SLEEP_SEC=$((60 - CURRENT_SEC))
+      if [ "$SLEEP_SEC" -le 0 ] || [ "$SLEEP_SEC" -gt 60 ]; then
+          SLEEP_SEC=60
+      fi
+      sleep "$SLEEP_SEC"
+  done
+  ```
+- **Clock Drift Elimination:** Standard `sleep 60` drifts forward with each command execution, risking skipping `:00` minute-specific schedules. The drift-synchronized loop dynamically calculates `SLEEP_SEC=$((60 - CURRENT_SEC))` to always wake up exactly at `:00`.
+- **Fault-Tolerant Daemon:** The script catches non-zero exit codes from `schedule:run` without letting `set -e` abort the container daemon.
+
+### 2. Scheduled Task Matrix
+| Task | Frequency | Timezone | Lock Mechanism | Purpose |
+|---|---|---|---|---|
+| `appointments:auto-recall` | Daily `08:00` | `Asia/Manila` | `withoutOverlapping(30)`, `onOneServer()` | Advance 1-day reminders & urgent missed dose recalls |
+| `messaging:dispatch` | Every minute | `Asia/Manila` | `withoutOverlapping(5)`, `onOneServer()` | Outbound message recovery & delivery receipt reconciliation |
+| `queue:auto-expire` | Daily `00:05` | `Asia/Manila` | `withoutOverlapping(15)`, `onOneServer()` | Auto-expires unserved tickets from prior clinic days |
+| `sanctum:prune-expired --hours=24` | Daily `00:00` | `Asia/Manila` | `withoutOverlapping(30)`, `onOneServer()` | Prunes revoked & expired tokens |
+
+### 3. Distributed Lock & Multi-Instance Safety
+- When `CACHE_STORE=database` is configured, Laravel uses MySQL table `cache` with atomic `insertOrIgnore` for `onOneServer()` scheduling mutexes.
+- If multiple container instances overlap during a Railway rolling redeploy at `08:00`, only ONE instance acquires the scheduling mutex; other instances log:
+  ```
+  Skipping [appointments:auto-recall] because the command already ran on another server.
+  ```
+- Mutex timeouts (`30m`, `5m`, `15m`) guarantee that an unexpected container termination or OOM event does not lock the command out for 24 hours.

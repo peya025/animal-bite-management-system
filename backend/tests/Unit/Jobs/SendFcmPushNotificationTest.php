@@ -142,4 +142,32 @@ class SendFcmPushNotificationTest extends TestCase
 
         $job->handle($fcmMock);
     }
+
+    public function test_job_fails_when_retry_attempts_exhausted(): void
+    {
+        $account = $this->createPatientAccount(['is_active' => true]);
+        $token = $this->createDeviceToken($account);
+
+        $fcmMock = $this->createMock(FcmService::class);
+        $fcmMock->expects($this->once())
+            ->method('sendToDevice')
+            ->willReturn(FcmResult::failure('RATE_LIMITED', 'Rate limited', 429, isRetryable: true, retryAfter: 45));
+
+        $job = $this->getMockBuilder(SendFcmPushNotification::class)
+            ->setConstructorArgs([
+                'patientAccountId' => $account->id,
+                'title'            => 'Test Title',
+                'body'             => 'Test Body',
+                'data'             => [],
+                'deviceTokenId'    => $token->id,
+            ])
+            ->onlyMethods(['release', 'attempts', 'fail'])
+            ->getMock();
+
+        $job->method('attempts')->willReturn(3);
+        $job->expects($this->never())->method('release');
+        $job->expects($this->once())->method('fail')->with($this->isInstanceOf(\RuntimeException::class));
+
+        $job->handle($fcmMock);
+    }
 }

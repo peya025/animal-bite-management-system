@@ -1,6 +1,9 @@
 #!/usr/bin/env sh
 set -eu
 
+# Ensure working directory is always backend root regardless of invocation context
+cd "$(dirname "$0")/.."
+
 # Railway assigns the listening port via the $PORT environment variable.
 # Reverb must bind to 0.0.0.0 and $PORT so Railway's edge reverse proxy
 # can forward incoming public HTTPS/WSS (port 443) traffic to this container.

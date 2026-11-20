@@ -244,37 +244,80 @@ The primary objective is to verify that **Real-Time Live Updates (Laravel Reverb
   with public networking enabled.
 
 #### C. Firebase Service Account Credentials in Container
-* **Current State:** `FirebaseAuthService` expects a JSON file at `storage/app/private/firebase-credentials.json`.
-* **Git Status:** This file is ignored by `.gitignore` (which is correct to prevent secret leaks).
-* **Railway Deployment Gap:** When Railway builds from Git, this file **will not exist**.
-* **Impact:** In production, any invocation of `FirebaseAuthService` will throw:
-  `FirebaseAuthenticationException: Firebase service account credentials file not found.`
-* **Required Fix:**
-  Add support in `init-app.sh` (or `FirebaseAuthService.php`) to read a Railway environment variable `FIREBASE_CREDENTIALS_JSON` and write it to `storage/app/private/firebase-credentials.json` during container initialization.
+* **Previous State:** `FirebaseAuthService` expected a JSON file at `storage/app/private/firebase-credentials.json`, which is gitignored and absent in clean Railway builds.
+* **Phase 4.1 Implementation Status:** **RESOLVED & SECURED**.
+* **Dual Resolution & Materialization Strategy:**
+  1. **Runtime In-Memory & File Resolution:** `FirebaseAuthService.php` dynamically inspects:
+     - `FIREBASE_CREDENTIALS_BASE64` (`services.firebase.credentials_base64`): Recommended for Railway environments to prevent multi-line newline/quote mangling.
+     - `FIREBASE_CREDENTIALS_JSON` (`services.firebase.credentials_json`): Supports raw JSON strings.
+     - `services.firebase.credentials` file path: Continues local development compatibility with `storage/app/private/firebase-credentials.json`.
+  2. **Pre-Deploy Materialization:** `railway/init-app.sh` extracts `FIREBASE_CREDENTIALS_BASE64` or `FIREBASE_CREDENTIALS_JSON` into `storage/app/private/firebase-credentials.json` with secure permissions (`chmod 700` directory, `chmod 600` file) without overwriting existing files.
+  3. **Runtime Fallback:** If pre-deploy did not run on secondary worker containers, `FirebaseAuthService` resolves credentials in memory and securely materializes them on first run. If disk write fails (e.g. read-only container), it logs a sanitized warning and proceeds with in-memory authentication.
+  4. **Security & PHI Protection:** Private keys and secrets are never printed in logs or exceptions. Mismatches and syntax errors fail safely with non-sensitive diagnostic messages.
 
-#### D. Missing Environment Variables in `.env.railway.example`
-* The following essential production variables are missing from `.env.railway.example`:
+#### D. Production Firebase Environment Variables for Railway
+* The following variables are documented in `backend/.env.railway.example` and supported:
   ```dotenv
-  # Reverb Server & Broadcasting
-  BROADCAST_CONNECTION=reverb
-  REVERB_APP_ID=
-  REVERB_APP_KEY=
-  REVERB_APP_SECRET=
-  REVERB_HOST=
-  REVERB_PORT=443
-  REVERB_SCHEME=https
-
   # Firebase Cloud Messaging
-  FCM_ENABLED=true
+  FCM_ENABLED=false
   FCM_TEST_MODE=false
   FIREBASE_PROJECT_ID=abtc-management-system
   GOOGLE_APPLICATION_CREDENTIALS=storage/app/private/firebase-credentials.json
   FCM_ANDROID_CHANNEL_ID=abtcare_reminders
-  FCM_ALLOWED_PATIENT_ACCOUNT_IDS=*
+  FCM_ALLOWED_PATIENT_ACCOUNT_IDS=1
+
+  # Option 1 (Recommended): Single-line Base64-encoded Service Account Key
+  FIREBASE_CREDENTIALS_BASE64=
+
+  # Option 2: Raw Service Account JSON String
   FIREBASE_CREDENTIALS_JSON=
   ```
 
-#### E. Queue Worker Configuration and Reliability
+#### E. Safe Steps for Configuring Credentials in Railway Dashboard
+1. Obtain the official service account JSON key from Google Cloud Console / Firebase Console (Project Settings > Service Accounts > Generate new private key).
+2. Generate single-line Base64 representation locally:
+   - On Linux/macOS:
+     ```bash
+     base64 -w 0 path/to/firebase-credentials.json
+     ```
+   - On Windows (PowerShell):
+     ```powershell
+     [Convert]::ToBase64String([IO.File]::ReadAllBytes("path\to\firebase-credentials.json"))
+     ```
+3. Open Railway Dashboard -> Select ABTC Project -> Backend App Service (and Worker Service if non-shared environment variables) -> **Variables**.
+4. Add `FIREBASE_CREDENTIALS_BASE64` and paste the base64 string.
+5. Set `FIREBASE_PROJECT_ID=abtc-management-system`.
+6. Ensure `FCM_ENABLED=false` initially (prevents premature unverified automated push messages to patients).
+7. Trigger deployment or redeploy.
+
+#### F. Safe Verification Without Sending Real Push Notifications
+Once deployed on Railway, run the controlled verification dry-run command via Railway CLI or Railway web console:
+```bash
+php artisan fcm:test --patient=1 --dry-run
+```
+* **Expected Result:**
+  - Validates service account structure, project ID, and Google OAuth 2.0 token generation.
+  - Contacts Firebase HTTP v1 endpoint with `validate_only=true` (Google Sentinel verification).
+  - Verifies credential validity with Google OAuth servers **WITHOUT** delivering any physical notification to patient devices.
+
+#### G. Emergency Rollback Instructions
+If Firebase credentials need to be revoked, rolled back, or disabled:
+1. **Disable Push Notifications Immediately:**
+   Set `FCM_ENABLED=false` in Railway Variables and redeploy. All outbound push jobs will immediately abort safely with zero side effects on clinical workflows.
+2. **Clear Cached OAuth Tokens:**
+   Run via Railway console:
+   ```bash
+   php artisan cache:forget firebase:fcm:access_token
+   ```
+3. **Revoke / Replace Key:**
+   - In Google Cloud Console -> IAM & Admin -> Service Accounts -> Keys -> Delete compromised key.
+   - Generate a replacement key, convert to Base64, and update `FIREBASE_CREDENTIALS_BASE64` in Railway Variables.
+4. **Remove Materialized File (if needed):**
+   ```bash
+   rm -f storage/app/private/firebase-credentials.json
+   ```
+
+#### H. Queue Worker Configuration and Reliability
 * **Current Script (`railway/run-worker.sh`):**
   ```sh
   exec php artisan queue:work database --queue=notifications --sleep=3 --tries=1 --timeout=45 --max-time=3600
@@ -381,7 +424,7 @@ OVERALL PASS RATE: 99.7%
 
 | ID | Issue Description | Component | Priority | Impact |
 |---|---|---|:---:|---|
-| **CRIT-01** | **Missing Firebase Credentials in Railway Container**<br>`storage/app/private/firebase-credentials.json` is not in Git and not injected during Railway pre-deploy. | Backend / Railway | **CRITICAL** | All FCM push notifications and Firebase OAuth calls will throw fatal exceptions in production. |
+| **CRIT-01** | **Missing Firebase Credentials in Railway Container**<br>`storage/app/private/firebase-credentials.json` is not in Git and not injected during Railway pre-deploy.<br>**Status:** **RESOLVED (Phase 4.1)** via dual `FIREBASE_CREDENTIALS_BASE64` and `FIREBASE_CREDENTIALS_JSON` environment injection, runtime materialization, and safe in-memory fallback. | Backend / Railway | **CRITICAL (RESOLVED)** | Credentials now load seamlessly from Railway environment variables or local files with complete privacy and zero secret leakage. |
 | **CRIT-02** | **Missing Reverb Service on Railway**<br>No startup script or Railway service definition exists for `reverb:start`. | Backend / Railway | **CRITICAL** | WebSockets cannot run in production; clients fall back to polling. |
 | **CRIT-03** | **Hardcoded Localhost & Missing Reverb Config in Production Frontend**<br>`frontend/.env.production` lacks Reverb variables. `echo.ts` falls back to `ws://` and port 8080. | Frontend / Vercel | **CRITICAL** | Browser blocks WebSocket connection due to mixed content restrictions (`ws://` on `https://`). |
 | **HIGH-01** | **Queue Worker Command Overrides Job Retries**<br>`railway/run-worker.sh` uses `--tries=1`, overriding `$tries = 3` and breaking exponential backoff for FCM and outbound jobs. | Backend / Railway | **HIGH** | Transient Google FCM network blips cause immediate job failures without retry. |
@@ -453,8 +496,8 @@ OVERALL PASS RATE: 99.7%
 - [ ] Deploy Railway App Service with root directory `backend`, pre-deploy command `sh railway/init-app.sh`.
 - [ ] Add all variables from `.env.railway.example` into Railway Variables:
   - `APP_ENV=production`, `APP_DEBUG=false`, `APP_KEY`, `APP_URL`, `FRONTEND_URL`.
-  - `FIREBASE_CREDENTIALS_JSON` (paste full service account JSON contents).
-  - `FCM_ENABLED=true`, `FCM_TEST_MODE=false`, `FCM_ALLOWED_PATIENT_ACCOUNT_IDS=*`.
+  - `FIREBASE_CREDENTIALS_BASE64` (recommended: base64 -w 0 path/to/firebase-credentials.json) or `FIREBASE_CREDENTIALS_JSON`.
+  - `FCM_ENABLED=false` (keep false by default; enable only after dry-run verification), `FCM_TEST_MODE=false`, `FCM_ALLOWED_PATIENT_ACCOUNT_IDS=1` (or `*`).
   - `REVERB_APP_ID`, `REVERB_APP_KEY`, `REVERB_APP_SECRET`.
   - `REVERB_HOST=<reverb-service-url>`, `REVERB_PORT=443`, `REVERB_SCHEME=https`.
 - [ ] Create Railway Reverb Service pointing to `backend`, start command `sh railway/run-reverb.sh`. Enable public domain.

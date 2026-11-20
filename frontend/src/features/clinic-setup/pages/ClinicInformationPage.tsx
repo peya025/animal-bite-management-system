@@ -99,6 +99,17 @@ interface ClinicData {
   left_print_logo_url?: string | null;
   right_print_logo_path?: string | null;
   right_print_logo_url?: string | null;
+  header_seal_1_path?: string | null;
+  header_seal_1_url?: string | null;
+  header_seal_1_label?: string | null;
+  header_seal_2_path?: string | null;
+  header_seal_2_url?: string | null;
+  header_seal_2_label?: string | null;
+  header_seal_3_path?: string | null;
+  header_seal_3_url?: string | null;
+  header_seal_3_label?: string | null;
+  hero_image_path?: string | null;
+  hero_image_url?: string | null;
   opening_hours: {
     [key: string]: { open: string; close: string; is_open: boolean };
   };
@@ -128,6 +139,17 @@ export default function ClinicInformation() {
     left_print_logo_url: null,
     right_print_logo_path: null,
     right_print_logo_url: null,
+    header_seal_1_path: null,
+    header_seal_1_url: null,
+    header_seal_1_label: '',
+    header_seal_2_path: null,
+    header_seal_2_url: null,
+    header_seal_2_label: '',
+    header_seal_3_path: null,
+    header_seal_3_url: null,
+    header_seal_3_label: '',
+    hero_image_path: null,
+    hero_image_url: null,
     opening_hours: {},
     faqs: [],
   });
@@ -144,6 +166,27 @@ export default function ClinicInformation() {
   const [rightLogoFile, setRightLogoFile] = useState<File | null>(null);
   const [rightLogoPreview, setRightLogoPreview] = useState<string | null>(null);
   const [removeRightLogo, setRemoveRightLogo] = useState(false);
+
+  // Public Header Seals (Landing Page Navbar)
+  const [seal1File, setSeal1File] = useState<File | null>(null);
+  const [seal1Preview, setSeal1Preview] = useState<string | null>(null);
+  const [removeSeal1, setRemoveSeal1] = useState(false);
+  const [seal1Label, setSeal1Label] = useState('Department of Health');
+
+  const [seal2File, setSeal2File] = useState<File | null>(null);
+  const [seal2Preview, setSeal2Preview] = useState<string | null>(null);
+  const [removeSeal2, setRemoveSeal2] = useState(false);
+  const [seal2Label, setSeal2Label] = useState('Tagoloan, Misamis Oriental');
+
+  const [seal3File, setSeal3File] = useState<File | null>(null);
+  const [seal3Preview, setSeal3Preview] = useState<string | null>(null);
+  const [removeSeal3, setRemoveSeal3] = useState(false);
+  const [seal3Label, setSeal3Label] = useState('Rural Health Unit');
+
+  // Landing Page Hero Picture
+  const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
+  const [heroImagePreview, setHeroImagePreview] = useState<string | null>(null);
+  const [removeHeroImage, setRemoveHeroImage] = useState(false);
 
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
@@ -356,12 +399,23 @@ export default function ClinicInformation() {
         left_print_logo_url: data.left_print_logo_url || null,
         right_print_logo_path: data.right_print_logo_path || null,
         right_print_logo_url: data.right_print_logo_url || null,
+        header_seal_1_path: data.header_seal_1_path || null,
+        header_seal_1_url: data.header_seal_1_url || null,
+        header_seal_1_label: data.header_seal_1_label || '',
+        header_seal_2_path: data.header_seal_2_path || null,
+        header_seal_2_url: data.header_seal_2_url || null,
+        header_seal_2_label: data.header_seal_2_label || '',
+        header_seal_3_path: data.header_seal_3_path || null,
+        header_seal_3_url: data.header_seal_3_url || null,
+        header_seal_3_label: data.header_seal_3_label || '',
+        hero_image_path: data.hero_image_path || null,
+        hero_image_url: data.hero_image_url || null,
         opening_hours: defaultHours,
         faqs: data.faqs || [],
       });
 
       // If the user had unsaved changes (a draft), restore them on top of the server data
-      const savedDraft = draft.readDraft<Partial<Omit<ClinicData, 'logo_path' | 'logo_url' | 'left_print_logo_path' | 'left_print_logo_url' | 'right_print_logo_path' | 'right_print_logo_url' | 'opening_hours'>>>();
+      const savedDraft = draft.readDraft<Partial<Omit<ClinicData, 'logo_path' | 'logo_url' | 'left_print_logo_path' | 'left_print_logo_url' | 'right_print_logo_path' | 'right_print_logo_url' | 'header_seal_1_path' | 'header_seal_1_url' | 'header_seal_2_path' | 'header_seal_2_url' | 'header_seal_3_path' | 'header_seal_3_url' | 'hero_image_path' | 'hero_image_url' | 'opening_hours'>>>();
       if (savedDraft) {
         setClinic(prev => ({ ...prev, ...savedDraft }));
       }
@@ -377,6 +431,25 @@ export default function ClinicInformation() {
       setRightLogoFile(null);
       setRightLogoPreview(null);
       setRemoveRightLogo(false);
+
+      setSeal1File(null);
+      setSeal1Preview(null);
+      setRemoveSeal1(false);
+      setSeal1Label(data.header_seal_1_label || 'Department of Health');
+
+      setSeal2File(null);
+      setSeal2Preview(null);
+      setRemoveSeal2(false);
+      setSeal2Label(data.header_seal_2_label || (data.municipality ? (data.province ? `${data.municipality}, ${data.province}` : data.municipality) : 'Tagoloan, Misamis Oriental'));
+
+      setSeal3File(null);
+      setSeal3Preview(null);
+      setRemoveSeal3(false);
+      setSeal3Label(data.header_seal_3_label || 'Rural Health Unit');
+
+      setHeroImageFile(null);
+      setHeroImagePreview(null);
+      setRemoveHeroImage(false);
 
       parseClinicAddress(data.address || '', data.municipality, data.province);
     } catch (error: any) {
@@ -403,7 +476,7 @@ export default function ClinicInformation() {
     setClinic(prev => {
       const next = { ...prev, [field]: value };
       // Persist draft of text fields only (not logo paths or opening_hours objects)
-      const { logo_path, logo_url, left_print_logo_path, left_print_logo_url, right_print_logo_path, right_print_logo_url, opening_hours, ...draftable } = next;
+      const { logo_path, logo_url, left_print_logo_path, left_print_logo_url, right_print_logo_path, right_print_logo_url, header_seal_1_path, header_seal_1_url, header_seal_2_path, header_seal_2_url, header_seal_3_path, header_seal_3_url, hero_image_path, hero_image_url, opening_hours, ...draftable } = next;
       draft.saveDraft(draftable);
       return next;
     });
@@ -481,6 +554,107 @@ export default function ClinicInformation() {
     setRemoveRightLogo(true);
   };
 
+  const handleSeal1Change = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setSnackbar({ open: true, message: 'Seal 1 image must not exceed 2MB in size.', severity: 'error' });
+      return;
+    }
+    setSeal1File(file);
+    setSeal1Preview(URL.createObjectURL(file));
+    setRemoveSeal1(false);
+  };
+
+  const handleResetSeal1 = () => {
+    setSeal1File(null);
+    setSeal1Preview(null);
+    setRemoveSeal1(true);
+  };
+
+  const handleSeal2Change = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setSnackbar({ open: true, message: 'Seal 2 image must not exceed 2MB in size.', severity: 'error' });
+      return;
+    }
+    setSeal2File(file);
+    setSeal2Preview(URL.createObjectURL(file));
+    setRemoveSeal2(false);
+  };
+
+  const handleResetSeal2 = () => {
+    setSeal2File(null);
+    setSeal2Preview(null);
+    setRemoveSeal2(true);
+  };
+
+  const handleSeal3Change = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setSnackbar({ open: true, message: 'Seal 3 image must not exceed 2MB in size.', severity: 'error' });
+      return;
+    }
+    setSeal3File(file);
+    setSeal3Preview(URL.createObjectURL(file));
+    setRemoveSeal3(false);
+  };
+
+  const handleResetSeal3 = () => {
+    setSeal3File(null);
+    setSeal3Preview(null);
+    setRemoveSeal3(true);
+  };
+
+  const handleHeroImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setSnackbar({ open: true, message: 'Hero banner image must not exceed 5MB in size.', severity: 'error' });
+      return;
+    }
+    setHeroImageFile(file);
+    setHeroImagePreview(URL.createObjectURL(file));
+    setRemoveHeroImage(false);
+  };
+
+  const handleResetHeroImage = () => {
+    setHeroImageFile(null);
+    setHeroImagePreview(null);
+    setRemoveHeroImage(true);
+  };
+
+  const defaultSeal1 = '/assets/logo_doh.jpg';
+  const defaultSeal2 = '/assets/logo_mho_tagoloan.jpg';
+  const defaultSeal3 = '/assets/logo_rhu.jpg';
+  const defaultHero = '/assets/rhu_tagoloan_hero.jpg';
+
+  const displaySeal1Src = seal1Preview
+    ? seal1Preview
+    : removeSeal1
+      ? defaultSeal1
+      : clinic.header_seal_1_url || defaultSeal1;
+
+  const displaySeal2Src = seal2Preview
+    ? seal2Preview
+    : removeSeal2
+      ? defaultSeal2
+      : clinic.header_seal_2_url || defaultSeal2;
+
+  const displaySeal3Src = seal3Preview
+    ? seal3Preview
+    : removeSeal3
+      ? defaultSeal3
+      : clinic.header_seal_3_url || defaultSeal3;
+
+  const displayHeroSrc = heroImagePreview
+    ? heroImagePreview
+    : removeHeroImage
+      ? defaultHero
+      : clinic.hero_image_url || defaultHero;
+
   const backendBase = API_BASE_URL.replace(/\/api\/?$/, '');
   const displayLogoSrc = logoPreview
     ? logoPreview
@@ -501,7 +675,7 @@ export default function ClinicInformation() {
   const updateFaqs = (faqs: ClinicFaq[]) => {
     const next = { ...clinic, faqs };
     setClinic(next);
-    const { logo_path, logo_url, left_print_logo_path, left_print_logo_url, right_print_logo_path, right_print_logo_url, opening_hours, ...draftable } = next;
+    const { logo_path, logo_url, left_print_logo_path, left_print_logo_url, right_print_logo_path, right_print_logo_url, header_seal_1_path, header_seal_1_url, header_seal_2_path, header_seal_2_url, header_seal_3_path, header_seal_3_url, hero_image_path, hero_image_url, opening_hours, ...draftable } = next;
     draft.saveDraft(draftable);
   };
 
@@ -558,6 +732,39 @@ export default function ClinicInformation() {
         formData.append('remove_right_print_logo', '1');
       }
 
+      // Public Header Seals
+      formData.append('header_seal_1_label', seal1Label || '');
+      if (seal1File) {
+        formData.append('header_seal_1', seal1File);
+      }
+      if (removeSeal1) {
+        formData.append('remove_header_seal_1', '1');
+      }
+
+      formData.append('header_seal_2_label', seal2Label || '');
+      if (seal2File) {
+        formData.append('header_seal_2', seal2File);
+      }
+      if (removeSeal2) {
+        formData.append('remove_header_seal_2', '1');
+      }
+
+      formData.append('header_seal_3_label', seal3Label || '');
+      if (seal3File) {
+        formData.append('header_seal_3', seal3File);
+      }
+      if (removeSeal3) {
+        formData.append('remove_header_seal_3', '1');
+      }
+
+      // Landing Hero Picture
+      if (heroImageFile) {
+        formData.append('hero_image', heroImageFile);
+      }
+      if (removeHeroImage) {
+        formData.append('remove_hero_image', '1');
+      }
+
       const res = await api.post('/setup/clinic', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -583,6 +790,17 @@ export default function ClinicInformation() {
           left_print_logo_url: updatedClinic.left_print_logo_url || null,
           right_print_logo_path: updatedClinic.right_print_logo_path || null,
           right_print_logo_url: updatedClinic.right_print_logo_url || null,
+          header_seal_1_path: updatedClinic.header_seal_1_path || null,
+          header_seal_1_url: updatedClinic.header_seal_1_url || null,
+          header_seal_1_label: updatedClinic.header_seal_1_label || '',
+          header_seal_2_path: updatedClinic.header_seal_2_path || null,
+          header_seal_2_url: updatedClinic.header_seal_2_url || null,
+          header_seal_2_label: updatedClinic.header_seal_2_label || '',
+          header_seal_3_path: updatedClinic.header_seal_3_path || null,
+          header_seal_3_url: updatedClinic.header_seal_3_url || null,
+          header_seal_3_label: updatedClinic.header_seal_3_label || '',
+          hero_image_path: updatedClinic.hero_image_path || null,
+          hero_image_url: updatedClinic.hero_image_url || null,
         }));
         setLogoFile(null);
         setLogoPreview(null);
@@ -595,6 +813,22 @@ export default function ClinicInformation() {
         setRightLogoFile(null);
         setRightLogoPreview(null);
         setRemoveRightLogo(false);
+
+        setSeal1File(null);
+        setSeal1Preview(null);
+        setRemoveSeal1(false);
+
+        setSeal2File(null);
+        setSeal2Preview(null);
+        setRemoveSeal2(false);
+
+        setSeal3File(null);
+        setSeal3Preview(null);
+        setRemoveSeal3(false);
+
+        setHeroImageFile(null);
+        setHeroImagePreview(null);
+        setRemoveHeroImage(false);
       }
 
       setShowSuccessModal(true);
@@ -1107,6 +1341,556 @@ export default function ClinicInformation() {
                   },
                 }}
               />
+            </Box>
+          </Box>
+        </Paper>
+
+        {/* Card: Public Landing Page Branding & Hero Image */}
+        <Paper
+          data-walkthrough="clinic-landing-branding-section"
+          elevation={0}
+          sx={{
+            border: '1px solid var(--border-glow, #e0eae3)',
+            borderRadius: 2,
+            p: 3,
+            bgcolor: 'var(--card-bg-solid, #fff)',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5, flexWrap: 'wrap', gap: 1 }}>
+            <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              PUBLIC LANDING PAGE BRANDING & HERO PICTURE
+            </Typography>
+            <Box
+              sx={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: '#059669',
+                bgcolor: '#ecfdf5',
+                border: '1px solid #a7f3d0',
+                borderRadius: 1.5,
+                px: 1.25,
+                py: 0.25,
+              }}
+            >
+              Public Navbar & Hero
+            </Box>
+          </Box>
+          <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 1.5 }} />
+          <Typography sx={{ fontSize: '13px', color: '#64748b', mb: 3 }}>
+            Customize the 3 official seals shown in the public landing page header and upload a custom hero background picture.
+          </Typography>
+
+          {/* Header Seals Grid */}
+          <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#374151', mb: 1.5 }}>
+            Navbar Official Seals (3 Badges)
+          </Typography>
+
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
+              gap: 2,
+              mb: 3.5,
+            }}
+          >
+            {/* Seal 1: Department of Health */}
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: '#ffffff',
+                border: '1px solid var(--border-glow, #e2e8f0)',
+                borderRadius: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    border: '2px solid #10b981',
+                    bgcolor: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 0.5,
+                    flexShrink: 0,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <img
+                    src={displaySeal1Src}
+                    alt="Seal 1 Preview"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = defaultSeal1;
+                    }}
+                  />
+                </Box>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>
+                    Header Seal 1
+                  </Typography>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    Department of Health
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box>
+                <FieldLabel>Seal Label</FieldLabel>
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={seal1Label}
+                  onChange={(e) => setSeal1Label(e.target.value)}
+                  placeholder="e.g. Department of Health"
+                  sx={cleanFieldSx}
+                />
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 'auto', pt: 0.5 }}>
+                <input
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  id="seal-1-upload"
+                  type="file"
+                  style={{ display: 'none' }}
+                  onChange={handleSeal1Change}
+                />
+                <label htmlFor="seal-1-upload">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    size="small"
+                    startIcon={<CloudUploadIcon />}
+                    sx={{
+                      textTransform: 'none',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#059669',
+                      borderColor: '#10b981',
+                      py: 0.5,
+                      px: 1.25,
+                      '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' },
+                    }}
+                  >
+                    {seal1File || clinic.header_seal_1_path ? 'Replace Seal' : 'Upload Seal'}
+                  </Button>
+                </label>
+
+                {(seal1File || clinic.header_seal_1_path || seal1Preview) && !removeSeal1 && (
+                  <Button
+                    variant="text"
+                    size="small"
+                    startIcon={<DeleteOutlineIcon />}
+                    onClick={handleResetSeal1}
+                    sx={{
+                      textTransform: 'none',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      color: '#ef4444',
+                      py: 0.5,
+                      px: 1,
+                      '&:hover': { bgcolor: '#fef2f2' },
+                    }}
+                  >
+                    Reset
+                  </Button>
+                )}
+              </Box>
+
+              {seal1File && (
+                <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500 }}>
+                  Selected: {seal1File.name}
+                </Typography>
+              )}
+              {removeSeal1 && (
+                <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500 }}>
+                  Will reset to default on save
+                </Typography>
+              )}
+            </Box>
+
+            {/* Seal 2: Municipal / LGU Seal */}
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: '#ffffff',
+                border: '1px solid var(--border-glow, #e2e8f0)',
+                borderRadius: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    border: '2px solid #10b981',
+                    bgcolor: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 0.5,
+                    flexShrink: 0,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <img
+                    src={displaySeal2Src}
+                    alt="Seal 2 Preview"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = defaultSeal2;
+                    }}
+                  />
+                </Box>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>
+                    Header Seal 2
+                  </Typography>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    Municipality / LGU
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box>
+                <FieldLabel>Seal Label</FieldLabel>
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={seal2Label}
+                  onChange={(e) => setSeal2Label(e.target.value)}
+                  placeholder="e.g. Tagoloan, Misamis Oriental"
+                  sx={cleanFieldSx}
+                />
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 'auto', pt: 0.5 }}>
+                <input
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  id="seal-2-upload"
+                  type="file"
+                  style={{ display: 'none' }}
+                  onChange={handleSeal2Change}
+                />
+                <label htmlFor="seal-2-upload">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    size="small"
+                    startIcon={<CloudUploadIcon />}
+                    sx={{
+                      textTransform: 'none',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#059669',
+                      borderColor: '#10b981',
+                      py: 0.5,
+                      px: 1.25,
+                      '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' },
+                    }}
+                  >
+                    {seal2File || clinic.header_seal_2_path ? 'Replace Seal' : 'Upload Seal'}
+                  </Button>
+                </label>
+
+                {(seal2File || clinic.header_seal_2_path || seal2Preview) && !removeSeal2 && (
+                  <Button
+                    variant="text"
+                    size="small"
+                    startIcon={<DeleteOutlineIcon />}
+                    onClick={handleResetSeal2}
+                    sx={{
+                      textTransform: 'none',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      color: '#ef4444',
+                      py: 0.5,
+                      px: 1,
+                      '&:hover': { bgcolor: '#fef2f2' },
+                    }}
+                  >
+                    Reset
+                  </Button>
+                )}
+              </Box>
+
+              {seal2File && (
+                <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500 }}>
+                  Selected: {seal2File.name}
+                </Typography>
+              )}
+              {removeSeal2 && (
+                <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500 }}>
+                  Will reset to default on save
+                </Typography>
+              )}
+            </Box>
+
+            {/* Seal 3: Rural Health Unit */}
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: '#ffffff',
+                border: '1px solid var(--border-glow, #e2e8f0)',
+                borderRadius: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    border: '2px solid #10b981',
+                    bgcolor: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 0.5,
+                    flexShrink: 0,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <img
+                    src={displaySeal3Src}
+                    alt="Seal 3 Preview"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = defaultSeal3;
+                    }}
+                  />
+                </Box>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>
+                    Header Seal 3
+                  </Typography>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    Rural Health Unit
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box>
+                <FieldLabel>Seal Label</FieldLabel>
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={seal3Label}
+                  onChange={(e) => setSeal3Label(e.target.value)}
+                  placeholder="e.g. Rural Health Unit"
+                  sx={cleanFieldSx}
+                />
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 'auto', pt: 0.5 }}>
+                <input
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  id="seal-3-upload"
+                  type="file"
+                  style={{ display: 'none' }}
+                  onChange={handleSeal3Change}
+                />
+                <label htmlFor="seal-3-upload">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    size="small"
+                    startIcon={<CloudUploadIcon />}
+                    sx={{
+                      textTransform: 'none',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#059669',
+                      borderColor: '#10b981',
+                      py: 0.5,
+                      px: 1.25,
+                      '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' },
+                    }}
+                  >
+                    {seal3File || clinic.header_seal_3_path ? 'Replace Seal' : 'Upload Seal'}
+                  </Button>
+                </label>
+
+                {(seal3File || clinic.header_seal_3_path || seal3Preview) && !removeSeal3 && (
+                  <Button
+                    variant="text"
+                    size="small"
+                    startIcon={<DeleteOutlineIcon />}
+                    onClick={handleResetSeal3}
+                    sx={{
+                      textTransform: 'none',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      color: '#ef4444',
+                      py: 0.5,
+                      px: 1,
+                      '&:hover': { bgcolor: '#fef2f2' },
+                    }}
+                  >
+                    Reset
+                  </Button>
+                )}
+              </Box>
+
+              {seal3File && (
+                <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500 }}>
+                  Selected: {seal3File.name}
+                </Typography>
+              )}
+              {removeSeal3 && (
+                <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500 }}>
+                  Will reset to default on save
+                </Typography>
+              )}
+            </Box>
+          </Box>
+
+          {/* Landing Page Hero Banner Picture Block */}
+          <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#374151', mb: 1.5 }}>
+            Landing Page Hero Picture (Top Banner)
+          </Typography>
+
+          <Box
+            sx={{
+              p: 2.5,
+              bgcolor: '#ffffff',
+              border: '1px solid var(--border-glow, #e2e8f0)',
+              borderRadius: 2,
+            }}
+          >
+            <Box
+              sx={{
+                width: '100%',
+                height: { xs: 160, sm: 220, md: 260 },
+                borderRadius: 2,
+                overflow: 'hidden',
+                position: 'relative',
+                border: '1.5px solid #cbd5e1',
+                bgcolor: '#0f172a',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                mb: 2,
+              }}
+            >
+              <img
+                src={displayHeroSrc}
+                alt="Landing Page Hero Banner Preview"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  display: 'block',
+                }}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = defaultHero;
+                }}
+              />
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'linear-gradient(to top, rgba(15, 23, 42, 0.75) 0%, rgba(15, 23, 42, 0.15) 60%, transparent 100%)',
+                  pointerEvents: 'none',
+                }}
+              />
+              <Box
+                sx={{
+                  position: 'absolute',
+                  bottom: 16,
+                  left: 16,
+                  color: '#ffffff',
+                  pointerEvents: 'none',
+                }}
+              >
+                <Typography sx={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#34d399', mb: 0.25 }}>
+                  Live Hero Preview
+                </Typography>
+                <Typography sx={{ fontSize: { xs: '15px', md: '18px' }, fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                  ANIMAL BITE TREATMENT CENTER
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+              <Box sx={{ minWidth: 200, flex: 1 }}>
+                <Typography sx={{ fontSize: '12.5px', color: '#64748b' }}>
+                  Recommended: Landscape photo (16:9 or 21:9 ratio, 1920×800px or larger, max 5MB).
+                </Typography>
+                {heroImageFile && (
+                  <Typography sx={{ fontSize: '12px', color: '#10b981', fontWeight: 600, mt: 0.5 }}>
+                    Selected: {heroImageFile.name} ({(heroImageFile.size / (1024 * 1024)).toFixed(2)} MB)
+                  </Typography>
+                )}
+                {removeHeroImage && (
+                  <Typography sx={{ fontSize: '12px', color: '#f59e0b', fontWeight: 600, mt: 0.5 }}>
+                    Will reset to default hero image on save
+                  </Typography>
+                )}
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <input
+                  accept="image/png,image/jpeg,image/webp"
+                  id="hero-image-upload"
+                  type="file"
+                  style={{ display: 'none' }}
+                  onChange={handleHeroImageChange}
+                />
+                <label htmlFor="hero-image-upload">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    size="small"
+                    startIcon={<CloudUploadIcon />}
+                    sx={{
+                      textTransform: 'none',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      color: '#059669',
+                      borderColor: '#10b981',
+                      py: 0.75,
+                      px: 2,
+                      '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' },
+                    }}
+                  >
+                    {heroImageFile || clinic.hero_image_path ? 'Replace Hero Picture' : 'Upload Hero Picture'}
+                  </Button>
+                </label>
+
+                {(heroImageFile || clinic.hero_image_path || heroImagePreview) && !removeHeroImage && (
+                  <Button
+                    variant="text"
+                    size="small"
+                    startIcon={<DeleteOutlineIcon />}
+                    onClick={handleResetHeroImage}
+                    sx={{
+                      textTransform: 'none',
+                      fontSize: '12.5px',
+                      fontWeight: 500,
+                      color: '#ef4444',
+                      py: 0.75,
+                      px: 1.5,
+                      '&:hover': { bgcolor: '#fef2f2' },
+                    }}
+                  >
+                    Reset to Default
+                  </Button>
+                )}
+              </Box>
             </Box>
           </Box>
         </Paper>

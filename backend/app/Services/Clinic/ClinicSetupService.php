@@ -132,7 +132,15 @@ class ClinicSetupService
             $attributes['left_print_logo'],
             $attributes['remove_left_print_logo'],
             $attributes['right_print_logo'],
-            $attributes['remove_right_print_logo']
+            $attributes['remove_right_print_logo'],
+            $attributes['header_seal_1'],
+            $attributes['remove_header_seal_1'],
+            $attributes['header_seal_2'],
+            $attributes['remove_header_seal_2'],
+            $attributes['header_seal_3'],
+            $attributes['remove_header_seal_3'],
+            $attributes['hero_image'],
+            $attributes['remove_hero_image']
         );
 
         // Handle main logo removal
@@ -181,6 +189,70 @@ class ClinicSetupService
                 Storage::disk('public')->delete($clinic->right_print_logo_path);
             }
             $attributes['right_print_logo_path'] = $request->file('right_print_logo')->store('clinic-logos', 'public');
+        }
+
+        // Handle header seal 1 removal
+        if ($request->boolean('remove_header_seal_1') || $request->input('remove_header_seal_1') === '1' || $request->input('remove_header_seal_1') === 'true') {
+            if ($clinic->header_seal_1_path) {
+                Storage::disk('public')->delete($clinic->header_seal_1_path);
+            }
+            $attributes['header_seal_1_path'] = null;
+        }
+
+        // Handle header seal 1 upload
+        if ($request->hasFile('header_seal_1')) {
+            if ($clinic->header_seal_1_path) {
+                Storage::disk('public')->delete($clinic->header_seal_1_path);
+            }
+            $attributes['header_seal_1_path'] = $request->file('header_seal_1')->store('clinic-branding', 'public');
+        }
+
+        // Handle header seal 2 removal
+        if ($request->boolean('remove_header_seal_2') || $request->input('remove_header_seal_2') === '1' || $request->input('remove_header_seal_2') === 'true') {
+            if ($clinic->header_seal_2_path) {
+                Storage::disk('public')->delete($clinic->header_seal_2_path);
+            }
+            $attributes['header_seal_2_path'] = null;
+        }
+
+        // Handle header seal 2 upload
+        if ($request->hasFile('header_seal_2')) {
+            if ($clinic->header_seal_2_path) {
+                Storage::disk('public')->delete($clinic->header_seal_2_path);
+            }
+            $attributes['header_seal_2_path'] = $request->file('header_seal_2')->store('clinic-branding', 'public');
+        }
+
+        // Handle header seal 3 removal
+        if ($request->boolean('remove_header_seal_3') || $request->input('remove_header_seal_3') === '1' || $request->input('remove_header_seal_3') === 'true') {
+            if ($clinic->header_seal_3_path) {
+                Storage::disk('public')->delete($clinic->header_seal_3_path);
+            }
+            $attributes['header_seal_3_path'] = null;
+        }
+
+        // Handle header seal 3 upload
+        if ($request->hasFile('header_seal_3')) {
+            if ($clinic->header_seal_3_path) {
+                Storage::disk('public')->delete($clinic->header_seal_3_path);
+            }
+            $attributes['header_seal_3_path'] = $request->file('header_seal_3')->store('clinic-branding', 'public');
+        }
+
+        // Handle hero image removal
+        if ($request->boolean('remove_hero_image') || $request->input('remove_hero_image') === '1' || $request->input('remove_hero_image') === 'true') {
+            if ($clinic->hero_image_path) {
+                Storage::disk('public')->delete($clinic->hero_image_path);
+            }
+            $attributes['hero_image_path'] = null;
+        }
+
+        // Handle hero image upload
+        if ($request->hasFile('hero_image')) {
+            if ($clinic->hero_image_path) {
+                Storage::disk('public')->delete($clinic->hero_image_path);
+            }
+            $attributes['hero_image_path'] = $request->file('hero_image')->store('clinic-branding', 'public');
         }
 
         // Auto-geocode if address changed

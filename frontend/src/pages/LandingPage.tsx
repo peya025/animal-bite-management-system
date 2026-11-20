@@ -63,7 +63,27 @@ export default function LandingPage() {
     },
   ];
 
-  const [dynSettings, setDynSettings] = useState({
+  const [dynSettings, setDynSettings] = useState<{
+    app_short_name: string;
+    app_full_name: string;
+    abtc_brand_title: string;
+    abtc_description: string;
+    developed_for_text: string;
+    quick_links: { label: string; url: string }[];
+    support_links: { label: string; url: string }[];
+    system_info_links: { label: string; url: string }[];
+    operating_schedule: string;
+    operating_hours: string;
+    registration_window: string;
+    requirement_notice: string;
+    header_seal_1_url?: string;
+    header_seal_1_label?: string;
+    header_seal_2_url?: string;
+    header_seal_2_label?: string;
+    header_seal_3_url?: string;
+    header_seal_3_label?: string;
+    hero_image_url?: string;
+  }>({
     app_short_name: APP_SHORT_NAME || 'TABTA',
     app_full_name: 'TAGOLOAN ANIMAL BITE TREATMENT CENTER',
     abtc_brand_title: 'ABTC',
@@ -86,6 +106,13 @@ export default function LandingPage() {
     operating_hours: '8:00 AM – 5:00 PM',
     registration_window: '8:00 AM – 10:00 AM (Come Early!)',
     requirement_notice: 'Please bring updated PhilHealth MDR',
+    header_seal_1_url: '/assets/logo_doh.jpg',
+    header_seal_1_label: 'Department of Health',
+    header_seal_2_url: '/assets/logo_mho_tagoloan.jpg',
+    header_seal_2_label: 'Tagoloan, Misamis Oriental',
+    header_seal_3_url: '/assets/logo_rhu.jpg',
+    header_seal_3_label: 'Rural Health Unit',
+    hero_image_url: '/assets/rhu_tagoloan_hero.jpg',
   });
 
   useEffect(() => {
@@ -784,17 +811,29 @@ export default function LandingPage() {
             <div className="gov-header-right">
               {/* 3 Org Seals */}
               <div className="nav-org-seals">
-                <div className="seal-emblem" title="Department of Health">
-                  <img src="/assets/logo_doh.jpg" alt="Department of Health DOH Seal" className="seal-badge-icon" />
-                  <span>Department of Health</span>
+                <div className="seal-emblem" title={dynSettings.header_seal_1_label || 'Department of Health'}>
+                  <img
+                    src={dynSettings.header_seal_1_url || '/assets/logo_doh.jpg'}
+                    alt={`${dynSettings.header_seal_1_label || 'Department of Health'} Seal`}
+                    className="seal-badge-icon"
+                  />
+                  <span>{dynSettings.header_seal_1_label || 'Department of Health'}</span>
                 </div>
-                <div className="seal-emblem" title="Tagoloan, Misamis Oriental">
-                  <img src="/assets/logo_mho_tagoloan.jpg" alt="Municipal Health Office Tagoloan Misamis Oriental Seal" className="seal-badge-icon" />
-                  <span>Tagoloan, Misamis Oriental</span>
+                <div className="seal-emblem" title={dynSettings.header_seal_2_label || 'Tagoloan, Misamis Oriental'}>
+                  <img
+                    src={dynSettings.header_seal_2_url || '/assets/logo_mho_tagoloan.jpg'}
+                    alt={`${dynSettings.header_seal_2_label || 'Tagoloan, Misamis Oriental'} Seal`}
+                    className="seal-badge-icon"
+                  />
+                  <span>{dynSettings.header_seal_2_label || 'Tagoloan, Misamis Oriental'}</span>
                 </div>
-                <div className="seal-emblem" title="Rural Health Unit">
-                  <img src="/assets/logo_rhu.jpg" alt="Rural Health Unit RHU Seal" className="seal-badge-icon" />
-                  <span>Rural Health Unit</span>
+                <div className="seal-emblem" title={dynSettings.header_seal_3_label || 'Rural Health Unit'}>
+                  <img
+                    src={dynSettings.header_seal_3_url || '/assets/logo_rhu.jpg'}
+                    alt={`${dynSettings.header_seal_3_label || 'Rural Health Unit'} Seal`}
+                    className="seal-badge-icon"
+                  />
+                  <span>{dynSettings.header_seal_3_label || 'Rural Health Unit'}</span>
                 </div>
               </div>
 
@@ -837,7 +876,10 @@ export default function LandingPage() {
         <AnnouncementHero>
         <section className="hero-sec" id="hero">
           <div className="hero-parallax-wrapper">
-            <img src="/assets/rhu_tagoloan_hero.jpg" alt="RHU Tagoloan Animal Bite Treatment Center" />
+            <img
+              src={dynSettings.hero_image_url || '/assets/rhu_tagoloan_hero.jpg'}
+              alt={`${dynSettings.app_full_name || 'Animal Bite Treatment Center'} Hero Banner`}
+            />
           </div>
           <div className="hero-gradient-mask"></div>
 

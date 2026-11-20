@@ -220,6 +220,36 @@ class ClinicSetupCharacterizationTest extends TestCase
         $removeResponse->assertStatus(200);
         $clinic->refresh();
         $this->assertNull($clinic->logo_path);
+
+        // Upload landing seals and hero image
+        $seal1 = UploadedFile::fake()->create('seal1.png', 100, 'image/png');
+        $hero = UploadedFile::fake()->create('hero.jpg', 200, 'image/jpeg');
+
+        $landingRes = $this->postJson('/api/setup/clinic', [
+            'name'                => 'Tagoloan Animal Bite Center',
+            'header_seal_1'       => $seal1,
+            'header_seal_1_label' => 'Department of Health Updated',
+            'hero_image'          => $hero,
+        ]);
+
+        $landingRes->assertStatus(200);
+        $clinic->refresh();
+        $this->assertNotNull($clinic->header_seal_1_path);
+        $this->assertEquals('Department of Health Updated', $clinic->header_seal_1_label);
+        $this->assertNotNull($clinic->hero_image_path);
+        Storage::disk('public')->assertExists($clinic->header_seal_1_path);
+        Storage::disk('public')->assertExists($clinic->hero_image_path);
+
+        // Remove landing seal 1 and hero image
+        $removeLandingRes = $this->postJson('/api/setup/clinic', [
+            'name'                 => 'Tagoloan Animal Bite Center',
+            'remove_header_seal_1' => '1',
+            'remove_hero_image'    => '1',
+        ]);
+        $removeLandingRes->assertStatus(200);
+        $clinic->refresh();
+        $this->assertNull($clinic->header_seal_1_path);
+        $this->assertNull($clinic->hero_image_path);
     }
 
     public function test_complete_setup_marks_clinic_complete(): void

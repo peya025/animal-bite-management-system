@@ -28,6 +28,13 @@ class Clinic extends Model
         'logo_path',
         'left_print_logo_path',
         'right_print_logo_path',
+        'header_seal_1_path',
+        'header_seal_1_label',
+        'header_seal_2_path',
+        'header_seal_2_label',
+        'header_seal_3_path',
+        'header_seal_3_label',
+        'hero_image_path',
         'municipality',
         'province',
         'latitude',
@@ -60,6 +67,10 @@ class Clinic extends Model
         'logo_url',
         'left_print_logo_url',
         'right_print_logo_url',
+        'header_seal_1_url',
+        'header_seal_2_url',
+        'header_seal_3_url',
+        'hero_image_url',
     ];
 
     /**
@@ -95,6 +106,58 @@ class Clinic extends Model
             return env('FILESYSTEM_DISK') === 's3'
                 ? Storage::disk('public')->url($this->right_print_logo_path)
                 : url('api/storage/' . $this->right_print_logo_path);
+        }
+        return null;
+    }
+
+    /**
+     * Get the full URL to the landing header seal 1 (DOH) if uploaded
+     */
+    public function getHeaderSeal1UrlAttribute(): ?string
+    {
+        if ($this->header_seal_1_path) {
+            return env('FILESYSTEM_DISK') === 's3'
+                ? Storage::disk('public')->url($this->header_seal_1_path)
+                : url('api/storage/' . $this->header_seal_1_path);
+        }
+        return null;
+    }
+
+    /**
+     * Get the full URL to the landing header seal 2 (LGU / Town) if uploaded
+     */
+    public function getHeaderSeal2UrlAttribute(): ?string
+    {
+        if ($this->header_seal_2_path) {
+            return env('FILESYSTEM_DISK') === 's3'
+                ? Storage::disk('public')->url($this->header_seal_2_path)
+                : url('api/storage/' . $this->header_seal_2_path);
+        }
+        return null;
+    }
+
+    /**
+     * Get the full URL to the landing header seal 3 (RHU) if uploaded
+     */
+    public function getHeaderSeal3UrlAttribute(): ?string
+    {
+        if ($this->header_seal_3_path) {
+            return env('FILESYSTEM_DISK') === 's3'
+                ? Storage::disk('public')->url($this->header_seal_3_path)
+                : url('api/storage/' . $this->header_seal_3_path);
+        }
+        return null;
+    }
+
+    /**
+     * Get the full URL to the landing hero image if uploaded
+     */
+    public function getHeroImageUrlAttribute(): ?string
+    {
+        if ($this->hero_image_path) {
+            return env('FILESYSTEM_DISK') === 's3'
+                ? Storage::disk('public')->url($this->hero_image_path)
+                : url('api/storage/' . $this->hero_image_path);
         }
         return null;
     }

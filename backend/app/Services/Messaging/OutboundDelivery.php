@@ -107,6 +107,12 @@ class OutboundDelivery
                     : 'You have an overdue appointment. Open the app to view your schedule.';
 
                 if (app(\App\Services\Messaging\FcmService::class)->isAccountAllowed($account)) {
+                    if (! $account->allowsNotificationCategory('appointment_reminder')) {
+                        \Illuminate\Support\Facades\Log::info("Scheduled reminder FCM skipped: Category 'appointment_reminder' disabled by user preferences for account #{$account->id}.");
+
+                        return;
+                    }
+
                     $isTest = (bool) ($message->context['is_test'] ?? false);
                     $isSync = (bool) ($message->context['sync'] ?? false);
                     $dryRun = (bool) ($message->context['dry_run'] ?? false);

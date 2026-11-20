@@ -389,11 +389,173 @@ class AutomatedReminderTestCommandTest extends TestCase
             'booked_by_account_id' => null,
         ]);
 
-        // Dry-run should flag preferences_allowed as false
+        // Dry-run should skip and display SKIPPED — Vaccination reminders disabled
         $this->artisan('appointments:auto-recall', [
             '--test'    => true,
             '--date'    => '2026-11-19',
             '--dry-run' => true,
-        ])->assertExitCode(0);
+        ])
+            ->expectsOutputToContain('SKIPPED — Vaccination reminders disabled')
+            ->expectsOutputToContain('Eligible Advance Reminders')
+            ->assertExitCode(0);
+
+        $this->assertSame(0, OutboundMessage::count());
+        $this->assertSame(0, Notification::count());
+    }
+
+    public function test_dry_run_skips_when_vaccination_reminders_disabled_for_self_and_dependent(): void
+    {
+        $this->account1->updateNotificationPreferences([
+            'reminders' => false,
+        ]);
+
+        // Self appointment
+        Appointment::create([
+            'appointment_id'       => 9,
+            'clinic_id'            => $this->clinic->id,
+            'patient_id'           => $this->patientSelf->patient_id,
+            'scheduled_date'       => '2026-11-20',
+            'appointment_date'     => '2026-11-20',
+            'appointment_type'     => 'follow_up_vaccination',
+            'dose_number'          => 3,
+            'status'               => 'scheduled',
+            'booked_by_account_id' => null,
+        ]);
+
+        // Dependent child appointment
+        Appointment::create([
+            'appointment_id'       => 7,
+            'clinic_id'            => $this->clinic->id,
+            'patient_id'           => $this->patientChild->patient_id,
+            'scheduled_date'       => '2026-11-20',
+            'appointment_date'     => '2026-11-20',
+            'appointment_type'     => 'follow_up_vaccination',
+            'dose_number'          => 3,
+            'status'               => 'scheduled',
+            'booked_by_account_id' => null,
+        ]);
+
+        $this->artisan('appointments:auto-recall', [
+            '--test'    => true,
+            '--date'    => '2026-11-19',
+            '--dry-run' => true,
+        ])
+            ->expectsOutputToContain('Eligible Advance Reminders')
+            ->expectsOutputToContain('SKIPPED — Vaccination reminders disabled')
+            ->assertExitCode(0);
+
+        // Schedule and database state untouched
+        $this->assertSame(0, OutboundMessage::count());
+        $this->assertSame(0, Notification::count());
+    }
+
+    public function test_dry_run_validates_successfully_when_vaccination_reminders_enabled(): void
+    {
+        $this->account1->updateNotificationPreferences([
+            'reminders' => true,
+        ]);
+
+        Appointment::create([
+            'appointment_id'       => 9,
+            'clinic_id'            => $this->clinic->id,
+            'patient_id'           => $this->patientSelf->patient_id,
+            'scheduled_date'       => '2026-11-20',
+            'appointment_date'     => '2026-11-20',
+            'appointment_type'     => 'follow_up_vaccination',
+            'dose_number'          => 3,
+            'status'               => 'scheduled',
+            'booked_by_account_id' => null,
+        ]);
+
+        $this->artisan('appointments:auto-recall', [
+            '--test'    => true,
+            '--date'    => '2026-11-19',
+            '--dry-run' => true,
+        ])
+            ->expectsOutputToContain('Eligible Advance Reminders')
+            ->expectsOutputToContain('Processed Advance Reminders')
+            ->expectsOutputToContain('Validated (validate_only=true)')
+            ->assertExitCode(0);
+
+        $this->assertSame(0, OutboundMessage::count());
+        $this->assertSame(0, Notification::count());
+    }
+
+    public function test_live_controlled_test_skips_fcm_when_vaccination_reminders_disabled(): void
+    {
+        $this->account1->updateNotificationPreferences([
+            'reminders' => false,
+        ]);
+
+        Appointment::create([
+            'appointment_id'       => 9,
+            'clinic_id'            => $this->clinic->id,
+            'patient_id'           => $this->patientSelf->patient_id,
+            'scheduled_date'       => '2026-11-20',
+            'appointment_date'     => '2026-11-20',
+            'appointment_type'     => 'follow_up_vaccination',
+            'dose_number'          => 3,
+            'status'               => 'scheduled',
+            'booked_by_account_id' => null,
+        ]);
+
+        $this->artisan('appointments:auto-recall', [
+            '--test'  => true,
+            '--date'  => '2026-11-19',
+            '--sync'  => true,
+            '--force' => true,
+        ])
+            ->expectsOutputToContain('SKIPPED — Vaccination reminders disabled')
+            ->assertExitCode(0);
+    }
+
+    public function test_other_notification_categories_unaffected_when_reminders_disabled(): void
+    {
+        $this->account1->updateNotificationPreferences([
+            'reminders'           => false,
+            'appointment_updates' => true,
+            'digital_card'        => true,
+            'announcements'       => true,
+        ]);
+
+        $account = $this->account1->fresh();
+
+        // Vaccination reminder categories are disabled
+        $this->assertFalse($account->allowsNotificationCategory('appointment_reminder'));
+        $this->assertFalse($account->allowsNotificationCategory('vaccination_due'));
+        $this->assertFalse($account->allowsNotificationCategory('dose_reminder'));
+        $this->assertFalse($account->allowsNotificationCategory('vaccination_schedule'));
+        $this->assertFalse($account->allowsNotificationCategory('vaccination_reminder'));
+        $this->assertFalse($account->allowsNotificationCategory('upcoming_appointment_reminder'));
+        $this->assertFalse($account->allowsNotificationCategory('missed_appointment_recall'));
+
+        // Other categories remain enabled and unaffected
+        $this->assertTrue($account->allowsNotificationCategory('appointment'));
+        $this->assertTrue($account->allowsNotificationCategory('appointment_cancelled'));
+        $this->assertTrue($account->allowsNotificationCategory('appointment_rescheduled'));
+        $this->assertTrue($account->allowsNotificationCategory('booking'));
+        $this->assertTrue($account->allowsNotificationCategory('digital_card'));
+        $this->assertTrue($account->allowsNotificationCategory('announcement'));
+    }
+
+    public function test_appointment_updates_category_disabled_leaves_reminders_unaffected(): void
+    {
+        $this->account1->updateNotificationPreferences([
+            'reminders'           => true,
+            'appointment_updates' => false,
+        ]);
+
+        $account = $this->account1->fresh();
+
+        // Appointment updates disabled
+        $this->assertFalse($account->allowsNotificationCategory('appointment'));
+        $this->assertFalse($account->allowsNotificationCategory('appointment_cancelled'));
+        $this->assertFalse($account->allowsNotificationCategory('appointment_rescheduled'));
+        $this->assertFalse($account->allowsNotificationCategory('booking'));
+
+        // Reminders remain enabled
+        $this->assertTrue($account->allowsNotificationCategory('appointment_reminder'));
+        $this->assertTrue($account->allowsNotificationCategory('vaccination_due'));
+        $this->assertTrue($account->allowsNotificationCategory('dose_reminder'));
     }
 }

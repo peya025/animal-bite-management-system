@@ -167,12 +167,19 @@ class SendAutomatedAppointmentReminders extends Command
             foreach ($res['details'] as $detail) {
                 $apptId = $detail['appointment_id'] ?? '-';
                 $patientName = $detail['patient_name'] ?? '-';
-                $status = $detail['success'] ? '<info>SUCCESS</info>' : '<comment>SKIPPED / NONE</comment>';
-                $inApp = $detail['channel_results']['in_app']['status'] ?? ($detail['errors']['in_app'] ?? 'none');
+                $inAppResult = $detail['channel_results']['in_app'] ?? [];
+                $isPrefAllowed = $inAppResult['preferences_allowed'] ?? true;
+                $status = $detail['success']
+                    ? '<info>SUCCESS</info>'
+                    : (! $isPrefAllowed ? '<comment>SKIPPED</comment>' : '<comment>SKIPPED / NONE</comment>');
+                $inApp = $inAppResult['status'] ?? ($detail['errors']['in_app'] ?? 'none');
 
                 $fcmInfo = 'N/A';
-                if ($isDryRun && isset($detail['channel_results']['in_app']['fcm_results'])) {
-                    $resultsList = $detail['channel_results']['in_app']['fcm_results'];
+                if (! $isPrefAllowed || ($inAppResult['error'] ?? null) === 'vaccination_reminders_disabled') {
+                    $skipReason = $inAppResult['skip_reason'] ?? 'Vaccination reminders disabled';
+                    $fcmInfo = "SKIPPED — {$skipReason}";
+                } elseif ($isDryRun && isset($inAppResult['fcm_results'])) {
+                    $resultsList = $inAppResult['fcm_results'];
                     $fcmInfo = count($resultsList) > 0 ? 'Validated (validate_only=true)' : 'No active devices';
                 } elseif (! $isDryRun && $detail['success']) {
                     $fcmInfo = $isSync ? 'Delivered via FCM HTTP v1' : 'Queued (SendFcmPushNotification)';

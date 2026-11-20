@@ -84,9 +84,9 @@ class PatientAccount extends Authenticatable
         }
 
         return match ($category) {
-            'appointment', 'appointment_reminder', 'appointment_rescheduled', 'appointment_cancelled', 'booking'
+            'appointment', 'appointment_rescheduled', 'appointment_cancelled', 'booking', 'booking_confirmation', 'booking_cancelled'
                 => (bool) ($prefs['appointment_updates'] ?? true),
-            'vaccination_due', 'dose_reminder', 'vaccination_schedule', 'pep_reminder', 'pep_schedule'
+            'appointment_reminder', 'vaccination_due', 'dose_reminder', 'vaccination_schedule', 'pep_reminder', 'pep_schedule', 'vaccination_reminder', 'upcoming_appointment_reminder', 'missed_appointment_recall', 'missed_triage_recall', 'missed_treatment_recall'
                 => (bool) ($prefs['reminders'] ?? true),
             'digital_card'
                 => (bool) ($prefs['digital_card'] ?? true),

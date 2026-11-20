@@ -142,6 +142,27 @@ class AppointmentReminderService
                 $isAllowed = $account ? app(\App\Services\Messaging\FcmService::class)->isAccountAllowed($account) : false;
                 $prefAllowed = $account ? $account->allowsNotificationCategory('appointment_reminder') : true;
 
+                if (! $prefAllowed) {
+                    $reason = (! ($account?->notificationPreferences()['reminders'] ?? true))
+                        ? 'Vaccination reminders disabled'
+                        : 'Push notifications disabled';
+
+                    $result['channel_results'][$selected] = [
+                        'status'              => 'skipped',
+                        'error'               => 'vaccination_reminders_disabled',
+                        'skip_reason'         => $reason,
+                        'recipient'           => (string) $account?->id,
+                        'device_count'        => $deviceTokens->count(),
+                        'allowlisted'         => $isAllowed,
+                        'preferences_allowed' => false,
+                        'fcm_results'         => [],
+                        'dry_run'             => true,
+                    ];
+                    $result['errors'][$selected] = 'vaccination_reminders_disabled';
+
+                    continue;
+                }
+
                 $fcmResults = [];
                 if ($account && $isAllowed && $prefAllowed && $deviceTokens->isNotEmpty()) {
                     $pushData = [
@@ -167,7 +188,7 @@ class AppointmentReminderService
                     'recipient'           => (string) $account?->id,
                     'device_count'        => $deviceTokens->count(),
                     'allowlisted'         => $isAllowed,
-                    'preferences_allowed' => $prefAllowed,
+                    'preferences_allowed' => true,
                     'fcm_results'         => $fcmResults,
                     'dry_run'             => true,
                 ];
@@ -212,7 +233,18 @@ class AppointmentReminderService
                 }
             }
             $message->refresh();
-            $result['channel_results'][$selected] = ['status' => $message->status, 'message_id' => $message->id, 'error' => $message->error_code];
+            $prefAllowed = $account ? $account->allowsNotificationCategory('appointment_reminder') : true;
+            $skipReason = (! ($account?->notificationPreferences()['reminders'] ?? true))
+                ? 'Vaccination reminders disabled'
+                : 'Push notifications disabled';
+
+            $result['channel_results'][$selected] = [
+                'status'              => $message->status,
+                'message_id'          => $message->id,
+                'error'               => $message->error_code,
+                'preferences_allowed' => $prefAllowed,
+                'skip_reason'         => $prefAllowed ? null : $skipReason,
+            ];
             if (in_array($message->status, ['queued', 'processing', 'accepted', 'delivered', 'simulated'])) {
                 $result['channels_dispatched'][] = $selected;
             } else {

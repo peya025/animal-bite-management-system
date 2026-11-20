@@ -15,6 +15,8 @@ import {
   Paper,
   Select,
   Snackbar,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
@@ -121,6 +123,8 @@ export default function ClinicInformation() {
   const draft = useFormDraft('clinic-info');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<'general' | 'accreditation' | 'website' | 'patient_app'>('general');
+  const [savedSnapshot, setSavedSnapshot] = useState<string>('');
   const [expandedFaq, setExpandedFaq] = useState<number | false>(false);
   const [resourcesRefreshTrigger, setResourcesRefreshTrigger] = useState(0);
   const [clinic, setClinic] = useState<ClinicData>({
@@ -432,24 +436,44 @@ export default function ClinicInformation() {
       setRightLogoPreview(null);
       setRemoveRightLogo(false);
 
+      const loadedSeal1Label = data.header_seal_1_label || 'Department of Health';
+      const loadedSeal2Label = data.header_seal_2_label || (data.municipality ? (data.province ? `${data.municipality}, ${data.province}` : data.municipality) : 'Tagoloan, Misamis Oriental');
+      const loadedSeal3Label = data.header_seal_3_label || 'Rural Health Unit';
+
       setSeal1File(null);
       setSeal1Preview(null);
       setRemoveSeal1(false);
-      setSeal1Label(data.header_seal_1_label || 'Department of Health');
+      setSeal1Label(loadedSeal1Label);
 
       setSeal2File(null);
       setSeal2Preview(null);
       setRemoveSeal2(false);
-      setSeal2Label(data.header_seal_2_label || (data.municipality ? (data.province ? `${data.municipality}, ${data.province}` : data.municipality) : 'Tagoloan, Misamis Oriental'));
+      setSeal2Label(loadedSeal2Label);
 
       setSeal3File(null);
       setSeal3Preview(null);
       setRemoveSeal3(false);
-      setSeal3Label(data.header_seal_3_label || 'Rural Health Unit');
+      setSeal3Label(loadedSeal3Label);
 
       setHeroImageFile(null);
       setHeroImagePreview(null);
       setRemoveHeroImage(false);
+
+      setSavedSnapshot(JSON.stringify({
+        name: data.name || '',
+        subtitle: data.subtitle || '',
+        address: data.address || '',
+        contact_number: data.contact_number || '',
+        email: data.email || '',
+        license_number: data.license_number || '',
+        hospital_no: data.hospital_no || '',
+        doh_accreditation_no: data.doh_accreditation_no || '',
+        philhealth_accreditation_no: data.philhealth_accreditation_no || '',
+        faqs: data.faqs || [],
+        seal1Label: loadedSeal1Label,
+        seal2Label: loadedSeal2Label,
+        seal3Label: loadedSeal3Label,
+      }));
 
       parseClinicAddress(data.address || '', data.municipality, data.province);
     } catch (error: any) {
@@ -831,6 +855,22 @@ export default function ClinicInformation() {
         setRemoveHeroImage(false);
       }
 
+      setSavedSnapshot(JSON.stringify({
+        name: clinic.name || '',
+        subtitle: clinic.subtitle || '',
+        address: clinic.address || '',
+        contact_number: clinic.contact_number || '',
+        email: clinic.email || '',
+        license_number: clinic.license_number || '',
+        hospital_no: clinic.hospital_no || '',
+        doh_accreditation_no: clinic.doh_accreditation_no || '',
+        philhealth_accreditation_no: clinic.philhealth_accreditation_no || '',
+        faqs: clinic.faqs.map(faq => ({ category: (faq.category || '').trim(), question: faq.question.trim(), answer: faq.answer.trim() })),
+        seal1Label,
+        seal2Label,
+        seal3Label,
+      }));
+
       setShowSuccessModal(true);
       draft.clearDraft();
     } catch (error: any) {
@@ -844,6 +884,41 @@ export default function ClinicInformation() {
     }
   };
 
+  const currentSnapshot = JSON.stringify({
+    name: clinic.name || '',
+    subtitle: clinic.subtitle || '',
+    address: clinic.address || '',
+    contact_number: clinic.contact_number || '',
+    email: clinic.email || '',
+    license_number: clinic.license_number || '',
+    hospital_no: clinic.hospital_no || '',
+    doh_accreditation_no: clinic.doh_accreditation_no || '',
+    philhealth_accreditation_no: clinic.philhealth_accreditation_no || '',
+    faqs: clinic.faqs,
+    seal1Label,
+    seal2Label,
+    seal3Label,
+  });
+
+  const hasUnsavedFiles = Boolean(
+    logoFile || removeLogo ||
+    leftLogoFile || removeLeftLogo ||
+    rightLogoFile || removeRightLogo ||
+    seal1File || removeSeal1 ||
+    seal2File || removeSeal2 ||
+    seal3File || removeSeal3 ||
+    heroImageFile || removeHeroImage
+  );
+
+  const hasUnsavedChanges = Boolean(
+    !loading && (hasUnsavedFiles || (savedSnapshot !== '' && currentSnapshot !== savedSnapshot))
+  );
+
+  const handleDiscard = () => {
+    draft.clearDraft();
+    loadClinicData();
+  };
+
 
   if (loading) {
     return (
@@ -854,9 +929,9 @@ export default function ClinicInformation() {
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: '100%', pb: hasUnsavedChanges ? 8 : 2 }}>
       {/* Header */}
-      <Box data-walkthrough="clinic-info-header" sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+      <Box data-walkthrough="clinic-info-header" sx={{ mb: 2.5, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography
             component="h1"
@@ -877,7 +952,7 @@ export default function ClinicInformation() {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              marginTop: '8px',
+              marginTop: '6px',
               fontSize: '13px',
             }}
           >
@@ -901,7 +976,37 @@ export default function ClinicInformation() {
             <span style={{ color: '#6b7280' }}>Clinic Information</span>
           </div>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1.5 }}>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+          <Button
+            data-walkthrough="clinic-save-btn"
+            variant={hasUnsavedChanges ? 'contained' : 'outlined'}
+            size="small"
+            startIcon={<SaveIcon sx={{ fontSize: 17 }} />}
+            onClick={handleSubmit}
+            disabled={saving || !hasUnsavedChanges}
+            disableElevation
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '13px',
+              px: 2,
+              height: 38,
+              borderRadius: 1.5,
+              ...(hasUnsavedChanges
+                ? {
+                    bgcolor: '#10b981',
+                    color: '#ffffff',
+                    '&:hover': { bgcolor: '#059669' },
+                  }
+                : {
+                    borderColor: '#d1d5db',
+                    color: '#6b7280',
+                  }),
+            }}
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
           <IconButton
             onClick={() => {
               void loadClinicData();
@@ -909,12 +1014,12 @@ export default function ClinicInformation() {
             }}
             disabled={loading}
             title="Reload Clinic Information"
-            sx={{ 
+            sx={{
               border: '1px solid #e0eae3',
               borderRadius: 1.5,
-              width: 40,
-              height: 40,
-              '&:hover': { bgcolor: '#f9fafb' }
+              width: 38,
+              height: 38,
+              '&:hover': { bgcolor: '#f9fafb' },
             }}
           >
             <RefreshIcon fontSize="small" />
@@ -922,1008 +1027,444 @@ export default function ClinicInformation() {
         </Box>
       </Box>
 
-      {/* Full-width layout */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {/* Card 1: Branding & Application Identity */}
-        <Paper
-          data-walkthrough="clinic-branding-section"
-          elevation={0}
+      {/* Navigation Tabs */}
+      <Box
+        sx={{
+          borderBottom: '1px solid var(--border-glow, #e2e8f0)',
+          mb: 3,
+        }}
+      >
+        <Tabs
+          value={activeTab}
+          onChange={(_, val) => setActiveTab(val)}
+          variant="scrollable"
+          scrollButtons="auto"
           sx={{
-            border: '1px solid var(--border-glow, #e0eae3)',
-            borderRadius: 2,
-            p: 3,
-            bgcolor: 'var(--card-bg-solid, #fff)',
+            minHeight: 42,
+            '& .MuiTabs-indicator': {
+              backgroundColor: '#10b981',
+              height: 2.5,
+              borderRadius: '2px 2px 0 0',
+            },
+            '& .MuiTab-root': {
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '13.5px',
+              color: '#64748b',
+              minHeight: 42,
+              px: 2,
+              '&.Mui-selected': {
+                color: '#059669',
+                fontWeight: 700,
+              },
+            },
           }}
         >
-          <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            BRANDING & APPLICATION IDENTITY
-          </Typography>
-          <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />
+          <Tab value="general" label="General" />
+          <Tab value="accreditation" label="Accreditation & Print" />
+          <Tab value="website" label="Public Website" />
+          <Tab value="patient_app" label={`Patient App (${clinic.faqs.length} FAQs)`} />
+        </Tabs>
+      </Box>
 
-          <Box data-walkthrough="clinic-logos-container" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(3, minmax(0, 1fr))' }, gap: 2, mb: 3 }}>
-          {/* Application Logo */}
-          <Box
-            data-walkthrough="clinic-app-logo"
+      {/* TAB 1: GENERAL */}
+      {activeTab === 'general' && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Card: Application Identity */}
+          <Paper
+            data-walkthrough="clinic-branding-section"
+            elevation={0}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-              p: 2,
-              minWidth: 0,
-              bgcolor: '#fff',
-              border: '1px solid var(--border-glow, #e2e8f0)',
+              border: '1px solid var(--border-glow, #e0eae3)',
               borderRadius: 2,
+              p: 3,
+              bgcolor: 'var(--card-bg-solid, #fff)',
             }}
           >
-            {/* Logo Preview Container */}
+            <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              APPLICATION IDENTITY
+            </Typography>
+            <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />
+
+            {/* App Logo Row */}
             <Box
+              data-walkthrough="clinic-app-logo"
               sx={{
-                width: 64,
-                height: 64,
-                borderRadius: 2,
-                border: '2px dashed #10b981',
-                bgcolor: '#ffffff',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                p: 1,
-                flexShrink: 0,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                overflow: 'hidden',
+                gap: 2,
+                p: 2,
+                mb: 3,
+                maxWidth: 460,
+                bgcolor: '#fff',
+                border: '1px solid var(--border-glow, #e2e8f0)',
+                borderRadius: 2,
               }}
             >
-              <img
-                src={displayLogoSrc}
-                alt="Clinic Logo"
-                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-                onError={(e) => {
-                  const target = e.currentTarget as HTMLImageElement;
-                  if (target.src !== defaultLogo) {
-                    target.src = defaultLogo;
-                  }
-                }}
-              />
-            </Box>
-
-            {/* Logo Actions */}
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 1 }}>
-                Clinic & Application Logo
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                <input
-                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                  id="clinic-logo-upload"
-                  name="clinic_logo"
-                  type="file"
-                  style={{ display: 'none' }}
-                  onChange={handleLogoChange}
-                />
-                <label htmlFor="clinic-logo-upload">
-                  <Button
-                    variant="outlined"
-                    component="span"
-                    size="small"
-                    startIcon={<CloudUploadIcon />}
-                    sx={{
-                      textTransform: 'none',
-                      fontSize: '12.5px',
-                      fontWeight: 600,
-                      color: '#059669',
-                      borderColor: '#10b981',
-                      '&:hover': {
-                        borderColor: '#059669',
-                        bgcolor: '#ecfdf5',
-                      },
-                    }}
-                  >
-                    {logoFile || clinic.logo_path || (clinic.logo_url && clinic.logo_url !== defaultLogo) ? 'Replace Logo' : 'Upload Logo'}
-                  </Button>
-                </label>
-
-                {(clinic.logo_path || logoPreview || (clinic.logo_url && clinic.logo_url !== defaultLogo)) && !removeLogo && (
-                  <Button
-                    variant="text"
-                    size="small"
-                    startIcon={<DeleteOutlineIcon />}
-                    onClick={handleResetLogo}
-                    sx={{
-                      textTransform: 'none',
-                      fontSize: '12.5px',
-                      fontWeight: 500,
-                      color: '#ef4444',
-                      '&:hover': {
-                        bgcolor: '#fef2f2',
-                      },
-                    }}
-                  >
-                    Reset Logo
-                  </Button>
-                )}
-
-              </Box>
-              {logoFile && (
-                <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75, overflowWrap: 'anywhere' }}>
-                  Selected: {logoFile.name}
-                </Typography>
-              )}
-              {removeLogo && (
-                <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>
-                  Will reset to default on save
-                </Typography>
-              )}
-            </Box>
-          </Box>
-
-          {/* Print header logos */}
-              {/* Left Print Logo Block */}
               <Box
-                data-walkthrough="clinic-left-logo"
                 sx={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 2,
+                  border: '2px dashed #10b981',
+                  bgcolor: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 2,
-                  p: 2,
-                  minWidth: 0,
-                  bgcolor: '#ffffff',
-                  border: '1px solid var(--border-glow, #e2e8f0)',
-                  borderRadius: 2,
+                  justifyContent: 'center',
+                  p: 1,
+                  flexShrink: 0,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                  overflow: 'hidden',
                 }}
               >
-                <Box
-                  sx={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 2,
-                    border: displayLeftLogoSrc ? '2px dashed #10b981' : '1.5px dashed #cbd5e1',
-                    bgcolor: displayLeftLogoSrc ? '#ffffff' : '#f8fafc',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    p: 0.75,
-                    flexShrink: 0,
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
-                    overflow: 'hidden',
+                <img
+                  src={displayLogoSrc}
+                  alt="Clinic Logo"
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                  onError={(e) => {
+                    const target = e.currentTarget as HTMLImageElement;
+                    if (target.src !== defaultLogo) {
+                      target.src = defaultLogo;
+                    }
                   }}
-                >
-                  {displayLeftLogoSrc ? (
-                    <img
-                      src={displayLeftLogoSrc}
-                      alt="Left Print Logo"
-                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-                    />
-                  ) : (
-                    <Box sx={{ textAlign: 'center', p: 0.5 }}>
-                      <CloudUploadIcon sx={{ fontSize: 20, color: '#94a3b8' }} />
-                      <Typography sx={{ fontSize: '9px', color: '#94a3b8', lineHeight: 1.1, mt: 0.25 }}>No logo</Typography>
-                    </Box>
+                />
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 1 }}>
+                  Clinic &amp; Application Logo
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <input
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    id="clinic-logo-upload"
+                    name="clinic_logo"
+                    type="file"
+                    style={{ display: 'none' }}
+                    onChange={handleLogoChange}
+                  />
+                  <label htmlFor="clinic-logo-upload">
+                    <Button
+                      variant="outlined"
+                      component="span"
+                      size="small"
+                      startIcon={<CloudUploadIcon />}
+                      sx={{
+                        textTransform: 'none',
+                        fontSize: '12.5px',
+                        fontWeight: 600,
+                        color: '#059669',
+                        borderColor: '#10b981',
+                        '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' },
+                      }}
+                    >
+                      {logoFile || clinic.logo_path || (clinic.logo_url && clinic.logo_url !== defaultLogo) ? 'Replace Logo' : 'Upload Logo'}
+                    </Button>
+                  </label>
+                  {(clinic.logo_path || logoPreview || (clinic.logo_url && clinic.logo_url !== defaultLogo)) && !removeLogo && (
+                    <Button
+                      variant="text"
+                      size="small"
+                      startIcon={<DeleteOutlineIcon />}
+                      onClick={handleResetLogo}
+                      sx={{
+                        textTransform: 'none',
+                        fontSize: '12.5px',
+                        fontWeight: 500,
+                        color: '#ef4444',
+                        '&:hover': { bgcolor: '#fef2f2' },
+                      }}
+                    >
+                      Reset
+                    </Button>
                   )}
                 </Box>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 1 }}>
-                    Left Print Logo
+                {logoFile && (
+                  <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75, overflowWrap: 'anywhere' }}>
+                    Selected: {logoFile.name}
                   </Typography>
+                )}
+                {removeLogo && (
+                  <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>
+                    Will reset to default on save
+                  </Typography>
+                )}
+              </Box>
+            </Box>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                    <input
-                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                      id="left-print-logo-upload"
-                      name="left_print_logo"
-                      type="file"
-                      style={{ display: 'none' }}
-                      onChange={handleLeftLogoChange}
-                    />
-                    <label htmlFor="left-print-logo-upload">
-                      <Button
-                        variant="outlined"
-                        component="span"
-                        size="small"
-                        startIcon={<CloudUploadIcon />}
-                        sx={{
-                          textTransform: 'none',
-                          fontSize: '12.5px',
-                          fontWeight: 600,
-                          color: '#059669',
-                          borderColor: '#10b981',
-                          py: 0.5,
-                          px: 1.25,
-                          '&:hover': {
-                            borderColor: '#059669',
-                            bgcolor: '#ecfdf5',
-                          },
-                        }}
-                      >
-                        {displayLeftLogoSrc ? 'Replace Logo' : 'Upload Logo'}
-                      </Button>
-                    </label>
-
-                    {displayLeftLogoSrc && !removeLeftLogo && (
-                      <Button
-                        variant="text"
-                        size="small"
-                        startIcon={<DeleteOutlineIcon />}
-                        onClick={handleResetLeftLogo}
-                        sx={{
-                          textTransform: 'none',
-                          fontSize: '12.5px',
-                          fontWeight: 500,
-                          color: '#ef4444',
-                          py: 0.5,
-                          px: 1,
-                          '&:hover': {
-                            bgcolor: '#fef2f2',
-                          },
-                        }}
-                      >
-                        Remove Logo
-                      </Button>
-                    )}
-                  </Box>
-
-                  {leftLogoFile && (
-                    <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75, overflowWrap: 'anywhere' }}>
-                      Selected: {leftLogoFile.name}
-                    </Typography>
-                  )}
-                  {removeLeftLogo && (
-                    <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>
-                      Will be removed on save
-                    </Typography>
-                  )}
-                </Box>
+            {/* Title and Subtitle Inputs */}
+            <Box data-walkthrough="clinic-name-tagline" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
+              <Box data-walkthrough="clinic-name-input">
+                <FieldLabel required>Main Title (Clinic Name)</FieldLabel>
+                <TextField
+                  id="clinic-name-input"
+                  name="clinic_name"
+                  fullWidth
+                  size="small"
+                  placeholder="e.g. Animal Bite Treatment Center"
+                  value={clinic.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  sx={cleanFieldSx}
+                  helperText="Primary clinic name shown at the top of the sidebar"
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <BusinessIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
               </Box>
 
-              {/* Right Print Logo Block */}
-              <Box
-                data-walkthrough="clinic-right-logo"
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 2,
-                  p: 2,
-                  minWidth: 0,
-                  bgcolor: '#ffffff',
-                  border: '1px solid var(--border-glow, #e2e8f0)',
-                  borderRadius: 2,
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 2,
-                    border: displayRightLogoSrc ? '2px dashed #10b981' : '1.5px dashed #cbd5e1',
-                    bgcolor: displayRightLogoSrc ? '#ffffff' : '#f8fafc',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    p: 0.75,
-                    flexShrink: 0,
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
-                    overflow: 'hidden',
+              <Box data-walkthrough="clinic-subtitle-input">
+                <FieldLabel>Subtitle (Application Tagline)</FieldLabel>
+                <TextField
+                  id="clinic-subtitle-input"
+                  name="clinic_subtitle"
+                  fullWidth
+                  size="small"
+                  placeholder="e.g. Tagoloan Animal Bite Treatment Application"
+                  value={clinic.subtitle}
+                  onChange={(e) => handleInputChange('subtitle', e.target.value)}
+                  sx={cleanFieldSx}
+                  helperText="Secondary tagline displayed below the clinic name in the sidebar"
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SubtitlesIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                        </InputAdornment>
+                      ),
+                    },
                   }}
-                >
-                  {displayRightLogoSrc ? (
-                    <img
-                      src={displayRightLogoSrc}
-                      alt="Right Print Logo"
-                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-                    />
-                  ) : (
-                    <Box sx={{ textAlign: 'center', p: 0.5 }}>
-                      <CloudUploadIcon sx={{ fontSize: 20, color: '#94a3b8' }} />
-                      <Typography sx={{ fontSize: '9px', color: '#94a3b8', lineHeight: 1.1, mt: 0.25 }}>No logo</Typography>
-                    </Box>
-                  )}
-                </Box>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 1 }}>
-                    Right Print Logo
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                    <input
-                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                      id="right-print-logo-upload"
-                      name="right_print_logo"
-                      type="file"
-                      style={{ display: 'none' }}
-                      onChange={handleRightLogoChange}
-                    />
-                    <label htmlFor="right-print-logo-upload">
-                      <Button
-                        variant="outlined"
-                        component="span"
-                        size="small"
-                        startIcon={<CloudUploadIcon />}
-                        sx={{
-                          textTransform: 'none',
-                          fontSize: '12.5px',
-                          fontWeight: 600,
-                          color: '#059669',
-                          borderColor: '#10b981',
-                          py: 0.5,
-                          px: 1.25,
-                          '&:hover': {
-                            borderColor: '#059669',
-                            bgcolor: '#ecfdf5',
-                          },
-                        }}
-                      >
-                        {displayRightLogoSrc ? 'Replace Logo' : 'Upload Logo'}
-                      </Button>
-                    </label>
-
-                    {displayRightLogoSrc && !removeRightLogo && (
-                      <Button
-                        variant="text"
-                        size="small"
-                        startIcon={<DeleteOutlineIcon />}
-                        onClick={handleResetRightLogo}
-                        sx={{
-                          textTransform: 'none',
-                          fontSize: '12.5px',
-                          fontWeight: 500,
-                          color: '#ef4444',
-                          py: 0.5,
-                          px: 1,
-                          '&:hover': {
-                            bgcolor: '#fef2f2',
-                          },
-                        }}
-                      >
-                        Remove Logo
-                      </Button>
-                    )}
-                  </Box>
-
-                  {rightLogoFile && (
-                    <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75, overflowWrap: 'anywhere' }}>
-                      Selected: {rightLogoFile.name}
-                    </Typography>
-                  )}
-                  {removeRightLogo && (
-                    <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>
-                      Will be removed on save
-                    </Typography>
-                  )}
-                </Box>
+                />
               </Box>
-          </Box>
-
-          {/* Title and Subtitle Inputs */}
-          <Box data-walkthrough="clinic-name-tagline" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
-            {/* Main Title / Clinic Name */}
-            <Box data-walkthrough="clinic-name-input">
-              <FieldLabel required>Main Title (Clinic Name)</FieldLabel>
-              <TextField
-                id="clinic-name-input"
-                name="clinic_name"
-                fullWidth
-                size="small"
-                placeholder="e.g. Animal Bite Treatment Center"
-                value={clinic.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                sx={cleanFieldSx}
-                helperText="Primary clinic name shown at the top of the sidebar"
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <BusinessIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
             </Box>
+          </Paper>
 
-            {/* Subtitle */}
-            <Box data-walkthrough="clinic-subtitle-input">
-              <FieldLabel>Subtitle (Application Tagline)</FieldLabel>
-              <TextField
-                id="clinic-subtitle-input"
-                name="clinic_subtitle"
-                fullWidth
-                size="small"
-                placeholder="e.g. Tagoloan Animal Bite Treatment Application"
-                value={clinic.subtitle}
-                onChange={(e) => handleInputChange('subtitle', e.target.value)}
-                sx={cleanFieldSx}
-                helperText="Secondary tagline displayed below the clinic name in the sidebar"
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SubtitlesIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Box>
-          </Box>
-        </Paper>
-
-        {/* Card: Public Landing Page Branding & Hero Image */}
-        <Paper
-          data-walkthrough="clinic-landing-branding-section"
-          elevation={0}
-          sx={{
-            border: '1px solid var(--border-glow, #e0eae3)',
-            borderRadius: 2,
-            p: 3,
-            bgcolor: 'var(--card-bg-solid, #fff)',
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5, flexWrap: 'wrap', gap: 1 }}>
-            <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              PUBLIC LANDING PAGE BRANDING & HERO PICTURE
-            </Typography>
-            <Box
-              sx={{
-                fontSize: '11px',
-                fontWeight: 600,
-                color: '#059669',
-                bgcolor: '#ecfdf5',
-                border: '1px solid #a7f3d0',
-                borderRadius: 1.5,
-                px: 1.25,
-                py: 0.25,
-              }}
-            >
-              Public Navbar & Hero
-            </Box>
-          </Box>
-          <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 1.5 }} />
-          <Typography sx={{ fontSize: '13px', color: '#64748b', mb: 3 }}>
-            Customize the 3 official seals shown in the public landing page header and upload a custom hero background picture.
-          </Typography>
-
-          {/* Header Seals Grid */}
-          <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#374151', mb: 1.5 }}>
-            Navbar Official Seals (3 Badges)
-          </Typography>
-
-          <Box
+          {/* Card: Location & Contact */}
+          <Paper
+            elevation={0}
             sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
-              gap: 2,
-              mb: 3.5,
-            }}
-          >
-            {/* Seal 1: Department of Health */}
-            <Box
-              sx={{
-                p: 2,
-                bgcolor: '#ffffff',
-                border: '1px solid var(--border-glow, #e2e8f0)',
-                borderRadius: 2,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 1.5,
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box
-                  sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: '50%',
-                    border: '2px solid #10b981',
-                    bgcolor: '#ffffff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    p: 0.5,
-                    flexShrink: 0,
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <img
-                    src={displaySeal1Src}
-                    alt="Seal 1 Preview"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = defaultSeal1;
-                    }}
-                  />
-                </Box>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>
-                    Header Seal 1
-                  </Typography>
-                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    Department of Health
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Box>
-                <FieldLabel>Seal Label</FieldLabel>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={seal1Label}
-                  onChange={(e) => setSeal1Label(e.target.value)}
-                  placeholder="e.g. Department of Health"
-                  sx={cleanFieldSx}
-                />
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 'auto', pt: 0.5 }}>
-                <input
-                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                  id="seal-1-upload"
-                  type="file"
-                  style={{ display: 'none' }}
-                  onChange={handleSeal1Change}
-                />
-                <label htmlFor="seal-1-upload">
-                  <Button
-                    variant="outlined"
-                    component="span"
-                    size="small"
-                    startIcon={<CloudUploadIcon />}
-                    sx={{
-                      textTransform: 'none',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: '#059669',
-                      borderColor: '#10b981',
-                      py: 0.5,
-                      px: 1.25,
-                      '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' },
-                    }}
-                  >
-                    {seal1File || clinic.header_seal_1_path ? 'Replace Seal' : 'Upload Seal'}
-                  </Button>
-                </label>
-
-                {(seal1File || clinic.header_seal_1_path || seal1Preview) && !removeSeal1 && (
-                  <Button
-                    variant="text"
-                    size="small"
-                    startIcon={<DeleteOutlineIcon />}
-                    onClick={handleResetSeal1}
-                    sx={{
-                      textTransform: 'none',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      color: '#ef4444',
-                      py: 0.5,
-                      px: 1,
-                      '&:hover': { bgcolor: '#fef2f2' },
-                    }}
-                  >
-                    Reset
-                  </Button>
-                )}
-              </Box>
-
-              {seal1File && (
-                <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500 }}>
-                  Selected: {seal1File.name}
-                </Typography>
-              )}
-              {removeSeal1 && (
-                <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500 }}>
-                  Will reset to default on save
-                </Typography>
-              )}
-            </Box>
-
-            {/* Seal 2: Municipal / LGU Seal */}
-            <Box
-              sx={{
-                p: 2,
-                bgcolor: '#ffffff',
-                border: '1px solid var(--border-glow, #e2e8f0)',
-                borderRadius: 2,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 1.5,
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box
-                  sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: '50%',
-                    border: '2px solid #10b981',
-                    bgcolor: '#ffffff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    p: 0.5,
-                    flexShrink: 0,
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <img
-                    src={displaySeal2Src}
-                    alt="Seal 2 Preview"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = defaultSeal2;
-                    }}
-                  />
-                </Box>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>
-                    Header Seal 2
-                  </Typography>
-                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    Municipality / LGU
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Box>
-                <FieldLabel>Seal Label</FieldLabel>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={seal2Label}
-                  onChange={(e) => setSeal2Label(e.target.value)}
-                  placeholder="e.g. Tagoloan, Misamis Oriental"
-                  sx={cleanFieldSx}
-                />
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 'auto', pt: 0.5 }}>
-                <input
-                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                  id="seal-2-upload"
-                  type="file"
-                  style={{ display: 'none' }}
-                  onChange={handleSeal2Change}
-                />
-                <label htmlFor="seal-2-upload">
-                  <Button
-                    variant="outlined"
-                    component="span"
-                    size="small"
-                    startIcon={<CloudUploadIcon />}
-                    sx={{
-                      textTransform: 'none',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: '#059669',
-                      borderColor: '#10b981',
-                      py: 0.5,
-                      px: 1.25,
-                      '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' },
-                    }}
-                  >
-                    {seal2File || clinic.header_seal_2_path ? 'Replace Seal' : 'Upload Seal'}
-                  </Button>
-                </label>
-
-                {(seal2File || clinic.header_seal_2_path || seal2Preview) && !removeSeal2 && (
-                  <Button
-                    variant="text"
-                    size="small"
-                    startIcon={<DeleteOutlineIcon />}
-                    onClick={handleResetSeal2}
-                    sx={{
-                      textTransform: 'none',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      color: '#ef4444',
-                      py: 0.5,
-                      px: 1,
-                      '&:hover': { bgcolor: '#fef2f2' },
-                    }}
-                  >
-                    Reset
-                  </Button>
-                )}
-              </Box>
-
-              {seal2File && (
-                <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500 }}>
-                  Selected: {seal2File.name}
-                </Typography>
-              )}
-              {removeSeal2 && (
-                <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500 }}>
-                  Will reset to default on save
-                </Typography>
-              )}
-            </Box>
-
-            {/* Seal 3: Rural Health Unit */}
-            <Box
-              sx={{
-                p: 2,
-                bgcolor: '#ffffff',
-                border: '1px solid var(--border-glow, #e2e8f0)',
-                borderRadius: 2,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 1.5,
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box
-                  sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: '50%',
-                    border: '2px solid #10b981',
-                    bgcolor: '#ffffff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    p: 0.5,
-                    flexShrink: 0,
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <img
-                    src={displaySeal3Src}
-                    alt="Seal 3 Preview"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = defaultSeal3;
-                    }}
-                  />
-                </Box>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>
-                    Header Seal 3
-                  </Typography>
-                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    Rural Health Unit
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Box>
-                <FieldLabel>Seal Label</FieldLabel>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={seal3Label}
-                  onChange={(e) => setSeal3Label(e.target.value)}
-                  placeholder="e.g. Rural Health Unit"
-                  sx={cleanFieldSx}
-                />
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 'auto', pt: 0.5 }}>
-                <input
-                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                  id="seal-3-upload"
-                  type="file"
-                  style={{ display: 'none' }}
-                  onChange={handleSeal3Change}
-                />
-                <label htmlFor="seal-3-upload">
-                  <Button
-                    variant="outlined"
-                    component="span"
-                    size="small"
-                    startIcon={<CloudUploadIcon />}
-                    sx={{
-                      textTransform: 'none',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: '#059669',
-                      borderColor: '#10b981',
-                      py: 0.5,
-                      px: 1.25,
-                      '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' },
-                    }}
-                  >
-                    {seal3File || clinic.header_seal_3_path ? 'Replace Seal' : 'Upload Seal'}
-                  </Button>
-                </label>
-
-                {(seal3File || clinic.header_seal_3_path || seal3Preview) && !removeSeal3 && (
-                  <Button
-                    variant="text"
-                    size="small"
-                    startIcon={<DeleteOutlineIcon />}
-                    onClick={handleResetSeal3}
-                    sx={{
-                      textTransform: 'none',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      color: '#ef4444',
-                      py: 0.5,
-                      px: 1,
-                      '&:hover': { bgcolor: '#fef2f2' },
-                    }}
-                  >
-                    Reset
-                  </Button>
-                )}
-              </Box>
-
-              {seal3File && (
-                <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500 }}>
-                  Selected: {seal3File.name}
-                </Typography>
-              )}
-              {removeSeal3 && (
-                <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500 }}>
-                  Will reset to default on save
-                </Typography>
-              )}
-            </Box>
-          </Box>
-
-          {/* Landing Page Hero Banner Picture Block */}
-          <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#374151', mb: 1.5 }}>
-            Landing Page Hero Picture (Top Banner)
-          </Typography>
-
-          <Box
-            sx={{
-              p: 2.5,
-              bgcolor: '#ffffff',
-              border: '1px solid var(--border-glow, #e2e8f0)',
+              border: '1px solid var(--border-glow, #e0eae3)',
               borderRadius: 2,
+              p: 3,
+              bgcolor: 'var(--card-bg-solid, #fff)',
             }}
           >
-            <Box
-              sx={{
-                width: '100%',
-                height: { xs: 160, sm: 220, md: 260 },
-                borderRadius: 2,
-                overflow: 'hidden',
-                position: 'relative',
-                border: '1.5px solid #cbd5e1',
-                bgcolor: '#0f172a',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                mb: 2,
-              }}
-            >
-              <img
-                src={displayHeroSrc}
-                alt="Landing Page Hero Banner Preview"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  display: 'block',
-                }}
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = defaultHero;
-                }}
-              />
+            <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              LOCATION &amp; CONTACT
+            </Typography>
+            <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              {/* Address */}
+              <Box data-walkthrough="clinic-address-section">
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
+                  <FieldLabel>Clinic Address</FieldLabel>
+                  <Button
+                    size="small"
+                    onClick={() => setUseManualAddress(!useManualAddress)}
+                    sx={{ fontSize: '11.5px', textTransform: 'none', color: '#10b981', p: 0, minWidth: 0, fontWeight: 600 }}
+                  >
+                    {useManualAddress ? (
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                        <SettingsIcon sx={{ fontSize: 13 }} />
+                        <span>Use Dropdown Selectors</span>
+                      </Box>
+                    ) : (
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                        <EditIcon sx={{ fontSize: 13 }} />
+                        <span>Use Freeform Text</span>
+                      </Box>
+                    )}
+                  </Button>
+                </Box>
+
+                {!useManualAddress ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+                      <Box>
+                        <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Province</Typography>
+                        <Select
+                          id="clinic-province-select"
+                          name="province"
+                          inputProps={{ id: 'clinic-province-select-input', name: 'province' }}
+                          fullWidth
+                          size="small"
+                          value={selectedProvince}
+                          onChange={(e) => handleProvinceChange(e.target.value)}
+                          sx={cleanFieldSx}
+                          MenuProps={{ style: { maxHeight: 260 } }}
+                        >
+                          {Object.keys(PHILIPPINE_LOCATIONS).map(p => (
+                            <MenuItem key={p} value={p}>{p}</MenuItem>
+                          ))}
+                        </Select>
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Municipality / City</Typography>
+                        <Select
+                          id="clinic-municipality-select"
+                          name="municipality"
+                          inputProps={{ id: 'clinic-municipality-select-input', name: 'municipality' }}
+                          fullWidth
+                          size="small"
+                          value={selectedMunicipality}
+                          onChange={(e) => handleMunicipalityChange(e.target.value)}
+                          sx={cleanFieldSx}
+                          MenuProps={{ style: { maxHeight: 260 } }}
+                        >
+                          {municipalityOptions.map(m => (
+                            <MenuItem key={m} value={m}>{m}</MenuItem>
+                          ))}
+                        </Select>
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+                      <Box>
+                        <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Barangay</Typography>
+                        <Select
+                          id="clinic-barangay-select"
+                          name="barangay"
+                          inputProps={{ id: 'clinic-barangay-select-input', name: 'barangay' }}
+                          fullWidth
+                          size="small"
+                          value={selectedBarangay}
+                          onChange={(e) => handleBarangayChange(e.target.value)}
+                          sx={cleanFieldSx}
+                          MenuProps={{ style: { maxHeight: 260 } }}
+                        >
+                          {barangayList.map(b => (
+                            <MenuItem key={b} value={b}>{b}</MenuItem>
+                          ))}
+                        </Select>
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Street / Zone / Landmark</Typography>
+                        <TextField
+                          id="clinic-street-input"
+                          name="street"
+                          fullWidth
+                          size="small"
+                          placeholder="e.g. Zone 2, Main Highway"
+                          value={streetDetail}
+                          onChange={(e) => handleStreetDetailChange(e.target.value)}
+                          sx={cleanFieldSx}
+                        />
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, fontSize: 12, color: '#065f46', fontWeight: 500, bgcolor: '#ecfdf5', border: '1px solid #a7f3d0', p: 1.25, borderRadius: 1.5 }}>
+                      <PlaceIcon sx={{ fontSize: 16, color: '#059669' }} />
+                      <span>Generated Full Address: <strong>{clinic.address || 'Select options above'}</strong></span>
+                    </Box>
+                  </Box>
+                ) : (
+                  <TextField
+                    id="clinic-address-input"
+                    name="address"
+                    fullWidth
+                    size="small"
+                    multiline
+                    rows={2}
+                    placeholder="Street, barangay, city"
+                    value={clinic.address}
+                    onChange={(e) => handleInputChange('address', e.target.value)}
+                    sx={cleanFieldSx}
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}>
+                            <LocationOnIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                  />
+                )}
+              </Box>
+
+              {/* Contact Channels */}
               <Box
-                sx={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'linear-gradient(to top, rgba(15, 23, 42, 0.75) 0%, rgba(15, 23, 42, 0.15) 60%, transparent 100%)',
-                  pointerEvents: 'none',
-                }}
-              />
-              <Box
-                sx={{
-                  position: 'absolute',
-                  bottom: 16,
-                  left: 16,
-                  color: '#ffffff',
-                  pointerEvents: 'none',
-                }}
+                data-walkthrough="clinic-contact-channels-section"
+                sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}
               >
-                <Typography sx={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#34d399', mb: 0.25 }}>
-                  Live Hero Preview
-                </Typography>
-                <Typography sx={{ fontSize: { xs: '15px', md: '18px' }, fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-                  ANIMAL BITE TREATMENT CENTER
-                </Typography>
+                <Box data-walkthrough="clinic-contact-number">
+                  <FieldLabel>Contact Number</FieldLabel>
+                  <TextField
+                    id="clinic-contact-number-input"
+                    name="contact_number"
+                    fullWidth
+                    size="small"
+                    placeholder="09XXXXXXXXX"
+                    value={clinic.contact_number}
+                    onChange={(e) => handleInputChange('contact_number', e.target.value)}
+                    sx={cleanFieldSx}
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <PhoneIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                  />
+                </Box>
+
+                <Box data-walkthrough="clinic-email-address">
+                  <FieldLabel>Email Address</FieldLabel>
+                  <TextField
+                    id="clinic-email-input"
+                    name="email"
+                    fullWidth
+                    size="small"
+                    type="email"
+                    placeholder="clinic@example.com"
+                    value={clinic.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    sx={cleanFieldSx}
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <EmailIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                  />
+                </Box>
               </Box>
             </Box>
+          </Paper>
+        </Box>
+      )}
 
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
-              <Box sx={{ minWidth: 200, flex: 1 }}>
-                <Typography sx={{ fontSize: '12.5px', color: '#64748b' }}>
-                  Recommended: Landscape photo (16:9 or 21:9 ratio, 1920×800px or larger, max 5MB).
-                </Typography>
-                {heroImageFile && (
-                  <Typography sx={{ fontSize: '12px', color: '#10b981', fontWeight: 600, mt: 0.5 }}>
-                    Selected: {heroImageFile.name} ({(heroImageFile.size / (1024 * 1024)).toFixed(2)} MB)
-                  </Typography>
-                )}
-                {removeHeroImage && (
-                  <Typography sx={{ fontSize: '12px', color: '#f59e0b', fontWeight: 600, mt: 0.5 }}>
-                    Will reset to default hero image on save
-                  </Typography>
-                )}
-              </Box>
+      {/* TAB 2: ACCREDITATION & PRINT */}
+      {activeTab === 'accreditation' && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Card: Accreditation Numbers */}
+          <Paper
+            data-walkthrough="clinic-facility-section"
+            elevation={0}
+            sx={{
+              border: '1px solid var(--border-glow, #e0eae3)',
+              borderRadius: 2,
+              p: 3,
+              bgcolor: 'var(--card-bg-solid, #fff)',
+            }}
+          >
+            <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              FACILITY &amp; ACCREDITATION NUMBERS
+            </Typography>
+            <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />
 
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <input
-                  accept="image/png,image/jpeg,image/webp"
-                  id="hero-image-upload"
-                  type="file"
-                  style={{ display: 'none' }}
-                  onChange={handleHeroImageChange}
-                />
-                <label htmlFor="hero-image-upload">
-                  <Button
-                    variant="outlined"
-                    component="span"
-                    size="small"
-                    startIcon={<CloudUploadIcon />}
-                    sx={{
-                      textTransform: 'none',
-                      fontSize: '12.5px',
-                      fontWeight: 600,
-                      color: '#059669',
-                      borderColor: '#10b981',
-                      py: 0.75,
-                      px: 2,
-                      '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' },
-                    }}
-                  >
-                    {heroImageFile || clinic.hero_image_path ? 'Replace Hero Picture' : 'Upload Hero Picture'}
-                  </Button>
-                </label>
-
-                {(heroImageFile || clinic.hero_image_path || heroImagePreview) && !removeHeroImage && (
-                  <Button
-                    variant="text"
-                    size="small"
-                    startIcon={<DeleteOutlineIcon />}
-                    onClick={handleResetHeroImage}
-                    sx={{
-                      textTransform: 'none',
-                      fontSize: '12.5px',
-                      fontWeight: 500,
-                      color: '#ef4444',
-                      py: 0.75,
-                      px: 1.5,
-                      '&:hover': { bgcolor: '#fef2f2' },
-                    }}
-                  >
-                    Reset to Default
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          </Box>
-        </Paper>
-
-        {/* Card 2 - Facility & Accreditation Information */}
-        <Paper
-          data-walkthrough="clinic-facility-section"
-          elevation={0}
-          sx={{
-            border: '1px solid var(--border-glow, #e0eae3)',
-            borderRadius: 2,
-            p: 3,
-            bgcolor: 'var(--card-bg-solid, #fff)',
-          }}
-        >
-          <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            FACILITY & ACCREDITATION INFORMATION
-          </Typography>
-          <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 3 }} />
-
-          <Box data-walkthrough="clinic-accreditation-grid" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
-
-            {/* Accreditation Numbers Block (Image 4 - License, Hospital, DOH, PhilHealth highlighted together) */}
             <Box
               data-walkthrough="clinic-accreditation-block"
-              sx={{
-                gridColumn: { xs: '1', md: '1 / -1' },
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                gap: 2.5,
-              }}
+              sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}
             >
-              {/* License Number */}
               <Box data-walkthrough="clinic-license-number">
                 <FieldLabel>License Number</FieldLabel>
                 <TextField
@@ -1947,7 +1488,6 @@ export default function ClinicInformation() {
                 />
               </Box>
 
-              {/* Hospital Number */}
               <Box data-walkthrough="clinic-hospital-number">
                 <FieldLabel>Hospital Number (Hospital No.)</FieldLabel>
                 <TextField
@@ -1959,7 +1499,7 @@ export default function ClinicInformation() {
                   value={clinic.hospital_no}
                   onChange={(e) => handleInputChange('hospital_no', e.target.value)}
                   sx={cleanFieldSx}
-                  helperText="Official hospital identifier displayed on Form 3 treatment cards"
+                  helperText="Official hospital identifier displayed on treatment cards"
                   slotProps={{
                     input: {
                       startAdornment: (
@@ -1972,7 +1512,6 @@ export default function ClinicInformation() {
                 />
               </Box>
 
-              {/* DOH Accreditation Number */}
               <Box data-walkthrough="clinic-doh-number">
                 <FieldLabel>DOH Accreditation Number</FieldLabel>
                 <TextField
@@ -1996,7 +1535,6 @@ export default function ClinicInformation() {
                 />
               </Box>
 
-              {/* PhilHealth Accreditation Number */}
               <Box data-walkthrough="clinic-philhealth-number">
                 <FieldLabel>PhilHealth Accreditation Number</FieldLabel>
                 <TextField
@@ -2020,275 +1558,556 @@ export default function ClinicInformation() {
                 />
               </Box>
             </Box>
+          </Paper>
 
-            {/* Address — full width */}
-            <Box data-walkthrough="clinic-address-section" sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
-                <FieldLabel>Clinic Address</FieldLabel>
-                <Button
-                  size="small"
-                  onClick={() => setUseManualAddress(!useManualAddress)}
-                  sx={{ fontSize: '11px', textTransform: 'none', color: '#10b981', p: 0, minWidth: 0, fontWeight: 600 }}
-                >
-                  {useManualAddress ? (
-                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                      <SettingsIcon sx={{ fontSize: 13 }} />
-                      <span>Use Dropdown Selectors</span>
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                      <EditIcon sx={{ fontSize: 13 }} />
-                      <span>Use Freeform Text</span>
-                    </Box>
-                  )}
-                </Button>
-              </Box>
-
-              {!useManualAddress ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
-                    <Box>
-                      <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Province</Typography>
-                      <Select
-                        id="clinic-province-select"
-                        name="province"
-                        inputProps={{ id: 'clinic-province-select-input', name: 'province' }}
-                        fullWidth
-                        size="small"
-                        value={selectedProvince}
-                        onChange={(e) => handleProvinceChange(e.target.value)}
-                        sx={cleanFieldSx}
-                        MenuProps={{ style: { maxHeight: 260 } }}
-                      >
-                        {Object.keys(PHILIPPINE_LOCATIONS).map(p => (
-                          <MenuItem key={p} value={p}>{p}</MenuItem>
-                        ))}
-                      </Select>
-                    </Box>
-                    <Box>
-                      <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Municipality / City</Typography>
-                      <Select
-                        id="clinic-municipality-select"
-                        name="municipality"
-                        inputProps={{ id: 'clinic-municipality-select-input', name: 'municipality' }}
-                        fullWidth
-                        size="small"
-                        value={selectedMunicipality}
-                        onChange={(e) => handleMunicipalityChange(e.target.value)}
-                        sx={cleanFieldSx}
-                        MenuProps={{ style: { maxHeight: 260 } }}
-                      >
-                        {municipalityOptions.map(m => (
-                          <MenuItem key={m} value={m}>{m}</MenuItem>
-                        ))}
-                      </Select>
-                    </Box>
-                  </Box>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
-                    <Box>
-                      <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Barangay</Typography>
-                      <Select
-                        id="clinic-barangay-select"
-                        name="barangay"
-                        inputProps={{ id: 'clinic-barangay-select-input', name: 'barangay' }}
-                        fullWidth
-                        size="small"
-                        value={selectedBarangay}
-                        onChange={(e) => handleBarangayChange(e.target.value)}
-                        sx={cleanFieldSx}
-                        MenuProps={{ style: { maxHeight: 260 } }}
-                      >
-                        {barangayList.map(b => (
-                          <MenuItem key={b} value={b}>{b}</MenuItem>
-                        ))}
-                      </Select>
-                    </Box>
-                    <Box>
-                      <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#6b7280', mb: 0.5 }}>Street / Zone / Landmark</Typography>
-                      <TextField
-                        id="clinic-street-input"
-                        name="street"
-                        fullWidth
-                        size="small"
-                        placeholder="e.g. Zone 2, Main Highway"
-                        value={streetDetail}
-                        onChange={(e) => handleStreetDetailChange(e.target.value)}
-                        sx={cleanFieldSx}
-                      />
-                    </Box>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, fontSize: 12, color: '#065f46', fontWeight: 500, bgcolor: '#ecfdf5', border: '1px solid #a7f3d0', p: 1.25, borderRadius: 1.5 }}>
-                    <PlaceIcon sx={{ fontSize: 16, color: '#059669' }} />
-                    <span>Generated Full Address: <strong>{clinic.address || 'Select options above'}</strong></span>
-                  </Box>
-                </Box>
-              ) : (
-                <TextField
-                  id="clinic-address-input"
-                  name="address"
-                  fullWidth
-                  size="small"
-                  multiline
-                  rows={2}
-                  placeholder="Street, barangay, city"
-                  value={clinic.address}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
-                  sx={cleanFieldSx}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}>
-                          <LocationOnIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-              )}
-            </Box>
-
-            {/* Contact Channels Block (Image 3 - Contact Number & Email Address highlighted together as one) */}
-            <Box
-              data-walkthrough="clinic-contact-channels-section"
-              sx={{
-                gridColumn: { xs: '1', md: '1 / -1' },
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                gap: 2.5,
-              }}
-            >
-              {/* Contact Number */}
-              <Box data-walkthrough="clinic-contact-number">
-                <FieldLabel>Contact Number</FieldLabel>
-                <TextField
-                  id="clinic-contact-number-input"
-                  name="contact_number"
-                  fullWidth
-                  size="small"
-                  placeholder="+63 XXX XXX XXXX"
-                  value={clinic.contact_number}
-                  onChange={(e) => handleInputChange('contact_number', e.target.value)}
-                  sx={cleanFieldSx}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <PhoneIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-              </Box>
-
-              {/* Email Address */}
-              <Box data-walkthrough="clinic-email-address">
-                <FieldLabel>Email Address</FieldLabel>
-                <TextField
-                  id="clinic-email-input"
-                  name="email"
-                  fullWidth
-                  size="small"
-                  type="email"
-                  placeholder="clinic@example.com"
-                  value={clinic.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  sx={cleanFieldSx}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <EmailIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-              </Box>
-            </Box>
-          </Box>
-        </Paper>
-
-        <Paper data-walkthrough="clinic-faqs-section" variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, mb: 3, borderRadius: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
-            <Typography sx={{ fontSize: 15, fontWeight: 600 }}>FAQs ({clinic.faqs.length})</Typography>
-            <Button data-walkthrough="clinic-faqs-add-btn" size="small" variant="outlined" startIcon={<AddIcon />} disabled={saving || clinic.faqs.length >= 50}
-              onClick={() => { setExpandedFaq(clinic.faqs.length); updateFaqs([...clinic.faqs, { category: '', question: '', answer: '' }]); }}>Add FAQ</Button>
-          </Box>
-          <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1.5 }}>
-            Select a question to edit. Save Changes publishes updates to the patient app.
-          </Typography>
-          <Box data-walkthrough="clinic-faqs-list">
-            {clinic.faqs.length === 0 && <Typography variant="body2" color="text.secondary">No FAQs added yet.</Typography>}
-            {clinic.faqs.map((faq, index) => (
-              <Accordion key={index} disableGutters elevation={0} expanded={expandedFaq === index}
-                onChange={(_, expanded) => setExpandedFaq(expanded ? index : false)}
-                sx={{ border: '1px solid #d7e3da', borderRadius: '6px !important', mb: 0.75, '&:before': { display: 'none' } }}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />} id={`faq-${index}-header`} aria-controls={`faq-${index}-content`}
-                  sx={{ minHeight: 44, px: 1.5, '& .MuiAccordionSummary-content': { my: 1, minWidth: 0, alignItems: 'center', gap: 1 } }}>
-                  <Typography variant="caption" color="text.secondary">{index + 1}.</Typography>
-                  <Typography variant="body2" noWrap sx={{ fontWeight: 500, flex: 1 }}>{faq.question.trim() || 'New question'}</Typography>
-                  {faq.category && <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: '25%', display: { xs: 'none', sm: 'block' } }}>{faq.category}</Typography>}
-                </AccordionSummary>
-                <AccordionDetails id={`faq-${index}-content`} sx={{ p: 1.5, pt: 0.5, display: 'grid', gap: 1.5 }}>
-                  {(['category', 'question', 'answer'] as const).map(field => (
-                    <TextField
-                      key={field}
-                      id={`faq-${index}-${field}`}
-                      name={`faq_${index}_${field}`}
-                      size="small"
-                      label={field === 'category' ? 'Category (optional)' : field === 'question' ? 'Question' : 'Answer'}
-                      required={field !== 'category'}
-                      fullWidth
-                      disabled={saving}
-                      value={faq[field] ?? ''}
-                      multiline={field !== 'category'}
-                      minRows={field === 'answer' ? 2 : undefined}
-                      slotProps={{ htmlInput: { maxLength: field === 'category' ? 100 : field === 'question' ? 500 : 5000 } }}
-                      onChange={event => updateFaqs(clinic.faqs.map((item, i) => i === index ? { ...item, [field]: event.target.value } : item))}
-                    />
-                  ))}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Button size="small" color="error" disabled={saving} startIcon={<DeleteOutlineIcon />}
-                      onClick={() => { updateFaqs(clinic.faqs.filter((_, i) => i !== index)); setExpandedFaq(false); }}>Remove FAQ</Button>
-                    <Button size="small" onClick={() => setExpandedFaq(false)}>Collapse</Button>
-                  </Box>
-                </AccordionDetails>
-              </Accordion>
-            ))}
-          </Box>
-        </Paper>
-
-        {/* Bottom-right Save Changes Button */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', pt: 1, pb: 1, gap: 1.5 }}>
-          <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto' }} />
-          <Button
-            data-walkthrough="clinic-save-btn"
-            variant="contained"
-            startIcon={<SaveIcon />}
-            onClick={handleSubmit}
-            disabled={saving}
-            disableElevation
+          {/* Card: Print Form Header Logos */}
+          <Paper
+            elevation={0}
             sx={{
-              bgcolor: '#10b981',
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '14px',
-              px: 3,
-              py: 1.25,
-              borderRadius: 1.5,
-              '&:hover': {
-                bgcolor: '#059669',
-              },
+              border: '1px solid var(--border-glow, #e0eae3)',
+              borderRadius: 2,
+              p: 3,
+              bgcolor: 'var(--card-bg-solid, #fff)',
             }}
           >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </Box>
+            <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              PRINT FORM HEADER LOGOS
+            </Typography>
+            <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 1.5 }} />
+            <Typography sx={{ fontSize: '13px', color: '#64748b', mb: 2.5 }}>
+              Logos printed on the left and right corners of official DOH forms, vaccination cards, and reports.
+            </Typography>
 
-        {/* Card 3 - Patient App Resources (Mobile "Learn More") */}
-        <PatientAppResourcesSection embedded refreshTrigger={resourcesRefreshTrigger} />
-      </Box>
+            <Box data-walkthrough="clinic-logos-container" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              {/* Left Print Logo */}
+              <Box
+                data-walkthrough="clinic-left-logo"
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  p: 2,
+                  bgcolor: '#ffffff',
+                  border: '1px solid var(--border-glow, #e2e8f0)',
+                  borderRadius: 2,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 2,
+                    border: displayLeftLogoSrc ? '2px dashed #10b981' : '1.5px dashed #cbd5e1',
+                    bgcolor: displayLeftLogoSrc ? '#ffffff' : '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 0.75,
+                    flexShrink: 0,
+                    overflow: 'hidden',
+                  }}
+                >
+                  {displayLeftLogoSrc ? (
+                    <img src={displayLeftLogoSrc} alt="Left Print Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                  ) : (
+                    <Box sx={{ textAlign: 'center', p: 0.5 }}>
+                      <CloudUploadIcon sx={{ fontSize: 20, color: '#94a3b8' }} />
+                      <Typography sx={{ fontSize: '9px', color: '#94a3b8', lineHeight: 1.1, mt: 0.25 }}>No logo</Typography>
+                    </Box>
+                  )}
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 1 }}>
+                    Left Print Logo
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <input accept="image/png,image/jpeg,image/webp,image/svg+xml" id="left-print-logo-upload" name="left_print_logo" type="file" style={{ display: 'none' }} onChange={handleLeftLogoChange} />
+                    <label htmlFor="left-print-logo-upload">
+                      <Button variant="outlined" component="span" size="small" startIcon={<CloudUploadIcon />} sx={{ textTransform: 'none', fontSize: '12.5px', fontWeight: 600, color: '#059669', borderColor: '#10b981', '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' } }}>
+                        {displayLeftLogoSrc ? 'Replace Logo' : 'Upload Logo'}
+                      </Button>
+                    </label>
+                    {displayLeftLogoSrc && !removeLeftLogo && (
+                      <Button variant="text" size="small" startIcon={<DeleteOutlineIcon />} onClick={handleResetLeftLogo} sx={{ textTransform: 'none', fontSize: '12.5px', fontWeight: 500, color: '#ef4444', '&:hover': { bgcolor: '#fef2f2' } }}>
+                        Remove
+                      </Button>
+                    )}
+                  </Box>
+                  {leftLogoFile && <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75, overflowWrap: 'anywhere' }}>Selected: {leftLogoFile.name}</Typography>}
+                  {removeLeftLogo && <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>Will be removed on save</Typography>}
+                </Box>
+              </Box>
+
+              {/* Right Print Logo */}
+              <Box
+                data-walkthrough="clinic-right-logo"
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  p: 2,
+                  bgcolor: '#ffffff',
+                  border: '1px solid var(--border-glow, #e2e8f0)',
+                  borderRadius: 2,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 2,
+                    border: displayRightLogoSrc ? '2px dashed #10b981' : '1.5px dashed #cbd5e1',
+                    bgcolor: displayRightLogoSrc ? '#ffffff' : '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 0.75,
+                    flexShrink: 0,
+                    overflow: 'hidden',
+                  }}
+                >
+                  {displayRightLogoSrc ? (
+                    <img src={displayRightLogoSrc} alt="Right Print Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                  ) : (
+                    <Box sx={{ textAlign: 'center', p: 0.5 }}>
+                      <CloudUploadIcon sx={{ fontSize: 20, color: '#94a3b8' }} />
+                      <Typography sx={{ fontSize: '9px', color: '#94a3b8', lineHeight: 1.1, mt: 0.25 }}>No logo</Typography>
+                    </Box>
+                  )}
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-h, #1f2937)', mb: 1 }}>
+                    Right Print Logo
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <input accept="image/png,image/jpeg,image/webp,image/svg+xml" id="right-print-logo-upload" name="right_print_logo" type="file" style={{ display: 'none' }} onChange={handleRightLogoChange} />
+                    <label htmlFor="right-print-logo-upload">
+                      <Button variant="outlined" component="span" size="small" startIcon={<CloudUploadIcon />} sx={{ textTransform: 'none', fontSize: '12.5px', fontWeight: 600, color: '#059669', borderColor: '#10b981', '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' } }}>
+                        {displayRightLogoSrc ? 'Replace Logo' : 'Upload Logo'}
+                      </Button>
+                    </label>
+                    {displayRightLogoSrc && !removeRightLogo && (
+                      <Button variant="text" size="small" startIcon={<DeleteOutlineIcon />} onClick={handleResetRightLogo} sx={{ textTransform: 'none', fontSize: '12.5px', fontWeight: 500, color: '#ef4444', '&:hover': { bgcolor: '#fef2f2' } }}>
+                        Remove
+                      </Button>
+                    )}
+                  </Box>
+                  {rightLogoFile && <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500, mt: 0.75, overflowWrap: 'anywhere' }}>Selected: {rightLogoFile.name}</Typography>}
+                  {removeRightLogo && <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500, mt: 0.75 }}>Will be removed on save</Typography>}
+                </Box>
+              </Box>
+            </Box>
+          </Paper>
+        </Box>
+      )}
+
+      {/* TAB 3: PUBLIC WEBSITE */}
+      {activeTab === 'website' && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Card: Navbar Official Seals */}
+          <Paper
+            data-walkthrough="clinic-landing-branding-section"
+            elevation={0}
+            sx={{
+              border: '1px solid var(--border-glow, #e0eae3)',
+              borderRadius: 2,
+              p: 3,
+              bgcolor: 'var(--card-bg-solid, #fff)',
+            }}
+          >
+            <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              NAVBAR OFFICIAL SEALS
+            </Typography>
+            <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 1.5 }} />
+            <Typography sx={{ fontSize: '13px', color: '#64748b', mb: 2.5 }}>
+              The 3 official seals displayed in the public landing page header.
+            </Typography>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' }, gap: 2 }}>
+              {[
+                {
+                  id: 'seal-1-upload',
+                  badge: 'Header Seal 1',
+                  placeholder: 'e.g. Department of Health',
+                  src: displaySeal1Src,
+                  fallback: defaultSeal1,
+                  label: seal1Label,
+                  setLabel: setSeal1Label,
+                  file: seal1File,
+                  preview: seal1Preview,
+                  savedPath: clinic.header_seal_1_path,
+                  removed: removeSeal1,
+                  onChange: handleSeal1Change,
+                  onReset: handleResetSeal1,
+                },
+                {
+                  id: 'seal-2-upload',
+                  badge: 'Header Seal 2',
+                  placeholder: 'e.g. Tagoloan, Misamis Oriental',
+                  src: displaySeal2Src,
+                  fallback: defaultSeal2,
+                  label: seal2Label,
+                  setLabel: setSeal2Label,
+                  file: seal2File,
+                  preview: seal2Preview,
+                  savedPath: clinic.header_seal_2_path,
+                  removed: removeSeal2,
+                  onChange: handleSeal2Change,
+                  onReset: handleResetSeal2,
+                },
+                {
+                  id: 'seal-3-upload',
+                  badge: 'Header Seal 3',
+                  placeholder: 'e.g. Rural Health Unit',
+                  src: displaySeal3Src,
+                  fallback: defaultSeal3,
+                  label: seal3Label,
+                  setLabel: setSeal3Label,
+                  file: seal3File,
+                  preview: seal3Preview,
+                  savedPath: clinic.header_seal_3_path,
+                  removed: removeSeal3,
+                  onChange: handleSeal3Change,
+                  onReset: handleResetSeal3,
+                },
+              ].map((seal) => (
+                <Box
+                  key={seal.id}
+                  sx={{
+                    p: 2,
+                    bgcolor: '#ffffff',
+                    border: '1px solid var(--border-glow, #e2e8f0)',
+                    borderRadius: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1.5,
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Box
+                      sx={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: '50%',
+                        border: '2px solid #10b981',
+                        bgcolor: '#ffffff',
+                        p: 0.4,
+                        flexShrink: 0,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <img
+                        src={seal.src}
+                        alt={`${seal.badge} Preview`}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = seal.fallback;
+                        }}
+                      />
+                    </Box>
+                    <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      {seal.badge}
+                    </Typography>
+                  </Box>
+
+                  <Box>
+                    <FieldLabel>Label</FieldLabel>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={seal.label}
+                      onChange={(e) => seal.setLabel(e.target.value)}
+                      placeholder={seal.placeholder}
+                      sx={cleanFieldSx}
+                    />
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 'auto' }}>
+                    <input accept="image/png,image/jpeg,image/webp,image/svg+xml" id={seal.id} type="file" style={{ display: 'none' }} onChange={seal.onChange} />
+                    <label htmlFor={seal.id}>
+                      <Button variant="outlined" component="span" size="small" startIcon={<CloudUploadIcon />} sx={{ textTransform: 'none', fontSize: '12px', fontWeight: 600, color: '#059669', borderColor: '#10b981', py: 0.5, px: 1.25, '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' } }}>
+                        {seal.file || seal.savedPath ? 'Replace Seal' : 'Upload Seal'}
+                      </Button>
+                    </label>
+                    {(seal.file || seal.savedPath || seal.preview) && !seal.removed && (
+                      <Button variant="text" size="small" startIcon={<DeleteOutlineIcon />} onClick={seal.onReset} sx={{ textTransform: 'none', fontSize: '12px', fontWeight: 500, color: '#ef4444', py: 0.5, px: 1, '&:hover': { bgcolor: '#fef2f2' } }}>
+                        Reset
+                      </Button>
+                    )}
+                  </Box>
+
+                  {seal.file && <Typography sx={{ fontSize: '11px', color: '#10b981', fontWeight: 500 }}>Selected: {seal.file.name}</Typography>}
+                  {seal.removed && <Typography sx={{ fontSize: '11px', color: '#f59e0b', fontWeight: 500 }}>Will reset to default on save</Typography>}
+                </Box>
+              ))}
+            </Box>
+          </Paper>
+
+          {/* Card: Landing Page Hero Picture */}
+          <Paper
+            elevation={0}
+            sx={{
+              border: '1px solid var(--border-glow, #e0eae3)',
+              borderRadius: 2,
+              p: 3,
+              bgcolor: 'var(--card-bg-solid, #fff)',
+            }}
+          >
+            <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              LANDING PAGE HERO PICTURE
+            </Typography>
+            <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 2.5 }} />
+
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'center' }, gap: 3 }}>
+              <Box
+                sx={{
+                  width: { xs: '100%', md: 420 },
+                  height: 175,
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  position: 'relative',
+                  border: '1px solid #cbd5e1',
+                  bgcolor: '#0f172a',
+                  flexShrink: 0,
+                }}
+              >
+                <img
+                  src={displayHeroSrc}
+                  alt="Landing Page Hero Preview"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = defaultHero;
+                  }}
+                />
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'linear-gradient(to top, rgba(15, 23, 42, 0.72) 0%, transparent 65%)',
+                    pointerEvents: 'none',
+                  }}
+                />
+                <Box sx={{ position: 'absolute', bottom: 12, left: 14, color: '#ffffff', pointerEvents: 'none' }}>
+                  <Typography sx={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#34d399' }}>
+                    Hero Preview
+                  </Typography>
+                  <Typography sx={{ fontSize: '14px', fontWeight: 700 }}>
+                    ANIMAL BITE TREATMENT CENTER
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontSize: '13px', color: '#475569', mb: 1.5, lineHeight: 1.5 }}>
+                  Displayed at the top of the public landing page. Use a landscape photo (16:9 or 21:9, at least 1920×800px, max 5MB).
+                </Typography>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <input accept="image/png,image/jpeg,image/webp" id="hero-image-upload" type="file" style={{ display: 'none' }} onChange={handleHeroImageChange} />
+                  <label htmlFor="hero-image-upload">
+                    <Button variant="outlined" component="span" size="small" startIcon={<CloudUploadIcon />} sx={{ textTransform: 'none', fontSize: '12.5px', fontWeight: 600, color: '#059669', borderColor: '#10b981', py: 0.75, px: 2, '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' } }}>
+                      {heroImageFile || clinic.hero_image_path ? 'Replace Hero Picture' : 'Upload Hero Picture'}
+                    </Button>
+                  </label>
+                  {(heroImageFile || clinic.hero_image_path || heroImagePreview) && !removeHeroImage && (
+                    <Button variant="text" size="small" startIcon={<DeleteOutlineIcon />} onClick={handleResetHeroImage} sx={{ textTransform: 'none', fontSize: '12.5px', fontWeight: 500, color: '#ef4444', py: 0.75, px: 1.5, '&:hover': { bgcolor: '#fef2f2' } }}>
+                      Reset to Default
+                    </Button>
+                  )}
+                </Box>
+
+                {heroImageFile && (
+                  <Typography sx={{ fontSize: '12px', color: '#10b981', fontWeight: 600, mt: 1 }}>
+                    Selected: {heroImageFile.name} ({(heroImageFile.size / (1024 * 1024)).toFixed(2)} MB)
+                  </Typography>
+                )}
+                {removeHeroImage && (
+                  <Typography sx={{ fontSize: '12px', color: '#f59e0b', fontWeight: 600, mt: 1 }}>
+                    Will reset to default hero image on save
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          </Paper>
+        </Box>
+      )}
+
+      {/* TAB 4: PATIENT APP */}
+      {activeTab === 'patient_app' && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Card: FAQs */}
+          <Paper
+            data-walkthrough="clinic-faqs-section"
+            elevation={0}
+            sx={{
+              border: '1px solid var(--border-glow, #e0eae3)',
+              borderRadius: 2,
+              p: 3,
+              bgcolor: 'var(--card-bg-solid, #fff)',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
+              <Box>
+                <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  PATIENT APP FAQS ({clinic.faqs.length})
+                </Typography>
+                <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mt: 0.5 }} />
+              </Box>
+              <Button
+                data-walkthrough="clinic-faqs-add-btn"
+                size="small"
+                variant="outlined"
+                startIcon={<AddIcon />}
+                disabled={saving || clinic.faqs.length >= 50}
+                onClick={() => {
+                  setExpandedFaq(clinic.faqs.length);
+                  updateFaqs([...clinic.faqs, { category: '', question: '', answer: '' }]);
+                }}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: '12.5px',
+                  color: '#059669',
+                  borderColor: '#10b981',
+                  '&:hover': { borderColor: '#059669', bgcolor: '#ecfdf5' },
+                }}
+              >
+                Add FAQ
+              </Button>
+            </Box>
+            <Typography sx={{ fontSize: '12.5px', color: '#64748b', mt: 1, mb: 2 }}>
+              Select a question to edit. Click Save Changes to publish FAQ updates to the patient app.
+            </Typography>
+            <Box data-walkthrough="clinic-faqs-list">
+              {clinic.faqs.length === 0 && <Typography variant="body2" color="text.secondary">No FAQs added yet.</Typography>}
+              {clinic.faqs.map((faq, index) => (
+                <Accordion
+                  key={index}
+                  disableGutters
+                  elevation={0}
+                  expanded={expandedFaq === index}
+                  onChange={(_, expanded) => setExpandedFaq(expanded ? index : false)}
+                  sx={{ border: '1px solid #d7e3da', borderRadius: '6px !important', mb: 0.75, '&:before': { display: 'none' } }}
+                >
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreIcon />}
+                    id={`faq-${index}-header`}
+                    aria-controls={`faq-${index}-content`}
+                    sx={{ minHeight: 44, px: 1.5, '& .MuiAccordionSummary-content': { my: 1, minWidth: 0, alignItems: 'center', gap: 1 } }}
+                  >
+                    <Typography variant="caption" color="text.secondary">{index + 1}.</Typography>
+                    <Typography variant="body2" noWrap sx={{ fontWeight: 500, flex: 1 }}>{faq.question.trim() || 'New question'}</Typography>
+                    {faq.category && <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: '25%', display: { xs: 'none', sm: 'block' } }}>{faq.category}</Typography>}
+                  </AccordionSummary>
+                  <AccordionDetails id={`faq-${index}-content`} sx={{ p: 1.5, pt: 0.5, display: 'grid', gap: 1.5 }}>
+                    {(['category', 'question', 'answer'] as const).map(field => (
+                      <TextField
+                        key={field}
+                        id={`faq-${index}-${field}`}
+                        name={`faq_${index}_${field}`}
+                        size="small"
+                        label={field === 'category' ? 'Category (optional)' : field === 'question' ? 'Question' : 'Answer'}
+                        required={field !== 'category'}
+                        fullWidth
+                        disabled={saving}
+                        value={faq[field] ?? ''}
+                        multiline={field !== 'category'}
+                        minRows={field === 'answer' ? 2 : undefined}
+                        slotProps={{ htmlInput: { maxLength: field === 'category' ? 100 : field === 'question' ? 500 : 5000 } }}
+                        onChange={event => updateFaqs(clinic.faqs.map((item, i) => i === index ? { ...item, [field]: event.target.value } : item))}
+                      />
+                    ))}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Button size="small" color="error" disabled={saving} startIcon={<DeleteOutlineIcon />} onClick={() => { updateFaqs(clinic.faqs.filter((_, i) => i !== index)); setExpandedFaq(false); }}>
+                        Remove FAQ
+                      </Button>
+                      <Button size="small" onClick={() => setExpandedFaq(false)}>Collapse</Button>
+                    </Box>
+                  </AccordionDetails>
+                </Accordion>
+              ))}
+            </Box>
+          </Paper>
+
+          {/* Card: Learn More Resources (auto-saves immediately) */}
+          <PatientAppResourcesSection embedded refreshTrigger={resourcesRefreshTrigger} />
+        </Box>
+      )}
+
+      {/* Sticky Save Bar (appears only when there are unsaved changes) */}
+      {hasUnsavedChanges && (
+        <Paper
+          elevation={4}
+          sx={{
+            position: 'sticky',
+            bottom: 16,
+            zIndex: 30,
+            mt: 3,
+            px: 2.5,
+            py: 1.5,
+            borderRadius: 2,
+            border: '1px solid #a7f3d0',
+            bgcolor: 'rgba(255, 255, 255, 0.96)',
+            backdropFilter: 'blur(8px)',
+            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 1.5,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
+            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f59e0b', flexShrink: 0 }} />
+            <Typography sx={{ fontSize: '13.5px', fontWeight: 600, color: '#111827' }}>
+              Unsaved changes
+            </Typography>
+            <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} />
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={handleDiscard}
+              disabled={saving}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '13px',
+                color: '#475569',
+                borderColor: '#cbd5e1',
+                px: 2,
+                py: 0.75,
+                borderRadius: 1.5,
+                '&:hover': { borderColor: '#94a3b8', bgcolor: '#f8fafc' },
+              }}
+            >
+              Discard
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<SaveIcon />}
+              onClick={handleSubmit}
+              disabled={saving}
+              disableElevation
+              sx={{
+                bgcolor: '#10b981',
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '13.5px',
+                px: 2.5,
+                py: 0.75,
+                borderRadius: 1.5,
+                '&:hover': { bgcolor: '#059669' },
+              }}
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </Box>
+        </Paper>
+      )}
 
       {/* Success Modal */}
       {showSuccessModal && (

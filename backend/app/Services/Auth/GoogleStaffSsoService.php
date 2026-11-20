@@ -41,7 +41,7 @@ class GoogleStaffSsoService
         $googleName  = $payload['name'] ?? null;
 
         // Verify audience if configured
-        $clientId = config('services.google.client_id');
+        $clientId = config('services.google.client_id') ?: config('google.client_id');
         if ($clientId && isset($payload['aud']) && $payload['aud'] !== $clientId) {
             Log::warning('Google SSO: Client ID audience mismatch', ['expected' => $clientId, 'got' => $payload['aud'] ?? null]);
             return [

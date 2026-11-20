@@ -3,7 +3,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { APP_NAME } from '../../../constants';
 import { LoginRoot } from '../styles/Login.styles';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+function getApiBaseUrl(): string {
+  const envUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').trim();
+  const clean = envUrl.replace(/\/+$/, '');
+  return clean.endsWith('/api') ? clean : `${clean}/api`;
+}
+const API_BASE_URL = getApiBaseUrl();
 
 // Tier 9 — Google Identity Services type declaration (loaded via CDN script in index.html)
 declare global {
@@ -65,7 +70,7 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleError, setGoogleError]     = useState('');
   const [gisReady, setGisReady]           = useState(false);
-  const hiddenGoogleBtnRef                = useRef<HTMLDivElement>(null);
+  const googleBtnRef                      = useRef<HTMLDivElement>(null);
 
   // Demo accounts quick-access buttons enabled on login page
   const SHOW_DEMO_ACCOUNTS = true;
@@ -123,22 +128,25 @@ export default function Login() {
         callback: handleGoogleCredential,
         auto_select: false,
         cancel_on_tap_outside: true,
-        use_fedcm_for_prompt: false,  // disable FedCM for prompt()
-        itp_support: false,           // disable Intelligent Tracking Prevention flow
+        itp_support: true,
       });
       setGisReady(true);
     };
     document.head.appendChild(script);
   }, []);
 
-  // Render the hidden Google button once GIS is ready and the ref is mounted
+  // Render the Google Sign-In button once GIS is ready and the ref is mounted
   useEffect(() => {
-    if (!gisReady || !hiddenGoogleBtnRef.current || !window.google) return;
-    window.google.accounts.id.renderButton(hiddenGoogleBtnRef.current, {
+    if (!gisReady || !googleBtnRef.current || !window.google) return;
+    googleBtnRef.current.innerHTML = '';
+    window.google.accounts.id.renderButton(googleBtnRef.current, {
       type: 'standard',
       theme: 'outline',
       size: 'large',
-      ux_mode: 'popup',      // force popup — prevents FedCM from being used
+      text: 'signin_with',
+      shape: 'rectangular',
+      logo_alignment: 'left',
+      width: 360,
     });
   }, [gisReady]);
 
@@ -172,22 +180,6 @@ export default function Login() {
       setGoogleError('Google Sign-In failed. Please try again or use email & password.');
     } finally {
       setGoogleLoading(false);
-    }
-  };
-
-  /** Trigger Google sign-in by clicking the hidden native Google button (popup, FedCM-safe) */
-  const handleGoogleSignIn = () => {
-    if (!gisReady || !window.google) {
-      setGoogleError('Google Sign-In is not available. Check your internet connection.');
-      return;
-    }
-    // Click the hidden Google-rendered button — opens a real popup, bypasses FedCM block
-    const btn = hiddenGoogleBtnRef.current?.querySelector('div[role="button"]') as HTMLElement | null;
-    if (btn) {
-      btn.click();
-    } else {
-      // Fallback: prompt() in case renderButton hasn't mounted yet
-      window.google.accounts.id.prompt();
     }
   };
 
@@ -365,8 +357,6 @@ export default function Login() {
         {/* ── Tier 9: Google SSO Sign-In ── */}
         {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
           <div style={{ marginTop: 16 }}>
-            {/* Hidden off-screen div that holds the native Google button (popup-capable, FedCM-safe) */}
-            <div ref={hiddenGoogleBtnRef} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', top: -9999 }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0' }}>
               <hr style={{ flex: 1, border: 'none', borderTop: '1px solid #e5e7eb' }} />
               <span style={{ fontSize: 12, color: '#9ca3af', fontWeight: 500 }}>or</span>
@@ -389,35 +379,40 @@ export default function Login() {
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={loading || googleLoading || !gisReady}
-              style={{
+            {googleLoading ? (
+              <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                 width: '100%', padding: '10px 16px',
                 background: '#ffffff', border: '1.5px solid #dadce0', borderRadius: 8,
-                fontSize: 14, fontWeight: 600, color: '#3c4043', cursor: 'pointer',
-                transition: 'box-shadow 0.15s, border-color 0.15s',
-                opacity: (!gisReady || googleLoading) ? 0.6 : 1,
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 1px 4px rgba(0,0,0,0.15)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; }}
-            >
-              {googleLoading ? (
+                fontSize: 14, fontWeight: 600, color: '#3c4043',
+              }}>
                 <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2, borderColor: '#dadce0', borderTopColor: '#4285F4' }} />
-              ) : (
-                /* Official Google "G" logo */
-                <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-                  <path fill="none" d="M0 0h48v48H0z"/>
-                </svg>
-              )}
-              {googleLoading ? 'Signing in with Google…' : 'Sign in with Google'}
-            </button>
+                <span>Signing in with Google…</span>
+              </div>
+            ) : (
+              <div
+                ref={googleBtnRef}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  width: '100%',
+                  minHeight: 44,
+                }}
+              >
+                {!gisReady && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                    width: '100%', padding: '10px 16px',
+                    background: '#ffffff', border: '1.5px solid #dadce0', borderRadius: 8,
+                    fontSize: 14, fontWeight: 600, color: '#9ca3af',
+                  }}>
+                    <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2, borderColor: '#e5e7eb', borderTopColor: '#9ca3af' }} />
+                    <span>Loading Google Sign-In…</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', margin: '6px 0 0', lineHeight: 1.4 }}>
               Only verified clinic staff accounts are permitted. Unauthorized Google accounts are blocked.
             </p>

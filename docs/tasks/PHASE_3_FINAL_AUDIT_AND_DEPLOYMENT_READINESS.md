@@ -557,9 +557,79 @@ OVERALL PASS RATE: 99.7%
 
 The existing implementations of **Real-Time Live Updates** and **Firebase Cloud Messaging** are architecturally sound, thoroughly tested, and privacy-compliant. The business logic, channel security, event dispatching, and mobile lifecycle handlers are verified.
 
-However, **production deployment cannot proceed immediately** due to three critical infrastructure configuration gaps:
-1. Reverb service and start script are missing from Railway.
-2. Firebase service account credentials cannot reach the Railway container without an injection mechanism.
-3. Frontend production environment lacks Reverb WSS configuration.
+With Phase 4.1 (Firebase Credentials Injection) and Phase 4.2 (Dedicated Railway Reverb Service) completed locally, the backend infrastructure and frontend WebSocket configuration are fully aligned for production deployment.
 
-**Recommendation:** Await approval from project leadership on this audit report before implementing the prioritized fixes in Phase 1 and Phase 2.
+---
+
+## Phase 4.2 Implementation & Verification: Dedicated Railway Reverb Service
+
+**Status:** COMPLETE (Local Infrastructure & Configuration Ready)  
+**Date:** November 20, 2026  
+**Scope:** Standalone Railway Reverb service startup script, HTTPS/WSS proxy configuration, multi-tenant channel authorization, backend broadcaster separation, React Echo client hardening, and automated regression verification.
+
+### 1. Architectural Implementation Overview
+
+The Laravel Reverb real-time broadcasting infrastructure has been separated into four distinct roles across Railway and Vercel:
+
+```
+[Vercel Frontend (React + TypeScript)]
+      │
+      ├─ HTTPS REST & Channel Auth (Bearer Sanctum) ──> [Railway App Service] (port 443 -> PHP-FPM)
+      │                                                        │
+      │                                                  Broadcasts (HTTP POST /apps/{id}/events)
+      │                                                        │
+      └─ WSS WebSocket Connection (Pusher v7) ─────────> [Railway Reverb Service] (port 443 -> 0.0.0.0:$PORT)
+                                                               ▲
+                                                               │ Broadcasts (HTTP POST)
+                                                               │
+                                                        [Railway Queue Worker]
+                                                               │
+                                                        [Railway MySQL Database]
+```
+
+#### Service Port & Connection Distinctions
+- **Reverb Bind Host & Port:** Binds to `0.0.0.0:${PORT:-8080}` inside the dedicated Reverb container via `backend/railway/run-reverb.sh`.
+- **Public WebSocket Host & Scheme:** Exposed publicly via Railway edge reverse proxy as `reverb-production-xxxx.up.railway.app` on port `443` with TLS termination (`wss://`).
+- **Laravel Backend Connection:** App Service and Queue Worker publish broadcast events to Reverb via `config/broadcasting.php`. Supports `REVERB_API_HOST` for private internal networking or falls back seamlessly to `REVERB_HOST` (public domain).
+- **React Frontend Connection:** Connects over `wss://` on port `443` using `VITE_REVERB_HOST` and `VITE_REVERB_APP_KEY`. Authorizes private channels via `POST /api/broadcasting/auth` on the deployed Laravel API using Sanctum Bearer tokens.
+
+### 2. Files Modified & Created
+
+| File Path | Action | Description |
+|---|:---:|---|
+| `backend/railway/run-reverb.sh` | **NEW** | POSIX-compliant startup script for the dedicated Reverb service, binding to `0.0.0.0:${PORT:-8080}` with optional debug mode. |
+| `backend/railway/run-worker.sh` | **MODIFIED** | Updated queue worker command to `--queue=notifications,default --sleep=3 --tries=3 --timeout=60 --max-time=3600` for retry safety and broadcast queue processing. |
+| `backend/config/broadcasting.php` | **MODIFIED** | Added support for `REVERB_API_HOST`, `REVERB_API_PORT`, and `REVERB_API_SCHEME` with automatic fallback to public `REVERB_HOST`. |
+| `backend/config/reverb.php` | **MODIFIED** | Dynamic origin parsing for `REVERB_ALLOWED_ORIGINS` supporting URLs, wildcards, and ports while maintaining full serializability for `config:cache`. |
+| `backend/config/cors.php` | **MODIFIED** | Added comma-separated parsing for `FRONTEND_URL` to support multiple Vercel domains or preview environments. |
+| `backend/.env.railway.example` | **MODIFIED** | Fully documented all Reverb variables, server binding, public host, internal broadcast options, allowed origins, and `QUEUE_CONNECTION=database`. |
+| `backend/railway/README.md` | **MODIFIED** | Comprehensive architecture documentation covering all 4 Railway services, networking diagram, environment variables, manual verification procedures, and troubleshooting. |
+| `frontend/src/shared/services/echo.ts` | **MODIFIED** | Hardened TLS enforcement (`forceTLS = true` on `https:` or `wss`), port resolution (443 on TLS, 8080 on dev), and absolute URL auth endpoint resolution. |
+| `frontend/.env.production` | **MODIFIED** | Configured `VITE_API_URL` with `/api` and added `VITE_REVERB_*` production template variables. |
+| `frontend/.env.production.example` | **MODIFIED** | Documented production Reverb environment variables. |
+| `backend/tests/Feature/ReverbProductionConfigurationTest.php` | **NEW** | Automated test suite verifying Reverb server/app config, origin parsing, internal options, shell scripts, user-targeted notifications, and privacy-safe event payloads. |
+
+### 3. Security & Clinic Isolation Protections
+
+1. **Private Channel Guards:** All clinic channels (`clinic.{id}.queue`, `clinic.{id}.notifications`, `clinic.{id}.inventory`) and patient channels (`patient.account.{id}`) are defined as `PrivateChannel` and authorized via `['guards' => ['sanctum']]`.
+2. **Multi-Tenant Clinic Boundary:** Channel authorization callbacks enforce `(int) $user->clinic_id === (int) $clinicId`. Cross-clinic subscriptions are rejected with `403 Forbidden`.
+3. **Staff User Targeting:** Recipient-specific notification channel `clinic.{clinicId}.user.{userId}.notifications` ensures only the targeted user can authorize and receive private alerts.
+4. **Zero-PHI Payloads:** `QueueTicketUpdated` broadcasts only ticket ID, queue number, status, station, call count, and lane. Sensitive patient identifiers and medical history are never broadcast.
+5. **Secret Protection:** `REVERB_APP_SECRET` is strictly backend-only. The frontend client is only provisioned with `REVERB_APP_KEY`.
+
+### 4. Automated Verification Results
+
+- **Broadcasting & Reverb Test Suites:** **69 passed (316 assertions)**
+  - `BroadcastingAuthFoundationTest.php`: 8 passed
+  - `BroadcastingEventClassesTest.php`: 31 passed
+  - `DomainServicesBroadcastingIntegrationTest.php`: 20 passed
+  - `ReverbProductionConfigurationTest.php`: 10 passed
+- **FCM & Push Notification Suite:** **69 passed (340 assertions)**
+- **Configuration Cache Test:** `php artisan config:cache` succeeded with 0 errors.
+- **Frontend TypeScript Compilation & Build:** `tsc -b && vite build` completed successfully in 7.53s with 0 errors.
+
+### 5. Remaining Pre-Deployment Items (Before Phase 4.3)
+1. **Flutter Mobile API Base URL:** Update `mobile/.env` or configure `--dart-define=API_BASE_URL=https://...` for release APK build.
+2. **Android Keystore:** Generate release keystore for Android production signing.
+3. **Manual Railway Provisioning:** Provision the dedicated Reverb service in the Railway project dashboard following `backend/railway/README.md`.
+

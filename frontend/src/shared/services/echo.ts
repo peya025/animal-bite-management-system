@@ -82,10 +82,19 @@ export const isEchoConnected = (): boolean => {
 export const createEchoClient = (authToken?: string | null): any => {
   const token = authToken || localStorage.getItem('authToken');
   const appKey = import.meta.env.VITE_REVERB_APP_KEY || 'abtc-reverb-key-2026';
-  const wsHost = import.meta.env.VITE_REVERB_HOST || window.location.hostname || '127.0.0.1';
-  const wsPort = Number(import.meta.env.VITE_REVERB_PORT || 8080);
-  const wssPort = Number(import.meta.env.VITE_REVERB_PORT || 443);
-  const forceTLS = (import.meta.env.VITE_REVERB_SCHEME || 'http').toLowerCase() === 'https';
+  const wsHost = import.meta.env.VITE_REVERB_HOST || (typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1') || '127.0.0.1';
+  
+  // Production HTTPS/WSS enforcement: avoid browser mixed-content security errors
+  const isHttpsPage = typeof window !== 'undefined' && window.location?.protocol === 'https:';
+  const rawScheme = (import.meta.env.VITE_REVERB_SCHEME || '').toLowerCase().trim();
+  const forceTLS = rawScheme === 'https' || rawScheme === 'wss' || (!rawScheme && isHttpsPage);
+
+  const defaultPort = forceTLS ? 443 : 8080;
+  const resolvedPort = import.meta.env.VITE_REVERB_PORT
+    ? Number(import.meta.env.VITE_REVERB_PORT)
+    : defaultPort;
+  const wsPort = resolvedPort;
+  const wssPort = resolvedPort;
 
   // If instance already exists with the same token, return existing instance
   if (echoInstance && currentTokenRef === token) {
@@ -117,7 +126,9 @@ export const createEchoClient = (authToken?: string | null): any => {
               return callback(new Error('Unauthenticated for broadcast channel'), null);
             }
 
-            api.post('/broadcasting/auth', {
+            const authEndpoint = getBroadcastingAuthEndpoint();
+
+            api.post(authEndpoint, {
               socket_id: socketId,
               channel_name: channel.name,
             }, {

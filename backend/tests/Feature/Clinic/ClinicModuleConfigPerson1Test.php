@@ -720,17 +720,16 @@ class ClinicModuleConfigPerson1Test extends TestCase
             'revision',
         ]));
 
-        // 2. Perform rollback of the latest migration
-        $exitCodeRollback = Artisan::call('migrate:rollback', ['--step' => 1]);
-        $this->assertEquals(0, $exitCodeRollback);
+        // 2. Perform rollback of the intended migration directly to avoid rolling back unrelated newer migrations
+        $migration = require database_path('migrations/2026_11_11_100000_update_clinic_module_configs_add_stations_and_revision.php');
+        $migration->down();
 
         $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('clinic_module_configs', 'registration_module_enabled'));
         $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('clinic_module_configs', 'treatment_module_enabled'));
         $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('clinic_module_configs', 'revision'));
 
         // 3. Re-run migration forward
-        $exitCodeMigrate = Artisan::call('migrate');
-        $this->assertEquals(0, $exitCodeMigrate);
+        $migration->up();
 
         $this->assertTrue(\Illuminate\Support\Facades\Schema::hasColumns('clinic_module_configs', [
             'registration_module_enabled',

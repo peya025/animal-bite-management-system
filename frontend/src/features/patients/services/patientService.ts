@@ -108,7 +108,7 @@ export async function createPatientRecord(
     reg_temperature: cleanField(enrolment.reg_temperature),
     reg_height: cleanField(enrolment.reg_height),
     reg_weight: cleanField(enrolment.reg_weight),
-    reg_attending_provider: cleanField(enrolment.reg_attending_provider),
+    reg_attending_provider: enrolment.mode_of_transaction === 'referral' ? cleanField(enrolment.reg_attending_provider) : null,
     reg_referred_by: enrolment.mode_of_transaction === 'referral' ? cleanField(enrolment.reg_referred_by) : null,
 
     // IV. Fees and Payment

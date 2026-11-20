@@ -107,49 +107,89 @@ export function deriveInventoryStatus(item: Pick<InventoryItem, 'current_quantit
   return 'Active';
 }
 
-export function getStatusVisual(status: DerivedInventoryStatus): StatusVisual {
+export function getStatusVisual(status: DerivedInventoryStatus, isDark: boolean = false): StatusVisual {
   switch (status) {
     case 'Discard-Pending':
-      return {
-        label: status,
-        tone: 'info',
-        bg: '#eff6ff',
-        color: '#1d4ed8',
-        border: '#bfdbfe',
-      };
+      return isDark
+        ? {
+            label: status,
+            tone: 'info',
+            bg: 'rgba(29, 78, 216, 0.15)',
+            color: '#93c5fd',
+            border: '#1e40af',
+          }
+        : {
+            label: status,
+            tone: 'info',
+            bg: '#eff6ff',
+            color: '#1d4ed8',
+            border: '#bfdbfe',
+          };
     case 'Expired':
-      return {
-        label: status,
-        tone: 'danger',
-        bg: '#fee2e2',
-        color: '#b91c1c',
-        border: '#fca5a5',
-      };
+      return isDark
+        ? {
+            label: status,
+            tone: 'danger',
+            bg: 'rgba(239, 68, 68, 0.15)',
+            color: '#fca5a5',
+            border: '#991b1b',
+          }
+        : {
+            label: status,
+            tone: 'danger',
+            bg: '#fee2e2',
+            color: '#b91c1c',
+            border: '#fca5a5',
+          };
     case 'Depleted':
-      return {
-        label: status,
-        tone: 'neutral',
-        bg: '#f1f5f9',
-        color: '#475569',
-        border: '#cbd5e1',
-      };
+      return isDark
+        ? {
+            label: status,
+            tone: 'danger',
+            bg: 'rgba(239, 68, 68, 0.18)',
+            color: '#fca5a5',
+            border: '#b91c1c',
+          }
+        : {
+            label: status,
+            tone: 'danger',
+            bg: '#fee2e2',
+            color: '#dc2626',
+            border: '#fca5a5',
+          };
     case 'Expiring':
-      return {
-        label: status,
-        tone: 'warning',
-        bg: '#fef3c7',
-        color: '#b45309',
-        border: '#fcd34d',
-      };
+      return isDark
+        ? {
+            label: status,
+            tone: 'warning',
+            bg: 'rgba(217, 119, 6, 0.15)',
+            color: '#fde68a',
+            border: '#b45309',
+          }
+        : {
+            label: status,
+            tone: 'warning',
+            bg: '#fef3c7',
+            color: '#b45309',
+            border: '#fcd34d',
+          };
     case 'Active':
     default:
-      return {
-        label: 'Active',
-        tone: 'success',
-        bg: '#ecfdf5',
-        color: '#047857',
-        border: '#86efac',
-      };
+      return isDark
+        ? {
+            label: 'Active',
+            tone: 'success',
+            bg: 'rgba(5, 150, 105, 0.15)',
+            color: '#86efac',
+            border: '#047857',
+          }
+        : {
+            label: 'Active',
+            tone: 'success',
+            bg: '#ecfdf5',
+            color: '#047857',
+            border: '#86efac',
+          };
   }
 }
 

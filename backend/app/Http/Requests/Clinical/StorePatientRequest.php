@@ -70,6 +70,8 @@ class StorePatientRequest extends FormRequest
             'address_barangay.required' => 'Barangay is required.',
             'address_purok.required' => 'Purok is required.',
             'province.required' => 'Province is required.',
+            'reg_attending_provider.required' => 'Name of attending provider is required when Mode of Transaction is Referral.',
+            'reg_attending_provider.required_without' => 'Name of attending provider is required when Mode of Transaction is Referral.',
         ];
     }
 }

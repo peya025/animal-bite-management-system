@@ -168,6 +168,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
   const contextErrors = useContext(RegistrationErrors);
   const errors = propsErrors || contextErrors || {};
   const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
+  const isReferral = (data.mode_of_transaction || '').toLowerCase() === 'referral';
 
   // --- Blood pressure split/combine ---
   const splitBP = (bp: string) => {
@@ -250,6 +251,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
       setMunicipalityCode('');
       setBarangayName('');
       onDirectChange('reg_referred_by', '');
+      onDirectChange('reg_attending_provider', '');
     }
   };
 
@@ -289,7 +291,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
         {layout === 'two-column' ? (
           <>
             {/* Referred by */}
-            {data.mode_of_transaction === 'referral' && <div style={{ marginTop: 8 }}>
+            {isReferral && <div style={{ marginTop: 8 }}>
               <div style={{ marginBottom: 10 }}>
                 <label className="fm-label" style={{ fontWeight: 600, fontSize: 13, display: 'block' }}>
                   <span>Referred by</span> <span style={{ color: 'var(--registration-error-color, #dc2626)' }}>*</span>
@@ -379,7 +381,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
         ) : (
           <>
             {/* Referred by (City/Municipality → Barangay → Facility) */}
-            {data.mode_of_transaction === 'referral' && <div style={{ marginBottom: 14 }}>
+            {isReferral && <div style={{ marginBottom: 14 }}>
               <label className="fm-label">
                 <span>Referred by</span> <span style={{ color: 'var(--registration-error-color, #dc2626)' }}>*</span>
               </label>
@@ -728,26 +730,28 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
           </div>
 
           {/* Row 4: Attending Provider */}
-          <div style={{ marginBottom: 16 }}>
-            <FormField
-              id="field-reg_attending_provider"
-              label="Name of Attending Provider"
-              required
-              hint="From patient's referral paper form"
-              error={!!errors?.reg_attending_provider}
-              errorText={errors?.reg_attending_provider}
-            >
-              <input
-                className="fm-input"
-                type="text"
-                name="reg_attending_provider"
-                value={data.reg_attending_provider}
-                onChange={onChange('reg_attending_provider')}
-                placeholder="e.g. Dr. Juan Dela Cruz"
-                style={{ width: '100%', boxSizing: 'border-box' }}
-              />
-            </FormField>
-          </div>
+          {isReferral && (
+            <div style={{ marginBottom: 16 }}>
+              <FormField
+                id="field-reg_attending_provider"
+                label="Name of Attending Provider"
+                required
+                hint="From patient's referral paper form"
+                error={!!errors?.reg_attending_provider}
+                errorText={errors?.reg_attending_provider}
+              >
+                <input
+                  className="fm-input"
+                  type="text"
+                  name="reg_attending_provider"
+                  value={data.reg_attending_provider}
+                  onChange={onChange('reg_attending_provider')}
+                  placeholder="e.g. Dr. Juan Dela Cruz"
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              </FormField>
+            </div>
+          )}
 
         </>
       ) : (
@@ -937,25 +941,27 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
           </div>
 
           {/* Row 4: Attending Provider (full width) */}
-          <div style={{ marginBottom: 14 }}>
-            <FormField
-              id="field-reg_attending_provider"
-              label="Name of Attending Provider"
-              required
-              hint="Enter name from patient's referral paper form"
-              error={!!errors?.reg_attending_provider}
-              errorText={errors?.reg_attending_provider}
-            >
-              <input
-                className="fm-input"
-                type="text"
-                name="reg_attending_provider"
-                value={data.reg_attending_provider}
-                onChange={onChange('reg_attending_provider')}
-                placeholder="e.g. Dr. Juan Dela Cruz"
-              />
-            </FormField>
-          </div>
+          {isReferral && (
+            <div style={{ marginBottom: 14 }}>
+              <FormField
+                id="field-reg_attending_provider"
+                label="Name of Attending Provider"
+                required
+                hint="Enter name from patient's referral paper form"
+                error={!!errors?.reg_attending_provider}
+                errorText={errors?.reg_attending_provider}
+              >
+                <input
+                  className="fm-input"
+                  type="text"
+                  name="reg_attending_provider"
+                  value={data.reg_attending_provider}
+                  onChange={onChange('reg_attending_provider')}
+                  placeholder="e.g. Dr. Juan Dela Cruz"
+                />
+              </FormField>
+            </div>
+          )}
 
         </>
       )}

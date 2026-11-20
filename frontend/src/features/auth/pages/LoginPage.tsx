@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { APP_NAME } from '../../../constants';
 import { LoginRoot } from '../styles/Login.styles';
@@ -65,6 +65,7 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleError, setGoogleError]     = useState('');
   const [gisReady, setGisReady]           = useState(false);
+  const hiddenGoogleBtnRef                = useRef<HTMLDivElement>(null);
 
   // Demo accounts quick-access buttons enabled on login page
   const SHOW_DEMO_ACCOUNTS = true;
@@ -122,11 +123,24 @@ export default function Login() {
         callback: handleGoogleCredential,
         auto_select: false,
         cancel_on_tap_outside: true,
+        use_fedcm_for_prompt: false,  // disable FedCM for prompt()
+        itp_support: false,           // disable Intelligent Tracking Prevention flow
       });
       setGisReady(true);
     };
     document.head.appendChild(script);
   }, []);
+
+  // Render the hidden Google button once GIS is ready and the ref is mounted
+  useEffect(() => {
+    if (!gisReady || !hiddenGoogleBtnRef.current || !window.google) return;
+    window.google.accounts.id.renderButton(hiddenGoogleBtnRef.current, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      ux_mode: 'popup',      // force popup — prevents FedCM from being used
+    });
+  }, [gisReady]);
 
   /** Called by GIS SDK with the credential (ID Token) after user picks a Google account */
   const handleGoogleCredential = async (response: { credential: string }) => {
@@ -161,13 +175,20 @@ export default function Login() {
     }
   };
 
-  /** Trigger the GIS One-Tap / popup flow */
+  /** Trigger Google sign-in by clicking the hidden native Google button (popup, FedCM-safe) */
   const handleGoogleSignIn = () => {
     if (!gisReady || !window.google) {
       setGoogleError('Google Sign-In is not available. Check your internet connection.');
       return;
     }
-    window.google.accounts.id.prompt();
+    // Click the hidden Google-rendered button — opens a real popup, bypasses FedCM block
+    const btn = hiddenGoogleBtnRef.current?.querySelector('div[role="button"]') as HTMLElement | null;
+    if (btn) {
+      btn.click();
+    } else {
+      // Fallback: prompt() in case renderButton hasn't mounted yet
+      window.google.accounts.id.prompt();
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -344,6 +365,8 @@ export default function Login() {
         {/* ── Tier 9: Google SSO Sign-In ── */}
         {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
           <div style={{ marginTop: 16 }}>
+            {/* Hidden off-screen div that holds the native Google button (popup-capable, FedCM-safe) */}
+            <div ref={hiddenGoogleBtnRef} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', top: -9999 }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0' }}>
               <hr style={{ flex: 1, border: 'none', borderTop: '1px solid #e5e7eb' }} />
               <span style={{ fontSize: 12, color: '#9ca3af', fontWeight: 500 }}>or</span>

@@ -13,6 +13,9 @@ class RegisterExposureRequest extends FormRequest
 
     public function rules(): array
     {
+        $mode = strtolower((string)($this->input('mode_of_transaction') ?? ($this->input('reg_mode_of_transaction') ?? '')));
+        $isReferral = $mode === 'referral';
+
         return [
             ...\App\Support\RegistrationAnimal::rules(),
             'patient_id' => 'required|exists:patients,patient_id',
@@ -34,7 +37,7 @@ class RegisterExposureRequest extends FormRequest
             'temperature' => 'nullable|string|max:10',
             'height' => 'nullable|string|max:10',
             'weight' => 'nullable|string|max:10',
-            'attending_provider' => 'nullable|string|max:255',
+            'attending_provider' => $isReferral ? 'required_without:reg_attending_provider|string|max:255' : 'nullable|string|max:255',
             'referred_by' => 'nullable|string|max:255',
             'reg_date_of_consultation' => 'nullable|date',
             'reg_consultation_time' => 'nullable|string|max:20',
@@ -42,7 +45,7 @@ class RegisterExposureRequest extends FormRequest
             'reg_temperature' => 'nullable|string|max:10',
             'reg_height' => 'nullable|string|max:10',
             'reg_weight' => 'nullable|string|max:10',
-            'reg_attending_provider' => 'nullable|string|max:255',
+            'reg_attending_provider' => $isReferral ? 'required_without:attending_provider|string|max:255' : 'nullable|string|max:255',
             'reg_referred_by' => 'nullable|string|max:255',
         ];
     }

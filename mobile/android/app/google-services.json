@@ -1,0 +1,38 @@
+{
+  "project_info": {
+    "project_number": "1092713820197",
+    "project_id": "abtc-animal-bite-center",
+    "storage_bucket": ""
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1092713820197:android:abtcmobileapp",
+        "android_client_info": {
+          "package_name": "com.example.mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1092713820197-k625slso6eari3ap9quvml2cvnrq2okk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.mobile",
+            "certificate_hash": "c7a9917d0265ba7e355727b2316105444577e4bf"
+          }
+        },
+        {
+          "client_id": "1092713820197-romdnqq2kv6vpom88vto7ir3nd5brdaa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [{ "current_key": "" }],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -489,19 +489,36 @@ export default function PatientDetailsModal({
   const handleVitalsChange = (key: any) => (
     ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    setNewExposure((prev) => ({ ...prev, [key]: ev.target.value }));
+    const val = ev.target.value;
+    setNewExposure((prev) => {
+      const next = { ...prev, [key]: val };
+      if (key === 'mode_of_transaction' && String(val).toLowerCase() !== 'referral') {
+        next.reg_attending_provider = '';
+        next.reg_referred_by = '';
+      }
+      return next;
+    });
     if (submitError) setSubmitError(null);
-    if (formErrors[key]) {
-      setFormErrors((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-    }
+    setFormErrors((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      if (key === 'mode_of_transaction' && String(val).toLowerCase() !== 'referral') {
+        delete next.reg_attending_provider;
+        delete next.reg_referred_by;
+      }
+      return next;
+    });
   };
 
   const handleVitalsDirectChange = (key: any, value: string) => {
-    setNewExposure((prev) => ({ ...prev, [key]: value }));
+    setNewExposure((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === 'mode_of_transaction' && String(value).toLowerCase() !== 'referral') {
+        next.reg_attending_provider = '';
+        next.reg_referred_by = '';
+      }
+      return next;
+    });
     if (submitError) setSubmitError(null);
     setFormErrors((prev) => {
       const next = { ...prev };
@@ -509,6 +526,10 @@ export default function PatientDetailsModal({
       if (key === 'reg_blood_pressure') {
         delete next.bp_systolic;
         delete next.bp_diastolic;
+      }
+      if (key === 'mode_of_transaction' && String(value).toLowerCase() !== 'referral') {
+        delete next.reg_attending_provider;
+        delete next.reg_referred_by;
       }
       return next;
     });
@@ -655,8 +676,10 @@ export default function PatientDetailsModal({
     }
 
     // Name of Attending Provider
-    if (!newExposure.reg_attending_provider || !newExposure.reg_attending_provider.trim()) {
-      errors.reg_attending_provider = 'Name of attending provider is required.';
+    if ((newExposure.mode_of_transaction || '').toLowerCase() === 'referral') {
+      if (!newExposure.reg_attending_provider || !newExposure.reg_attending_provider.trim()) {
+        errors.reg_attending_provider = 'Name of attending provider is required.';
+      }
     }
 
     if (Object.keys(errors).length > 0) {
@@ -714,16 +737,16 @@ export default function PatientDetailsModal({
         temperature: newExposure.reg_temperature,
         height: newExposure.reg_height,
         weight: newExposure.reg_weight,
-        attending_provider: newExposure.reg_attending_provider,
-        referred_by: newExposure.reg_referred_by,
+        attending_provider: newExposure.mode_of_transaction === 'referral' ? newExposure.reg_attending_provider : undefined,
+        referred_by: newExposure.mode_of_transaction === 'referral' ? newExposure.reg_referred_by : undefined,
         reg_date_of_consultation: newExposure.reg_date_of_consultation,
         reg_consultation_time: newExposure.reg_consultation_time,
         reg_blood_pressure: newExposure.reg_blood_pressure,
         reg_temperature: newExposure.reg_temperature,
         reg_height: newExposure.reg_height,
         reg_weight: newExposure.reg_weight,
-        reg_attending_provider: newExposure.reg_attending_provider,
-        reg_referred_by: newExposure.reg_referred_by,
+        reg_attending_provider: newExposure.mode_of_transaction === 'referral' ? newExposure.reg_attending_provider : undefined,
+        reg_referred_by: newExposure.mode_of_transaction === 'referral' ? newExposure.reg_referred_by : undefined,
         registration_fee: newExposure.registration_fee || undefined,
       });
 
@@ -861,16 +884,16 @@ export default function PatientDetailsModal({
         temperature: newExposure.reg_temperature,
         height: newExposure.reg_height,
         weight: newExposure.reg_weight,
-        attending_provider: newExposure.reg_attending_provider,
-        referred_by: newExposure.reg_referred_by,
+        attending_provider: newExposure.mode_of_transaction === 'referral' ? newExposure.reg_attending_provider : undefined,
+        referred_by: newExposure.mode_of_transaction === 'referral' ? newExposure.reg_referred_by : undefined,
         reg_date_of_consultation: newExposure.reg_date_of_consultation,
         reg_consultation_time: newExposure.reg_consultation_time,
         reg_blood_pressure: newExposure.reg_blood_pressure,
         reg_temperature: newExposure.reg_temperature,
         reg_height: newExposure.reg_height,
         reg_weight: newExposure.reg_weight,
-        reg_attending_provider: newExposure.reg_attending_provider,
-        reg_referred_by: newExposure.reg_referred_by,
+        reg_attending_provider: newExposure.mode_of_transaction === 'referral' ? newExposure.reg_attending_provider : undefined,
+        reg_referred_by: newExposure.mode_of_transaction === 'referral' ? newExposure.reg_referred_by : undefined,
         registration_fee: newExposure.registration_fee || undefined,
       });
       setNewExposureOpen(false);

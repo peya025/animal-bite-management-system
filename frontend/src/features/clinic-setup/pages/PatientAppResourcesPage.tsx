@@ -2672,7 +2672,17 @@ export default function PatientAppResourcesPage() {
         }}
       >
         <Box>
-          <Typography component="h1" sx={{ fontSize: 22, fontWeight: 700, color: '#111827' }}>
+          <Typography
+            component="h1"
+            sx={{
+              fontSize: '22px',
+              fontWeight: 600,
+              lineHeight: 1.25,
+              letterSpacing: '-0.5px',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
+            }}
+          >
             Patient App Resources
           </Typography>
           <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mt: 0.25 }}>

@@ -1,10 +1,11 @@
-import { lazy, Suspense, useId, useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useId, useState, useEffect } from 'react';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import { Typography } from '@mui/material';
 import api from '../../../shared/services/api';
 import { ROUTES } from '../../../shared/config/routes';
 import DashboardLayout from '../../../components/Layout/DashboardLayout';
+import DashboardAnnouncements from '../../announcements/DashboardAnnouncements';
 import { useChartInView } from '../hooks/useChartInView';
 import '../styles/dashboardCharts.css';
 import {
@@ -21,8 +22,7 @@ import type { PsgcItem } from '../../patients/types';
 const PSGC_API = 'https://psgc.gitlab.io/api';
 const MIS_OR_CODE = '104300000';
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-const AnnouncementManager = lazy(() => import('../../announcements/AnnouncementsPage'));
-type DashboardTab = 'overview' | 'cases' | 'vaccinations' | 'announcements';
+type DashboardTab = 'overview' | 'cases' | 'vaccinations';
 
 function isAuthenticated(): boolean {
   const token = localStorage.getItem('authToken');
@@ -47,11 +47,8 @@ export function SimpleDashboardPage() {
   const [isLoading, setIsLoading] = useState<boolean>(() => !localStorage.getItem('userData'));
   const [setupCheckDone, setSetupCheckDone] = useState<boolean>(() => !!localStorage.getItem('userData'));
   const [searchParams, setSearchParams] = useSearchParams();
-  const canManageAnnouncements = !!user && user.is_active !== false &&
-    ['admin', 'developer', 'registration', 'triage', 'treatment', 'doctor', 'nurse', 'staff'].includes(user.role);
   const requestedTab = searchParams.get('tab');
-  const activeTab: DashboardTab = requestedTab === 'cases' || requestedTab === 'vaccinations' ||
-    (requestedTab === 'announcements' && canManageAnnouncements) ? requestedTab : 'overview';
+  const activeTab: DashboardTab = requestedTab === 'cases' || requestedTab === 'vaccinations' ? requestedTab : 'overview';
   const setActiveTab = (tab: DashboardTab) => setSearchParams(previous => {
     const next = new URLSearchParams(previous);
     if (tab === 'overview') next.delete('tab');
@@ -68,13 +65,10 @@ export function SimpleDashboardPage() {
   const [mapIncidentStats, setMapIncidentStats] = useState<Record<string, number>>({});
   const [stats, setStats] = useState<any>({
     totalPatients: 0,
-    activeCases: 0,
     pendingVaccinations: 0,
-    todayQueue: 0,
     completedCases: 0,
     followupPatients: 0,
     biteCases: 0,
-    newToday: 0,
     casesList: [],
     vaccinationsList: [],
   });
@@ -85,11 +79,10 @@ export function SimpleDashboardPage() {
 
     const fetchStats = async () => {
       try {
-        const [patientsRes, casesRes, vaccineRes, queueRes, mapRes] = await Promise.all([
+        const [patientsRes, casesRes, vaccineRes, mapRes] = await Promise.all([
           api.get('/patients?per_page=1'),
           api.get('/cases/statistics'),
           api.get('/vaccinations/statistics'),
-          api.get('/queue/statistics'),
           api.get('/cases/map-data').catch(() => ({ data: null })),
         ]);
 
@@ -104,13 +97,10 @@ export function SimpleDashboardPage() {
 
         setStats({
           totalPatients: patientsRes.data?.total || 0,
-          activeCases: casesRes.data?.active_cases || 0,
           pendingVaccinations: vaccineRes.data?.pending || 0,
-          todayQueue: queueRes.data?.waiting || 0,
           completedCases: casesRes.data?.completed_cases || 0,
           followupPatients: vaccineRes.data?.total_scheduled || 0,
           biteCases: casesRes.data?.total_cases || 0,
-          newToday: queueRes.data?.total || 0,
           casesList: recentCasesRes.data?.data || [],
           vaccinationsList: recentVaccsRes.data?.data || [],
         });
@@ -312,6 +302,10 @@ export function SimpleDashboardPage() {
     return null;
   }
 
+  if (requestedTab === 'announcements') {
+    return <Navigate to={user.role === 'admin' ? '/announcements' : ROUTES.DASHBOARD} replace />;
+  }
+
   const now = new Date();
 
   return (
@@ -371,62 +365,44 @@ export function SimpleDashboardPage() {
           >
             Vaccinations
           </button>
-          {canManageAnnouncements && <button
-            className={`sd-dash-tab ${activeTab === 'announcements' ? 'sd-dash-tab--active' : ''}`}
-            onClick={() => setActiveTab('announcements')}
-          >
-            Announcements
-          </button>}
         </div>
       </div>
 
-      {activeTab === 'announcements' && canManageAnnouncements && (
-        <section aria-label="Staff announcement management">
-          <Suspense fallback={<p role="status">Loading announcement controls…</p>}>
-            <AnnouncementManager />
-          </Suspense>
-        </section>
-      )}
-
       {activeTab === 'overview' && (
         <>
-          {/* ── TOP SECTION: Large Calendar Card (Left) + 8 Stat Cards (Right) ── */}
+          {/* ── TOP ARRANGEMENT: Calendar (Left) + Landscape Announcement Banner & Compact 2x2 KPIs (Right) ── */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(400px, 1.2fr) 1fr',
+              gridTemplateColumns: 'minmax(380px, 1.08fr) 1fr',
               gap: '16px',
               marginBottom: '16px',
               alignItems: 'stretch',
             }}
             className="sd-top-arrangement"
           >
-            {/* Bigger Calendar Card on the Left */}
             <SdCalendar />
 
-            {/* Rearranged 2×3 Core Overview KPIs on the Right */}
-            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ minWidth: 0, display: 'grid', gap: '12px', gridTemplateRows: '1fr auto' }}>
+              <DashboardAnnouncements
+                canManage={user?.role === 'admin'}
+                onManage={() => navigate('/setup/clinic-info?tab=announcements')}
+              />
+
               <div
-                className="sd-overview-kpi-grid"
-                data-walkthrough="dashboard-stat-cards" data-tour="dashboard-summary-cards"
+                className="sd-overview-kpi-grid sd-overview-kpi-grid--compact"
+                data-walkthrough="dashboard-stat-cards"
+                data-tour="dashboard-summary-cards"
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '12px',
-                  flex: 1,
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: '10px',
                 }}
               >
-                {/* Row 1: Patients & Queue */}
-                <SdCard color="purple" label="Total Patients" value={stats.totalPatients.toString()} sub="Registered" />
-                <SdCard color="teal" label="Today's Queue" value={stats.todayQueue.toString()} sub="Waiting" />
-
-                {/* Row 2: Bite Cases */}
-                <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" />
-                <SdCard color="blue" label="Active Cases" value={stats.activeCases.toString()} sub="Ongoing treatment" />
-
-                {/* Row 3: Outcomes & Doses */}
-                <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" />
-                <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
+                <SdCard color="purple" label="Total Patients" value={stats.totalPatients.toString()} sub="Registered" icon="patients" />
+                <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" icon="cases" />
+                <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" icon="completed" />
+                <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" icon="pending" />
               </div>
             </div>
           </div>
@@ -442,9 +418,14 @@ export function SimpleDashboardPage() {
           >
             {/* Filters Section at the Top */}
             <div style={{ marginBottom: '20px' }} data-walkthrough="dashboard-filters" data-tour="dashboard-filters">
-              <p className="sd-filter-title" style={{ marginBottom: '14px', fontSize: '13.5px', fontWeight: 750 }}>
-                Filters
-              </p>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+                <p className="sd-filter-title" style={{ margin: 0, fontSize: '14px', fontWeight: 750 }}>
+                  Analytics &amp; Trends
+                </p>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                  Filter charts below by role, status, or date range
+                </span>
+              </div>
               <div
                 style={{
                   display: 'grid',
@@ -787,7 +768,6 @@ export function SimpleDashboardPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} data-walkthrough="cases-tab-view">
           <div className="sd-cards-grid" data-walkthrough="cases-tab-cards">
             <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" />
-            <SdCard color="blue" label="Active Cases" value={stats.activeCases.toString()} sub="Ongoing treatment" />
             <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" />
           </div>
 
@@ -848,7 +828,6 @@ export function SimpleDashboardPage() {
           <div className="sd-cards-grid" data-walkthrough="vaccinations-tab-cards">
             <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
             <SdCard color="purple" label="Total Scheduled" value={stats.followupPatients.toString()} sub="Doses tracked" />
-            <SdCard color="teal" label="Queue Count" value={stats.todayQueue.toString()} sub="Today waiting" />
           </div>
 
           <div className="sd-chart-card" data-walkthrough="table-recent-vaccinations" style={{ borderRadius: '20px', padding: '24px' }}>
@@ -1322,11 +1301,70 @@ function SdCalendar() {
   );
 }
 
-function SdCard({ color, label, value, sub }: { color: string; label: string; value: string; sub: string }) {
+function SdCard({
+  color,
+  label,
+  value,
+  sub,
+  icon,
+}: {
+  color: string;
+  label: string;
+  value: string;
+  sub: string;
+  icon?: 'patients' | 'cases' | 'completed' | 'pending';
+}) {
   const autoId = `card-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
+  const renderIcon = () => {
+    if (!icon) return null;
+    if (icon === 'patients') {
+      return (
+        <span className="sd-card-icon sd-card-icon--patients" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        </span>
+      );
+    }
+    if (icon === 'cases') {
+      return (
+        <span className="sd-card-icon sd-card-icon--cases" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+        </span>
+      );
+    }
+    if (icon === 'completed') {
+      return (
+        <span className="sd-card-icon sd-card-icon--completed" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
+        </span>
+      );
+    }
+    return (
+      <span className="sd-card-icon sd-card-icon--pending" aria-hidden="true">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+      </span>
+    );
+  };
+
   return (
     <div className={`sd-card sd-card--${color}`} data-walkthrough={autoId} data-card-label={label}>
-      <p className="sd-card-label">{label}</p>
+      <div className="sd-card-head">
+        <p className="sd-card-label">{label}</p>
+        {renderIcon()}
+      </div>
       <p className="sd-card-value">{value}</p>
       <p className="sd-card-sub">{sub}</p>
     </div>

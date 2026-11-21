@@ -67,7 +67,7 @@ export const REGISTRATION_WALKTHROUGH_STEPS: WalkthroughStep[] = [
     module: 'Dashboard',
     title: 'Patient Summary',
     content:
-      'These cards show important patient numbers for today, including patients waiting in the queue, active bite cases, and scheduled visits.',
+      'See Total Patients, Total Bite Cases, Completed Cases, and Pending Doses. Published clinic announcements appear above these cards.',
     route: ROUTES.DASHBOARD,
     targetSelector:
       '[data-walkthrough="dashboard-stat-cards"], [data-tour="dashboard-summary-cards"], [data-walkthrough="dashboard-summary-cards"], .sd-cards-grid',

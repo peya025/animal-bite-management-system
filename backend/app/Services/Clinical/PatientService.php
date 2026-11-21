@@ -15,7 +15,9 @@ use App\Models\QueueHistory;
 use App\Models\Station;
 use App\Models\TreatmentRecord;
 use App\Models\User;
+use App\Services\AuditLogger;
 use App\Services\Clinical\BiteIncidentIntakeService;
+use App\Services\Clinical\PatientRowActions;
 use App\Services\NotificationService;
 use App\Services\PatientMembershipService;
 use Carbon\Carbon;
@@ -75,6 +77,9 @@ class PatientService
                 },
                 'treatmentRecords' => function ($q) {
                     $q->whereNull('voided_at')->orderBy('treatment_id', 'asc');
+                },
+                'invitations' => function ($q) {
+                    $q->latest('id');
                 },
             ]);
 
@@ -219,6 +224,9 @@ class PatientService
           ->count();
 
         $res = $paginated->toArray();
+        foreach ($paginated->items() as $idx => $patientModel) {
+            $res['data'][$idx]['actions'] = PatientRowActions::resolve($patientModel);
+        }
         $res['all_count'] = $allCount;
         $res['today_queue_count'] = $todayQueueCount;
         $res['online_count'] = $onlineCount;
@@ -749,6 +757,7 @@ class PatientService
                 'status' => 200,
                 'data' => [
                     'message' => "{$patient->first_name} {$patient->last_name} is already active in today's Doctor Triage queue (Queue #{$existingQueue->queue_number})",
+                    'code' => 'ALREADY_IN_QUEUE',
                     'queue' => $existingQueue->load(['patient', 'biteIncident']),
                     'queue_number' => $existingQueue->queue_number,
                     'station' => 'Doctor Assessment',
@@ -761,6 +770,28 @@ class PatientService
         $pendingSummary = $statusSummary['pending_treatment_summary'] ?? null;
         $isPendingTreatmentReassessment = !empty($pendingSummary['has_pending_treatment'])
             && !empty($pendingSummary['can_check_in_for_reassessment']);
+
+        $isReassessment = !empty($payload['is_reassessment']);
+
+        if ($isPendingTreatmentReassessment && !$isReassessment) {
+            return [
+                'status' => 409,
+                'data' => [
+                    'message' => 'Reassessment required before check-in.',
+                    'code' => 'REASSESSMENT_REQUIRED',
+                ],
+            ];
+        }
+
+        if ($isReassessment && !$isPendingTreatmentReassessment) {
+            return [
+                'status' => 422,
+                'data' => [
+                    'message' => 'This patient does not have pending administration requiring reassessment.',
+                    'code' => 'NO_REASSESSMENT_REQUIRED',
+                ],
+            ];
+        }
 
         $hasCompletedDoses = TreatmentRecord::where('clinic_id', $clinicId)
             ->where('patient_id', $patient->patient_id)
@@ -1075,6 +1106,22 @@ class PatientService
                     'performed_by' => $user->id,
                     'notes'        => $checkInNotes,
                     'occurred_at'  => now(),
+                ]);
+
+                AuditLog::create([
+                    'user_id'     => $user->id,
+                    'clinic_id'   => $clinicId,
+                    'action'      => $isPendingTreatmentReassessment ? 'patient.reassess_routed' : 'patient.check_in',
+                    'model'       => 'Patient',
+                    'model_id'    => $patient->patient_id,
+                    'new_values'  => [
+                        'queue_id' => $queue->queue_id,
+                        'queue_number' => $queue->queue_number,
+                        'station' => 'Doctor Assessment',
+                    ],
+                    'description' => $isPendingTreatmentReassessment
+                        ? "Patient #{$patient->patient_id} routed for physician reassessment by {$user->name}"
+                        : "Patient #{$patient->patient_id} checked into triage queue #{$queue->queue_number} by {$user->name}",
                 ]);
 
                 if ($isPendingTreatmentReassessment && $biteIncident) {

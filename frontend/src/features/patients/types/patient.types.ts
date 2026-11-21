@@ -56,6 +56,7 @@ export interface Patient {
     check_in_blocked_reason: string | null;
     invite: 'send' | 'resend' | null;
     invite_disabled_reason: string | null;
+    has_email?: boolean;
     view: boolean;
     invitation_id?: number | null;
   };

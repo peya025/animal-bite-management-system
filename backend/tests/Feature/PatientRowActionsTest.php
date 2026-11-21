@@ -505,4 +505,51 @@ class PatientRowActionsTest extends TestCase
             $this->assertArrayHasKey($key, $firstRow, "Frozen key '{$key}' must remain intact in row payload.");
         }
     }
+
+    public function test_staff_registered_walk_in_patient_is_eligible_for_portal_invite()
+    {
+        $patient = $this->createPatient([
+            'registration_source' => 'staff',
+            'contact_number' => '09171234567',
+            'email' => 'walkin.staff@example.com',
+        ]);
+
+        $actions = PatientRowActions::resolve($patient->fresh());
+        $this->assertSame('send', $actions['invite']);
+        $this->assertNull($actions['invite_disabled_reason']);
+        $this->assertTrue($actions['has_email']);
+    }
+
+    public function test_pre_registered_mobile_patient_does_not_get_checkin_action()
+    {
+        $patient = $this->createPatient([
+            'registration_source' => 'mobile',
+            'created_at' => now()->subDays(3),
+        ]);
+
+        $actions = PatientRowActions::resolve($patient->fresh());
+        $this->assertNull($actions['primary']);
+        $this->assertNull($actions['invite']);
+    }
+
+    public function test_reassessment_flag_is_rejected_when_patient_has_no_pending_administration()
+    {
+        $patient = $this->createPatient([
+            'registration_source' => 'staff',
+            'created_at' => now()->subDays(2),
+        ]);
+
+        $response = $this->postJson("/api/patients/{$patient->patient_id}/check-in", [
+            'is_reassessment' => true,
+            'blood_pressure' => '120/80',
+            'temperature' => '36.5',
+            'weight' => '60',
+            'height' => '165',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJson([
+            'code' => 'NOT_ELIGIBLE_FOR_REASSESSMENT',
+        ]);
+    }
 }

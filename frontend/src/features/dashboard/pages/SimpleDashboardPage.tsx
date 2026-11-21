@@ -888,24 +888,39 @@ function SdCalendar() {
   useEffect(() => {
     let active = true;
     api
-      .get('/clinics/schedule')
+      .get('/clinics/schedule-summary', { skipAccessDeniedModal: true } as any)
       .then((res) => {
         if (!active) return;
-        const closePh = res.data?.clinic?.close_on_ph_holidays ?? true;
+        const closePh = res.data?.close_on_ph_holidays ?? res.data?.clinic?.close_on_ph_holidays ?? true;
         setCloseOnPhHolidays(Boolean(closePh));
 
-        const exceptions = Array.isArray(res.data?.exceptions) ? res.data.exceptions : [];
+        const rawExceptions = res.data?.exceptions;
+        const exceptionEntries: Array<{ dateStr: string; is_open?: boolean; reason?: string }> = Array.isArray(rawExceptions)
+          ? rawExceptions
+              .filter((exc: any) => Boolean(exc?.exception_date))
+              .map((exc: any) => ({
+                dateStr: String(exc.exception_date).slice(0, 10),
+                is_open: exc.is_open,
+                reason: exc.reason,
+              }))
+          : rawExceptions && typeof rawExceptions === 'object'
+          ? Object.entries(rawExceptions).map(([dateKey, exc]: [string, any]) => ({
+              dateStr: String(dateKey).slice(0, 10),
+              is_open: exc?.is_open,
+              reason: exc?.reason,
+            }))
+          : [];
+
         const closedDates: CalendarHoliday[] = [];
         const openOverrides = new Set<string>();
 
-        exceptions.forEach((exc: any) => {
-          if (!exc.exception_date) return;
-          const dateStr = String(exc.exception_date).slice(0, 10);
+        exceptionEntries.forEach((exc) => {
+          if (!exc.dateStr) return;
           if (exc.is_open) {
-            openOverrides.add(dateStr);
+            openOverrides.add(exc.dateStr);
           } else {
             closedDates.push({
-              date: dateStr,
+              date: exc.dateStr,
               name: exc.reason?.trim() || 'Clinic Holiday / Closed',
               isClinicOverride: true,
             });

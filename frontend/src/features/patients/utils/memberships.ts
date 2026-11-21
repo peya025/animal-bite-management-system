@@ -1,5 +1,5 @@
 import type { EnrolmentFormData, Patient, PatientMembership } from '../types';
-import { INITIAL_ENROLMENT_DATA } from '../types';
+import { INITIAL_ENROLMENT_DATA, normalizePatientSuffix } from '../types';
 
 type MembershipType = PatientMembership['membership_type'];
 type RecordLike = Record<string, unknown>;
@@ -395,7 +395,7 @@ export function buildEnrolmentFromPatient(patientLike: Patient | RecordLike): En
     last_name: cleanString(patient.last_name) ?? '',
     first_name: cleanString(patient.first_name) ?? '',
     middle_name: cleanString(patient.middle_name) ?? '',
-    suffix: cleanString(patient.suffix) ?? '',
+    suffix: normalizePatientSuffix(cleanString(patient.suffix)),
     date_of_birth: formattedDob,
     sex: cleanString(patient.gender) ?? '',
     blood_type: cleanString(details.blood_type) ?? '',

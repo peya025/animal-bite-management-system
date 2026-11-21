@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
@@ -15,32 +16,32 @@ class WelcomeView extends StatefulWidget {
 class _WelcomeViewState extends State<WelcomeView> {
   static const _steps = [
     _OnboardingStep(
-      asset: 'assets/images/onboarding/clinic-badge.png',
+      asset: 'assets/images/abtcare-app-icon.png',
       title: 'Welcome to Animal Bite Center',
       description:
           'A patient companion for timely bite care, clinic visits, and vaccination guidance.',
-      semanticLabel: 'Animal Bite Center shield and paw sticker',
+      semanticLabel: 'Animal Bite Center app logo',
     ),
     _OnboardingStep(
-      asset: 'assets/images/onboarding/care-tools.png',
+      asset: 'assets/images/buttons svg/undraw_professional-card_ldgq.svg',
       title: 'Keep your care in one place',
       description:
           'Follow appointments, vaccination schedules, reminders, and your digital patient card.',
-      semanticLabel: 'Mobile vaccination and clinic tools sticker',
+      semanticLabel: 'Digital patient card and care tools illustration',
     ),
     _OnboardingStep(
-      asset: 'assets/images/onboarding/family-profile.png',
+      asset: 'assets/images/buttons svg/undraw_swipe-profiles_5koh.svg',
       title: 'Set up your patient profiles',
       description:
           'Create your own profile and add a child or dependent so you can book care for the right person.',
-      semanticLabel: 'Parent and child patient profile sticker',
+      semanticLabel: 'Patient and dependent profiles illustration',
     ),
     _OnboardingStep(
-      asset: 'assets/images/onboarding/book-appointment.png',
+      asset: 'assets/images/buttons svg/undraw_booking_8vl5.svg',
       title: 'Book the visit you need',
       description:
           'Choose a date for vaccination or consultation. We will keep follow-up visits organized for you.',
-      semanticLabel: 'Vaccination and consultation calendar sticker',
+      semanticLabel: 'Appointment booking illustration',
     ),
   ];
 
@@ -144,20 +145,51 @@ class _OnboardingPage extends StatelessWidget {
       builder: (context, constraints) {
         final compact = constraints.maxHeight < 490;
         final imageSize = compact ? 210.0 : 270.0;
+        final isSvg = step.asset.toLowerCase().endsWith('.svg');
+
+        Widget imageWidget;
+        if (isSvg) {
+          imageWidget = SvgPicture.asset(
+            step.asset,
+            width: imageSize,
+            height: imageSize,
+            fit: BoxFit.contain,
+            semanticsLabel: step.semanticLabel,
+          );
+        } else {
+          final iconSize = compact ? 150.0 : 180.0;
+          imageWidget = Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(compact ? 30 : 38),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.20),
+                  blurRadius: 28,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(compact ? 30 : 38),
+              child: Image.asset(
+                step.asset,
+                width: iconSize,
+                height: iconSize,
+                fit: BoxFit.cover,
+                cacheWidth: 720,
+                filterQuality: FilterQuality.medium,
+                semanticLabel: step.semanticLabel,
+              ),
+            ),
+          );
+        }
+
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Expanded(
               child: Center(
-                child: Image.asset(
-                  step.asset,
-                  width: imageSize,
-                  height: imageSize,
-                  fit: BoxFit.contain,
-                  cacheWidth: 720,
-                  filterQuality: FilterQuality.medium,
-                  semanticLabel: step.semanticLabel,
-                ),
+                child: imageWidget,
               ),
             ),
             SizedBox(height: compact ? 8 : 18),

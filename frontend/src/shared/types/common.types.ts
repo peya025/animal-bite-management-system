@@ -47,6 +47,12 @@ export interface Clinic {
   opening_hours?: any;
   logo_path?: string | null;
   logo_url?: string | null;
+  left_print_logo_path?: string | null;
+  left_print_logo_url?: string | null;
+  right_print_logo_path?: string | null;
+  right_print_logo_url?: string | null;
+  municipality?: string;
+  province?: string;
   setup_completed?: boolean;
   is_setup_complete?: boolean;
   created_at?: string;
@@ -195,7 +201,7 @@ export interface VaccineTypePreset {
   clinic_id?: number;
   vaccine_name: string;
   category?: string;
-  default_shelf_life_months: number;
+  default_shelf_life_months?: number;
   default_open_vial_hours?: number | null;
   storage_temperature_notes?: string;
   dosing_regimen_notes?: string;
@@ -233,7 +239,9 @@ export interface InventoryItem {
   open_vial_status?: 'unopened' | 'opened' | 'discarded' | 'depleted';
   open_vial_doses_used?: number;
   doses_per_vial?: number;
+  vaccine_category?: string | null;
 }
+
 
 export interface InventoryStats {
   total_batches: number;

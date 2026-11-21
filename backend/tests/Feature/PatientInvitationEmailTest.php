@@ -2,26 +2,38 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\PatientInvitationController;
+use App\Http\Controllers\Auth\PatientInvitationController;
 use App\Http\Requests\SendPatientInvitationRequest;
 use App\Models\Clinic;
 use App\Models\Patient;
 use App\Models\PatientInvitation;
 use App\Models\User;
+use App\Services\Messaging\Sms\SmsResult;
+use App\Services\Messaging\SmtpEmailService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
+use Tests\ConfiguresTestEmail;
 use Tests\TestCase;
 
 class PatientInvitationEmailTest extends TestCase
 {
+    use ConfiguresTestEmail;
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->configureTestEmail();
+        config(['messaging.email_enabled' => true, 'messaging.test_mode' => false]);
+    }
 
     private function patient(?string $email = 'patient@example.com'): Patient
     {
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $clinic = Clinic::create(['name' => 'Test Clinic']);
+        $this->actingAs(User::factory()->create(['role' => 'admin', 'clinic_id' => $clinic->id]));
+
         return Patient::create([
-            'clinic_id' => Clinic::create(['name' => 'Test Clinic'])->id,
+            'clinic_id' => $clinic->id,
             'first_name' => 'Test',
             'last_name' => 'Patient',
             'gender' => 'female',
@@ -41,11 +53,12 @@ class PatientInvitationEmailTest extends TestCase
     {
         $patient = $this->patient();
         config(['mail.default' => 'smtp']);
-        Mail::shouldReceive('raw')->twice()->andReturnNull();
+
         $this->assertSame(201, $this->send($patient)->getStatusCode());
         $invitation = PatientInvitation::firstOrFail();
         $this->assertNull($invitation->phone);
         $token = $invitation->token;
+        $this->travel(61)->seconds();
         $response = app(PatientInvitationController::class)->resend($invitation->id);
         $this->assertSame(200, $response->getStatusCode());
         $this->assertNotSame($token, $invitation->fresh()->token);
@@ -54,7 +67,7 @@ class PatientInvitationEmailTest extends TestCase
     public function test_missing_email_is_rejected(): void
     {
         $patient = $this->patient(null);
-        Mail::shouldReceive('raw')->never();
+
         $this->assertSame(422, $this->send($patient)->getStatusCode());
         $this->assertDatabaseCount('patient_invitations', 0);
     }
@@ -63,7 +76,7 @@ class PatientInvitationEmailTest extends TestCase
     {
         $patient = $this->patient();
         config(['mail.default' => 'log']);
-        Mail::shouldReceive('raw')->never();
+
         $this->assertSame(503, $this->send($patient)->getStatusCode());
         $this->assertSame('expired', PatientInvitation::firstOrFail()->status);
     }
@@ -72,10 +85,11 @@ class PatientInvitationEmailTest extends TestCase
     {
         $patient = $this->patient();
         config(['mail.default' => 'smtp']);
-        Mail::shouldReceive('raw')->once()->andReturnNull();
+
         $this->send($patient);
         $invitation = PatientInvitation::firstOrFail();
         config(['mail.default' => 'log']);
+        $this->travel(61)->seconds();
         $response = app(PatientInvitationController::class)->resend($invitation->id);
         $this->assertSame(503, $response->getStatusCode());
         $this->assertSame($invitation->token, $invitation->fresh()->token);
@@ -85,7 +99,7 @@ class PatientInvitationEmailTest extends TestCase
     {
         $patient = $this->patient();
         config(['mail.default' => 'smtp']);
-        Mail::shouldReceive('raw')->once()->andThrow(new \RuntimeException('Delivery unavailable'));
+        $this->partialMock(SmtpEmailService::class, fn ($mock) => $mock->shouldReceive('send')->once()->andReturn(new SmsResult('failed', error: 'smtp_rejected')));
         $response = app(PatientInvitationController::class)->bulkStore(
             new Request(['patient_ids' => [$patient->patient_id]])
         );

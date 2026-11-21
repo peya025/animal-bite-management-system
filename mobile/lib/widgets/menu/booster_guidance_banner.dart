@@ -12,7 +12,7 @@ class BoosterGuidanceBanner extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => Navigator.of(context).pushNamed(AppRoutes.boosterGuidance),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -21,7 +21,7 @@ class BoosterGuidanceBanner extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF0F766E).withValues(alpha: 0.25),
@@ -39,7 +39,7 @@ class BoosterGuidanceBanner extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.2),
                     width: 1,

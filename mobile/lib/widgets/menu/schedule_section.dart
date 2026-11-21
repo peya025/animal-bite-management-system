@@ -9,11 +9,9 @@ class ScheduleSection extends StatefulWidget {
   const ScheduleSection({
     super.key,
     required this.onOpenAppointments,
-    this.onOpenCalendar,
   });
 
   final VoidCallback onOpenAppointments;
-  final VoidCallback? onOpenCalendar;
 
   @override
   State<ScheduleSection> createState() => _ScheduleSectionState();
@@ -54,56 +52,32 @@ class _ScheduleSectionState extends State<ScheduleSection> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'UPCOMING SCHEDULES',
-              style: TextStyle(
-                color: Color(0xFF9CA3AF),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
+            const Expanded(
+              child: Text(
+                'UPCOMING SCHEDULES',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Color(0xFF9CA3AF),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
-            Row(
-              children: [
-                if (widget.onOpenCalendar != null) ...[
-                  InkWell(
-                    onTap: widget.onOpenCalendar,
-                    borderRadius: BorderRadius.circular(6),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(LucideIcons.calendar, size: 13, color: AppColors.primary),
-                          SizedBox(width: 4),
-                          Text(
-                            'Calendar',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text('·', style: TextStyle(color: Color(0xFFD1D5DB))),
-                  const SizedBox(width: 8),
-                ],
-                GestureDetector(
-                  onTap: widget.onOpenAppointments,
-                  child: const Text(
-                    'View all',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
+            GestureDetector(
+              onTap: widget.onOpenAppointments,
+              behavior: HitTestBehavior.opaque,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                child: Text(
+                  'View all',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ],
+              ),
             ),
           ],
         ),
@@ -111,23 +85,30 @@ class _ScheduleSectionState extends State<ScheduleSection> {
         // Appointment Card
         InkWell(
           onTap: widget.onOpenAppointments,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20),
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.shade200, width: 0.5),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey.shade200, width: 0.8),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x06111827),
+                  blurRadius: 10,
+                  offset: Offset(0, 2),
+                ),
+              ],
             ),
             child: Row(
               children: [
-                // Left 42x42 icon box (12px radius, #E1F5EE bg)
+                // Left 44x44 icon box (14px radius, #E1F5EE bg)
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     color: const Color(0xFFE1F5EE),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(
                     LucideIcons.calendarCheck,

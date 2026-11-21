@@ -87,6 +87,17 @@ export const FALLBACK_BARANGAYS: Record<string, PsgcItem[]> = {
   ],
 };
 
+/**
+ * Generates a suggested referring Barangay Health Station (BHS) name.
+ * Referrals use BHS only (never RHU), including Poblacion.
+ */
+export function suggestReferralFacility(barangayName: string): string {
+  const cleanName = barangayName.trim();
+  if (!cleanName) return '';
+  const stripped = cleanName.replace(/^Barangay\s+/i, '').trim();
+  return `Barangay ${stripped} Health Station (BHS)`;
+}
+
 export function useAddressLocation() {
   const [municipality, setMunicipality] = useState('');
   const [barangay, setBarangay]         = useState('');

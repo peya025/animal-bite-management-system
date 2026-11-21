@@ -24,6 +24,11 @@ class AppointmentReminder extends Model
         'sent_by_user_id',
     ];
 
+    public function delivery()
+    {
+        return $this->hasOne(OutboundMessage::class, 'reminder_id');
+    }
+
     public function appointment()
     {
         return $this->belongsTo(Appointment::class, 'appointment_id', 'appointment_id');

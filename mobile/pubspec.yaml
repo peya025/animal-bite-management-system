@@ -37,6 +37,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   http: ^1.6.0
+  image_picker: ^1.2.4
   table_calendar: ^3.2.0
   flutter_secure_storage: ^10.3.1
   flutter_dotenv: ^5.2.1
@@ -44,6 +45,10 @@ dependencies:
   lucide_icons_flutter: ^3.1.17
   # Tier 9 — Google OAuth Identity Federation
   google_sign_in: ^6.2.2
+  url_launcher: ^6.3.2
+  flutter_svg: ^2.3.0
+  video_player: ^2.14.1
+  youtube_player_flutter: ^10.0.1
 
 dev_dependencies:
   flutter_test:
@@ -69,8 +74,15 @@ flutter:
 
   assets:
     - assets/images/anti_rabies_health_worker.png
-    - assets/images/onboarding/
+    - assets/images/abtcare-app-icon.png
     - assets/images/guide/
+    - "assets/images/buttons svg/"
+    - "assets/images/buttons svg/undraw_booking_8vl5.svg"
+    - "assets/images/buttons svg/undraw_professional-card_ldgq.svg"
+    - "assets/images/buttons svg/undraw_swipe-profiles_5koh.svg"
+    - "assets/images/buttons svg/undraw_schedule_ry1w.svg"
+    - "assets/images/buttons svg/undraw_timeline_2gfy.svg"
+    - "assets/images/buttons svg/undraw_online-meetings_zutp.svg"
     - .env
 
   fonts:

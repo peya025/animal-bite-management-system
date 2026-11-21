@@ -107,4 +107,18 @@ const Map<String, String> filTranslations = {
   'privacy_export_data_desc': 'Tingnan at i-download ang buod ng iyong klinikal na datos',
   'privacy_delete_account': 'I-deactivate ang Account',
   'privacy_delete_account_desc': 'I-disable ang access sa patient portal at bawiin ang kredensyal',
+
+  // Learn More Section
+  'learn_more_section_title': 'MATUTO PA',
+  'learn_more_title': 'Matuto pa',
+  'learn_more_see_all': 'Tingnan lahat',
+  'learn_more_show_less': 'Ipakita nang kaunti',
+  'learn_more_orientation_video': 'Orientation video',
+  'learn_more_opens_browser': 'Bubukas sa iyong browser',
+  'learn_more_unable_open': 'Hindi mabuksan ang link na ito.',
+  'learn_more_no_internet': 'Walang koneksyon sa internet o hindi magagamit ang link.',
+  'learn_more_video_semantics': '{title}, {tag}{duration}, bubukas sa iyong browser',
+  'learn_more_link_semantics': '{title}, {domain}, bubukas sa iyong browser',
+  'learn_more_minutes': '{count} minuto',
+  'learn_more_seconds': '{count} segundo',
 };

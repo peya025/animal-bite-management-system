@@ -5,13 +5,19 @@ import './styles/global.css'
 import App from './App.tsx'
 import { AppThemeProvider } from './shared/contexts/ThemeContext'
 import { AuthProvider } from './shared/contexts/AuthContext'
+import { WalkthroughProvider } from './features/walkthrough'
+import ErrorBoundary from './components/ErrorBoundary.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <AppThemeProvider>
     <CssBaseline />
     <BrowserRouter>
       <AuthProvider>
-        <App />
+        <WalkthroughProvider>
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
+        </WalkthroughProvider>
       </AuthProvider>
     </BrowserRouter>
   </AppThemeProvider>,

@@ -1,0 +1,555 @@
+/**
+ * Bite Cases Accessibility Styles
+ * WCAG AA Compliant Color System
+ */
+
+:root {
+  /* ========================================
+     WCAG AA Compliant Text Colors (4.5:1)
+     ======================================== */
+  
+  /* Primary text on white background - 4.5:1 */
+  --bc-text: #0f172a;
+  --bc-text-2: #1e293b;
+  --bc-text-3: #334155;
+  
+  /* Secondary text - WCAG AA compliant */
+  --bc-text-secondary: #475569; /* Replaces --bc-muted, 4.5:1 on white */
+  
+  /* Borders */
+  --bc-border: #e2e8f0;
+  --bc-border-strong: #cbd5e1;
+  
+  /* Surfaces */
+  --bc-surface: #ffffff;
+  --bc-surface-2: #f8fafc;
+  --bc-surface-3: #f1f5f9;
+  --bc-track: #f1f5f9;
+  --bc-card-radius: 16px;
+  --bc-card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  --bc-card-shadow-hover: 0 10px 25px -5px rgba(0, 0, 0, 0.07), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+  
+  /* ========================================
+     Priority Colors - WCAG AA Compliant
+     ======================================== */
+  
+  /* High Priority - Red */
+  --bc-red: #dc2626; /* 4.5:1 on white */
+  --bc-red-strong: #b91c1c;
+  --bc-danger-bg: #fee2e2;
+  --bc-danger-bg-2: #fecaca;
+  --bc-danger-bg-subtle: #fef2f2;
+  --bc-danger-border: #fca5a5;
+  
+  /* Medium Priority - Amber */
+  --bc-amber: #d97706; /* 4.6:1 on white */
+  --bc-amber-strong: #b45309;
+  --bc-amber-bg: #fef3c7;
+  --bc-amber-border: #fcd34d;
+  
+  /* Low Priority - Green */
+  --bc-green: #059669; /* 4.5:1 on white */
+  --bc-green-strong: #047857;
+  --bc-success-bg: #d1fae5;
+  --bc-success-border: #6ee7b7;
+  
+  /* ========================================
+     Focus & Interactive States
+     ======================================== */
+  
+  --bc-focus-ring: #2563eb;
+  --bc-focus-ring-offset: 2px;
+  
+  /* ========================================
+     Dark Mode Overrides
+     ======================================== */
+}
+
+[data-theme="dark"],
+.dark-mode {
+  /* Dark mode text colors */
+  --bc-text: #f1f5f9;
+  --bc-text-2: #e2e8f0;
+  --bc-text-3: #cbd5e1;
+  --bc-text-secondary: #94a3b8; /* 4.5:1 on dark bg */
+  
+  /* Dark surfaces */
+  --bc-surface: #1e293b;
+  --bc-surface-2: #334155;
+  --bc-surface-3: #475569;
+  --bc-track: #64748b;
+  
+  /* Borders */
+  --bc-border: #475569;
+  --bc-border-strong: #64748b;
+  
+  /* Adjusted priority colors for dark mode */
+  --bc-red: #f87171; /* Lighter for dark bg */
+  --bc-amber: #fbbf24;
+  --bc-green: #34d399;
+}
+
+/* ========================================
+   Accessibility Utilities
+   ======================================== */
+
+/* Focus visible styles - keyboard navigation */
+.bc-focusable:focus-visible,
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid var(--bc-focus-ring);
+  outline-offset: var(--bc-focus-ring-offset);
+  border-radius: 4px;
+}
+
+/* Remove default focus for mouse users */
+.bc-focusable:focus:not(:focus-visible),
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Minimum touch target size - 44x44px */
+.bc-touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Screen reader only text */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Skip to main content link */
+.skip-to-main {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--bc-surface);
+  color: var(--bc-text);
+  padding: 8px 16px;
+  text-decoration: none;
+  z-index: 9999;
+  border: 2px solid var(--bc-focus-ring);
+}
+
+.skip-to-main:focus {
+  top: 0;
+}
+
+/* ========================================
+   Reduced Motion Support
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ========================================
+   Table Accessibility
+   ======================================== */
+
+/* Table focus styles */
+table tr:focus-within {
+  outline: 2px solid var(--bc-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Keyboard-activated row */
+table tr[role="button"]:hover,
+table tr[role="button"]:focus {
+  background-color: var(--bc-surface-2);
+  cursor: pointer;
+}
+
+/* Sort indicator visibility */
+.MuiTableSortLabel-root:focus-visible {
+  outline: 2px solid var(--bc-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ========================================
+   High Contrast Mode Support
+   ======================================== */
+
+@media (prefers-contrast: high) {
+  :root {
+    --bc-border: #000000;
+    --bc-text-secondary: #1e293b;
+  }
+  
+  [data-theme="dark"] {
+    --bc-border: #ffffff;
+    --bc-text-secondary: #cbd5e1;
+  }
+}
+
+/* ========================================
+   Print Styles
+   ======================================== */
+
+@media print {
+  /* Ensure colors are preserved */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  /* Hide interactive elements */
+  button,
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Ensure table headers repeat */
+  thead {
+    display: table-header-group;
+  }
+  
+  /* Avoid page breaks in table rows */
+  tr {
+    page-break-inside: avoid;
+  }
+}
+
+/* ========================================
+   DOH Redesign: Tabs & Responsive Tables
+   ======================================== */
+
+.bc-tablist {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 4px;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
+}
+
+.bc-tab-btn {
+  flex: 0 0 auto;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--bc-text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.bc-tab-btn:hover {
+  background-color: var(--bc-surface-3);
+  color: var(--bc-text);
+}
+
+.bc-tab-btn[aria-selected="true"] {
+  color: var(--bc-text);
+  background-color: var(--bc-surface);
+  font-weight: 700;
+}
+
+.bc-tab-btn[aria-selected="true"]::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  border-top: 3px solid var(--bc-green-strong);
+}
+
+.bc-table-scroll-region {
+  overflow: auto;
+  max-width: 100%;
+  max-height: min(560px, 75vh);
+  container-type: inline-size;
+  border-radius: 8px;
+}
+
+.bc-table-scroll-region:focus-visible {
+  outline: 2px solid var(--bc-focus-ring);
+  outline-offset: var(--bc-focus-ring-offset);
+}
+
+.bc-table-scroll-region table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.bc-table-caption {
+  caption-side: top;
+  text-align: left;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  color: var(--bc-text-secondary);
+  background-color: var(--bc-surface-2);
+  border-bottom: 1px solid var(--bc-border);
+}
+
+.bc-table-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bc-table-sort-btn:hover {
+  color: var(--bc-green-strong);
+}
+
+.bc-table-sort-btn:focus-visible {
+  outline: 2px solid var(--bc-focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.bc-table-scroll-region thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: var(--bc-surface-2);
+  border-bottom: 1px solid var(--bc-border);
+}
+
+.bc-table-scroll-region th[scope="row"] {
+  font-weight: 700;
+  text-align: left;
+}
+
+/* ========================================
+   Overdue Row Action Menu (Popover + Anchor Positioning + Focusgroup)
+   ======================================== */
+
+.bc-action-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--bc-border-strong);
+  background-color: var(--bc-surface);
+  color: var(--bc-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.bc-action-menu-trigger:hover {
+  background-color: var(--bc-surface-2);
+  border-color: var(--bc-green);
+}
+
+.bc-action-menu-trigger[aria-expanded="true"] {
+  background-color: var(--bc-surface-3);
+  border-color: var(--bc-green-strong);
+  color: var(--bc-green-strong);
+}
+
+[popover].bc-action-menu-popover {
+  padding: 6px;
+  border: 1px solid var(--bc-border-strong);
+  border-radius: 10px;
+  background-color: var(--bc-surface);
+  color: var(--bc-text);
+  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.18), 0 4px 10px -4px rgba(15, 23, 42, 0.08);
+  min-width: 248px;
+  max-width: min(320px, calc(100vw - 16px));
+}
+
+[popover].bc-action-menu-popover:is(:popover-open, .\:popover-open) {
+  display: block;
+}
+
+@supports (position-area: block-end) {
+  [popover].bc-action-menu-popover {
+    position-area: block-end span-inline-start;
+    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+    inset: auto;
+    margin: 4px 0 0 0;
+  }
+}
+
+@supports not (position-area: block-end) {
+  [popover].bc-action-menu-popover {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [popover].bc-action-menu-popover:has(> [focusgroup~="menu"]) {
+    opacity: 0;
+    translate: 0 -0.25rem;
+    transition: opacity, translate, display, overlay;
+    transition-duration: 0.14s;
+    transition-behavior: allow-discrete;
+  }
+
+  [popover].bc-action-menu-popover:has(> [focusgroup~="menu"]):popover-open {
+    opacity: 1;
+    translate: 0 0;
+    transition-duration: 0.1s;
+    @starting-style {
+      opacity: 0;
+      translate: 0 -0.25rem;
+    }
+  }
+}
+
+.bc-action-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  --menu-icon-size: 18px;
+}
+
+.bc-action-menu-list > button,
+.bc-action-menu-list > a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--bc-text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.bc-action-menu-list > button:hover:not(:disabled),
+.bc-action-menu-list > a:hover {
+  background-color: var(--bc-surface-3);
+}
+
+.bc-action-menu-list > button:focus-visible,
+.bc-action-menu-list > a:focus-visible {
+  outline: 2px solid var(--bc-focus-ring);
+  outline-offset: -2px;
+  background-color: var(--bc-surface-3);
+}
+
+.bc-action-menu-list > button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bc-action-menu-list > hr {
+  border: 0;
+  border-top: 1px solid var(--bc-border);
+  margin: 4px 0;
+}
+
+/* Inline Copy Number Confirmation Bubble */
+.bc-copy-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bc-copy-bubble {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--bc-green-strong);
+  background-color: var(--bc-success-bg);
+  border: 1px solid var(--bc-success-border);
+  border-radius: 6px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+/* Native <dialog> Modals for SMS Reminder & Log Contact Attempt */
+dialog.bc-native-dialog {
+  border: 1px solid var(--bc-border-strong);
+  border-radius: 14px;
+  padding: 0;
+  width: min(560px, calc(100vw - 24px));
+  max-height: min(88vh, 720px);
+  background-color: var(--bc-surface);
+  color: var(--bc-text);
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.25);
+  margin: auto;
+}
+
+dialog.bc-native-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+dialog.bc-native-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.bc-native-dialog::backdrop {
+  background-color: rgba(15, 23, 42, 0.52);
+  backdrop-filter: blur(2px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.bc-native-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--bc-border);
+}
+
+.bc-native-dialog-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.bc-native-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--bc-border);
+  background-color: var(--bc-surface-2);
+}

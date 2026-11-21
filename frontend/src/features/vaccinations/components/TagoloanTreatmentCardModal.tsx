@@ -1,28 +1,47 @@
 // @ts-nocheck
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useSavedExposureCategory } from '../hooks/useSavedExposureCategory';
+import { useAuth } from '../../../shared/contexts/AuthContext';
+import { printWhenReady } from '../../../components/print/printReady';
 import api from '../../../services/api';
 import { Icon } from '../../../shared/components/ui/Icon';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { PrinterIcon } from '@hugeicons/core-free-icons';
+import { getGlobalPrintLogos } from '../../../components/print';
+import PrintableForm, { type PrintableFormRecord } from './PrintableForm';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   patientId: number | null;
+  biteId?: number | null;
+  treatmentId?: number | null;
   onSaved?: () => void;
   initialExposureCategory?: 'I' | 'II' | 'III' | '';
 }
 
-export default function TagoloanTreatmentCardModal({ open, onClose, patientId, onSaved, initialExposureCategory = '' }: Props) {
+export default function TagoloanTreatmentCardModal({ open, onClose, patientId, biteId, treatmentId }: Props) {
+  const [selectedTreatmentId, setSelectedTreatmentId] = useState<number | null>(treatmentId || null);
+
+  useEffect(() => {
+    setSelectedTreatmentId(treatmentId || null);
+  }, [treatmentId, open]);
+  const { clinic: authClinic } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [cardData, setCardData] = useState<any>(null);
 
-  // Form State
+  // Print Mode (Filled vs Blank)
+  const [printMode, setPrintMode] = useState<'filled' | 'blank'>('filled');
+
+  // Ref to always reset scroll to the top of the A4 form
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Form Field State
   const [registryNo, setRegistryNo] = useState('');
   const [hospitalNo, setHospitalNo] = useState('');
   const [referredBy, setReferredBy] = useState('');
-  const [exposureCategory, setExposureCategory] = useState<'I' | 'II' | 'III' | ''>(initialExposureCategory);
+  const savedExposureCategory = useSavedExposureCategory(open, patientId, biteId);
+  const exposureCategory = savedExposureCategory || cardData?.bite_incident?.exposure_category || cardData?.existing_card?.exposure_category || '';
   const [modeOfExposure, setModeOfExposure] = useState<string>('transdermal_bite');
   const [bodyPartExposed, setBodyPartExposed] = useState<string>('other_parts');
   const [animalType, setAnimalType] = useState('Dog');
@@ -35,16 +54,25 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
 
   useEffect(() => {
     if (open && patientId) {
-      // Reset to prop value first, then loadCardData will override if a saved card exists
-      setExposureCategory(initialExposureCategory);
       loadCardData();
     }
-  }, [open, patientId]);
+  }, [open, patientId, biteId]);
+
+  // Reset scroll to top whenever modal opens, data loads, or mode changes
+  useEffect(() => {
+    if (open && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [open, cardData, printMode]);
 
   const loadCardData = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/tagoloan-treatment-cards/patient/${patientId}`);
+      const params = new URLSearchParams();
+      if (biteId) params.append('bite_id', String(biteId));
+      if (selectedTreatmentId) params.append('treatment_id', String(selectedTreatmentId));
+      const episodeQuery = params.toString() ? `?${params.toString()}` : '';
+      const res = await api.get(`/tagoloan-treatment-cards/patient/${patientId}${episodeQuery}`);
       setCardData(res.data);
 
       const clinicRaw = localStorage.getItem('clinicData');
@@ -57,10 +85,8 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
         setRegistryNo(existing.registry_no || '');
         setHospitalNo(existing.hospital_no || clinicHospitalNo || res.data.patient?.hospital_no || '');
         setReferredBy(existing.referred_by || res.data.bite_incident?.referred_from || '');
-        setExposureCategory(existing.exposure_category || '');
         setModeOfExposure(existing.mode_of_exposure || 'transdermal_bite');
         setBodyPartExposed(existing.body_part_exposed || 'other_parts');
-        // Normalize animal_type to 'Dog', 'Cat', or 'Others' regardless of case stored in DB
         const storedAnimal = (existing.animal_type || '').toLowerCase();
         if (storedAnimal === 'dog') {
           setAnimalType('Dog');
@@ -84,8 +110,6 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
         setHospitalNo(clinicHospitalNo || res.data?.patient?.hospital_no || '');
         setReferredBy(res.data.bite_incident?.referred_from || '');
         if (res.data.bite_incident?.case_number) setRegistryNo(res.data.bite_incident.case_number);
-        if (res.data.bite_incident?.exposure_category) setExposureCategory(res.data.bite_incident.exposure_category);
-        else if (initialExposureCategory) setExposureCategory(initialExposureCategory);
         if (res.data.bite_incident?.mode_of_exposure) setModeOfExposure(res.data.bite_incident.mode_of_exposure);
         if (res.data.bite_incident?.body_part_exposed) setBodyPartExposed(res.data.bite_incident.body_part_exposed);
         if (res.data.bite_incident?.animal_type) {
@@ -109,43 +133,8 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
     }
   };
 
-  const handleSave = async () => {
-    // Validate: card date cannot be in the future
-    if (cardDate && cardDate > new Date().toISOString().split('T')[0]) {
-      alert('Card date cannot be a future date.');
-      return;
-    }
-    setSaving(true);
-    try {
-      await api.post('/tagoloan-treatment-cards', {
-        patient_id: patientId,
-        bite_id: cardData?.bite_incident?.bite_id || null,
-        card_date: cardDate,
-        registry_no: registryNo,
-        hospital_no: hospitalNo,
-        referred_by: referredBy,
-        exposure_category: exposureCategory || null,
-        mode_of_exposure: modeOfExposure || null,
-        body_part_exposed: bodyPartExposed || null,
-        animal_type: animalType,
-        animal_type_others: animalType === 'Others' ? animalTypeOthers : null,
-        past_bite_history: pastBiteHistory,
-        past_bite_dates: pastBiteDates,
-        past_pep_completed: pastPepCompleted,
-        icd10_code: icd10Code,
-      });
-
-      if (onSaved) onSaved();
-      onClose();
-    } catch (err) {
-      console.error('Failed to save treatment card', err);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handlePrint = () => {
-    window.print();
+    void printWhenReady(window);
   };
 
   if (!open) return null;
@@ -154,22 +143,46 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
   const clinic = cardData?.clinic;
   const bite = cardData?.bite_incident;
   const records = cardData?.treatment_records || [];
+  const prophylaxisRecords = cardData?.prophylaxis_records || [];
+  const consultList: any[] = cardData?.consultation_history || cardData?.previous_consultations || [];
+  const activeConsultation = (selectedTreatmentId
+    ? consultList.find((c: any) => c.treatment_id === selectedTreatmentId)
+    : null) || cardData?.latest_consultation || (consultList.length > 0 ? consultList[consultList.length - 1] : null);
+  const mergedClinic = { ...authClinic, ...clinic };
+  const globalLogos = getGlobalPrintLogos(mergedClinic);
 
-  // Map vaccination period rows (DOH NRPCP 3-Dose Primary Regimen + Boosters)
-  const periods = [
-    { period: 'Day 0', key: 'day0', doseNum: 0 },
-    { period: 'Day 3', key: 'day3', doseNum: 3 },
-    { period: 'Day 7', key: 'day7', doseNum: 7 },
-    ...(records.some((r: any) => r.dose_number === 28) ? [{ period: 'Day 28', key: 'day28', doseNum: 28 }] : []),
-    { period: 'Booster 1', key: 'booster1', doseNum: 100 },
-    { period: 'Booster 2', key: 'booster2', doseNum: 101 },
-    { period: 'ERIG', key: 'erig', doseNum: 200 },
-    { period: 'TT', key: 'tt', doseNum: 300 },
-    { period: 'ATS', key: 'ats', doseNum: 400 },
-  ];
+  const printableRecord: PrintableFormRecord = {
+    clinic: mergedClinic,
+    logos: globalLogos,
+    patient: {
+      ...patient,
+      weight: activeConsultation?.weight || activeConsultation?.prophylaxis_orders?.rig_weight_kg || patient?.weight,
+    },
+    bite,
+    cardDate: activeConsultation?.consultation_date ? String(activeConsultation.consultation_date).slice(0, 10) : cardDate,
+    registryNo,
+    hospitalNo,
+    referredBy,
+    exposureCategory: activeConsultation?.exposure_category || exposureCategory,
+    modeOfExposure,
+    bodyPartExposed,
+    animalType,
+    animalTypeOthers,
+    pastBiteHistory,
+    pastBiteDates,
+    pastPepCompleted,
+    icd10Code,
+    treatment_records: records,
+    prophylaxis_records: prophylaxisRecords,
+    latest_consultation: activeConsultation,
+    consultation_history: consultList,
+    selected_consultation_id: activeConsultation?.treatment_id || selectedTreatmentId,
+    appointments: cardData?.appointments || [],
+  };
 
   return (
     <div
+      className="tagoloan-modal-overlay"
       style={{
         position: 'fixed',
         top: 0,
@@ -182,524 +195,335 @@ export default function TagoloanTreatmentCardModal({ open, onClose, patientId, o
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '1.5rem',
+        padding: '16px',
+        boxSizing: 'border-box',
       }}
     >
       <style>{`
+        @page {
+          size: A4;
+          margin: 12mm;
+        }
         @media print {
-          body * { visibility: hidden; }
-          #tagoloan-card-print-area, #tagoloan-card-print-area * { visibility: visible; }
-          #tagoloan-card-print-area { position: absolute; left: 0; top: 0; width: 100%; font-size: 11px; }
-          .no-print { display: none !important; }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+          .no-print, button, .modal-footer {
+            display: none !important;
+          }
+          .tagoloan-modal-overlay {
+            position: static !important;
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: block !important;
+            backdrop-filter: none !important;
+          }
+          .tagoloan-modal-card {
+            border: none !important;
+            box-shadow: none !important;
+            max-width: 100% !important;
+            max-height: none !important;
+            overflow: visible !important;
+            border-radius: 0 !important;
+            background: transparent !important;
+          }
+          .tagoloan-preview-scroll-area {
+            overflow: visible !important;
+            padding: 0 !important;
+            background: transparent !important;
+            height: auto !important;
+          }
+          .tagoloan-paper-container {
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+          }
+          table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+          }
+          th, td {
+            border: 1px solid #ccc !important;
+            padding: 6px 8px !important;
+          }
+          tr, section {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
         }
       `}</style>
 
       <div
+        className="tagoloan-modal-card"
         style={{
-          background: 'var(--card-bg-solid, #ffffff)',
-          borderRadius: '16px',
+          background: '#ffffff',
+          borderRadius: '12px',
           width: '100%',
-          maxWidth: '920px',
-          maxHeight: '90vh',
+          maxWidth: '860px',
+          height: 'calc(100dvh - 48px)',
+          maxHeight: '940px',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
           overflow: 'hidden',
-          border: '1px solid var(--border-glow, #cbd5e1)',
+          border: '1px solid #cbd5e1',
+          boxSizing: 'border-box',
         }}
       >
         {/* Header Bar */}
         <div
           className="no-print"
           style={{
-            background: 'var(--primary)',
-            color: '#ffffff',
-            padding: '1rem 1.5rem',
+            background: '#ffffff',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '12px 20px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexShrink: 0,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <Icon name="activity" size={22} color="#ffffff" />
-            <span style={{ fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.3px' }}>
-              Tagoloan Animal Bite Treatment Center Record Card
-            </span>
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              onClick={onClose}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
               style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#ffffff',
-                fontSize: '1.25rem',
-                cursor: 'pointer',
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: '#ecfdf5',
+                color: '#059669',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
-              ✕
-            </button>
+              <Icon name="activity" size={18} color="#059669" />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
+                Official Animal Bite Treatment Form
+              </div>
+              <div style={{ fontSize: '0.725rem', color: '#64748b' }}>
+                Tagoloan RHU Official Animal Bite Treatment Center (DOH Accredited)
+              </div>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close modal"
+            style={{
+              background: '#f1f5f9',
+              border: 'none',
+              color: '#475569',
+              fontSize: '1.1rem',
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: '6px 10px',
+              borderRadius: '6px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            ✕
+          </button>
         </div>
 
-        {/* Printable Form Content Area */}
+        {/* Modal Toolbar (Filled / Blank Mode Toggle) */}
+        {!loading && (
+          <div
+            className="no-print"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 20px',
+              background: '#f8fafc',
+              borderBottom: '1px solid #e2e8f0',
+              flexShrink: 0,
+              flexWrap: 'wrap',
+              gap: '8px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Template:
+              </span>
+              <div style={{ display: 'inline-flex', background: '#e2e8f0', borderRadius: '6px', padding: '2px' }}>
+                <button
+                  type="button"
+                  onClick={() => setPrintMode('filled')}
+                  style={{
+                    padding: '4px 14px',
+                    fontSize: '0.75rem',
+                    fontWeight: printMode === 'filled' ? 700 : 500,
+                    color: printMode === 'filled' ? '#0f172a' : '#64748b',
+                    background: printMode === 'filled' ? '#ffffff' : 'transparent',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    boxShadow: printMode === 'filled' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  Filled (Default)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintMode('blank')}
+                  style={{
+                    padding: '4px 14px',
+                    fontSize: '0.75rem',
+                    fontWeight: printMode === 'blank' ? 700 : 500,
+                    color: printMode === 'blank' ? '#0f172a' : '#64748b',
+                    background: printMode === 'blank' ? '#ffffff' : 'transparent',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    boxShadow: printMode === 'blank' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  Blank Form
+                </button>
+              </div>
+            </div>
+
+            {consultList && consultList.length > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Assessment Form:
+                </span>
+                <select
+                  value={activeConsultation?.treatment_id || ''}
+                  onChange={(e) => setSelectedTreatmentId(Number(e.target.value))}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: '#0f172a',
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {consultList.map((c: any, i: number) => {
+                    const isReassess = i > 0 || Boolean(c.is_returning_reassessment);
+                    return (
+                      <option key={c.treatment_id} value={c.treatment_id}>
+                        {isReassess ? `Assessment ${i + 1} (Reassessment)` : `Assessment ${i + 1} (Initial)`} — {c.consultation_date || 'Date N/A'} ({c.administration_status || 'Pending'})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
+
+            <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+              <span>Standard Single A4 Page Preview</span>
+            </div>
+          </div>
+        )}
+
+        {/* Content Area: Single Clean Scroll Container */}
         <div
-          id="tagoloan-card-print-area"
+          ref={scrollContainerRef}
+          className="tagoloan-preview-scroll-area"
           style={{
-            padding: '1.75rem 2rem',
-            overflowY: 'auto',
             flex: 1,
-            color: '#1e293b',
-            fontFamily: 'Arial, sans-serif',
+            overflowY: 'auto',
+            background: '#cbd5e1',
+            padding: '24px 16px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'flex-start',
           }}
         >
-          {/* Visible Print Button inside content area */}
-          {!loading && (
-            <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-              <button
-                onClick={handlePrint}
-                style={{
-                  background: '#10b981',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '10px 24px',
-                  borderRadius: '10px',
-                  fontWeight: 700,
-                  fontSize: '15px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  boxShadow: '0 4px 14px rgba(16,185,129,0.4)',
-                  letterSpacing: '0.3px',
-                }}
-              >
-                <HugeiconsIcon icon={PrinterIcon} size={18} />
-                Print This Form
-              </button>
-            </div>
-          )}
           {loading ? (
-            <p style={{ textAlign: 'center', color: 'var(--primary)', padding: '3rem' }}>
-              Loading official Tagoloan treatment card...
-            </p>
+            <div style={{ textAlign: 'center', color: '#475569', padding: '4rem', margin: 'auto' }}>
+              <p style={{ fontWeight: 600 }}>Loading official treatment card...</p>
+            </div>
           ) : (
-            <div>
-              {/* Official Center Title */}
-              <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-                <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, letterSpacing: '0.5px', color: '#0f172a' }}>
-                  {clinic?.name || 'TAGOLOAN ANIMAL BITE TREATMENT CENTER'}
-                </h2>
-              </div>
-
-              {/* Top Form Header Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem 1.5rem', fontSize: '0.85rem', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
-                <div>
-                  <strong>Date:</strong>{' '}
-                  <input
-                    type="date"
-                    value={cardDate}
-                    onChange={(e) => setCardDate(e.target.value)}
-                    max={new Date().toISOString().split('T')[0]}
-                    style={{ border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px' }}
-                  />
-                </div>
-                <div>
-                  <strong>Registry No:</strong>{' '}
-                  <input
-                    type="text"
-                    value={registryNo || '—'}
-                    readOnly
-                    title="Registry number is managed by Admin / System"
-                    style={{ border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px', width: '60%', backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#334155', fontWeight: 600 }}
-                  />
-                </div>
-
-                <div>
-                  <strong>DOH Accreditation No:</strong>{' '}
-                  <span style={{ textDecoration: 'underline' }}>{clinic?.doh_accreditation_no || '2022-10-037'}</span>
-                </div>
-                <div>
-                  <strong>Hospital No:</strong>{' '}
-                  <input
-                    type="text"
-                    value={hospitalNo || ''}
-                    placeholder="Not assigned"
-                    readOnly
-                    title="Hospital number is managed by Admin in Patient Profile"
-                    style={{ border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px', width: '60%', backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#334155' }}
-                  />
-                </div>
-
-                <div>
-                  <strong>PhilHealth Accreditation No:</strong>{' '}
-                  <span style={{ textDecoration: 'underline' }}>{clinic?.philhealth_accreditation_no || 'B10034377'}</span>
-                </div>
-                <div>
-                  <strong>Referred by:</strong>{' '}
-                  <input
-                    type="text"
-                    value={referredBy}
-                    onChange={(e) => setReferredBy(e.target.value)}
-                    placeholder="Dr. Smith / Tagoloan RHU"
-                    style={{ border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px', width: '60%' }}
-                  />
-                </div>
-
-                <div>
-                  <strong>PhilHealth Identification Number (PIN):</strong>{' '}
-                  <span style={{ textDecoration: 'underline', fontWeight: 600 }}>{patient?.philhealth_no || '—'}</span>
-                </div>
-                <div>
-                  <strong>PhilHealth Status:</strong>{' '}
-                  <label style={{ marginRight: '1rem' }}>
-                    <input type="radio" checked={patient?.philhealth_status === 'member'} readOnly /> ( ) Member
-                  </label>
-                  <label>
-                    <input type="radio" checked={patient?.philhealth_status === 'dependent'} readOnly /> ( ) Dependent
-                  </label>
-                </div>
-              </div>
-
-              {/* Patient Profile Row */}
-              <div style={{ background: '#f8fafc', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1rem', fontSize: '0.85rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0.5rem', marginBottom: '0.35rem' }}>
-                  <div><strong>Patient Name:</strong> {patient?.full_name || '—'}</div>
-                  <div><strong>Age:</strong> {patient?.age ?? '—'}</div>
-                  <div><strong>Date of Birth:</strong> {patient?.date_of_birth || '—'}</div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.5rem', marginBottom: '0.35rem' }}>
-                  <div><strong>Address:</strong> {patient?.address || '—'}</div>
-                  <div><strong>Sex:</strong> ({patient?.gender === 'male' ? '✓' : ' '}) Male ({patient?.gender === 'female' ? '✓' : ' '}) Female</div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-                  <div>
-                    <strong>Exposure Category:</strong>{' '}
-                    {(['I', 'II', 'III'] as const).map((cat) => (
-                      <label key={cat} style={{ marginRight: '0.5rem' }}>
-                        <input
-                          type="radio"
-                          name="exposure_cat"
-                          checked={exposureCategory === cat}
-                          onChange={() => setExposureCategory(cat)}
-                        /> ({cat})
-                      </label>
-                    ))}
-                  </div>
-                  <div><strong>Date of Exposure:</strong> {bite?.bite_date || '—'}</div>
-                  <div><strong>Date Treatment Started:</strong> {cardDate}</div>
-                </div>
-                <div style={{ marginTop: '0.35rem' }}>
-                  <strong>Place of Exposure:</strong> {bite?.bite_place || 'Tagoloan, Misamis Oriental'}
-                </div>
-              </div>
-
-              {/* Checkbox Questions Sections (1, 2, 3, 4) */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem', fontSize: '0.8125rem' }}>
-                {/* 1. Mode of Animal Exposure */}
-                <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem' }}>
-                  <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>1. Mode of Animal Exposure</strong>
-                  {[
-                    { key: 'nibbling_uncovered_skin', label: 'Nibbling/Licking of uncovered skin' },
-                    { key: 'nibbling_broken_skin', label: 'Nibbling/Licking of wounded/broken skin' },
-                    { key: 'scratch_abrasion', label: 'Scratch / Abrasion' },
-                    { key: 'transdermal_bite', label: 'Transdermal Bite' },
-                    { key: 'handling_ingestion_raw_meat', label: 'Handling / Ingestion of raw infected meat' },
-                  ].map((opt) => (
-                    <label key={opt.key} style={{ display: 'block', marginBottom: '0.25rem', cursor: 'pointer' }}>
-                      <input
-                        type="radio"
-                        name="mode_of_exposure"
-                        checked={modeOfExposure === opt.key}
-                        onChange={() => setModeOfExposure(opt.key)}
-                      />{' '}
-                      ( ) {opt.label}
-                    </label>
-                  ))}
-                </div>
-
-                {/* 2, 3, 4 Sections */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {/* 2. Body Part Affected */}
-                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem' }}>
-                    <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>2. Body Part Affected / Exposed</strong>
-                    <input
-                      type="text"
-                      value={bodyPartExposed}
-                      onChange={(e) => setBodyPartExposed(e.target.value)}
-                      placeholder="e.g. Left hand, Right lower leg, Head / Neck"
-                      style={{
-                        width: '100%',
-                        padding: '6px 10px',
-                        border: '1px solid #cbd5e1',
-                        borderRadius: '6px',
-                        fontSize: '0.85rem',
-                        marginBottom: '0.4rem',
-                      }}
-                    />
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      {[
-                        'Head & Neck',
-                        'Upper Extremities',
-                        'Lower Extremities',
-                        'Trunk / Torso',
-                        'Multiple Sites',
-                        'N/A (Ingestion)',
-                      ].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => setBodyPartExposed((prev) => (prev ? `${prev}, ${preset}` : preset))}
-                          style={{
-                            background: '#f1f5f9',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '4px',
-                            padding: '2px 6px',
-                            fontSize: '0.72rem',
-                            color: '#475569',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          + {preset}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 3. Type of Animal */}
-                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem' }}>
-                    <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>3. Type of Animal</strong>
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                        <input
-                          type="radio"
-                          name="animal_type"
-                          checked={animalType === 'Dog'}
-                          onChange={() => {
-                            setAnimalType('Dog');
-                            setAnimalTypeOthers('');
-                          }}
-                        /> Dog
-                      </label>
-                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                        <input
-                          type="radio"
-                          name="animal_type"
-                          checked={animalType === 'Cat'}
-                          onChange={() => {
-                            setAnimalType('Cat');
-                            setAnimalTypeOthers('');
-                          }}
-                        /> Cat
-                      </label>
-                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                        <input
-                          type="radio"
-                          name="animal_type"
-                          checked={animalType === 'Others'}
-                          onChange={() => setAnimalType('Others')}
-                        /> Others:
-                      </label>
-                      {animalType === 'Others' && (
-                        <input
-                          type="text"
-                          value={animalTypeOthers}
-                          onChange={(e) => setAnimalTypeOthers(e.target.value)}
-                          placeholder="Specify animal (e.g. Monkey, Bat, Rat)"
-                          style={{
-                            border: '1px solid #cbd5e1',
-                            padding: '4px 8px',
-                            borderRadius: '4px',
-                            fontSize: '0.8rem',
-                            flex: 1,
-                            minWidth: '140px',
-                          }}
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 4. Past History */}
-                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem' }}>
-                    <strong style={{ display: 'block', marginBottom: '0.35rem', color: 'var(--primary)' }}>4. Past History of animal bite</strong>
-                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.35rem' }}>
-                      <label>
-                        <input
-                          type="radio"
-                          name="past_history"
-                          checked={pastBiteHistory === true}
-                          onChange={() => setPastBiteHistory(true)}
-                        /> ( ) Yes
-                      </label>
-                      <label>
-                        <input
-                          type="radio"
-                          name="past_history"
-                          checked={pastBiteHistory === false}
-                          onChange={() => setPastBiteHistory(false)}
-                        /> ( ) No
-                      </label>
-                    </div>
-                    {pastBiteHistory && (
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.35rem' }}>
-                        <span>If yes, specify dates:</span>
-                        <input
-                          type="text"
-                          value={pastBiteDates}
-                          onChange={(e) => setPastBiteDates(e.target.value)}
-                          placeholder="YYYY-MM-DD"
-                          style={{ border: '1px solid #cbd5e1', padding: '1px 4px', borderRadius: '4px', fontSize: '0.8rem' }}
-                        />
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <span>Was PEP Immunization completed:</span>
-                      <label style={{ marginLeft: '0.5rem' }}>
-                        <input
-                          type="radio"
-                          name="pep_comp"
-                          checked={pastPepCompleted === true}
-                          onChange={() => setPastPepCompleted(true)}
-                        /> ( ) Yes
-                      </label>
-                      <label style={{ marginLeft: '0.5rem' }}>
-                        <input
-                          type="radio"
-                          name="pep_comp"
-                          checked={pastPepCompleted === false}
-                          onChange={() => setPastPepCompleted(false)}
-                        /> ( ) No
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Official Vaccination Grid Table */}
-              <div style={{ marginBottom: '1.25rem' }}>
-                <strong style={{ display: 'block', marginBottom: '0.5rem', textAlign: 'center', fontSize: '0.95rem', color: 'var(--text-h)' }}>
-                  Period Exposure Vaccination Record
-                </strong>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
-                  <thead>
-                    <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
-                      <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 600 }}>Period</th>
-                      <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600 }}>Adm Route</th>
-                      <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600 }}>Date</th>
-                      <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'left', fontWeight: 600 }}>Given by</th>
-                      <th style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600 }}>Signature / Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {periods.map((item, idx) => {
-                      const rec = records.find((r) => r.dose_number === item.doseNum);
-                      const staff = rec?.administered_by || (rec as any)?.administeredBy;
-                      const staffName = typeof staff === 'object' ? staff?.name : null;
-                      const staffLicense = typeof staff === 'object' ? staff?.professional_license_no : null;
-                      return (
-                        <tr key={item.period} style={{ background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                          <td style={{ padding: '6px', border: '1px solid #cbd5e1', fontWeight: 600 }}>
-                            {item.period === 'ERIG' ? (
-                              <span>ERIG {rec?.dosage_ml ? <u style={{ color: 'var(--primary)', fontWeight: 700 }}>{rec.dosage_ml}</u> : '_________________'} ml</span>
-                            ) : item.period === 'TT' ? (
-                              <span>TT (Tetanus Toxoid)</span>
-                            ) : item.period === 'ATS' ? (
-                              <span>ATS (Anti-Tetanus Serum)</span>
-                            ) : (
-                              item.period
-                            )}
-                          </td>
-                          <td style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center' }}>
-                            ({rec?.route === 'ID' ? '✓' : ' '}) ID &nbsp;&nbsp; ({rec?.route === 'IM' ? '✓' : ' '}) IM
-                          </td>
-                          <td style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center' }}>
-                            {rec?.treatment_date ? new Date(rec.treatment_date).toLocaleDateString() : rec?.scheduled_date || '—'}
-                          </td>
-                          <td style={{ padding: '6px', border: '1px solid #cbd5e1' }}>
-                            {rec?.status === 'completed' || rec?.treatment_date ? (
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontWeight: 600 }}>{staffName || 'Nurse Staff'}</span>
-                                {staffLicense && (
-                                  <span style={{ fontSize: '0.75rem', color: '#0369a1', fontWeight: 600 }}>
-                                    PRC: {staffLicense}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              '—'
-                            )}
-                          </td>
-                          <td style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', color: rec?.status === 'completed' ? 'var(--primary)' : '#64748b' }}>
-                            {rec?.status === 'completed' ? '✓ Signed (On File)' : rec?.status || 'Scheduled'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Footer ICD 10 Code */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem' }}>
-                <strong>ICD 10 Code:</strong>
-                <input
-                  type="text"
-                  value={icd10Code}
-                  onChange={(e) => setIcd10Code(e.target.value)}
-                  placeholder="e.g. Z20.3"
-                  style={{ border: '1px solid #cbd5e1', padding: '4px 8px', borderRadius: '4px', fontWeight: 700, width: '120px' }}
-                />
-              </div>
+            <div
+              className="tagoloan-paper-container"
+              style={{
+                width: '100%',
+                maxWidth: '794px', // Exact 210mm A4 width at 96 DPI
+                background: '#ffffff',
+                padding: '36px 40px', // Official 12mm page margin padding
+                boxShadow: '0 8px 30px rgba(0, 0, 0, 0.15)',
+                borderRadius: '4px',
+                border: '1px solid #94a3b8',
+                boxSizing: 'border-box',
+                margin: '0 auto',
+              }}
+            >
+              <PrintableForm record={printableRecord} mode={printMode} />
             </div>
           )}
         </div>
 
         {/* Modal Action Footer */}
         <div
-          className="no-print"
+          className="no-print modal-footer"
           style={{
-            background: 'var(--card-bg-solid, #f8fafc)',
-            borderTop: '1px solid var(--border, #e2e8f0)',
-            padding: '1rem 1.5rem',
+            background: '#ffffff',
+            borderTop: '1px solid #e2e8f0',
+            padding: '10px 20px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            gap: '1rem',
+            flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #64748b)' }}>
-            Tagoloan RHU Official Animal Bite Treatment Form (3NF Compliant Schema)
+          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+            Tagoloan RHU Official Animal Bite Treatment Form • {printMode === 'filled' ? 'Filled Mode' : 'Blank Mode'}
           </span>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             <button
+              type="button"
               onClick={onClose}
-              className="btn-action"
               style={{
-                background: 'var(--card-bg-solid, #ffffff)',
-                border: '1px solid var(--border-glow, #cbd5e1)',
-                color: 'var(--text-primary, #1e293b)',
-                padding: '0.5rem 1.25rem',
-                borderRadius: '8px',
-                fontWeight: 500,
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: '#475569',
+                padding: '0.45rem 1.25rem',
+                borderRadius: '6px',
+                fontWeight: 600,
                 cursor: 'pointer',
+                fontSize: '0.85rem',
               }}
             >
               Cancel
             </button>
             <button
-              onClick={handleSave}
-              disabled={saving}
+              type="button"
+              onClick={handlePrint}
               style={{
-                background: 'var(--primary)',
+                background: '#16a34a',
                 color: '#ffffff',
                 border: 'none',
-                padding: '0.5rem 1.5rem',
-                borderRadius: '8px',
-                fontWeight: 600,
+                padding: '0.45rem 1.5rem',
+                borderRadius: '6px',
+                fontWeight: 700,
                 cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(23, 101, 58, 0.3)',
+                boxShadow: '0 2px 8px rgba(22, 163, 74, 0.3)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
               }}
             >
-              {saving ? 'Saving Card...' : 'Save Tagoloan Card'}
+              <HugeiconsIcon icon={PrinterIcon} size={18} />
+              Print Form
             </button>
           </div>
         </div>

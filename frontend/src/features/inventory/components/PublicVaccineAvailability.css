@@ -1,0 +1,999 @@
+/* Public Vaccine Availability - Modern, Minimalist & Clean Redesign */
+
+.public-stock {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+  scroll-margin-top: 120px;
+}
+
+/* Header Area */
+.public-stock-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 1.75rem;
+}
+
+.public-stock-header-left {
+  flex-shrink: 0;
+}
+
+.public-stock-badge-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 9999px;
+  color: #047857;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.live-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+  animation: pulseLiveDot 2.4s infinite;
+}
+
+@keyframes pulseLiveDot {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.public-stock-title {
+  color: #0f172a;
+  font-size: clamp(1.75rem, 2.5vw, 2.25rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
+.public-stock-subtitle {
+  color: #64748b;
+  font-size: 0.95rem;
+  font-weight: 400;
+  margin: 0.35rem 0 0 0;
+}
+
+.public-stock-header-divider {
+  width: 1px;
+  height: 52px;
+  background-color: #e2e8f0;
+  margin: 0 0.5rem;
+  flex-shrink: 0;
+}
+
+.public-stock-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.6rem;
+  flex-grow: 1;
+}
+
+/* Modern Status Summary Chips */
+.public-stock-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.stock-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.2;
+  transition: all 0.2s ease;
+}
+
+.stock-summary-chip .chip-num {
+  font-weight: 700;
+}
+
+.chip-total {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.chip-total .chip-num {
+  color: #0f172a;
+}
+
+.chip-in-stock {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+}
+
+.chip-low-stock {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.chip-out-stock {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+.chip-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-in-stock {
+  background-color: #10b981;
+}
+
+.dot-low-stock {
+  background-color: #f59e0b;
+}
+
+.dot-out-stock {
+  background-color: #94a3b8;
+}
+
+/* Metadata & Refresh bar */
+.public-stock-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.public-stock-last-updated {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.public-stock-last-updated strong {
+  color: #334155;
+  font-weight: 600;
+}
+
+.public-stock-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.32rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #059669;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.public-stock-refresh-btn:hover:not(:disabled) {
+  background: #ecfdf5;
+  border-color: #10b981;
+  color: #047857;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.16);
+  transform: translateY(-1px);
+}
+
+.public-stock-refresh-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.public-stock-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.public-stock-refresh-icon {
+  flex-shrink: 0;
+  color: #10b981;
+}
+
+@keyframes spinIcon {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.public-stock-refresh-icon.is-spinning {
+  animation: spinIcon 0.8s linear infinite;
+}
+
+/* Toolbar: Search + Category dropdown in one compact row */
+.public-stock-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.public-stock-search-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.public-stock-search-icon {
+  position: absolute;
+  left: 1rem;
+  color: #10b981;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.public-stock-search-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 2.5rem 0 2.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.public-stock-search-input::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+.public-stock-search-input:hover {
+  border-color: #cbd5e1;
+}
+
+.public-stock-search-input:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);
+}
+
+.public-stock-search-clear {
+  position: absolute;
+  right: 0.75rem;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+}
+
+.public-stock-search-clear:hover {
+  color: #0f172a;
+}
+
+.public-stock-select-wrap {
+  position: relative;
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.public-stock-category-select {
+  width: 100%;
+  height: 44px;
+  padding: 0 2.5rem 0 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  appearance: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.public-stock-category-select:hover {
+  border-color: #cbd5e1;
+}
+
+.public-stock-category-select:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);
+}
+
+.public-stock-select-chevron {
+  position: absolute;
+  right: 1rem;
+  color: #10b981;
+  pointer-events: none;
+}
+
+/* Notice / Error banner */
+.public-stock-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  border-radius: 10px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.85rem;
+}
+
+.public-stock-notice-icon {
+  flex-shrink: 0;
+  color: #d97706;
+}
+
+.public-stock-retry-btn {
+  margin-left: auto;
+  border: 1px solid #d97706;
+  background: #ffffff;
+  color: #b45309;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.public-stock-retry-btn:hover {
+  background: #fef3c7;
+}
+
+/* Table Card Container - Modern, Light, Elegant */
+.public-stock-table-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-top: 3px solid #10b981;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.05), 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.public-stock-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+}
+
+/* Table Header - Clean Light Fresh Mint Gradient */
+.public-stock-table thead {
+  background: linear-gradient(180deg, #f0fdf4 0%, #f8fafc 100%);
+}
+
+.public-stock-table th {
+  color: #047857;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.col-vaccine {
+  width: 22%;
+}
+
+.col-category {
+  width: 38%;
+}
+
+.col-available {
+  width: 18%;
+}
+
+.col-status {
+  width: 18%;
+}
+
+.col-expand {
+  width: 4%;
+  text-align: right;
+  padding-right: 1.25rem;
+}
+
+/* Table Body Rows */
+.public-stock-row {
+  background: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.public-stock-row:hover {
+  background-color: #fafdfb;
+}
+
+.public-stock-row.is-expanded {
+  background-color: #f8fafc;
+}
+
+.public-stock-row:focus-visible {
+  outline: 2px solid #10b981;
+  outline-offset: -2px;
+}
+
+.public-stock-row td {
+  padding: 0.95rem 1.25rem;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+/* Cell Contents */
+.vaccine-name-text {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
+.vaccine-category-text {
+  color: #475569;
+  font-size: 0.875rem;
+}
+
+.vaccine-available-text {
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.vaccine-available-text strong {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.vaccine-available-text span {
+  color: #64748b;
+  font-size: 0.825rem;
+}
+
+/* Stock Status Badges - Smooth Fresh Accents */
+.stock-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.28rem 0.72rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  width: fit-content;
+  white-space: nowrap;
+}
+
+.stock-status-dot {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.stock-status-badge.is-in_stock {
+  background-color: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.stock-status-badge.is-in_stock .stock-status-dot {
+  background-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.stock-status-badge.is-low_stock {
+  background-color: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.stock-status-badge.is-low_stock .stock-status-dot {
+  background-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.stock-status-badge.is-out_of_stock {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.stock-status-badge.is-out_of_stock .stock-status-dot {
+  background-color: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+/* Row Expand Chevron Wrapper */
+.expand-btn-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #94a3b8;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-left: auto;
+}
+
+.public-stock-row:hover .expand-btn-wrapper {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.expand-btn-wrapper.is-expanded {
+  background: #d1fae5;
+  color: #047857;
+  transform: rotate(90deg);
+}
+
+.expand-chevron-icon {
+  display: block;
+}
+
+/* Expanded Row Details - Clean Mini Cards */
+.public-stock-expanded-row {
+  background-color: #fbfdfc;
+}
+
+.col-expanded-cell {
+  padding: 1rem 1.5rem !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.expanded-details-container {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #10b981;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.expanded-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem 1.25rem;
+}
+
+.expanded-detail-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+
+.detail-icon {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.detail-meta-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.detail-meta-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1e293b;
+  padding-left: 1.25rem;
+}
+
+/* State Messages (Loading & Empty) */
+.public-stock-state-cell {
+  padding: 3rem 1.5rem !important;
+  text-align: center;
+}
+
+.public-stock-loading-box,
+.public-stock-empty-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: #64748b;
+}
+
+.public-stock-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #10b981;
+  border-radius: 50%;
+  animation: spinIcon 0.8s linear infinite;
+  display: inline-block;
+  margin-bottom: 0.25rem;
+}
+
+.empty-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.empty-sub {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.public-stock-clear-filter-btn {
+  margin-top: 0.5rem;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #047857;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.public-stock-clear-filter-btn:hover {
+  border-color: #10b981;
+  background: #ecfdf5;
+}
+
+/* Footnote at the bottom */
+.public-stock-footnote {
+  margin-top: 1.25rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  text-align: center;
+}
+
+/* Keyboard accessibility focus states */
+.public-stock :is(button, input, select):focus-visible {
+  outline: 2px solid #10b981;
+  outline-offset: 2px;
+}
+
+/* Screen reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Dark Theme Adjustments */
+[data-theme='dark'] .public-stock-title {
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .public-stock-subtitle {
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .public-stock-badge-tag {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+}
+
+[data-theme='dark'] .chip-total {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .chip-total .chip-num {
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .chip-in-stock {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+}
+
+[data-theme='dark'] .chip-low-stock {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+}
+
+[data-theme='dark'] .chip-out-stock {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .public-stock-last-updated {
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .public-stock-last-updated strong {
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .public-stock-header-divider {
+  background-color: #334155;
+}
+
+[data-theme='dark'] .public-stock-refresh-btn {
+  background: #0f172a;
+  border-color: #334155;
+  color: #6ee7b7;
+}
+
+[data-theme='dark'] .public-stock-refresh-btn:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #10b981;
+}
+
+[data-theme='dark'] .public-stock-search-input,
+[data-theme='dark'] .public-stock-category-select {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .public-stock-table-card {
+  background: #0f172a;
+  border-color: #334155;
+  border-top-color: #10b981;
+}
+
+[data-theme='dark'] .public-stock-table thead {
+  background: #1e293b;
+}
+
+[data-theme='dark'] .public-stock-table th {
+  color: #6ee7b7;
+  border-bottom-color: #334155;
+}
+
+[data-theme='dark'] .public-stock-row {
+  background: #0f172a;
+}
+
+[data-theme='dark'] .public-stock-row:hover,
+[data-theme='dark'] .public-stock-row.is-expanded {
+  background-color: #1e293b;
+}
+
+[data-theme='dark'] .public-stock-row td {
+  border-bottom-color: #1e293b;
+}
+
+[data-theme='dark'] .vaccine-name-text {
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .vaccine-category-text {
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .vaccine-available-text {
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .vaccine-available-text strong {
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .vaccine-available-text span {
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .expand-btn-wrapper {
+  background: #1e293b;
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .public-stock-expanded-row {
+  background-color: #1e293b;
+}
+
+[data-theme='dark'] .col-expanded-cell {
+  border-bottom-color: #334155 !important;
+}
+
+[data-theme='dark'] .expanded-details-container {
+  background: #0f172a;
+  border-color: #334155;
+  border-left-color: #10b981;
+}
+
+[data-theme='dark'] .detail-meta-value {
+  color: #f1f5f9;
+}
+
+[data-theme='dark'] .empty-title {
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .empty-sub {
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .public-stock-clear-filter-btn {
+  background: #0f172a;
+  border-color: #334155;
+  color: #6ee7b7;
+}
+
+[data-theme='dark'] .public-stock-clear-filter-btn:hover {
+  background: #1e293b;
+}
+
+[data-theme='dark'] .public-stock-footnote {
+  color: #94a3b8;
+}
+
+/* Responsive: Mobile Compact Stacked Rows */
+@media (max-width: 768px) {
+  .public-stock {
+    padding: 2rem 1rem;
+  }
+
+  .public-stock-heading {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .public-stock-header-divider {
+    display: none;
+  }
+
+  .public-stock-header-right {
+    align-items: flex-start;
+  }
+
+  .public-stock-chips-row {
+    width: 100%;
+  }
+
+  .public-stock-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .public-stock-select-wrap {
+    width: 100%;
+  }
+
+  /* Table becomes stacked rows with readable labels */
+  .public-stock-table thead {
+    display: none;
+  }
+
+  .public-stock-table,
+  .public-stock-table tbody,
+  .public-stock-row {
+    display: block;
+    width: 100%;
+  }
+
+  .public-stock-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas:
+      "name   status  expand"
+      "cat    cat     expand"
+      "avail  avail   expand";
+    row-gap: 0.35rem;
+    column-gap: 0.5rem;
+    padding: 0.85rem 1rem;
+    align-items: center;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .col-vaccine {
+    grid-area: name;
+    width: auto;
+    padding: 0 !important;
+    border-bottom: none !important;
+  }
+
+  .col-category {
+    grid-area: cat;
+    width: auto;
+    padding: 0 !important;
+    border-bottom: none !important;
+  }
+
+  .vaccine-category-text {
+    font-size: 0.8rem;
+  }
+
+  .col-available {
+    grid-area: avail;
+    width: auto;
+    padding: 0 !important;
+    border-bottom: none !important;
+    font-size: 0.85rem;
+  }
+
+  .col-available::before {
+    content: "Available: ";
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .col-status {
+    grid-area: status;
+    width: auto;
+    padding: 0 !important;
+    border-bottom: none !important;
+  }
+
+  .col-expand {
+    grid-area: expand;
+    width: auto;
+    padding: 0 0 0 0.5rem !important;
+    border-bottom: none !important;
+  }
+
+  .public-stock-expanded-row {
+    display: block;
+    width: 100%;
+  }
+
+  .col-expanded-cell {
+    display: block;
+    width: 100%;
+    padding: 0.75rem 1rem !important;
+    box-sizing: border-box;
+  }
+
+  .expanded-details-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .detail-meta-value {
+    padding-left: 0;
+  }
+}

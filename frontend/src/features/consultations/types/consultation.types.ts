@@ -1,3 +1,4 @@
+import type { ProphylaxisOrders } from '../../../shared/types/prophylaxis';
 export const CONSULTATION_TYPES_VERSION = '1.0.0';
 
 export interface ConsultationTypesMap {
@@ -48,10 +49,12 @@ export interface TreatmentFormData {
   consultation_types: ConsultationTypesMap;
 
   // Clinical Notes
+  exposure_category: 'I' | 'II' | 'III' | '';
   chief_complaints: string;
   diagnosis: string; // saved as free text (checklist selections auto-fill this)
   medication_treatment: string; // saved as free text (inventory checklist auto-fills this)
   prescribed_vaccine_type: string; // doctor's structured PEP vaccine prescription (drives nurse Form 3)
+  prophylaxis_orders: ProphylaxisOrders;
 
   name_of_provider: string;
   laboratory_findings: string;
@@ -60,18 +63,63 @@ export interface TreatmentFormData {
   // Provider Details
   name_of_attending_provider: string;
   referred_by: string;
+
+  // Returning Patient Reassessment Decision
+  reassessment_decision?: 'continue' | 'modify' | 'discontinue' | 'no_injection_required' | '';
+  reassessment_notes?: string;
+
+  // Place of Exposure
+  place_of_exposure?: string;
+
+  // Transfer Out / Referral Slip (Form 2 Doctor Referral)
+  is_referral?: boolean;
+  transferred_to_facility?: string;
+  transfer_reason?: string;
+  transfer_date?: string;
 }
 
-export interface NewBiteData {
-  new_bite_date: string;
-  new_bite_place: string;
-  new_exposure_type: 'bite' | 'scratch' | 'lick' | 'other';
-  new_severity: 'minor' | 'moderate' | 'severe';
-  new_animal_type: 'dog' | 'cat' | 'other';
-  new_animal_status: 'alive' | 'dead' | 'unknown' | 'rabid';
-  new_site_washed: boolean;
-  new_body_part: string;
-  new_wound_description: string;
+export interface PatientReportedIntake {
+  schema_version?: string | null;
+  date_of_exposure?: string | null;
+  time_of_exposure?: string | null;
+  place_of_exposure?: string | null;
+  reported_mode_of_exposure?: string | null;
+  body_part_group?: string | null;
+  body_part_detail?: string | null;
+  animal_species?: string | null;
+  animal_species_other?: string | null;
+  animal_ownership?: string | null;
+  incident_narrative?: string | null;
+  referral_source?: string | null;
+  bite_date?: string | null;
+  incident_time?: string | null;
+  bite_place?: string | null;
+  exposure_type?: string | null;
+  wound_location?: string | null;
+  body_part_exposed?: string | null;
+  laterality?: string | null;
+  animal_type?: string | null;
+  animal_status?: string | null;
+  animal_available?: boolean | null;
+  animal_condition_reported?: string | null;
+  site_washed?: boolean | null;
+  wash_method?: string | null;
+  prior_rabies_vaccination?: string | null;
+  past_bite_history?: string | null;
+  past_bite_dates?: string | null;
+  prior_pep_status?: string | null;
+  prior_pep_date?: string | null;
+  prior_pep_facility?: string | null;
+  care_received?: string | null;
+  wash_duration_minutes?: number | null;
+  patient_description?: string | null;
+  referral_facility?: string | null;
+  referral_blood_pressure?: string | null;
+  referral_temperature?: string | null;
+  referral_height?: string | null;
+  referral_weight?: string | null;
+  referral_provider_name?: string | null;
+  referral_document_photo?: string | null;
 }
 
 export interface VaccineStockItem {
@@ -91,26 +139,18 @@ export interface GeneralTreatmentFormProps {
   open: boolean;
   entry: any; // Queue entry with patient data
   onClose: () => void;
-  onSave: () => void;
+  onSave: (savedData?: any) => void;
   readOnly?: boolean;
   inline?: boolean;
   hideConsultationType?: boolean;
 }
 
 export interface TreatmentRecordPayload {
+  exposure_category: 'I' | 'II' | 'III' | '';
   patient_id: number | string;
   queue_id?: number | string | null;
   bite_id?: number | string | null;
   treatment_plan?: string | null;
-  new_bite_date?: string | null;
-  new_bite_place?: string | null;
-  new_exposure_type?: string | null;
-  new_severity?: string | null;
-  new_animal_type?: string | null;
-  new_animal_status?: string | null;
-  new_site_washed?: boolean;
-  new_body_part?: string | null;
-  new_wound_description?: string | null;
   consultation_date: string;
   consultation_time: string;
   mode_of_transaction: string;
@@ -129,9 +169,23 @@ export interface TreatmentRecordPayload {
   diagnosis: string;
   medication_treatment: string;
   prescribed_vaccine_type?: string | null;
+  prophylaxis_orders?: ProphylaxisOrders;
   laboratory_findings: string;
   performed_lab_test: string;
   provider_name?: string | null;
   attending_provider: string;
   referred_by: string;
+  reassessment_decision?: 'continue' | 'modify' | 'discontinue' | 'no_injection_required' | null;
+  reassessment_notes?: string | null;
+  outcome?: string | null;
+  // Referral transfer fields
+  is_referral?: boolean;
+  complete_referral?: boolean;
+  transferred_to_facility?: string | null;
+  transfer_reason?: string | null;
+  transfer_date?: string | null;
+  // Place of Exposure
+  place_of_exposure?: string | null;
+  bite_place?: string | null;
+  new_bite_place?: string | null;
 }

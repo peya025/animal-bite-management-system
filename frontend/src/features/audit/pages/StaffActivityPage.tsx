@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Typography } from '@mui/material';
 import api from '../../../services/api';
 import { ROUTES } from '../../../shared/config/routes';
 import { Icon, type IconName } from '../../../shared/components/ui/Icon';
@@ -96,7 +97,9 @@ export default function StaffActivityPage() {
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return '—';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
     return date.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -115,29 +118,37 @@ export default function StaffActivityPage() {
   return (
     <div style={{ width: '100%', margin: 0, padding: 0 }}>
       {/* Minimalist Dashboard Header */}
-      <div className="sd-dash-header">
+      <div className="sd-dash-header" data-walkthrough="staff-activity-header">
         <div>
-          <h1>Staff Activity Monitor</h1>
-          <p>Track staff actions, logins, and system audit logs</p>
+          <Typography
+            component="h1"
+            sx={{
+              fontSize: '22px',
+              fontWeight: 600,
+              lineHeight: 1.25,
+              letterSpacing: '-0.5px',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
+            }}
+          >
+            Staff Activity Monitor
+          </Typography>
           {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 13, color: '#9ca3af' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
             <button
               onClick={() => navigate(ROUTES.DASHBOARD)}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
             >Dashboard</button>
-            <span>›</span>
-            <button
-              onClick={() => navigate(ROUTES.CLINIC_SETUP.ROOT)}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#6b7280', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}
-            >Clinic Setup</button>
-            <span>›</span>
+            <span style={{ color: '#9ca3af' }}>›</span>
+            <span style={{ color: '#6b7280' }}>Clinic Setup</span>
+            <span style={{ color: '#9ca3af' }}>›</span>
             <span style={{ color: '#6b7280' }}>Staff Activity</span>
           </div>
         </div>
       </div>
 
       {/* KPI Summary Cards */}
-      <div className="db-kpi-grid">
+      <div className="db-kpi-grid" data-walkthrough="staff-activity-kpi-cards">
         <div className="db-kpi-card">
           <div className="db-kpi-header">
             <span className="db-kpi-label">Actions Today</span>
@@ -205,6 +216,7 @@ export default function StaffActivityPage() {
 
       {/* Filters Card */}
       <div
+        data-walkthrough="staff-activity-filters"
         style={{
           background: 'var(--card-bg-solid, #ffffff)',
           borderRadius: '14px',
@@ -299,6 +311,7 @@ export default function StaffActivityPage() {
 
       {/* Activity Table Card */}
       <div
+        data-walkthrough="staff-activity-table"
         style={{
           background: 'var(--card-bg-solid, #ffffff)',
           borderRadius: '14px',
@@ -416,7 +429,7 @@ export default function StaffActivityPage() {
                           </td>
 
                           {/* IP Address */}
-                          <td style={{ fontFamily: 'monospace', color: '#64748b', fontWeight: 400 }}>
+                          <td style={{ color: '#64748b', fontWeight: 400 }}>
                             {log.ip_address}
                           </td>
                         </tr>
@@ -427,7 +440,7 @@ export default function StaffActivityPage() {
               </div>
 
               {/* ── Pagination bar ── */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border, #f0f7f2)', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div data-walkthrough="staff-activity-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border, #f0f7f2)', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {/* Result count */}
                 <span style={{ fontSize: '0.8125rem', color: '#77877d' }}>
                   Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, logs.length)} of {logs.length} entries

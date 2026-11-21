@@ -53,8 +53,13 @@ export function FormField({ id, label, required, error, errorText, hint, childre
     <div id={id} className={`fm-field ${invalid ? 'fm-field--error' : ''}`}
       role={isGroup ? (controls.every(control => control.props.type === 'radio') ? 'radiogroup' : 'group') : undefined}
       aria-labelledby={isGroup ? labelId : undefined}
-      aria-required={isGroup && required ? true : undefined}
-      style={invalid ? { padding: '8px', border: '2px solid #ef4444', borderRadius: '8px', backgroundColor: '#fef2f2' } : undefined}>
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        width: '100%',
+        ...(invalid ? { padding: '8px', border: '2px solid #ef4444', borderRadius: '8px', backgroundColor: '#fef2f2' } : {}),
+      }}>
       {isGroup ? (
         <span id={labelId} className="fm-label">{label}{required && <span aria-hidden="true">*</span>}</span>
       ) : (

@@ -26,7 +26,7 @@ class GuidelinesSection extends StatelessWidget {
             children: [
               Expanded(
                 child: _GuideCard(
-                  imagePath: 'assets/images/guide/guide_wash.png',
+                  imagePath: 'assets/images/guide/guide_wash_3d.webp',
                   title: context.tr('guide_wash_title'),
                   description: context.tr('guide_wash_desc'),
                   semanticLabel: '${context.tr('guide_wash_title')}: ${context.tr('guide_wash_desc')}',
@@ -35,7 +35,7 @@ class GuidelinesSection extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _GuideCard(
-                  imagePath: 'assets/images/guide/guide_consult.png',
+                  imagePath: 'assets/images/guide/guide_consult_3d.webp',
                   title: context.tr('guide_consult_title'),
                   description: context.tr('guide_consult_desc'),
                   semanticLabel: '${context.tr('guide_consult_title')}: ${context.tr('guide_consult_desc')}',
@@ -44,7 +44,7 @@ class GuidelinesSection extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _GuideCard(
-                  imagePath: 'assets/images/guide/guide_vaccinate.png',
+                  imagePath: 'assets/images/guide/guide_vaccinate_3d.webp',
                   title: context.tr('guide_vaccinate_title'),
                   description: context.tr('guide_vaccinate_desc'),
                   semanticLabel: '${context.tr('guide_vaccinate_title')}: ${context.tr('guide_vaccinate_desc')}',
@@ -73,7 +73,7 @@ class _GuideCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const cardRadius = BorderRadius.all(Radius.circular(16));
+    const cardRadius = BorderRadius.all(Radius.circular(20));
 
     return Semantics(
       label: semanticLabel ?? '$title: $description',
@@ -100,7 +100,7 @@ class _GuideCard extends StatelessWidget {
               child: AspectRatio(
                 aspectRatio: 1.0,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(14),
                   child: Image.asset(
                     imagePath,
                     fit: BoxFit.cover,

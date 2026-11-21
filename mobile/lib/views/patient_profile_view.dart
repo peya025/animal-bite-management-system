@@ -5,9 +5,12 @@ import '../app/app_routes.dart';
 import '../app/app_theme.dart';
 import '../l10n/app_localizations.dart';
 import '../models/appointment_summary.dart';
+import '../models/form_configuration.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_profile_form_args.dart';
 import '../services/api.dart';
+import '../services/form_configuration_repository.dart';
+import '../utils/configured_field_policy.dart';
 import '../widgets/common/app_page_header.dart';
 import '../widgets/common/app_toast.dart';
 import '../widgets/common/status_chip.dart';
@@ -25,11 +28,27 @@ class PatientProfileView extends StatefulWidget {
 class _PatientProfileViewState extends State<PatientProfileView> {
   late PatientProfile _patient;
   bool _archiving = false;
+  FormConfiguration? _config;
 
   @override
   void initState() {
     super.initState();
     _patient = widget.patient;
+    _loadConfig();
+  }
+
+  void _loadConfig() {
+    const FormConfigurationRepository()
+        .forPatient(_patient.id, forceRefresh: true)
+        .then((cfg) {
+      if (mounted) setState(() => _config = cfg);
+    }).catchError((_) {
+      final fallback = const FormConfigurationRepository()
+          .lastKnownForPatient(_patient.id);
+      if (fallback != null && mounted) {
+        setState(() => _config = fallback);
+      }
+    });
   }
 
   Future<void> _editProfile() async {
@@ -40,6 +59,7 @@ class _PatientProfileViewState extends State<PatientProfileView> {
 
     if (updated is PatientProfile && mounted) {
       setState(() => _patient = updated);
+      _loadConfig();
       AppToast.success(context, 'Patient profile updated.');
     }
   }
@@ -211,6 +231,7 @@ class _PatientProfileViewState extends State<PatientProfileView> {
   Widget build(BuildContext context) {
     final patient = _patient;
     final details = patient.details;
+    final policy = _config != null ? ConfiguredFieldPolicy(_config!) : null;
 
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
@@ -362,133 +383,173 @@ class _PatientProfileViewState extends State<PatientProfileView> {
                         label: 'Date of birth',
                         value: patient.dateOfBirth,
                       ),
-                      _InfoRow(label: 'Blood type', value: details?.bloodType),
-                      _InfoRow(
-                        label: 'Mother\'s maiden name',
-                        value: details?.motherMaidenName,
-                      ),
-                      _InfoRow(
-                        label: 'Civil status',
-                        value: _titleCase(details?.civilStatus),
-                      ),
-                      _InfoRow(
-                        label: 'Spouse name',
-                        value: details?.spouseName,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _SectionCard(
-                    title: 'Address and contact',
-                    children: [
-                      _InfoRow(label: 'Address', value: patient.address),
-                      _InfoRow(
-                        label: 'Municipality',
-                        value: details?.addressMunicipality,
-                      ),
-                      _InfoRow(
-                        label: 'Barangay',
-                        value: details?.addressBarangay,
-                      ),
-                      _InfoRow(
-                        label: 'Purok / street',
-                        value: details?.addressPurok,
-                      ),
-                      _InfoRow(label: 'Province', value: details?.province),
-                      _InfoRow(
-                        label: 'Contact number',
-                        value: patient.contactNumber,
-                      ),
-                      _InfoRow(label: 'Email', value: patient.email),
-                      _InfoRow(
-                        label: 'Emergency contact',
-                        value: patient.emergencyContactName,
-                      ),
-                      _InfoRow(
-                        label: 'Emergency contact number',
-                        value: patient.emergencyContactNumber,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _SectionCard(
-                    title: 'Socioeconomic information',
-                    children: [
-                      _InfoRow(
-                        label: 'Educational attainment',
-                        value: _titleCase(details?.educationalAttainment),
-                      ),
-                      _InfoRow(
-                        label: 'Employment status',
-                        value: _titleCase(details?.employmentStatus),
-                      ),
-                      _InfoRow(
-                        label: 'Family member position',
-                        value: _titleCase(details?.familyMember),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _SectionCard(
-                    title: 'Government programs and memberships',
-                    children: [
-                      _InfoRow(
-                        label: 'Has membership',
-                        value: _yesNo(
-                          details?.hasMembership ??
-                              (patient.memberships.isNotEmpty ? 'yes' : null),
+                      if (policy == null || policy.isProfileFieldVisible('blood_type'))
+                        _InfoRow(label: 'Blood type', value: details?.bloodType),
+                      if (policy == null || policy.isProfileFieldVisible('civil_status'))
+                        _InfoRow(
+                          label: 'Civil status',
+                          value: _titleCase(details?.civilStatus),
                         ),
-                      ),
-                      _InfoRow(
-                        label: 'PhilHealth member',
-                        value: _yesNo(details?.philhealthMember),
-                      ),
-                      _InfoRow(
-                        label: 'PhilHealth status',
-                        value: _titleCase(details?.philhealthStatus),
-                      ),
-                      _InfoRow(
-                        label: 'PhilHealth no.',
-                        value: _formatPhilHealth(details?.philhealthNo),
-                      ),
-                      _InfoRow(
-                        label: 'PhilHealth category',
-                        value: _titleCase(details?.philhealthCategory),
-                      ),
-                      _InfoRow(
-                        label: '4Ps member',
-                        value: _yesNo(details?.fourpsMember),
-                      ),
-                      _InfoRow(
-                        label: '4Ps category',
-                        value: details?.fourpsCategory,
-                      ),
-                      _InfoRow(
-                        label: '4Ps relationship',
-                        value: details?.fourpsRelationship,
-                      ),
-                      _InfoRow(
-                        label: 'Registered 4Ps beneficiary',
-                        value: details?.registeredFourpsBeneficiary,
-                      ),
-                      _InfoRow(
-                        label: 'DSWD NHTS',
-                        value: _yesNo(details?.dswdNhts),
-                      ),
-                      if (patient.memberships.isEmpty)
-                        const _InfoRow(
-                          label: 'Structured memberships',
-                          value: 'No structured memberships saved yet',
-                        )
-                      else
-                        ...patient.memberships.map(
-                          (membership) => _InfoRow(
-                            label: _membershipTitle(membership),
-                            value: _membershipDetails(membership),
+                      if (policy == null ||
+                          policy.isProfileFieldVisible(
+                            'spouse_name',
+                            civilStatus: details?.civilStatus,
+                          ))
+                        _InfoRow(
+                          label: 'Spouse name',
+                          value: details?.spouseName,
+                        ),
+                      if (policy == null || policy.isProfileFieldVisible('mother_maiden_name'))
+                        _InfoRow(
+                          label: 'Mother\'s maiden name',
+                          value: details?.motherMaidenName,
+                        ),
+                    ],
+                  ),
+                  if (policy == null || policy.isProfileSectionEnabled('address_section_enabled')) ...[
+                    const SizedBox(height: 16),
+                    _SectionCard(
+                      title: 'Address and contact',
+                      children: [
+                        _InfoRow(label: 'Address', value: patient.address),
+                        if (policy == null || policy.isProfileFieldVisible('address_municipality'))
+                          _InfoRow(
+                            label: 'Municipality',
+                            value: details?.addressMunicipality,
+                          ),
+                        if (policy == null || policy.isProfileFieldVisible('address_barangay'))
+                          _InfoRow(
+                            label: 'Barangay',
+                            value: details?.addressBarangay,
+                          ),
+                        if (policy == null || policy.isProfileFieldVisible('address_purok'))
+                          _InfoRow(
+                            label: 'Purok / street',
+                            value: details?.addressPurok,
+                          ),
+                        if (policy == null || policy.isProfileFieldVisible('province'))
+                          _InfoRow(label: 'Province', value: details?.province),
+                        _InfoRow(
+                          label: 'Contact number',
+                          value: patient.contactNumber,
+                        ),
+                        _InfoRow(label: 'Email', value: patient.email),
+                        _InfoRow(
+                          label: 'Emergency contact',
+                          value: patient.emergencyContactName,
+                        ),
+                        _InfoRow(
+                          label: 'Emergency contact number',
+                          value: patient.emergencyContactNumber,
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (policy == null || policy.isProfileSectionEnabled('socioeconomic_section_enabled')) ...[
+                    const SizedBox(height: 16),
+                    _SectionCard(
+                      title: 'Socioeconomic information',
+                      children: [
+                        if (policy == null || policy.isProfileFieldVisible('educational_attainment'))
+                          _InfoRow(
+                            label: 'Educational attainment',
+                            value: _titleCase(details?.educationalAttainment),
+                          ),
+                        if (policy == null || policy.isProfileFieldVisible('employment_status'))
+                          _InfoRow(
+                            label: 'Employment status',
+                            value: _titleCase(details?.employmentStatus),
+                          ),
+                        if (policy == null || policy.isProfileFieldVisible('family_member'))
+                          _InfoRow(
+                            label: 'Family member position',
+                            value: _titleCase(details?.familyMember),
+                          ),
+                      ],
+                    ),
+                  ],
+                  if (policy == null || policy.isProfileSectionEnabled('gov_programs_section_enabled')) ...[
+                    const SizedBox(height: 16),
+                    _SectionCard(
+                      title: 'Government programs and memberships',
+                      children: [
+                        _InfoRow(
+                          label: 'Has membership',
+                          value: _yesNo(
+                            details?.hasMembership ??
+                                (patient.memberships.isNotEmpty ? 'yes' : null),
                           ),
                         ),
-                    ],
-                  ),
+                        if (policy == null || policy.isProfileFieldVisible('philhealth_member'))
+                          _InfoRow(
+                            label: 'PhilHealth member',
+                            value: _yesNo(details?.philhealthMember),
+                          ),
+                        if (policy == null ||
+                            policy.isProfileFieldVisible(
+                              'philhealth_status',
+                              philhealthMember: details?.philhealthMember,
+                            ))
+                          _InfoRow(
+                            label: 'PhilHealth status',
+                            value: _titleCase(details?.philhealthStatus),
+                          ),
+                        if (policy == null ||
+                            policy.isProfileFieldVisible(
+                              'philhealth_no',
+                              philhealthMember: details?.philhealthMember,
+                            ))
+                          _InfoRow(
+                            label: 'PhilHealth no.',
+                            value: _formatPhilHealth(details?.philhealthNo),
+                          ),
+                        if (policy == null ||
+                            policy.isProfileFieldVisible(
+                              'philhealth_category',
+                              philhealthMember: details?.philhealthMember,
+                            ))
+                          _InfoRow(
+                            label: 'PhilHealth category',
+                            value: _titleCase(details?.philhealthCategory),
+                          ),
+                        if (policy == null || policy.isProfileFieldVisible('fourps_member')) ...[
+                          _InfoRow(
+                            label: '4Ps member',
+                            value: _yesNo(details?.fourpsMember),
+                          ),
+                          _InfoRow(
+                            label: '4Ps category',
+                            value: details?.fourpsCategory,
+                          ),
+                          _InfoRow(
+                            label: '4Ps relationship',
+                            value: details?.fourpsRelationship,
+                          ),
+                          _InfoRow(
+                            label: 'Registered 4Ps beneficiary',
+                            value: details?.registeredFourpsBeneficiary,
+                          ),
+                        ],
+                        if (policy == null || policy.isProfileFieldVisible('dswd_nhts'))
+                          _InfoRow(
+                            label: 'DSWD NHTS',
+                            value: _yesNo(details?.dswdNhts),
+                          ),
+                        if (patient.memberships.isEmpty)
+                          const _InfoRow(
+                            label: 'Structured memberships',
+                            value: 'No structured memberships saved yet',
+                          )
+                        else
+                          ...patient.memberships.map(
+                            (membership) => _InfoRow(
+                              label: _membershipTitle(membership),
+                              value: _membershipDetails(membership),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                   if (patient.relationship.toLowerCase() != 'self' && patient.isActive) ...[
                     const SizedBox(height: 16),
                     Container(

@@ -6,17 +6,39 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import '../app/api_config.dart';
+import '../models/announcement.dart';
+
 import '../models/booking_draft.dart';
 import '../models/bite_intake_draft.dart';
+import '../models/bite_intake_contract.dart';
+import '../models/form_configuration.dart';
 import '../models/appointment_summary.dart';
 import '../models/app_notification.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_account_profile.dart';
+import 'form_configuration_repository.dart';
 import 'psgc_service.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message);
+  const ApiException(
+    this.message, {
+    this.statusCode,
+    this.fieldErrors = const <String, List<String>>{},
+  });
+
   final String message;
+  final int? statusCode;
+  final Map<String, List<String>> fieldErrors;
+
+  bool get hasProfileErrors =>
+      fieldErrors.keys.any((key) => key.startsWith('profile.'));
+
+  Map<String, List<String>> get profileErrors => {
+    for (final entry in fieldErrors.entries)
+      if (entry.key.startsWith('profile.'))
+        entry.key.substring('profile.'.length): entry.value,
+  };
 
   @override
   String toString() => message;
@@ -28,17 +50,18 @@ class MobileApi {
   static final instance = MobileApi._();
 
   // API endpoint is deployment configuration, not a hard-coded LAN address.
-  static String get _baseUrl {
-    final baseUrl = dotenv.env['API_BASE_URL']?.trim().replaceAll(' ', '');
-    if (baseUrl == null || baseUrl.isEmpty) {
-      throw StateError('API_BASE_URL must be configured in mobile/.env.');
-    }
+  static String get _baseUrl => ApiConfig.resolveBaseUrl(
+    envUrl: dotenv.isInitialized ? dotenv.env['API_BASE_URL'] : null,
+  );
 
-    return baseUrl;
-  }
-  static int get clinicId => int.parse(dotenv.env['CLINIC_ID'] ?? '1');
+  static int get clinicId =>
+      int.tryParse(
+        (dotenv.isInitialized ? dotenv.env['CLINIC_ID'] : null) ?? '1',
+      ) ??
+      1;
 
-  static const _tokenKey = 'patient_account_token';
+  // Keep local and hosted sign-in sessions separate when replacing a build.
+  static String get _tokenKey => 'patient_account_token:$_baseUrl';
   static const _requestTimeout = Duration(seconds: 20);
   static const _storage = FlutterSecureStorage();
 
@@ -46,12 +69,31 @@ class MobileApi {
 
   bool get isAuthenticated => _token != null;
 
+  /// This public feed contains only published, unexpired announcements.
+  Future<List<Announcement>> fetchAnnouncements() async {
+    final rootUrl = _baseUrl.replaceFirst(RegExp(r'/mobile$'), '');
+    final response = await http
+        .get(
+          Uri.parse('$rootUrl/public/announcements'),
+          headers: {'Accept': 'application/json'},
+        )
+        .timeout(_requestTimeout);
+    if (response.statusCode != 200) {
+      throw const ApiException('Announcements are temporarily unavailable.');
+    }
+    final data = jsonDecode(response.body) as List<dynamic>;
+    return data
+        .map((item) => Announcement.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<void> initialize() async {
     _token = await _storage.read(key: _tokenKey);
   }
 
   Future<void> _setToken(String token, {required bool persist}) async {
     _token = token;
+    FormConfigurationRepository.clearCache();
     if (persist) {
       await _storage.write(key: _tokenKey, value: token);
     } else {
@@ -155,6 +197,7 @@ class MobileApi {
   Future<void> logout() async {
     if (_token != null) await _send('POST', '/logout');
     _token = null;
+    FormConfigurationRepository.clearCache();
     await _storage.delete(key: _tokenKey);
   }
 
@@ -248,6 +291,27 @@ class MobileApi {
         .toList();
   }
 
+  Future<BiteIntakeContract> biteIntakeContract() async {
+    final data =
+        await _send('GET', '/bite-intake-schema') as Map<String, dynamic>;
+    return BiteIntakeContract.fromJson(data);
+  }
+
+  Future<FormConfiguration> formConfiguration({
+    int? clinicId,
+    int? patientId,
+    int? appointmentId,
+  }) async {
+    final query = <String, String>{
+      if (clinicId != null) 'clinic_id': '$clinicId',
+      if (patientId != null) 'patient_id': '$patientId',
+      if (appointmentId != null) 'appointment_id': '$appointmentId',
+    };
+    final path = Uri(path: '/form-configuration', queryParameters: query).toString();
+    final data = await _send('GET', path) as Map<String, dynamic>;
+    return FormConfiguration.fromJson(data);
+  }
+
   Future<PatientProfile> createPatient(Map<String, dynamic> profile) async {
     final data = await _send(
       'POST',
@@ -273,7 +337,9 @@ class MobileApi {
     required PatientProfile patient,
     required BookingDraft booking,
     BiteIntakeDraft? intake,
+    Map<String, dynamic>? intakePayload,
   }) async {
+    final resolvedIntake = intakePayload ?? intake?.toJson();
     await _send(
       'POST',
       '/appointments',
@@ -284,7 +350,7 @@ class MobileApi {
         'time_slot': booking.timeSlot.name,
         if (booking.notes != null && booking.notes!.trim().isNotEmpty)
           'notes': booking.notes!.trim(),
-        if (intake != null) 'intake': intake.toJson(),
+        'intake': ?resolvedIntake,
       },
     );
   }
@@ -335,8 +401,40 @@ class MobileApi {
     return data;
   }
 
+  Future<Map<String, dynamic>> updateAppointmentIntake({
+    required int appointmentId,
+    required Map<String, dynamic> intake,
+  }) async {
+    final data = await _send(
+      'PUT',
+      '/appointments/$appointmentId/intake',
+      body: {'intake': intake},
+    );
+    return data is Map<String, dynamic> ? data : {};
+  }
+
+  Future<List<dynamic>> clinicFaqs() async {
+    final response = await _send('GET', '/clinic-faqs?clinic_id=$clinicId')
+        as Map<String, dynamic>;
+    return response['data'] as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> clinicResources({int? clinicId}) async {
+    final effectiveClinicId = clinicId ?? MobileApi.clinicId;
+    final data = await _send(
+      'GET',
+      '/clinic-resources?clinic_id=$effectiveClinicId',
+    );
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    return const <String, dynamic>{'data': <dynamic>[]};
+  }
+
   Future<Map<String, dynamic>> vaccinationCard(int patientId) async {
-    final data = await _send('GET', '/patients/$patientId/vaccination-card') as Map<String, dynamic>;
+    final data =
+        await _send('GET', '/patients/$patientId/vaccination-card')
+            as Map<String, dynamic>;
     return data;
   }
 
@@ -364,10 +462,12 @@ class MobileApi {
     final targetId = id ?? clinicId;
     final rootUrl = _baseUrl.replaceAll('/api/mobile', '/api');
     try {
-      final response = await http.get(
-        Uri.parse('$rootUrl/clinics/$targetId/schedule-summary'),
-        headers: {'Accept': 'application/json'},
-      ).timeout(_requestTimeout);
+      final response = await http
+          .get(
+            Uri.parse('$rootUrl/clinics/$targetId/schedule-summary'),
+            headers: {'Accept': 'application/json'},
+          )
+          .timeout(_requestTimeout);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -400,8 +500,12 @@ class MobileApi {
         request = http.get(uri, headers: headers);
       case 'POST':
         request = http.post(uri, headers: headers, body: encodedBody);
+      case 'PUT':
+        request = http.put(uri, headers: headers, body: encodedBody);
       case 'PATCH':
         request = http.patch(uri, headers: headers, body: encodedBody);
+      case 'DELETE':
+        request = http.delete(uri, headers: headers, body: encodedBody);
       default:
         throw ArgumentError.value(method, 'method');
     }
@@ -435,30 +539,59 @@ class MobileApi {
     }
 
     if (response.statusCode == 403) {
-      final msg = (decoded is Map<String, dynamic>) ? decoded['message']?.toString() : null;
-      throw ApiException(msg ?? 'You do not have permission to perform this action.');
+      final msg = (decoded is Map<String, dynamic>)
+          ? decoded['message']?.toString()
+          : null;
+      throw ApiException(
+        msg ?? 'You do not have permission to perform this action.',
+      );
     }
 
     if (response.statusCode == 404) {
-      final msg = (decoded is Map<String, dynamic>) ? decoded['message']?.toString() : null;
+      final msg = (decoded is Map<String, dynamic>)
+          ? decoded['message']?.toString()
+          : null;
       throw ApiException(msg ?? 'The requested clinic resource was not found.');
     }
 
     if (response.statusCode >= 500) {
-      throw const ApiException('Clinic server is temporarily unavailable. Please try again later.');
+      throw const ApiException(
+        'Clinic server is temporarily unavailable. Please try again later.',
+      );
     }
 
     if (decoded is Map<String, dynamic>) {
-      final errors = decoded['errors'];
-      if (errors is Map<String, dynamic> && errors.isNotEmpty) {
-        final first = errors.values.first;
-        if (first is List && first.isNotEmpty) {
-          throw ApiException(first.first.toString());
+      final rawErrors = decoded['errors'];
+      final parsedErrors = <String, List<String>>{};
+      if (rawErrors is Map<String, dynamic>) {
+        for (final entry in rawErrors.entries) {
+          final value = entry.value;
+          if (value is List) {
+            parsedErrors[entry.key] = value.map((e) => e.toString()).toList();
+          } else if (value != null) {
+            parsedErrors[entry.key] = [value.toString()];
+          }
         }
       }
-      throw ApiException(decoded['message']?.toString() ?? 'Request failed.');
+      if (parsedErrors.isNotEmpty) {
+        final firstList = parsedErrors.values.first;
+        if (firstList.isNotEmpty) {
+          throw ApiException(
+            firstList.first,
+            statusCode: response.statusCode,
+            fieldErrors: parsedErrors,
+          );
+        }
+      }
+      throw ApiException(
+        decoded['message']?.toString() ?? 'Request failed.',
+        statusCode: response.statusCode,
+        fieldErrors: parsedErrors,
+      );
     }
 
-    throw const ApiException('Could not complete request with the clinic server.');
+    throw const ApiException(
+      'Could not complete request with the clinic server.',
+    );
   }
 }

@@ -1,13 +1,14 @@
 import { styled } from '@mui/material/styles';
 
 export const ConsultationDialog = styled('div')({
+  fontFamily: "'Poppins', sans-serif",
   '--registration-error-color': '#b91c1c',
   '[data-theme="dark"] &': { '--registration-error-color': '#fca5a5' },
-  '&& [role="dialog"]': { padding: '16px', overscrollBehavior: 'contain' },
-  '&& .registration-form': { margin: 0 },
-  '&& .registration-intro': { margin: '0 0 24px', fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary, #475569)' },
+  '&& [role="dialog"]': { padding: '16px', overscrollBehavior: 'contain', fontFamily: "'Poppins', sans-serif" },
+  '&& .registration-form': { margin: 0, fontFamily: "'Poppins', sans-serif" },
+  '&& .registration-intro': { margin: '0 0 24px', fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary, #475569)', fontFamily: "'Poppins', sans-serif" },
   '&& .registration-intro strong': { color: 'var(--text-h, #111827)' },
-  '&& .fm-section': { marginBottom: 28 },
+  '&& .fm-section': { marginBottom: 28, fontFamily: "'Poppins', sans-serif" },
   '&& .fm-section:last-child': { marginBottom: 0 },
   '&& .fm-section-title': {
     fontSize: 12,
@@ -19,14 +20,15 @@ export const ConsultationDialog = styled('div')({
     margin: '0 0 16px',
     paddingBottom: 10,
     borderBottom: '1px solid var(--nav-item-active-bg, #ecfdf5)',
+    fontFamily: "'Poppins', sans-serif",
   },
-  '&& .fm-grid': { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '20px 24px', alignItems: 'start' },
+  '&& .fm-grid': { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '20px 24px', alignItems: 'start', fontFamily: "'Poppins', sans-serif" },
   '&& .fm-grid--1': { gridTemplateColumns: 'minmax(0, 1fr)' },
   '&& .fm-grid--2': { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' },
   '&& .fm-grid--full': { gridColumn: '1 / -1' },
-  '&& .fm-field': { minWidth: 0, gap: 8, scrollMarginBlock: 20, display: 'flex', flexDirection: 'column' },
+  '&& .fm-field': { minWidth: 0, gap: 8, scrollMarginTop: 90, scrollMarginBlock: 80, display: 'flex', flexDirection: 'column', fontFamily: "'Poppins', sans-serif" },
   '&& .fm-field--error': { padding: '0 !important', border: '0 !important', background: 'transparent !important', boxShadow: 'none !important' },
-  '&& .fm-label': { fontSize: 13, lineHeight: 1.5, fontWeight: 600, color: 'var(--text-h, #374151)' },
+  '&& .fm-label': { fontSize: 13, lineHeight: 1.5, fontWeight: 600, color: 'var(--text-h, #374151)', fontFamily: "'Poppins', sans-serif" },
   '&& .fm-label span': { color: 'var(--registration-error-color)', marginLeft: 2 },
   '&& .fm-input, && .fm-select': {
     minHeight: 46,
@@ -60,10 +62,12 @@ export const ConsultationDialog = styled('div')({
     transition: 'border-color 0.15s, box-shadow 0.15s',
   },
   '&& .fm-input:hover:not(:disabled), && .fm-select:hover:not(:disabled), && .fm-textarea:hover:not(:disabled)': {
-    borderColor: 'var(--nav-item-active-color, #047857) !important',
+    borderColor: '#10b981 !important',
   },
-  '&& .fm-input:focus, && .fm-select:focus, && .fm-textarea:focus': {
-    borderColor: 'var(--nav-item-active-color, #047857) !important',
+  '&& .fm-input:focus, && .fm-select:focus, && .fm-textarea:focus, && :is(input, select, textarea):focus, && :is(input, select, textarea):focus-visible': {
+    outline: 'none !important',
+    borderColor: '#10b981 !important',
+    boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.1) !important',
   },
   '&& .fm-input:disabled, && .fm-select:disabled, && .fm-textarea:disabled': {
     background: 'var(--bg-secondary, #f1f5f9)',
@@ -72,11 +76,37 @@ export const ConsultationDialog = styled('div')({
     cursor: 'not-allowed',
     borderColor: 'var(--border-color, #cbd5e1) !important',
   },
-  '&& .fm-field--error :is(.fm-input, .fm-select, .fm-textarea)': {
-    borderColor: 'var(--registration-error-color) !important',
+  '&& .fm-field--error :is(input, select, textarea), && :is(input, select, textarea)[aria-invalid="true"]': {
+    borderColor: '#ef4444 !important',
   },
-  '&& :is(input, select, textarea, button):focus-visible': {
-    outline: '3px solid var(--nav-item-active-color, #047857)',
+  '&& .fm-field--error :is(input, select, textarea):hover, && :is(input, select, textarea)[aria-invalid="true"]:hover': {
+    borderColor: '#dc2626 !important',
+  },
+  '&& .fm-field--error :is(input, select, textarea):focus, && .fm-field--error :is(input, select, textarea):focus-visible, && :is(input, select, textarea)[aria-invalid="true"]:focus, && :is(input, select, textarea)[aria-invalid="true"]:focus-visible': {
+    outline: 'none !important',
+    borderColor: '#ef4444 !important',
+    boxShadow: '0 0 0 4px rgba(239, 68, 68, 0.18) !important',
+  },
+  '&& .fm-field--error .fm-radio-group, && .fm-field--error [role="radiogroup"], && .fm-field--error [role="group"]': {
+    border: '1.5px solid #ef4444 !important',
+    borderRadius: 8,
+    padding: '8px 12px',
+    backgroundColor: '#fef2f2',
+    transition: 'border-color 0.15s, background-color 0.15s',
+  },
+  '&& .fm-field--error:focus-within .fm-radio-group, && .fm-field--error:focus-within [role="radiogroup"], && .fm-field--error:focus-within [role="group"]': {
+    borderColor: '#dc2626 !important',
+    boxShadow: '0 0 0 4px rgba(239, 68, 68, 0.18) !important',
+  },
+  '&& .fm-field--error input[type="radio"], && .fm-field--error input[type="checkbox"]': {
+    accentColor: '#dc2626 !important',
+  },
+  '&& .fm-field--error input[type="radio"]:focus, && .fm-field--error input[type="checkbox"]:focus': {
+    outline: '2px solid #ef4444 !important',
+    outlineOffset: 2,
+  },
+  '&& button:focus-visible': {
+    outline: '3px solid #10b981',
     outlineOffset: 3,
     boxShadow: 'none',
   },
@@ -106,11 +136,17 @@ export const ConsultationDialog = styled('div')({
     display: 'block',
     fontSize: 12,
     lineHeight: 1.5,
-    fontWeight: 500,
-    color: 'var(--registration-error-color)',
+    fontWeight: 600,
+    color: 'var(--registration-error-color, #dc2626)',
     marginTop: 4,
   },
-  '&& .registration-field-hint': { fontSize: 12, lineHeight: 1.5, color: 'var(--text-secondary, #475569)', marginTop: 4 },
+  '&& .registration-field-hint': {
+    fontSize: 12,
+    lineHeight: 1.5,
+    color: 'var(--text-secondary, #475569)',
+    marginTop: 4,
+    fontFamily: "'Poppins', sans-serif",
+  },
   '&& .registration-error': {
     margin: '0 0 20px',
     padding: '12px 16px',

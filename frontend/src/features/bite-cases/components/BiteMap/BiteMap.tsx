@@ -1,4 +1,7 @@
-import { useEffect } from 'react';
+import { Button } from '@mui/material';
+import { Visibility } from '@mui/icons-material';
+import BiteCaseDetailsModal from './BiteCaseDetailsModal';
+import { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import { Icon, LatLngBounds, divIcon, point } from 'leaflet';
@@ -43,6 +46,17 @@ function MapViewController({ cases, mapCenter, mapZoom }: { cases: BiteMapCase[]
     }
   }, [cases, mapCenter, mapZoom, map]);
 
+  useEffect(() => {
+    const handleExpandCluster = () => {
+      if (cases.length > 0) {
+        const target = cases[0];
+        map.setView([target.latitude, target.longitude], 16, { animate: true });
+      }
+    };
+    window.addEventListener('abtc:bitemap-show-pins-popup', handleExpandCluster);
+    return () => window.removeEventListener('abtc:bitemap-show-pins-popup', handleExpandCluster);
+  }, [cases, map]);
+
   return null;
 }
 
@@ -63,7 +77,7 @@ function createCustomIcon(severity: string) {
   return divIcon({
     className: 'custom-marker-icon',
     html: `
-      <div style="
+      <div data-tour="bite-map-marker" style="
         position: relative;
         width: 25px;
         height: 25px;
@@ -154,7 +168,8 @@ const createClusterCustomIcon = (cluster: any) => {
   return divIcon({
     html: `
       <div 
-        title="${tooltipText}"
+        data-tour="bite-map-cluster" data-walkthrough="bitemap-cluster" title="${tooltipText}"
+        onclick="window.dispatchEvent(new CustomEvent('abtc:bitemap-show-pins-popup'))"
         style="
           width: 42px;
           height: 42px;
@@ -192,12 +207,28 @@ const createClusterCustomIcon = (cluster: any) => {
 };
 
 export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', onMarkerClick }: Props) {
+  const [selectedCase, setSelectedCase] = useState<BiteMapCase | null>(null);
+  const firstMarkerRef = useRef<any>(null);
+
+  useEffect(() => {
+    const handleOpenPopup = () => {
+      setTimeout(() => {
+        if (firstMarkerRef.current) {
+          firstMarkerRef.current.openPopup();
+        }
+      }, 450);
+    };
+    window.addEventListener('abtc:bitemap-show-pins-popup', handleOpenPopup);
+    return () => window.removeEventListener('abtc:bitemap-show-pins-popup', handleOpenPopup);
+  }, []);
+
   const defaultCenter: [number, number] = mapCenter 
     ? [mapCenter.latitude, mapCenter.longitude]
     : [14.5995, 120.9842];
   const defaultZoomLevel = mapZoom || 12;
 
   return (
+    <>
     <BiteMapRoot>
       <MapContainer
         center={defaultCenter}
@@ -276,10 +307,20 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
           <MarkerClusterGroup
             chunkedLoading
             iconCreateFunction={createClusterCustomIcon}
+            eventHandlers={{
+              clusterclick: () => {
+                window.dispatchEvent(new CustomEvent('abtc:bitemap-show-pins-popup'));
+              },
+            }}
           >
-            {cases.map((caseData) => (
+            {cases.map((caseData, idx) => (
               <Marker
                 key={caseData.bite_id}
+                ref={(node) => {
+                  if (idx === 0) {
+                    firstMarkerRef.current = node;
+                  }
+                }}
                 position={[caseData.latitude, caseData.longitude]}
                 icon={createCustomIcon(caseData.severity)}
                 title={caseData.severity}
@@ -323,7 +364,7 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
                           <strong>Patient Residence:</strong> {caseData.patient_residence}
                         </p>
                       )}
-                      <p style={{ margin: '3px 0' }}><strong>Animal:</strong> {caseData.animal_type}</p>
+                      <p style={{ margin: '3px 0' }}><strong>Animal:</strong> {({ dog: 'Dog', cat: 'Cat', other: 'Other' } as Record<string, string>)[caseData.animal_type?.toLowerCase()] || (caseData.animal_type && caseData.animal_type !== 'unknown' ? caseData.animal_type : 'Unknown')}</p>
                       <p style={{ margin: '3px 0' }}>
                         <strong>WHO Category:</strong>{' '}
                         <span style={{ 
@@ -337,6 +378,42 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
                            'Pending Assessment'}
                         </span>
                       </p>
+                      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          startIcon={<Visibility sx={{ fontSize: '15px !important' }} />}
+                          onClick={() => setSelectedCase(caseData)}
+                          sx={{
+                            bgcolor: '#059669',
+                            color: '#ffffff',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            lineHeight: 1.3,
+                            padding: '4px 12px',
+                            minHeight: 'unset',
+                            borderRadius: '6px',
+                            textTransform: 'none',
+                            boxShadow: 'none',
+                            cursor: 'pointer',
+                            '& .MuiButton-startIcon': {
+                              marginRight: '6px',
+                              marginLeft: 0,
+                            },
+                            '&:hover': {
+                              bgcolor: '#047857',
+                              boxShadow: '0 2px 4px rgba(5, 150, 105, 0.25)',
+                            },
+                            '&:focus-visible': {
+                              outline: '2px solid #047857',
+                              outlineOffset: '2px',
+                              boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.35)',
+                            },
+                          }}
+                        >
+                          View Details
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </Popup>
@@ -346,5 +423,7 @@ export default function BiteMap({ cases, mapCenter, mapZoom, viewMode = 'pins', 
         )}
       </MapContainer>
     </BiteMapRoot>
+    {selectedCase && <BiteCaseDetailsModal key={selectedCase.bite_id} biteId={selectedCase.bite_id} caseNumber={selectedCase.case_number} onClose={() => setSelectedCase(null)} />}
+    </>
   );
 }

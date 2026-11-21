@@ -703,14 +703,14 @@ export default function StockLevelIndicator({
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           ...(isDark
             ? {
-                background: 'radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%)',
-                border: '1px solid rgba(163, 230, 53, 0.3)',
-                boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2)',
+                background: '#111827',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
               }
             : {
-                background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
-                border: '1px solid rgba(16, 185, 129, 0.32)',
-                boxShadow: '0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95)',
+                background: '#ffffff',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
               }),
         }}
       >
@@ -724,7 +724,7 @@ export default function StockLevelIndicator({
           gap: 1.5,
           pb: 1.5,
           mb: 2,
-          borderBottom: isDark ? '1px solid rgba(163, 230, 53, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)',
+          borderBottom: isDark ? '1px solid rgba(16, 185, 129, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)',
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
@@ -785,25 +785,32 @@ export default function StockLevelIndicator({
         >
           {stockList.map((item) => {
             const visual = evaluateStockLevelTier(item.total_stock, item.earliest_expiration, isDark);
+            const hoverShadow = isDark
+              ? visual.tier === 'red'
+                ? '0 8px 24px rgba(239, 68, 68, 0.35), 0 0 16px rgba(239, 68, 68, 0.25)'
+                : visual.tier === 'yellow'
+                ? '0 8px 24px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.25)'
+                : '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+              : visual.tier === 'red'
+              ? '0 8px 22px rgba(239, 68, 68, 0.28), 0 2px 8px rgba(239, 68, 68, 0.16)'
+              : visual.tier === 'yellow'
+              ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
+              : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
 
             return (
               <Box
                 key={item.vaccine_type}
                 sx={{
                   borderRadius: '20px',
-                  bgcolor: isDark ? 'rgba(16, 185, 129, 0.06)' : 'rgba(255, 255, 255, 0.85)',
-                  border: isDark ? '1px solid rgba(163, 230, 53, 0.25)' : '1px solid rgba(16, 185, 129, 0.25)',
+                  bgcolor: isDark ? '#111827' : '#ffffff',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
                   overflow: 'hidden',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                   boxShadow: isDark
-                    ? '0 4px 16px rgba(0, 0, 0, 0.4)'
-                    : '0 4px 14px rgba(16, 185, 129, 0.08)',
+                    ? '0 2px 8px rgba(0, 0, 0, 0.3)'
+                    : '0 1px 3px rgba(0, 0, 0, 0.04)',
                   '&:hover': {
-                    transform: 'translateY(-3px)',
-                    borderColor: isDark ? 'rgba(163, 230, 53, 0.5)' : 'rgba(16, 185, 129, 0.5)',
-                    boxShadow: isDark
-                      ? '0 8px 24px rgba(0, 0, 0, 0.6), 0 0 20px rgba(163, 230, 53, 0.2)'
-                      : '0 8px 20px rgba(16, 185, 129, 0.18)',
+                    boxShadow: hoverShadow,
                   },
                 }}
               >

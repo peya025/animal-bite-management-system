@@ -1,33 +1,87 @@
-﻿import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import { SetupWizardRoot } from '../styles/SetupWizard.styles';
 import { ROUTES } from '../../../shared/config/routes';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
+import { MISAMIS_ORIENTAL_MUNICIPALITIES, FALLBACK_BARANGAYS } from '../../patients/hooks/useAddressLocation';
+import type { PsgcItem } from '../../patients/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
+const PSGC_API = 'https://psgc.gitlab.io/api';
+
+const DEFAULT_PROVINCES: PsgcItem[] = [
+  { code: '104300000', name: 'Misamis Oriental' },
+  { code: '101300000', name: 'Bukidnon' },
+  { code: '101800000', name: 'Camiguin' },
+  { code: '103500000', name: 'Lanao Del Norte' },
+  { code: '104200000', name: 'Misamis Occidental' },
+  { code: '130000000', name: 'Metro Manila (NCR)' },
+  { code: '072200000', name: 'Cebu' },
+  { code: '112400000', name: 'Davao Del Sur' },
+  { code: '043400000', name: 'Laguna' },
+  { code: '042100000', name: 'Cavite' },
+  { code: '041000000', name: 'Batangas' },
+  { code: '045800000', name: 'Rizal' },
+  { code: '035400000', name: 'Pampanga' },
+  { code: '031400000', name: 'Bulacan' },
+  { code: '064500000', name: 'Negros Occidental' },
+  { code: '063000000', name: 'Iloilo' },
+];
+
 export default function SetupWizard() {
-  const [currentStep, setCurrentStep] = useState(0);
+  const draft = useFormDraft('setup-wizard');
+
+  const [currentStep, setCurrentStep] = useState(1);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [setupData, setSetupData] = useState({
-    // Step 1: Admin Account
-    clinicName: '',
-    adminName: '',
-    adminEmail: '',
-    adminPassword: '',
-    adminPasswordConfirm: '',
-    
-    // Step 2: Customize
-    appName: 'Animal Bite Center',
-    logo: null as File | null,
-    primaryColor: '#10b981',
-    
-    // Step 3: Clinic Profile
-    address: '',
-    phone: '',
-    email: '',
+  const [setupData, setSetupData] = useState(() => {
+    // Restore draft if one exists — never restore passwords
+    const saved = draft.readDraft<{
+      clinicName: string;
+      adminName: string;
+      adminEmail: string;
+      appName: string;
+      primaryColor: string;
+      address: string;
+      province: string;
+      provinceCode: string;
+      municipality: string;
+      municipalityCode: string;
+      barangay: string;
+      barangayCode: string;
+      street: string;
+      phone: string;
+      email: string;
+    }>();
+    return {
+      // Step 1: Admin Account
+      clinicName: saved?.clinicName ?? '',
+      adminName: saved?.adminName ?? '',
+      adminEmail: saved?.adminEmail ?? '',
+      adminPassword: '',           // never persisted
+      adminPasswordConfirm: '',    // never persisted
+
+      // Step 2: Customize
+      appName: saved?.appName ?? 'Animal Bite Center',
+      logo: null as File | null,
+      primaryColor: saved?.primaryColor ?? '#10b981',
+
+      // Step 3: Clinic Profile
+      address: saved?.address ?? '',
+      province: saved?.province ?? '',
+      provinceCode: saved?.provinceCode ?? '',
+      municipality: saved?.municipality ?? '',
+      municipalityCode: saved?.municipalityCode ?? '',
+      barangay: saved?.barangay ?? '',
+      barangayCode: saved?.barangayCode ?? '',
+      street: saved?.street ?? '',
+      phone: saved?.phone ?? '',
+      email: saved?.email ?? '',
+    };
   });
 
   const steps = [
@@ -85,27 +139,68 @@ export default function SetupWizard() {
   ];
 
   const handleNext = async () => {
-    // Step 1: Admin Account Creation (PUBLIC - no auth required)
+    // Step 1: Admin Account Creation (PUBLIC - no auth required on initial creation)
     if (currentStep === 1) {
       const step1Errors: Record<string, string> = {};
       if (!setupData.clinicName) step1Errors.clinicName = 'Clinic Name is required';
       if (!setupData.adminName) step1Errors.adminName = 'Your Full Name is required';
       if (!setupData.adminEmail) step1Errors.adminEmail = 'Email Address is required';
-      if (!setupData.adminPassword) step1Errors.adminPassword = 'Password is required';
-      if (!setupData.adminPasswordConfirm) step1Errors.adminPasswordConfirm = 'Confirm Password is required';
-      
+
+      const token = localStorage.getItem('authToken');
+      const isAlreadyInitialized = !!token;
+
+      // Only require password if the account has not been initialized yet
+      if (!isAlreadyInitialized) {
+        if (!setupData.adminPassword) step1Errors.adminPassword = 'Password is required';
+        if (!setupData.adminPasswordConfirm) step1Errors.adminPasswordConfirm = 'Confirm Password is required';
+      }
+
+      if (setupData.adminPassword && setupData.adminPassword !== setupData.adminPasswordConfirm) {
+        step1Errors.adminPasswordConfirm = 'Passwords do not match';
+      }
+
+      if (setupData.adminPassword && setupData.adminPassword.length < 8) {
+        step1Errors.adminPassword = 'Password must be at least 8 characters';
+      }
+
       if (Object.keys(step1Errors).length > 0) {
         setErrors(step1Errors);
         return;
       }
-      
-      if (setupData.adminPassword !== setupData.adminPasswordConfirm) {
-        setErrors({ adminPasswordConfirm: 'Passwords do not match' });
-        return;
-      }
-      
-      if (setupData.adminPassword.length < 8) {
-        setErrors({ adminPassword: 'Password must be at least 8 characters' });
+
+      if (isAlreadyInitialized) {
+        // Account already initialized. User went back to Step 1 and clicked Next.
+        // Sync any updated clinic name or admin name without re-calling initialize.
+        try {
+          await fetch(`${API_BASE_URL}/setup/clinic`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              name: setupData.clinicName,
+            }),
+          });
+
+          await fetch(`${API_BASE_URL}/me`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              name: setupData.adminName,
+            }),
+          });
+        } catch (e) {
+          console.warn('Non-fatal error updating admin/clinic on Step 1 revisit:', e);
+        }
+
+        setErrors({});
+        setCurrentStep(2);
         return;
       }
 
@@ -133,11 +228,12 @@ export default function SetupWizard() {
         }
 
         const data = await response.json();
-        
+
         // Store authentication token
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('userData', JSON.stringify(data.user));
         localStorage.setItem('clinicData', JSON.stringify(data.clinic));
+        localStorage.setItem('lastActivityAt', String(Date.now()));
 
         // Proceed to next step (now authenticated!)
         setErrors({});
@@ -156,14 +252,11 @@ export default function SetupWizard() {
       const step3Errors: Record<string, string> = {};
       if (!setupData.address) step3Errors.address = 'Address is required';
       if (!setupData.phone) step3Errors.phone = 'Phone number is required';
+      else if (!/^09\d{9}$/.test(setupData.phone.trim())) step3Errors.phone = 'Mobile number must start with 09 and contain 11 digits.';
       if (!setupData.email) step3Errors.email = 'Email Address is required';
       
       if (Object.keys(step3Errors).length > 0) {
         setErrors(step3Errors);
-        return;
-      }
-      if (setupData.phone.length !== 11) {
-        setErrors({ phone: 'Phone number must be exactly 11 digits' });
         return;
       }
     }
@@ -182,6 +275,32 @@ export default function SetupWizard() {
       setErrors({});
       setCurrentStep(currentStep - 1);
     }
+  };
+
+  /** Wraps setSetupData to also persist a draft of non-sensitive fields */
+  const setSetupDataWithDraft: typeof setSetupData = (valOrUpdater) => {
+    setSetupData(prev => {
+      const next = typeof valOrUpdater === 'function' ? valOrUpdater(prev) : valOrUpdater;
+      draft.saveDraft({
+        clinicName:       next.clinicName,
+        adminName:        next.adminName,
+        adminEmail:       next.adminEmail,
+        // passwords intentionally excluded
+        appName:          next.appName,
+        primaryColor:     next.primaryColor,
+        address:          next.address,
+        province:         next.province,
+        provinceCode:     next.provinceCode,
+        municipality:     next.municipality,
+        municipalityCode: next.municipalityCode,
+        barangay:         next.barangay,
+        barangayCode:     next.barangayCode,
+        street:           next.street,
+        phone:            next.phone,
+        email:            next.email,
+      });
+      return next;
+    });
   };
 
   const handleCompleteSetup = async () => {
@@ -209,6 +328,8 @@ export default function SetupWizard() {
         body: JSON.stringify({
           name:           setupData.clinicName,
           address:        setupData.address,
+          municipality:   setupData.municipality || undefined,
+          province:       setupData.province || undefined,
           contact_number: setupData.phone,   // ← backend column is contact_number
           email:          setupData.email,
         }),
@@ -257,6 +378,7 @@ export default function SetupWizard() {
         localStorage.setItem('userData', JSON.stringify(userData));
 
         setShowSuccessModal(true);
+        draft.clearDraft();
         setTimeout(() => {
           window.location.href = ROUTES.DASHBOARD;
         }, 2000);
@@ -408,13 +530,13 @@ export default function SetupWizard() {
             {/* Stepper Card Content */}
             <div className="setup-content">
               {currentStep === 1 && (
-                <AdminAccountStep data={setupData} setData={setSetupData} errors={errors} setErrors={setErrors} />
+                <AdminAccountStep data={setupData} setData={setSetupDataWithDraft} errors={errors} setErrors={setErrors} />
               )}
               {currentStep === 2 && (
-                <CustomizeStep data={setupData} setData={setSetupData} />
+                <CustomizeStep data={setupData} setData={setSetupDataWithDraft} />
               )}
               {currentStep === 3 && (
-                <ClinicProfileStep data={setupData} setData={setSetupData} errors={errors} setErrors={setErrors} />
+                <ClinicProfileStep data={setupData} setData={setSetupDataWithDraft} errors={errors} setErrors={setErrors} />
               )}
               {currentStep === 4 && (
                 <ConfirmStep data={setupData} />
@@ -426,6 +548,7 @@ export default function SetupWizard() {
 
             {/* Actions Bar */}
             <div className="setup-actions">
+              <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} style={{ marginRight: 'auto', alignSelf: 'center' }} />
               {currentStep > 1 && currentStep < 5 && (
                 <button className="btn-back" onClick={handleBack}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -542,6 +665,9 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
 function AdminAccountStep({ data, setData, errors, setErrors }: any) {
   const [passwordsMatch, setPasswordsMatch] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const isAlreadyInitialized = !!localStorage.getItem('authToken');
 
   /** 23.1 — Blur-first per-field validation for Step 1 */
   const handleBlur = (field: string) => () => {
@@ -562,14 +688,24 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
           else delete next.adminEmail;
           break;
         case 'adminPassword':
-          if (!data.adminPassword) next.adminPassword = 'Password is required';
-          else if (data.adminPassword.length < 8) next.adminPassword = 'Password must be at least 8 characters';
-          else delete next.adminPassword;
+          if (!data.adminPassword) {
+            if (!isAlreadyInitialized) next.adminPassword = 'Password is required';
+            else delete next.adminPassword;
+          } else if (data.adminPassword.length < 8) {
+            next.adminPassword = 'Password must be at least 8 characters';
+          } else {
+            delete next.adminPassword;
+          }
           break;
         case 'adminPasswordConfirm':
-          if (!data.adminPasswordConfirm) next.adminPasswordConfirm = 'Confirm Password is required';
-          else if (data.adminPasswordConfirm !== data.adminPassword) next.adminPasswordConfirm = 'Passwords do not match';
-          else delete next.adminPasswordConfirm;
+          if (!data.adminPasswordConfirm) {
+            if (!isAlreadyInitialized) next.adminPasswordConfirm = 'Confirm Password is required';
+            else delete next.adminPasswordConfirm;
+          } else if (data.adminPasswordConfirm !== data.adminPassword) {
+            next.adminPasswordConfirm = 'Passwords do not match';
+          } else {
+            delete next.adminPasswordConfirm;
+          }
           break;
         default:
           break;
@@ -716,13 +852,13 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
         </div>
         </div>{/* end form-row: Name + Email */}
 
-        {/* 23.2 — 2-column pair: Password + Confirm Password */}
+        {/* 23.2 — 2-column pair: Password + Confirm Password with Visibility Toggles */}
         <div className="form-row">
         <div className="form-group">
-          <label>Password *</label>
+          <label>Password {isAlreadyInitialized ? '(Optional)' : '*'}</label>
           <div className="input-with-icon">
             <input
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               value={data.adminPassword}
               onChange={(e) => {
                 setData({ ...data, adminPassword: e.target.value });
@@ -734,10 +870,11 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
                   });
                 }
               }}
-              placeholder="Minimum 8 characters"
+              placeholder={isAlreadyInitialized ? '•••••••• (Keep current password)' : 'Minimum 8 characters'}
               onBlur={handleBlur('adminPassword')}
               className={errors?.adminPassword ? 'has-error' : ''}
-              required
+              required={!isAlreadyInitialized}
+              style={{ paddingRight: '48px' }}
             />
             <div className="input-icon-wrapper">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -745,6 +882,25 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
             </div>
+            <button
+              type="button"
+              className="password-toggle-btn"
+              onClick={() => setShowPassword(!showPassword)}
+              title={showPassword ? 'Hide password' : 'Show password'}
+              tabIndex={-1}
+            >
+              {showPassword ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.26 3.64m-5.88-2.88a3 3 0 0 1-4.24-4.24" />
+                  <line x1="1" y1="23" x2="23" y2="1" />
+                </svg>
+              )}
+            </button>
           </div>
           {errors?.adminPassword ? (
             <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -755,6 +911,10 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
               </svg>
               <span>{errors.adminPassword}</span>
             </div>
+          ) : isAlreadyInitialized ? (
+            <p style={{ fontSize: '11px', color: '#10b981', marginTop: '6px', fontWeight: 500 }}>
+              Admin account already created. Leave blank to keep existing password.
+            </p>
           ) : (
             <p style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', fontWeight: 500 }}>
               Must contain uppercase, lowercase, and a number
@@ -763,10 +923,10 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
         </div>
 
         <div className="form-group">
-          <label>Confirm Password *</label>
+          <label>Confirm Password {isAlreadyInitialized ? '(Optional)' : '*'}</label>
           <div className="input-with-icon">
             <input
-              type="password"
+              type={showConfirmPassword ? 'text' : 'password'}
               value={data.adminPasswordConfirm}
               onChange={(e) => {
                 setData({ ...data, adminPasswordConfirm: e.target.value });
@@ -779,10 +939,11 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
                   });
                 }
               }}
-              placeholder="Re-enter password"
+              placeholder={isAlreadyInitialized ? '•••••••• (Keep current password)' : 'Re-enter password'}
               onBlur={handleBlur('adminPasswordConfirm')}
               className={errors?.adminPasswordConfirm ? 'has-error' : ''}
-              required
+              required={!isAlreadyInitialized}
+              style={{ paddingRight: '48px' }}
             />
             <div className="input-icon-wrapper">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -790,6 +951,25 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
             </div>
+            <button
+              type="button"
+              className="password-toggle-btn"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              title={showConfirmPassword ? 'Hide password' : 'Show password'}
+              tabIndex={-1}
+            >
+              {showConfirmPassword ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.26 3.64m-5.88-2.88a3 3 0 0 1-4.24-4.24" />
+                  <line x1="1" y1="23" x2="23" y2="1" />
+                </svg>
+              )}
+            </button>
           </div>
           {errors?.adminPasswordConfirm ? (
             <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -932,6 +1112,205 @@ function CustomizeStep({ data, setData }: any) {
 }
 
 function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
+  const [provinces, setProvinces] = useState<PsgcItem[]>(DEFAULT_PROVINCES);
+  const [cities, setCities] = useState<PsgcItem[]>([]);
+  const [barangays, setBarangays] = useState<PsgcItem[]>([]);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingBarangays, setLoadingBarangays] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
+
+  // Fetch all provinces via PSGC API on mount
+  useEffect(() => {
+    setLoadingProvinces(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+
+    fetch(`${PSGC_API}/provinces/`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items: any[]) => {
+        if (Array.isArray(items) && items.length > 0) {
+          const list: PsgcItem[] = items.map((p) => ({ code: p.code, name: p.name }));
+          if (!list.some((p) => p.code === '130000000')) {
+            list.push({ code: '130000000', name: 'Metro Manila (NCR)' });
+          }
+          list.sort((a, b) => a.name.localeCompare(b.name));
+          setProvinces(list);
+        }
+      })
+      .catch(() => {
+        // Retain DEFAULT_PROVINCES
+      })
+      .finally(() => {
+        clearTimeout(timer);
+        setLoadingProvinces(false);
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  // Fetch cities/municipalities when provinceCode changes or on initial restore
+  useEffect(() => {
+    if (!data.provinceCode) {
+      setCities([]);
+      return;
+    }
+
+    setLoadingCities(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+
+    const url =
+      data.provinceCode === '130000000'
+        ? `${PSGC_API}/regions/130000000/cities-municipalities/`
+        : `${PSGC_API}/provinces/${data.provinceCode}/cities-municipalities/`;
+
+    fetch(url, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items: any[]) => {
+        if (Array.isArray(items) && items.length > 0) {
+          const list: PsgcItem[] = items.map((c) => ({ code: c.code, name: c.name }));
+          list.sort((a, b) => a.name.localeCompare(b.name));
+          setCities(list);
+        } else {
+          throw new Error('Empty cities list');
+        }
+      })
+      .catch(() => {
+        if (data.provinceCode === '104300000') {
+          setCities(MISAMIS_ORIENTAL_MUNICIPALITIES);
+        } else {
+          setCities([]);
+        }
+      })
+      .finally(() => {
+        clearTimeout(timer);
+        setLoadingCities(false);
+      });
+
+    return () => controller.abort();
+  }, [data.provinceCode]);
+
+  // Fetch barangays when municipalityCode changes or on initial restore
+  useEffect(() => {
+    if (!data.municipalityCode) {
+      setBarangays([]);
+      return;
+    }
+
+    setLoadingBarangays(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+
+    fetch(`${PSGC_API}/cities-municipalities/${data.municipalityCode}/barangays/`, {
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items: any[]) => {
+        if (Array.isArray(items) && items.length > 0) {
+          const list: PsgcItem[] = items.map((b) => ({ code: b.code, name: b.name }));
+          list.sort((a, b) => a.name.localeCompare(b.name));
+          setBarangays(list);
+        } else {
+          throw new Error('Empty barangays list');
+        }
+      })
+      .catch(() => {
+        const fallback = FALLBACK_BARANGAYS[data.municipalityCode] || [];
+        setBarangays(fallback);
+      })
+      .finally(() => {
+        clearTimeout(timer);
+        setLoadingBarangays(false);
+      });
+
+    return () => controller.abort();
+  }, [data.municipalityCode]);
+
+  const updateFullAddress = (updates: Partial<typeof data>) => {
+    const province = updates.province !== undefined ? updates.province : data.province;
+    const municipality = updates.municipality !== undefined ? updates.municipality : data.municipality;
+    const barangay = updates.barangay !== undefined ? updates.barangay : data.barangay;
+    const street = updates.street !== undefined ? updates.street : data.street;
+
+    const parts = [street, barangay, municipality, province].map((s) => s?.trim()).filter(Boolean);
+    const fullAddress = parts.join(', ');
+
+    setData((prev: any) => ({
+      ...prev,
+      ...updates,
+      address: fullAddress,
+    }));
+
+    if (errors?.address && fullAddress) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.address;
+        return next;
+      });
+    }
+  };
+
+  const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const code = e.target.value;
+    const item = provinces.find((p) => p.code === code);
+    const name = item ? item.name : '';
+
+    updateFullAddress({
+      province: name,
+      provinceCode: code,
+      municipality: '',
+      municipalityCode: '',
+      barangay: '',
+      barangayCode: '',
+    });
+  };
+
+  const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const code = e.target.value;
+    const item = cities.find((c) => c.code === code);
+    const name = item ? item.name : '';
+
+    updateFullAddress({
+      municipality: name,
+      municipalityCode: code,
+      barangay: '',
+      barangayCode: '',
+    });
+  };
+
+  const handleBarangayChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const code = e.target.value;
+    const item = barangays.find((b) => b.code === code);
+    const name = item ? item.name : '';
+
+    updateFullAddress({
+      barangay: name,
+      barangayCode: code,
+    });
+  };
+
+  const handleStreetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const street = e.target.value;
+    updateFullAddress({ street });
+  };
+
+  const handleManualAddressChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const address = e.target.value;
+    setData((prev: any) => ({
+      ...prev,
+      address,
+    }));
+
+    if (errors?.address && address.trim()) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.address;
+        return next;
+      });
+    }
+  };
+
   /** 23.1 — Blur-first per-field validation for Step 3 */
   const handleClinicBlur = (field: string) => () => {
     setErrors((prev: any) => {
@@ -943,7 +1322,7 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
           break;
         case 'phone':
           if (!data.phone) next.phone = 'Phone number is required';
-          else if (data.phone.length !== 11) next.phone = 'Phone number must be exactly 11 digits';
+          else if (!/^09\d{9}$/.test(data.phone.trim())) next.phone = 'Mobile number must start with 09 and contain 11 digits.';
           else delete next.phone;
           break;
         case 'email':
@@ -963,46 +1342,190 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
       <h2>Clinic Profile</h2>
       <p className="step-description">Enter additional clinic information</p>
 
-      <div className="form-group">
-        <label>Address *</label>
-        <div className="input-with-icon">
-          <textarea
-            value={data.address}
-            onChange={(e) => {
-              setData({ ...data, address: e.target.value });
-              if (errors?.address) {
-                setErrors((prev: any) => {
-                  const next = { ...prev };
-                  delete next.address;
-                  return next;
-                });
-              }
-            }}
-            placeholder="123 Main Street, City, Province"
-            onBlur={handleClinicBlur('address')}
-            className={errors?.address ? 'has-error' : ''}
-            rows={3}
-            required
-            style={{ paddingLeft: '44px' }}
-          />
-          <div className="input-icon-wrapper" style={{ top: '16px', alignItems: 'flex-start' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
+      {!manualMode ? (
+        <>
+          <div className="form-row">
+            {/* Province Dropdown */}
+            <div className="form-group">
+              <label>Province *</label>
+              <div className="input-with-icon">
+                <select
+                  value={data.provinceCode || ''}
+                  onChange={handleProvinceChange}
+                  onBlur={handleClinicBlur('address')}
+                  className={errors?.address && !data.provinceCode ? 'has-error' : ''}
+                  required
+                >
+                  <option value="">{loadingProvinces ? 'Loading provinces...' : 'Select Province'}</option>
+                  {provinces.map((p) => (
+                    <option key={p.code} value={p.code}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="input-icon-wrapper">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* City / Municipality Dropdown */}
+            <div className="form-group">
+              <label>City / Municipality *</label>
+              <div className="input-with-icon">
+                <select
+                  value={data.municipalityCode || ''}
+                  onChange={handleCityChange}
+                  onBlur={handleClinicBlur('address')}
+                  disabled={!data.provinceCode || loadingCities}
+                  className={errors?.address && !data.municipalityCode ? 'has-error' : ''}
+                  required
+                >
+                  <option value="">
+                    {!data.provinceCode
+                      ? 'Select Province First'
+                      : loadingCities
+                      ? 'Loading cities...'
+                      : 'Select City / Municipality'}
+                  </option>
+                  {cities.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="input-icon-wrapper">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="2" width="18" height="20" rx="2" />
+                    <path d="M9 22v-4h6v4" />
+                    <path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="form-row">
+            {/* Barangay Dropdown */}
+            <div className="form-group">
+              <label>Barangay *</label>
+              <div className="input-with-icon">
+                <select
+                  value={data.barangayCode || ''}
+                  onChange={handleBarangayChange}
+                  onBlur={handleClinicBlur('address')}
+                  disabled={!data.municipalityCode || loadingBarangays}
+                  className={errors?.address && !data.barangayCode ? 'has-error' : ''}
+                  required
+                >
+                  <option value="">
+                    {!data.municipalityCode
+                      ? 'Select City First'
+                      : loadingBarangays
+                      ? 'Loading barangays...'
+                      : 'Select Barangay'}
+                  </option>
+                  {barangays.map((b) => (
+                    <option key={b.code} value={b.code}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="input-icon-wrapper">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Street / Zone / Landmark Input */}
+            <div className="form-group">
+              <label>Street / Zone / Landmark</label>
+              <div className="input-with-icon">
+                <input
+                  type="text"
+                  value={data.street || ''}
+                  onChange={handleStreetChange}
+                  placeholder="e.g. Zone 2, National Highway"
+                />
+                <div className="input-icon-wrapper">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                    <line x1="4" y1="22" x2="4" y2="15" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Full Generated Address preview banner */}
+          <div className="full-address-preview">
+            <div className="full-address-preview-content">
+              <span className="address-pin-icon">📍</span>
+              <div className="address-preview-details">
+                <span className="address-preview-label">Full Clinic Address</span>
+                <span className="address-preview-text">
+                  {data.address || 'Select province, city, and barangay above'}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn-toggle-manual"
+              onClick={() => setManualMode(true)}
+            >
+              Enter address manually
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="form-group">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <label style={{ margin: 0 }}>Address *</label>
+            <button
+              type="button"
+              className="btn-toggle-manual"
+              onClick={() => setManualMode(false)}
+            >
+              Switch to location dropdowns
+            </button>
+          </div>
+          <div className="input-with-icon">
+            <textarea
+              value={data.address}
+              onChange={handleManualAddressChange}
+              placeholder="123 Main Street, City, Province"
+              onBlur={handleClinicBlur('address')}
+              className={errors?.address ? 'has-error' : ''}
+              rows={3}
+              required
+              style={{ paddingLeft: '44px' }}
+            />
+            <div className="input-icon-wrapper" style={{ top: '16px', alignItems: 'flex-start' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+            </div>
           </div>
         </div>
-        {errors?.address && (
-          <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M12 9v4" />
-              <path d="M12 17h.01" />
-              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-            </svg>
-            <span>{errors.address}</span>
-          </div>
-        )}
-      </div>
+      )}
+
+      {errors?.address && (
+        <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-14px', marginBottom: '20px' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M12 9v4" />
+            <path d="M12 17h.01" />
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          </svg>
+          <span>{errors.address}</span>
+        </div>
+      )}
 
       <div className="form-row">
         <div className="form-group">
@@ -1022,7 +1545,7 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
                 }
               }}
               maxLength={11}
-              placeholder="09123456789"
+              placeholder="09XX XXX XXXX"
               onBlur={handleClinicBlur('phone')}
               className={errors?.phone ? 'has-error' : ''}
               required

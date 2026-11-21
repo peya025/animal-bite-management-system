@@ -1,741 +1,1610 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
-  Grid,
+  FormControlLabel,
   IconButton,
   InputAdornment,
-  InputLabel,
+  LinearProgress,
+  Menu,
   MenuItem,
   Paper,
   Select,
+  Skeleton,
   Snackbar,
-  Stack,
+  Switch,
   TextField,
   Tooltip,
   Typography,
-  useTheme,
 } from '@mui/material';
 import {
-  ErrorOutlined as HighRiskIcon,
-  FmdBad as LocationIcon,
-  Pets as AnimalIcon,
-  Pets as PetsIcon,
-  Place as PlaceIcon,
-  Refresh as RefreshIcon,
-  Search as SearchIcon,
-  TrendingDown as LowIcon,
-  Warning as MedIcon,
-  Visibility as VisibilityIcon,
-  Description as DescriptionIcon,
+  Clear,
+  CloseOutlined,
+  FileDownloadOutlined,
+  FilterListOutlined,
+  KeyboardArrowDownOutlined,
+  LockOutlined,
+  MapOutlined,
+  MedicalServicesOutlined,
+  PrintOutlined,
+  SearchOutlined,
+  SlideshowOutlined,
+  VaccinesOutlined,
+  VerifiedOutlined,
+  WarningAmberOutlined,
 } from '@mui/icons-material';
 import api from '../../../services/api';
-import { DataTable, TablePager } from '../../../components/data-display';
-import type { ColumnDef } from '../../../components/data-display';
-import StatCard from '../../../components/common/StatCard/StatCard';
-import AddPatientModal from '../../patients/components/AddPatientModal/AddPatientModal';
-import TagoloanTreatmentCardModal from '../../vaccinations/components/TagoloanTreatmentCardModal';
+import { ROUTES } from '../../../shared/config/routes';
+import { AccessibleProgress } from '../components/AccessibleComponents';
+import { BiteCasesEpisodesTab } from '../components/BiteCasesEpisodesTab';
+import { BiteCasesOverviewTab } from '../components/BiteCasesOverviewTab';
+import { BiteCasesPlanningTab } from '../components/BiteCasesPlanningTab';
+import { BiteCasesPresentationDialog } from '../components/BiteCasesPresentationDialog';
+import { BC_BORDER, DohStatLine } from '../components/BiteCasesSharedUi';
+import { BiteCasesTreatmentTab } from '../components/BiteCasesTreatmentTab';
+import {
+  BITE_SUMMARY_AGE_GROUPS,
+  computeDateRange,
+  computePriorityBreakdown,
+  formatDaysAgo,
+  formatPct,
+  normalizeSeverityParam,
+  priorityConfig,
+} from '../types/biteCasesSummary.types';
+import type {
+  CaseSummary,
+  CohortCategoryRow,
+  ComparisonMetric,
+  DashboardData,
+  DohSummary,
+  Filters,
+  LocationSortKey,
+  LocationSummary,
+  OptionalBarangayColumn,
+  PatientFollowupLog,
+  PriorityBreakdown,
+  PriorityLevel,
+  PrivacyMode,
+  ReportActionItem,
+  ReportSnapshotHeader,
+  StageMatrixRow,
+  ViewTab,
+} from '../types/biteCasesSummary.types';
+import {
+  exportAggregateSummaryToCsv,
+  exportCasesToCsv,
+  exportLocationsToCsv,
+} from '../utils/biteCaseUtils';
+import '../styles/biteCasesAccessibility.css';
 
-// ─── Types ────────────────────────────────────────────────────
-interface BiteCase {
-  bite_id: number;
-  case_number: string;
-  bite_date: string;
-  bite_place: string | null;
-  severity: 'minor' | 'moderate' | 'severe';
-  exposure_type: string;
-  animal_type: string | null;
-  animal_status: string;
-  status: 'active' | 'completed' | 'referred' | 'abandoned';
-  patient: { patient_id: number; name: string; age: number; gender: string };
-}
-
-interface LocationRisk {
-  place: string;
-  total: number;
-  severe: number;
-  moderate: number;
-  minor: number;
-  riskScore: number;
-  riskLevel: 'high' | 'medium' | 'low';
-}
-
-interface Stats {
-  total_cases: number;
-  active_cases: number;
-  completed_cases: number;
-  by_severity: Record<string, number>;
-  by_animal_type: Record<string, number>;
-}
-
-// ─── Risk scoring ─────────────────────────────────────────────
-function computeRisk(total: number, severe: number, moderate: number): number {
-  return Math.round(((severe * 3 + moderate * 2 + (total - severe - moderate)) / (total * 3)) * 100);
-}
-
-const RISK_CFG = {
-  high:   { bg: '#fee2e2', color: '#dc2626', dot: '#ef4444', label: 'High Risk',   icon: <HighRiskIcon sx={{ fontSize: 13 }} /> },
-  medium: { bg: '#fff7ed', color: '#c2410c', dot: '#f97316', label: 'Medium Risk', icon: <MedIcon sx={{ fontSize: 13 }} /> },
-  low:    { bg: '#f0fdf4', color: '#16a34a', dot: '#22c55e', label: 'Low Risk',    icon: <LowIcon sx={{ fontSize: 13 }} /> },
+// Re-export shared domain types & helpers for external consumers.
+export {
+  computePriorityBreakdown,
+  formatDaysAgo,
+  priorityConfig,
+};
+export type {
+  CaseSummary,
+  CohortCategoryRow,
+  ComparisonMetric,
+  DohSummary,
+  LocationSummary,
+  PriorityBreakdown,
+  PriorityLevel,
+  StageMatrixRow,
 };
 
-const SEV_CFG = {
-  severe:   { bg: '#fee2e2', color: '#dc2626', label: 'Severe'   },
-  moderate: { bg: '#fff7ed', color: '#c2410c', label: 'Moderate' },
-  minor:    { bg: '#f0fdf4', color: '#16a34a', label: 'Minor'    },
-};
+const OPTIONAL_COLS_KEY = 'bite_cases_doh_barangay_cols';
+const ALLOWED_RANGES = ['7d', '14d', '30d', '90d', 'week', 'month', 'quarter', 'last_completed_quarter', 'all', 'custom'];
 
-const filterSx = {
-  '& .MuiOutlinedInput-root': {
-    bgcolor: 'var(--input-bg)', borderRadius: 1.5,
-    color: 'var(--input-text)',
-    '& fieldset': { borderColor: 'var(--input-border)' },
-    '&:hover fieldset': { borderColor: 'var(--text-secondary)' },
-    '&.Mui-focused fieldset': { borderColor: '#ef4444', borderWidth: '1.5px' },
-  },
-  '& .MuiInputBase-input': { fontSize: 13 },
-};
+function HeadlineKpiCard({
+  title,
+  titleColor = 'var(--bc-text-secondary)',
+  value,
+  valueSuffix,
+  valueColor = 'var(--bc-text)',
+  subtext,
+  badgeText,
+  badgeBg = 'var(--bc-surface-3)',
+  badgeColor = 'var(--bc-text)',
+  badgeBorder = 'transparent',
+  progressValue,
+  progressTotal,
+  progressColor = '#0f766e',
+  borderColor = '#e2e8f0',
+}: {
+  title: string;
+  titleColor?: string;
+  value: string | number;
+  valueSuffix?: string;
+  valueColor?: string;
+  subtext?: string;
+  badgeText?: string;
+  badgeBg?: string;
+  badgeColor?: string;
+  badgeBorder?: string;
+  progressValue?: number;
+  progressTotal?: number;
+  progressColor?: string;
+  borderColor?: string;
+}) {
+  const pct = progressTotal && progressTotal > 0 ? ((progressValue ?? 0) / progressTotal) * 100 : 0;
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 2,
+        textAlign: 'left',
+        borderRadius: '16px',
+        border: `1px solid ${borderColor}`,
+        bgcolor: 'var(--bc-surface)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        gap: 0.75,
+        minHeight: 124,
+        boxShadow: 'var(--bc-card-shadow)',
+      }}
+    >
+      <Typography
+        sx={{
+          fontSize: 11.5,
+          fontWeight: 700,
+          color: titleColor,
+          textTransform: 'uppercase',
+          letterSpacing: '0.04em',
+        }}
+      >
+        {title}
+      </Typography>
 
-// ─── Main Component ───────────────────────────────────────────
-export default function BiteCaseRiskDashboard() {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
-  const navigate = useNavigate();
-  const location = useLocation();
-  const isBiteMap = location.pathname.includes('/map');
-
-  const [cases, setCases]       = useState<BiteCase[]>([]);
-  const [stats, setStats]       = useState<Stats | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [page, setPage]         = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(15);
-  const [total, setTotal]       = useState(0);
-  const [search, setSearch]     = useState('');
-  const [severity, setSeverity] = useState('');
-  const [status, setStatus]     = useState('');
-  const [tab, setTab]           = useState<'map' | 'cases'>('map');
-
-  // Modal State
-  const [cardPatientId] = useState<number | null>(null);
-  const [cardModalOpen, setCardModalOpen] = useState(false);
-  const [patientModalOpen, setPatientModalOpen] = useState(false);
-  const [selectedBiteCase, setSelectedBiteCase] = useState<BiteCase | null>(null);
-
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
-    open: false, message: '', severity: 'success',
-  });
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params: Record<string, string | number> = { page: page + 1, per_page: 200 };
-      if (severity) params.severity = severity;
-      if (status)   params.status   = status;
-      if (search)   params.search   = search;
-
-      const [casesRes, statsRes] = await Promise.all([
-        api.get('/cases', { params }),
-        api.get('/cases/statistics'),
-      ]);
-      setCases(casesRes.data.data ?? []);
-      setTotal(casesRes.data.total ?? 0);
-      setStats(statsRes.data);
-    } catch {
-      setSnackbar({ open: true, message: 'Failed to load bite case data', severity: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, [page, rowsPerPage, search, severity, status]);
-
-  useEffect(() => { loadData(); }, [loadData]);
-
-  // ── Compute location risk from bite_place field ──────────────
-  const locationRisks: LocationRisk[] = (() => {
-    const map: Record<string, { total: number; severe: number; moderate: number; minor: number }> = {};
-    cases.forEach(c => {
-      const place = (c.bite_place || 'Unknown').trim();
-      if (!map[place]) map[place] = { total: 0, severe: 0, moderate: 0, minor: 0 };
-      map[place].total++;
-      if (c.severity === 'severe')   map[place].severe++;
-      if (c.severity === 'moderate') map[place].moderate++;
-      if (c.severity === 'minor')    map[place].minor++;
-    });
-    return Object.entries(map)
-      .map(([place, d]) => {
-        const score = computeRisk(d.total, d.severe, d.moderate);
-        return {
-          place, ...d,
-          riskScore: score,
-          riskLevel: score >= 65 ? 'high' : score >= 35 ? 'medium' : 'low',
-        } as LocationRisk;
-      })
-      .sort((a, b) => b.riskScore - a.riskScore);
-  })();
-
-  const highRisk   = locationRisks.filter(l => l.riskLevel === 'high').length;
-  const mediumRisk = locationRisks.filter(l => l.riskLevel === 'medium').length;
-  const lowRisk    = locationRisks.filter(l => l.riskLevel === 'low').length;
-
-  // Paginate cases for the Cases tab
-  const paginatedCases = cases.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-
-  // ── Column definitions ──────────────────────────────────────
-
-  const riskColumns: ColumnDef<LocationRisk>[] = [
-    {
-      key: 'rank', header: '#', width: '48px', align: 'center',
-      render: (_, idx) => (
-        <Typography sx={{ fontWeight: 700, fontSize: 13, color: 'var(--text-secondary)' }}>
-          {idx + 1}
-        </Typography>
-      ),
-    },
-    {
-      key: 'place', header: 'Location', align: 'left',
-      render: row => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{
-            width: 34, height: 34, borderRadius: 1.5, flexShrink: 0,
-            bgcolor: RISK_CFG[row.riskLevel].bg,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <LocationIcon sx={{ fontSize: 17, color: RISK_CFG[row.riskLevel].color }} />
-          </Box>
-          <Typography sx={{ fontWeight: 600, fontSize: 13, color: 'var(--text-h)' }}>
-            {row.place}
-          </Typography>
-        </Box>
-      ),
-    },
-    {
-      key: 'risk', header: 'Risk Level', align: 'center',
-      render: row => {
-        const cfg = RISK_CFG[row.riskLevel];
-        return (
-          <Box sx={{
-            display: 'inline-flex', alignItems: 'center', gap: 0.75,
-            px: 1.5, py: 0.5, borderRadius: 5,
-            bgcolor: cfg.bg, color: cfg.color, fontSize: 12, fontWeight: 600,
-          }}>
-            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: cfg.dot }} />
-            {cfg.label}
-          </Box>
-        );
-      },
-    },
-    {
-      key: 'score', header: 'Risk Score', align: 'center',
-      render: row => (
-        <Box>
-          <Typography sx={{ fontWeight: 700, fontSize: 15, color: RISK_CFG[row.riskLevel].color }}>
-            {row.riskScore}%
-          </Typography>
-          <Box sx={{ mt: 0.5, height: 4, borderRadius: 4, bgcolor: 'var(--table-row-border)', width: 80, mx: 'auto', overflow: 'hidden' }}>
-            <Box sx={{
-              height: '100%', borderRadius: 4,
-              width: `${row.riskScore}%`,
-              bgcolor: row.riskLevel === 'high' ? '#ef4444' : row.riskLevel === 'medium' ? '#f97316' : '#22c55e',
-              transition: 'width 0.4s ease',
-            }} />
-          </Box>
-        </Box>
-      ),
-    },
-    {
-      key: 'total', header: 'Total Cases', align: 'center',
-      render: row => (
-        <Typography sx={{ fontWeight: 700, fontSize: 16, color: 'var(--text-h)' }}>{row.total}</Typography>
-      ),
-    },
-    {
-      key: 'severe', header: 'Severe', align: 'center',
-      render: row => row.severe > 0 ? (
-        <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.4, borderRadius: 1.5, bgcolor: '#fee2e2', color: '#dc2626', fontSize: 12, fontWeight: 700 }}>
-          {row.severe}
-        </Box>
-      ) : <Typography sx={{ color: '#d1d5db', fontSize: 13 }}>—</Typography>,
-    },
-    {
-      key: 'moderate', header: 'Moderate', align: 'center',
-      render: row => row.moderate > 0 ? (
-        <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.4, borderRadius: 1.5, bgcolor: '#fff7ed', color: '#c2410c', fontSize: 12, fontWeight: 700 }}>
-          {row.moderate}
-        </Box>
-      ) : <Typography sx={{ color: '#d1d5db', fontSize: 13 }}>—</Typography>,
-    },
-    {
-      key: 'minor', header: 'Minor', align: 'center',
-      render: row => row.minor > 0 ? (
-        <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.4, borderRadius: 1.5, bgcolor: '#f0fdf4', color: '#16a34a', fontSize: 12, fontWeight: 700 }}>
-          {row.minor}
-        </Box>
-      ) : <Typography sx={{ color: '#d1d5db', fontSize: 13 }}>—</Typography>,
-    },
-  ];
-
-  const caseColumns: ColumnDef<BiteCase>[] = [
-    {
-      key: 'case_number', header: 'Case #', align: 'center', width: '110px',
-      render: row => (
-        <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.4, bgcolor: 'var(--bg-secondary)', border: '1px solid var(--table-border)', borderRadius: 1.5, fontFamily: 'monospace', fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
-          {row.case_number}
-        </Box>
-      ),
-    },
-    {
-      key: 'patient', header: 'Patient',
-      render: row => (
-        <Box>
-          <Typography sx={{ fontWeight: 600, fontSize: 13, color: 'var(--text-h)' }}>{row.patient?.name ?? '—'}</Typography>
-          <Typography sx={{ fontSize: 11, color: 'var(--text-secondary)', mt: 0.25 }}>
-            {row.patient?.age}y · {row.patient?.gender}
-          </Typography>
-        </Box>
-      ),
-    },
-    {
-      key: 'bite_place', header: 'Location', align: 'center',
-      render: row => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, justifyContent: 'center' }}>
-          <LocationIcon sx={{ fontSize: 14, color: 'var(--text-secondary)' }} />
-          <Typography sx={{ fontSize: 13, color: 'var(--text)' }}>{row.bite_place || '—'}</Typography>
-        </Box>
-      ),
-    },
-    {
-      key: 'severity', header: 'Severity', align: 'center',
-      render: row => {
-        const s = SEV_CFG[row.severity] ?? SEV_CFG.minor;
-        return (
-          <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.4, borderRadius: 1.5, bgcolor: s.bg, color: s.color, fontSize: 12, fontWeight: 600 }}>
-            {s.label}
-          </Box>
-        );
-      },
-    },
-    {
-      key: 'animal_type', header: 'Animal', align: 'center',
-      render: row => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, justifyContent: 'center' }}>
-          <AnimalIcon sx={{ fontSize: 14, color: 'var(--text-secondary)' }} />
-          <Typography sx={{ fontSize: 13, color: 'var(--text)', textTransform: 'capitalize' }}>
-            {row.animal_type || '—'}
-          </Typography>
-        </Box>
-      ),
-    },
-    {
-      key: 'bite_date', header: 'Date', align: 'center',
-      render: row => (
-        <Typography sx={{ fontSize: 13, color: 'var(--text)' }}>
-          {new Date(row.bite_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-        </Typography>
-      ),
-    },
-    {
-      key: 'status', header: 'Status', align: 'center',
-      render: row => {
-        const cfg: Record<string, { bg: string; color: string }> = {
-          active:    { bg: '#eff6ff', color: '#2563eb' },
-          completed: { bg: '#f0fdf4', color: '#16a34a' },
-          referred:  { bg: '#fff7ed', color: '#c2410c' },
-          abandoned: { bg: '#f3f4f6', color: '#6b7280' },
-        };
-        const s = cfg[row.status] ?? cfg.active;
-        return (
-          <Box sx={{ display: 'inline-flex', px: 1.5, py: 0.4, borderRadius: 1.5, bgcolor: s.bg, color: s.color, fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>
-            {row.status}
-          </Box>
-        );
-      },
-    },
-    {
-      key: 'actions', header: 'Action', align: 'center',
-      render: row => (
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() => setSelectedBiteCase(row)}
-          startIcon={<VisibilityIcon fontSize="small" />}
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, my: 0.25 }}>
+        <Typography
           sx={{
-            fontSize: 12,
-            py: 0.3,
-            px: 1.5,
-            textTransform: 'none',
-            fontWeight: 600,
-            borderRadius: '6px',
-            borderColor: '#bbf7d0',
-            color: '#166534',
-            bgcolor: '#f0fdf4',
-            '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
+            fontSize: 28,
+            fontWeight: 800,
+            color: valueColor,
+            lineHeight: 1.1,
+            letterSpacing: '-0.02em',
           }}
         >
-          Record
-        </Button>
-      ),
-    },
-  ];
-
-  return (
-    <Box sx={{ px: 3 }}>
-
-      {/* ── Header ── */}
-      <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-        <Box>
+          {value}
+        </Typography>
+        {valueSuffix && (
           <Typography
-            component="h1"
             sx={{
+              fontSize: 13,
               fontWeight: 600,
-              fontSize: '25px',
-              lineHeight: 1.2,
-              letterSpacing: '-0.5px',
-              color: 'var(--text-h)',
-              mb: '7px',
+              color: 'var(--bc-text-secondary)',
             }}
           >
-            {isBiteMap ? 'Bite Risk Map & Location Surveillance' : 'Bite Case Risk'}
+            {valueSuffix}
           </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
-            {isBiteMap
-              ? 'Geographical rabies risk mapping, hotspot analysis, and barangay incident tracking'
-              : 'Track high and low risk locations for animal bites'}
-          </Typography>
-          {/* Breadcrumb */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
-            <button
-              onClick={() => navigate('/dashboard')}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
-            >
-              Dashboard
-            </button>
-            <span style={{ color: 'var(--text-secondary)' }}>›</span>
-            <span style={{ color: 'var(--text-secondary)' }}>
-              {isBiteMap ? 'Bite Map' : 'Bite Cases & Risk'}
-            </span>
-          </Box>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Tooltip title="Refresh">
-            <IconButton onClick={loadData} disabled={loading}><RefreshIcon /></IconButton>
-          </Tooltip>
-        </Box>
-      </Box>
-
-      {/* ── Stat Cards Grid (6-column layout matching Vaccine Inventory Design) ── */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(6, 1fr)' }, gap: 2, mb: 3 }}>
-        {[
-          { label: 'Total Cases', value: stats?.total_cases ?? '-', color: 'primary' as const },
-          { label: 'Active Cases', value: stats?.active_cases ?? '-', color: 'error' as const },
-          { label: 'Completed', value: stats?.completed_cases ?? '-', color: 'success' as const },
-          { label: 'High Risk Zones', value: loading ? '-' : highRisk, color: 'error' as const },
-          { label: 'Medium Risk', value: loading ? '-' : mediumRisk, color: 'warning' as const },
-          { label: 'Low Risk', value: loading ? '-' : lowRisk, color: 'success' as const },
-        ].map((s) => (
-          <StatCard key={s.label} label={s.label} value={s.value} color={s.color} total={stats?.total_cases} loading={loading} />
-        ))}
-      </Box>
-
-      {/* ── Tab switcher ── */}
-      <Box sx={{ display: 'flex', gap: 1, mb: 2.5 }}>
-        {(['map', 'cases'] as const).map(t => (
-          <Button key={t} variant={tab === t ? 'contained' : 'outlined'} size="small"
-            onClick={() => { setTab(t); setPage(0); }}
-            disableElevation
-            sx={{
-              textTransform: 'none', fontWeight: 600, fontSize: 13, borderRadius: 1.5,
-              ...(tab === t
-                ? { bgcolor: '#ef4444', '&:hover': { bgcolor: '#dc2626' } }
-                : { borderColor: 'var(--input-border)', color: 'var(--text-secondary)', bgcolor: 'var(--input-bg)', '&:hover': { borderColor: 'var(--text-secondary)', bgcolor: 'var(--bg-hover)' } }),
-            }}>
-            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-              {t === 'map' ? <PlaceIcon fontSize="inherit" /> : <DescriptionIcon fontSize="inherit" />}
-              <span>{t === 'map' ? 'Risk by Location' : 'All Cases'}</span>
-            </Box>
-          </Button>
-        ))}
-      </Box>
-
-      {/* ── Standard Table Container (Filter + Table Together) ── */}
-      <Paper elevation={0} sx={{ border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #e2e8f0', borderRadius: 3, overflow: 'hidden', bgcolor: isDark ? '#111827' : '#ffffff' }}>
-        <Box sx={{ p: 2, borderBottom: isDark ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid var(--table-row-border, #e2e8f0)', bgcolor: isDark ? '#111827' : '#ffffff' }}>
-          <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" placeholder="Search case number or patient…"
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPage(0); }}
-                slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: 'var(--text-secondary)' }} /></InputAdornment> } }}
-                sx={filterSx}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 4, md: 2 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Severity</InputLabel>
-                <Select label="Severity" value={severity} onChange={e => { setSeverity(e.target.value); setPage(0); }}
-                  sx={{ bgcolor: 'var(--input-bg)', color: 'var(--input-text)', borderRadius: 1.5, '& fieldset': { borderColor: 'var(--input-border)' } }}>
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="severe">Severe</MenuItem>
-                  <MenuItem value="moderate">Moderate</MenuItem>
-                  <MenuItem value="minor">Minor</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 4, md: 2 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Status</InputLabel>
-                <Select label="Status" value={status} onChange={e => { setStatus(e.target.value); setPage(0); }}
-                  sx={{ bgcolor: 'var(--input-bg)', color: 'var(--input-text)', borderRadius: 1.5, '& fieldset': { borderColor: 'var(--input-border)' } }}>
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="completed">Completed</MenuItem>
-                  <MenuItem value="referred">Referred</MenuItem>
-                  <MenuItem value="abandoned">Abandoned</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 4, md: 2 }}>
-              <Button fullWidth variant="outlined" size="small"
-                onClick={() => { setSearch(''); setSeverity(''); setStatus(''); setPage(0); }}
-                sx={{ borderRadius: 1.5, borderColor: isDark ? 'rgba(16, 185, 129, 0.35)' : 'var(--input-border)', color: 'var(--text-secondary)', textTransform: 'none', fontWeight: 500, fontSize: 13, py: '8px', bgcolor: 'var(--input-bg)', '&:hover': { borderColor: '#10b981', bgcolor: 'var(--bg-hover)' } }}>
-                Clear
-              </Button>
-            </Grid>
-          </Grid>
-        </Box>
-
-        {tab === 'map' ? (
-          <>
-            {/* Risk legend */}
-            <Box sx={{ px: 2.5, py: 1.5, borderBottom: isDark ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid var(--table-row-border, #e2e8f0)', bgcolor: isDark ? 'rgba(0, 0, 0, 0.25)' : 'var(--table-header-bg, #f8fafc)', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 500, color: 'var(--text-h)', mr: 1 }}>Risk Score Guide:</Typography>
-              {Object.entries(RISK_CFG).map(([key, cfg]) => (
-                <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: cfg.dot }} />
-                  <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                    {cfg.label}: {key === 'high' ? '≥65%' : key === 'medium' ? '35–64%' : '<35%'}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-            <DataTable
-              columns={riskColumns}
-              rows={locationRisks.slice(page * rowsPerPage, (page + 1) * rowsPerPage)}
-              loading={loading}
-              skeletonRows={rowsPerPage}
-              rowKey={r => r.place}
-              emptyIcon={<LocationIcon sx={{ fontSize: 36, color: '#d1d5db' }} />}
-              emptyTitle="No location data available"
-              emptySubtitle="Bite cases with a recorded location will appear here"
-            />
-            <TablePager
-              count={locationRisks.length}
-              page={page}
-              rowsPerPage={rowsPerPage}
-              onPageChange={setPage}
-              onRowsPerPageChange={n => { setRowsPerPage(n); setPage(0); }}
-            />
-          </>
-        ) : (
-          <>
-            <DataTable
-              columns={caseColumns}
-              rows={paginatedCases}
-              loading={loading}
-              skeletonRows={rowsPerPage}
-              rowKey={r => r.bite_id}
-              emptyIcon={<AnimalIcon sx={{ fontSize: 36, color: '#d1d5db' }} />}
-              emptyTitle="No bite cases found"
-              emptySubtitle="Recorded bite cases will appear here"
-            />
-            <TablePager
-              count={total}
-              page={page}
-              rowsPerPage={rowsPerPage}
-              onPageChange={setPage}
-              onRowsPerPageChange={n => { setRowsPerPage(n); setPage(0); }}
-            />
-          </>
         )}
-      </Paper>
+      </Box>
 
-      {/* ── Snackbar ── */}
-      <Snackbar open={snackbar.open} autoHideDuration={4000}
-        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
-        <Alert severity={snackbar.severity} variant="filled"
-          onClose={() => setSnackbar(s => ({ ...s, open: false }))}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-
-      {/* ── Patient Record Modal (Form 1, Form 2, Form 3 Tabs) ── */}
-      {patientModalOpen && (
-        <AddPatientModal
-          onClose={() => setPatientModalOpen(false)}
-          onSuccess={() => {
-            setPatientModalOpen(false);
-            loadData();
+      {progressTotal !== undefined && (
+        <Box
+          sx={{
+            width: '100%',
+            height: 8,
+            borderRadius: 4,
+            bgcolor: 'var(--bc-track)',
+            overflow: 'hidden',
+            my: 0.25,
           }}
-          role="triage"
-        />
+        >
+          <Box
+            sx={{
+              width: `${Math.min(100, Math.max(0, pct))}%`,
+              height: '100%',
+              borderRadius: 4,
+              bgcolor: progressColor,
+              transition: 'width 0.25s ease',
+            }}
+          />
+        </Box>
       )}
 
-      {/* ── Tagoloan Treatment Card Modal (Form 3) ── */}
-      <TagoloanTreatmentCardModal
-        open={cardModalOpen}
-        onClose={() => setCardModalOpen(false)}
-        patientId={cardPatientId}
-        onSaved={loadData}
-      />
-
-      {/* ── Brief Bite Information Details Modal ── */}
-      <BiteDetailsModal
-        biteCase={selectedBiteCase}
-        onClose={() => setSelectedBiteCase(null)}
-      />
-    </Box>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 0.5,
+          mt: 'auto',
+        }}
+      >
+        <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', lineHeight: 1.35 }}>
+          {subtext}
+        </Typography>
+        {badgeText && (
+          <Typography
+            component="span"
+            sx={{
+              fontSize: 11,
+              fontWeight: 700,
+              px: 0.9,
+              py: 0.2,
+              borderRadius: '6px',
+              bgcolor: badgeBg,
+              color: badgeColor,
+              border: `1px solid ${badgeBorder}`,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {badgeText}
+          </Typography>
+        )}
+      </Box>
+    </Paper>
   );
 }
 
-function BiteDetailsModal({
-  biteCase,
+function ExplainabilityModal({
+  open,
   onClose,
+  location,
+  maxCases,
 }: {
-  biteCase: BiteCase | null;
+  open: boolean;
   onClose: () => void;
+  location: LocationSummary | null;
+  maxCases: number;
 }) {
-  if (!biteCase) return null;
+  const breakdown = useMemo(
+    () => (location ? computePriorityBreakdown(location, maxCases) : null),
+    [location, maxCases]
+  );
 
-  const sevCfg = SEV_CFG[biteCase.severity] ?? SEV_CFG.minor;
-  const sevLabel = biteCase.severity === 'severe' ? 'Category III (Severe)' : biteCase.severity === 'moderate' ? 'Category II (Moderate)' : 'Category I (Minor)';
+  if (!location || !breakdown) return null;
+  const cfg = priorityConfig[breakdown.priorityLevel];
 
   return (
-    <Dialog open={!!biteCase} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, borderBottom: '1px solid var(--table-border)' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PetsIcon sx={{ color: 'var(--primary)' }} />
-          <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--text-h)', fontSize: 16 }}>
-            Bite Incident Summary
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--bc-text)' }}>
+            {location.normalized_barangay || location.location}
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'var(--bc-text-secondary)' }}>
+            {location.municipality || 'Tagoloan'} • {location.geography_scope?.replaceAll('_', ' ') || location.location_level}
           </Typography>
         </Box>
-        <Chip
-          label={`Case #${biteCase.case_number}`}
-          size="small"
-          sx={{ bgcolor: 'var(--bg-secondary)', color: 'var(--text)', fontWeight: 600, fontFamily: 'monospace' }}
-        />
+        <IconButton onClick={onClose} aria-label="Close location breakdown">
+          <CloseOutlined aria-hidden="true" />
+        </IconButton>
       </DialogTitle>
+      <DialogContent dividers>
+        <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: cfg.background, border: `1px solid ${cfg.border}`, mb: 2 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 13, color: cfg.color, mb: 0.4 }}>
+            {cfg.label} • Reference Index: {breakdown.compositeScore}/100
+          </Typography>
+          <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text)' }}>{breakdown.explanation}</Typography>
+        </Box>
 
-      <DialogContent sx={{ pt: 2.5, pb: 2 }}>
-        <Stack spacing={2.5}>
-          {/* Patient Details Card */}
-          <Box sx={{ p: 2, bgcolor: 'var(--bg-secondary)', borderRadius: 2, border: '1px solid var(--table-border)' }}>
-            <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1 }}>
-              Patient Information
-            </Typography>
-            <Grid container spacing={1.5}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Full Name</Typography>
-                <Typography sx={{ fontSize: 14, fontWeight: 600, color: 'var(--text-h)' }}>
-                  {biteCase.patient?.name || '—'}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Age / Gender</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-                  {biteCase.patient?.age} yrs · {biteCase.patient?.gender}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Patient ID</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: 'monospace' }}>
-                  #{biteCase.patient?.patient_id}
-                </Typography>
-              </Grid>
-            </Grid>
+        <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', mb: 1 }}>
+          Supporting Factor Breakdown
+        </Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.25, mb: 2 }}>
+          <Box sx={{ p: 1, borderRadius: '8px', border: BC_BORDER }}>
+            <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)' }}>Exposure Volume (35%)</Typography>
+            <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.4 }}>{breakdown.caseBurdenScore}/100</Typography>
+            <AccessibleProgress value={breakdown.caseBurdenScore} color="var(--bc-focus-ring)" width={160} label="Exposure volume factor" />
           </Box>
-
-          {/* Bite Details Grid */}
-          <Box sx={{ p: 2, bgcolor: 'var(--card-bg)', borderRadius: 2, border: '1px solid var(--table-border)' }}>
-            <Typography sx={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1.5 }}>
-              Bite Exposure Details
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Date of Bite</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text-h)' }}>
-                  {new Date(biteCase.bite_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                </Typography>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Incident Location</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text-h)', display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                  <PlaceIcon fontSize="inherit" />
-                  <span>{biteCase.bite_place || 'Claveria, Misamis Oriental'}</span>
-                </Typography>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', mb: 0.5 }}>WHO Severity Category</Typography>
-                <Chip
-                  size="small"
-                  label={sevLabel}
-                  sx={{ bgcolor: sevCfg.bg, color: sevCfg.color, fontWeight: 700, fontSize: 11.5 }}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)', mb: 0.5 }}>Treatment Status</Typography>
-                <Chip
-                  size="small"
-                  label={biteCase.status.toUpperCase()}
-                  sx={{
-                    bgcolor: biteCase.status === 'completed' ? '#ecfdf5' : '#eff6ff',
-                    color: biteCase.status === 'completed' ? '#047857' : '#1d4ed8',
-                    border: `1px solid ${biteCase.status === 'completed' ? '#a7f3d0' : '#bfdbfe'}`,
-                    fontWeight: 700, fontSize: 11,
-                  }}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Animal Involved</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                  <AnimalIcon fontSize="inherit" />
-                  <span>{biteCase.animal_type || 'Dog'}</span>
-                </Typography>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Animal Status</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', textTransform: 'capitalize' }}>
-                  {biteCase.animal_status || 'Under 14-day Observation'}
-                </Typography>
-              </Grid>
-
-              <Grid size={{ xs: 12 }}>
-                <Typography sx={{ fontSize: 12, color: 'var(--text-secondary)' }}>Exposure Description</Typography>
-                <Typography sx={{ fontSize: 12.5, color: 'var(--text)', mt: 0.25, bgcolor: 'var(--bg-secondary)', p: 1.25, borderRadius: 1.5, border: '1px solid var(--table-row-border)' }}>
-                  {biteCase.exposure_type || 'Transdermal bite wound on extremity with direct animal contact. Immediate wound washing and rabies PEP initiated.'}
-                </Typography>
-              </Grid>
-            </Grid>
+          <Box sx={{ p: 1, borderRadius: '8px', border: BC_BORDER }}>
+            <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)' }}>Cat III Share (35%)</Typography>
+            <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.4 }}>{breakdown.severityScore}/100</Typography>
+            <AccessibleProgress value={breakdown.severityScore} color="var(--bc-red)" width={160} label="Severity factor" />
           </Box>
-        </Stack>
+          <Box sx={{ p: 1, borderRadius: '8px', border: BC_BORDER }}>
+            <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)' }}>Overdue PEP (20%)</Typography>
+            <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.4 }}>{breakdown.overdueScore}/100</Typography>
+            <AccessibleProgress value={breakdown.overdueScore} color="var(--bc-amber)" width={160} label="Overdue PEP factor" />
+          </Box>
+          <Box sx={{ p: 1, borderRadius: '8px', border: BC_BORDER }}>
+            <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)' }}>Period Change (10%)</Typography>
+            <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.4 }}>{breakdown.trendScore}/100</Typography>
+            <AccessibleProgress value={breakdown.trendScore} color="var(--bc-green)" width={160} label="Period change factor" />
+          </Box>
+        </Box>
+
+        <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', mb: 0.5 }}>
+          DOH Submission Breakdown (This Location)
+        </Typography>
+        <DohStatLine label="Recorded Exposures (Prior)" value={`${location.total_cases}${location.previous_total !== undefined ? ` (Prior: ${location.previous_total})` : ''}`} />
+        <DohStatLine label="Sex (Male / Female / Unknown)" value={`${location.male ?? 0} / ${location.female ?? 0} / ${location.unknown_sex ?? 0}`} />
+        <DohStatLine label="Age (<15 yrs / >=15 yrs / Unknown)" value={`${location.age_below_15 ?? 0} / ${location.age_15_above ?? 0} / ${location.age_unknown ?? 0}`} />
+        <DohStatLine label="Categories (I / II / III / Unassessed)" value={`${location.cat_1} / ${location.cat_2} / ${location.cat_3} / ${location.unassessed ?? 0}`} />
+        <DohStatLine label="PEP Prescribed / Given PEP / No Admin Recorded" value={`${location.pep_prescribed ?? 0} / ${location.given_pep ?? 0} / ${location.no_administration_recorded ?? 0}`} />
+        <DohStatLine label="Completed Mature Courses / No PEP / Transferred" value={`${location.completed ?? 0} / ${location.no_pep_required ?? 0} / ${location.transferred ?? 0}`} />
+        <DohStatLine label="RIG Administered (Total / ERIG / HRIG)" value={`${location.given_rig ?? 0} (${location.erig ?? 0} ERIG, ${location.hrig ?? 0} HRIG)`} />
       </DialogContent>
-
-      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid var(--table-border)', bgcolor: 'var(--bg-secondary)' }}>
-        <Button variant="contained" onClick={onClose} sx={{ bgcolor: 'var(--primary)', '&:hover': { bgcolor: 'var(--primary-dark)' }, textTransform: 'none', fontWeight: 600 }}>
+      <DialogActions>
+        <Button onClick={onClose} variant="contained" disableElevation sx={{ textTransform: 'none' }}>
           Close
         </Button>
       </DialogActions>
     </Dialog>
+  );
+}
+
+export default function BiteCaseRiskDashboard() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const locationParam = searchParams.get('location');
+  const rangeParam = searchParams.get('range');
+  const severityParam = searchParams.get('severity');
+
+  const [tab, setTab] = useState<ViewTab>('summary');
+  const [privacyMode, setPrivacyMode] = useState<PrivacyMode>('internal_aggregate');
+  const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null);
+  const tabRefs = useRef<Record<ViewTab, HTMLButtonElement | null>>({
+    summary: null,
+    treatment: null,
+    risk: null,
+    cases: null,
+  });
+
+  const [filters, setFilters] = useState<Filters>({
+    search: '',
+    severity: normalizeSeverityParam(severityParam),
+    status: '',
+    animal: '',
+    animalStatus: '',
+    animalCondition: '',
+    channel: '',
+    ageGroup: '',
+    range: rangeParam && ALLOWED_RANGES.includes(rangeParam) ? rangeParam : 'all',
+    customFrom: '',
+    customTo: '',
+    cutoff: '',
+  });
+
+  useEffect(() => {
+    if (rangeParam && ALLOWED_RANGES.includes(rangeParam)) {
+      setFilters((f) => ({ ...f, range: rangeParam }));
+    }
+  }, [rangeParam]);
+
+  useEffect(() => {
+    const mapped = normalizeSeverityParam(severityParam);
+    if (mapped) {
+      setFilters((f) => ({ ...f, severity: mapped }));
+    }
+  }, [severityParam]);
+
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [baselineData, setBaselineData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [selectedLocationForBreakdown, setSelectedLocationForBreakdown] = useState<LocationSummary | null>(null);
+  const [snackbarMsg, setSnackbarMsg] = useState('');
+  const [presentationOpen, setPresentationOpen] = useState(false);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+
+  // Phase 6: Snapshots & Action Register state
+  const [snapshots, setSnapshots] = useState<ReportSnapshotHeader[]>([]);
+  const [activeSnapshotId, setActiveSnapshotId] = useState<number | null>(null);
+  const [snapshotBusy, setSnapshotBusy] = useState(false);
+  const [actions, setActions] = useState<ReportActionItem[]>([]);
+  const [actionBusy, setActionBusy] = useState(false);
+
+  const [sortKey, setSortKey] = useState<LocationSortKey>('priority');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const [optionalColumns, setOptionalColumns] = useState<Record<OptionalBarangayColumn, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem(OPTIONAL_COLS_KEY);
+      if (saved) {
+        return {
+          demographics: true,
+          rig_details: true,
+          animals: false,
+          trend: false,
+          risk_score: false,
+          ...JSON.parse(saved),
+        };
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return { demographics: true, rig_details: true, animals: false, trend: false, risk_score: false };
+  });
+
+  const toggleOptionalColumn = (col: OptionalBarangayColumn) => {
+    setOptionalColumns((prev) => {
+      const next = { ...prev, [col]: !prev[col] };
+      try {
+        localStorage.setItem(OPTIONAL_COLS_KEY, JSON.stringify(next));
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
+  };
+
+  const selectTab = (nextTab: ViewTab) => {
+    setTab(nextTab);
+    tabRefs.current[nextTab]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  };
+
+  const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, currentTab: ViewTab) => {
+    const order: ViewTab[] = ['summary', 'treatment', 'cases'];
+    const idx = order.indexOf(currentTab);
+    let next: ViewTab | null = null;
+    if (event.key === 'ArrowRight') next = order[(idx + 1) % order.length];
+    else if (event.key === 'ArrowLeft') next = order[(idx - 1 + order.length) % order.length];
+    else if (event.key === 'Home') next = order[0];
+    else if (event.key === 'End') next = order[order.length - 1];
+    if (next) {
+      event.preventDefault();
+      selectTab(next);
+      tabRefs.current[next]?.focus();
+    }
+  };
+
+  useEffect(() => {
+    if (!locationParam || loading || !data?.locations) return;
+    const lower = locationParam.toLowerCase();
+    const matched = data.locations.find(
+      (l) =>
+        l.location.toLowerCase() === lower ||
+        (l.normalized_barangay && l.normalized_barangay.toLowerCase() === lower) ||
+        l.location.toLowerCase().includes(lower)
+    );
+    if (matched) setSelectedLocationForBreakdown(matched);
+  }, [locationParam, loading, data]);
+
+  const activeDateRange = useMemo(
+    () => computeDateRange(filters.range, filters.customFrom, filters.customTo),
+    [filters.range, filters.customFrom, filters.customTo]
+  );
+
+  const query = useMemo(() => {
+    const { cutoff, search, severity, status, animal, animalStatus, animalCondition, channel, ageGroup } = filters;
+    return {
+      privacy_mode: privacyMode,
+      ...(search ? { search } : {}),
+      ...(severity ? { severity } : {}),
+      ...(status ? { status } : {}),
+      ...(animal ? { animal } : {}),
+      ...(animalStatus ? { animal_status: animalStatus } : {}),
+      ...(animalCondition ? { animal_condition: animalCondition } : {}),
+      ...(channel ? { channel } : {}),
+      ...(ageGroup ? { age_group: ageGroup } : {}),
+      ...(cutoff ? { cutoff } : {}),
+      ...(activeDateRange.from ? { from: activeDateRange.from } : {}),
+      ...(activeDateRange.to ? { to: activeDateRange.to } : {}),
+    };
+  }, [filters, privacyMode, activeDateRange]);
+
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      try {
+        if (activeSnapshotId) {
+          const snapRes = await api.get<{
+            snapshot: ReportSnapshotHeader;
+            summary_payload: DashboardData;
+            actions?: ReportActionItem[];
+          }>(`/reports/bite-summary/snapshots/${activeSnapshotId}`);
+          if (!active) return;
+          setData({
+            ...snapRes.data.summary_payload,
+            snapshot: snapRes.data.snapshot,
+          });
+          if (snapRes.data.actions) {
+            setActions(snapRes.data.actions);
+          }
+        } else {
+          const response = await api.get<DashboardData>('/cases/location-summary', { params: query });
+          if (!active) return;
+          setData(response.data);
+          if (!filters.search && !filters.severity && !filters.status && !filters.animal && !filters.animalStatus && !filters.animalCondition && !filters.channel && !filters.ageGroup) {
+            setBaselineData(response.data);
+          }
+        }
+        setError('');
+      } catch {
+        if (!active) return;
+        setError('Unable to load bite cases summary analytics. Please try again.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    }, 220);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [query, activeSnapshotId]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const [snapRes, actRes] = await Promise.all([
+          api.get<{ data: ReportSnapshotHeader[] }>('/reports/bite-summary/snapshots'),
+          api.get<{ data: ReportActionItem[] }>('/reports/bite-summary/actions'),
+        ]);
+        if (!active) return;
+        setSnapshots(snapRes.data.data || []);
+        setActions(actRes.data.data || []);
+      } catch {
+        // Non-blocking if snapshots/actions endpoints are not yet populated
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleSaveSnapshot = async (
+    status: 'draft' | 'finalized',
+    parentSnapshotId?: number | null,
+    notes?: string
+  ) => {
+    setSnapshotBusy(true);
+    try {
+      const res = await api.post<{
+        snapshot: ReportSnapshotHeader;
+        summary_payload: DashboardData;
+      }>('/reports/bite-summary/snapshots', {
+        ...query,
+        status,
+        ...(parentSnapshotId ? { parent_snapshot_id: parentSnapshotId } : {}),
+        ...(notes ? { notes } : {}),
+      });
+      const created = res.data.snapshot;
+      setSnapshots((prev) => [created, ...prev]);
+      setActiveSnapshotId(created.snapshot_id);
+      setData({ ...res.data.summary_payload, snapshot: created });
+      setSnackbarMsg(
+        status === 'finalized'
+          ? `Finalized immutable snapshot ${created.snapshot_code}.`
+          : `Saved snapshot ${created.snapshot_code} (v${created.version}).`
+      );
+    } catch {
+      setSnackbarMsg('Unable to save report snapshot.');
+    } finally {
+      setSnapshotBusy(false);
+    }
+  };
+
+  const handleFinalizeSnapshot = async (snapshotId: number) => {
+    setSnapshotBusy(true);
+    try {
+      const res = await api.post<{ snapshot: ReportSnapshotHeader }>(
+        `/reports/bite-summary/snapshots/${snapshotId}/finalize`
+      );
+      const updated = res.data.snapshot;
+      setSnapshots((prev) =>
+        prev.map((s) => (s.snapshot_id === updated.snapshot_id ? updated : s))
+      );
+      setData((prev) => (prev ? { ...prev, snapshot: updated } : prev));
+      setSnackbarMsg(`Snapshot ${updated.snapshot_code} is now finalized and immutable.`);
+    } catch {
+      setSnackbarMsg('Unable to finalize snapshot.');
+    } finally {
+      setSnapshotBusy(false);
+    }
+  };
+
+  const handleCreateAction = async (payload: {
+    finding_key?: string;
+    observed_pattern: string;
+    supporting_metric?: string;
+    proposed_action: string;
+    owner_name?: string;
+    due_date?: string;
+    target_measure?: string;
+    baseline_value?: string;
+    resources_notes?: string;
+  }) => {
+    setActionBusy(true);
+    try {
+      const res = await api.post<{ action: ReportActionItem }>('/reports/bite-summary/actions', {
+        ...payload,
+        ...(activeSnapshotId ? { snapshot_id: activeSnapshotId } : {}),
+      });
+      setActions((prev) => [res.data.action, ...prev]);
+      setSnackbarMsg('Added action item to the Action Register.');
+    } catch {
+      setSnackbarMsg('Unable to save action item.');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleUpdateActionStatus = async (
+    actionId: number,
+    status: ReportActionItem['status'],
+    reviewOutcome?: string
+  ) => {
+    setActionBusy(true);
+    try {
+      const res = await api.put<{ action: ReportActionItem }>(
+        `/reports/bite-summary/actions/${actionId}`,
+        {
+          status,
+          ...(reviewOutcome ? { review_outcome: reviewOutcome } : {}),
+        }
+      );
+      setActions((prev) =>
+        prev.map((a) => (a.action_id === actionId ? res.data.action : a))
+      );
+      setSnackbarMsg(`Updated action status to ${status.replace('_', ' ')}.`);
+    } catch {
+      setSnackbarMsg('Unable to update action status.');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handlePrintMeetingPack = async () => {
+    try {
+      const res = await api.get<string>('/print/reports/bite-summary', {
+        params: {
+          ...query,
+          ...(activeSnapshotId ? { snapshot_id: activeSnapshotId } : {}),
+        },
+        responseType: 'text' as unknown as 'json',
+      });
+      const printWin = window.open('', '_blank');
+      if (printWin) {
+        printWin.document.open();
+        printWin.document.write(String(res.data));
+        printWin.document.close();
+      } else {
+        setSnackbarMsg('Please allow pop-ups to open the A4 Meeting Pack print view.');
+      }
+    } catch {
+      setSnackbarMsg('Unable to generate A4 Meeting Pack print view.');
+    }
+  };
+
+  const updateFilter = (key: keyof Filters, value: string) =>
+    setFilters((current) => ({ ...current, [key]: value }));
+
+  const clearFilters = () =>
+    setFilters({
+      search: '',
+      severity: '',
+      status: '',
+      animal: '',
+      animalStatus: '',
+      animalCondition: '',
+      channel: '',
+      ageGroup: '',
+      range: 'all',
+      customFrom: '',
+      customTo: '',
+      cutoff: '',
+    });
+
+  const hasActiveFilters = Boolean(
+    filters.search ||
+      filters.severity ||
+      filters.status ||
+      filters.animal ||
+      filters.animalStatus ||
+      filters.animalCondition ||
+      filters.channel ||
+      filters.ageGroup ||
+      filters.cutoff ||
+      filters.range !== 'all'
+  );
+
+  const locations = data?.locations ?? [];
+  const cases = data?.cases ?? [];
+  const doh = data?.doh_summary;
+  const maxCasesAcrossLocations = useMemo(
+    () => Math.max(1, ...locations.map((l) => l.total_cases)),
+    [locations]
+  );
+
+  const sortedLocations = useMemo(() => {
+    const copy = [...locations];
+    copy.sort((a, b) => {
+      const mul = sortOrder === 'asc' ? 1 : -1;
+      if (sortKey === 'location') {
+        return mul * (a.normalized_barangay || a.location).localeCompare(b.normalized_barangay || b.location);
+      }
+      if (sortKey === 'cases') return mul * (a.total_cases - b.total_cases);
+      if (sortKey === 'cat_3') return mul * (a.cat_3 - b.cat_3);
+      if (sortKey === 'pep') return mul * ((a.given_pep ?? 0) - (b.given_pep ?? 0));
+      if (sortKey === 'overdue') {
+        return mul * ((a.overdue_episodes ?? a.overdue_doses) - (b.overdue_episodes ?? b.overdue_doses));
+      }
+      if (sortKey === 'last_incident') {
+        const da = a.last_incident_days_ago ?? 99999;
+        const db = b.last_incident_days_ago ?? 99999;
+        return mul * (da - db);
+      }
+      const sa = computePriorityBreakdown(a, maxCasesAcrossLocations).compositeScore;
+      const sb = computePriorityBreakdown(b, maxCasesAcrossLocations).compositeScore;
+      return mul * (sa - sb);
+    });
+    return copy;
+  }, [locations, sortKey, sortOrder, maxCasesAcrossLocations]);
+
+  const handleSort = (key: LocationSortKey) => {
+    if (sortKey === key) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortOrder(key === 'location' ? 'asc' : 'desc');
+    }
+  };
+
+  const drillDownToStage = (stageKey: string) => {
+    const statusMap: Record<string, string> = {
+      form_1_registration: 'awaiting_assessment',
+      form_2_pep_prescribed: 'no_administration_recorded',
+      form_2_no_pep: 'completed_no_pep',
+      form_2_transferred: 'transferred_referred',
+      form_3_treatment_recorded: 'treatment_recorded',
+    };
+    setFilters((f) => ({ ...f, status: statusMap[stageKey] ?? '' }));
+    selectTab('cases');
+  };
+
+  const handleDrillDownFilter = (next: {
+    status?: string;
+    severity?: string;
+    animal?: string;
+    animal_status?: string;
+    animal_condition?: string;
+    channel?: string;
+    age_group?: string;
+    search?: string;
+  }) => {
+    setFilters((f) => ({
+      ...f,
+      ...(next.status !== undefined ? { status: next.status } : {}),
+      ...(next.severity !== undefined ? { severity: next.severity } : {}),
+      ...(next.animal !== undefined ? { animal: next.animal } : {}),
+      ...(next.animal_status !== undefined ? { animalStatus: next.animal_status } : {}),
+      ...(next.animal_condition !== undefined ? { animalCondition: next.animal_condition } : {}),
+      ...(next.channel !== undefined ? { channel: next.channel } : {}),
+      ...(next.age_group !== undefined ? { ageGroup: next.age_group } : {}),
+      ...(next.search !== undefined ? { search: next.search } : {}),
+    }));
+    selectTab('cases');
+  };
+
+  const hasSecondaryFilters = Boolean(
+    filters.search ||
+      filters.severity ||
+      filters.status ||
+      filters.animal ||
+      filters.animalStatus ||
+      filters.animalCondition ||
+      filters.channel ||
+      filters.ageGroup
+  );
+  // When secondary drill-down filters (search, severity, status, animal) are active, keep the baseline cohort figures for headline KPI cards so the clinic's true total never vanishes to 0!
+  const activeBaseline = hasSecondaryFilters && baselineData ? baselineData : data;
+  const activeDoh = activeBaseline?.doh_summary ?? doh;
+  const activeSummary = activeBaseline?.summary ?? data?.summary;
+
+  const totalRecorded = activeDoh?.pep_and_biologics.recorded_exposures ?? activeSummary?.total_cases ?? 0;
+  const finalizedCount = activeDoh?.pep_and_biologics.finalized_assessments ?? 0;
+  const awaitingAssessmentCount =
+    activeDoh?.pep_and_biologics.awaiting_assessment ?? activeSummary?.awaiting_assessment ?? 0;
+  const pepPrescribedCount =
+    activeDoh?.pep_and_biologics.pep_prescribed ?? activeSummary?.pep_prescribed ?? 0;
+  const givenPepCount = activeDoh?.pep_and_biologics.given_pep ?? 0;
+  const newCoursePrescribedCount = activeDoh?.pep_and_biologics.new_course_prescribed ?? pepPrescribedCount;
+  const noAdminCount =
+    activeDoh?.pep_and_biologics.no_administration_recorded ?? activeSummary?.no_administration_recorded ?? 0;
+  const completedMatureTotal = activeDoh?.completion_and_outcomes.completed_total ?? activeSummary?.completed ?? 0;
+  const maturedCoursesTotal = activeDoh?.completion_and_outcomes.matured_courses ?? 0;
+  const givenRigCount = activeDoh?.pep_and_biologics.given_rig ?? 0;
+  const transferredCount = activeDoh?.completion_and_outcomes.transferred_referred ?? 0;
+  const explicitNoPepCount = activeDoh?.pep_and_biologics.explicit_no_pep ?? 0;
+  const overdueEpisodesCount =
+    activeDoh?.completion_and_outcomes.overdue_episodes ?? activeSummary?.overdue_episodes ?? activeSummary?.overdue_doses ?? 0;
+  const overduePatientsCount = activeSummary?.overdue_patients ?? overdueEpisodesCount;
+  const overdueCoursesCount = activeSummary?.overdue_courses ?? overdueEpisodesCount;
+  const outstandingDoseSlotsCount =
+    activeDoh?.completion_and_outcomes.outstanding_dose_slots ?? activeSummary?.outstanding_dose_slots ?? overdueEpisodesCount;
+  const unknownDateCount = activeSummary?.unknown_exposure_date_count ?? 0;
+  const isPartialPeriod = Boolean(doh?.scope?.is_partial_period ?? activeDateRange.isPartialPeriod);
+  const cutoffLabel = data?.cutoff || filters.cutoff || 'Today';
+  const periodSummaryText =
+    activeDateRange.from && activeDateRange.to
+      ? `${activeDateRange.from} to ${activeDateRange.to}`
+      : activeDateRange.from
+        ? `From ${activeDateRange.from}`
+        : activeDateRange.to
+          ? `Up to ${activeDateRange.to}`
+          : 'All recorded dates';
+
+  const handleCaseLogsUpdated = (biteId: number, log: PatientFollowupLog) => {
+    setData((prev) => {
+      if (!prev?.cases) return prev;
+      return {
+        ...prev,
+        cases: prev.cases.map((c) =>
+          c.bite_id === biteId
+            ? {
+                ...c,
+                followup_logs: [log, ...(c.followup_logs ?? [])],
+                followup_logs_count: (c.followup_logs_count ?? 0) + 1,
+              }
+            : c
+        ),
+      };
+    });
+  };
+
+  return (
+    <Box sx={{ p: { xs: 1.5, md: 2.5 }, maxWidth: 1440, mx: 'auto' }}>
+      {/* Clean Page Header & Concise 1-Line Scope Summary */}
+      <Box
+        className="page-header"
+        data-walkthrough="bite-cases-header"
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 1.5,
+          mb: 1.25,
+        }}
+      >
+        <Box sx={{ minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Typography
+              component="h1"
+              sx={{
+                fontSize: '22px',
+                fontWeight: 600,
+                lineHeight: 1.25,
+                letterSpacing: '-0.5px',
+                color: 'var(--bc-text)',
+              }}
+            >
+              Bite Cases Summary
+            </Typography>
+            <Chip
+              size="small"
+              label={
+                data?.snapshot
+                  ? `${data.snapshot.snapshot_code} (v${data.snapshot.version})`
+                  : 'Live draft'
+              }
+              sx={{
+                fontSize: 11,
+                fontWeight: 700,
+                bgcolor: '#ecfeff',
+                color: '#0891b2',
+                border: '1px solid #cffafe',
+                height: 22,
+              }}
+            />
+            {unknownDateCount > 0 && (
+              <Chip
+                size="small"
+                label={`${unknownDateCount} provisional date`}
+                sx={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  bgcolor: '#fffbeb',
+                  color: '#b45309',
+                  border: '1px solid #fef3c7',
+                  height: 22,
+                }}
+              />
+            )}
+          </Box>
+
+          <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)', mt: 0.35 }}>
+            Reporting and planning · Tagoloan Animal Bite Treatment
+          </Typography>
+        </Box>
+
+        {/* Action Toolbar: Conference mode, Bite Map, Export menu, Present */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                size="small"
+                checked={privacyMode === 'aggregate_only'}
+                onChange={(e) => setPrivacyMode(e.target.checked ? 'aggregate_only' : 'internal_aggregate')}
+                sx={{ p: 0.5, color: '#9ca3af', '&.Mui-checked': { color: '#0f766e' } }}
+              />
+            }
+            label={<Typography sx={{ fontSize: 13, fontWeight: 500, color: 'var(--bc-text-secondary)' }}>Conference mode</Typography>}
+            sx={{ m: 0 }}
+          />
+
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => navigate(ROUTES.BITE_CASES.MAP)}
+            sx={{
+              textTransform: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+              fontSize: 12.5,
+              borderColor: '#d1d5db',
+              color: 'var(--bc-text)',
+              bgcolor: '#ffffff',
+              boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)',
+              '&:hover': { borderColor: '#9ca3af', bgcolor: '#f9fafb' },
+            }}
+          >
+            Bite Map
+          </Button>
+
+          <Button
+            size="small"
+            variant="outlined"
+            endIcon={<KeyboardArrowDownOutlined sx={{ fontSize: 18 }} />}
+            onClick={(e) => setExportAnchorEl(e.currentTarget)}
+            sx={{
+              textTransform: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+              fontSize: 12.5,
+              borderColor: '#d1d5db',
+              color: 'var(--bc-text)',
+              bgcolor: '#ffffff',
+              boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)',
+              '&:hover': { borderColor: '#9ca3af', bgcolor: '#f9fafb' },
+            }}
+          >
+            Export
+          </Button>
+          <Menu
+            anchorEl={exportAnchorEl}
+            open={Boolean(exportAnchorEl)}
+            onClose={() => setExportAnchorEl(null)}
+          >
+            <MenuItem
+              onClick={() => {
+                setExportAnchorEl(null);
+                if (data) {
+                  exportAggregateSummaryToCsv(data, 'bite-cases-summary-pack.csv');
+                  setSnackbarMsg('Exported aggregate summary pack to CSV.');
+                }
+              }}
+            >
+              Export Aggregate CSV
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setExportAnchorEl(null);
+                if (data) {
+                  exportCasesToCsv(cases, 'bite-cases-episodes.csv');
+                  setSnackbarMsg('Exported episodes to CSV.');
+                }
+              }}
+            >
+              Export Episodes CSV
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setExportAnchorEl(null);
+                handlePrintMeetingPack();
+              }}
+            >
+              Print A4 Meeting Pack
+            </MenuItem>
+          </Menu>
+
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() => setPresentationOpen(true)}
+            disabled={!data}
+            sx={{
+              textTransform: 'none',
+              borderRadius: '8px',
+              fontWeight: 700,
+              fontSize: 12.5,
+              bgcolor: '#0f766e',
+              color: '#ffffff',
+              boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)',
+              '&:hover': { bgcolor: '#0d655e' },
+            }}
+          >
+            Present · 6 screens
+          </Button>
+        </Box>
+      </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 1.5 }} action={<Button size="small" onClick={() => setFilters((f) => ({ ...f }))}>Retry</Button>}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Non-blocking refetch progress bar */}
+      {loading && data && (
+        <Box sx={{ mb: 1 }}>
+          <LinearProgress aria-label="Refreshing bite cases summary" sx={{ borderRadius: 2 }} />
+        </Box>
+      )}
+
+      {/* 4 Spacious Headline KPI Cards */}
+      <Box data-walkthrough="bite-cases-kpi-cards" data-tour="bite-cases-kpi-cards" sx={{ mb: 2 }}>
+        {loading && !data ? (
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 1.5 }}>
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <Skeleton key={idx} variant="rounded" height={124} />
+            ))}
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+              gap: 1.5,
+            }}
+          >
+            {/* Card 1: Recorded Exposures */}
+            <HeadlineKpiCard
+              title="Recorded Exposures"
+              value={totalRecorded}
+              subtext={`${awaitingAssessmentCount} awaiting assessment`}
+            />
+
+            {/* Card 2: Category III Exposures */}
+            <HeadlineKpiCard
+              title="Category III Exposures"
+              titleColor="#991b1b"
+              borderColor="#fee2e2"
+              value={doh?.categories.III ?? 0}
+              valueColor="#b91c1c"
+              subtext={`${formatPct(doh?.categories.III ?? 0, finalizedCount)} of assessed`}
+              badgeText={`${givenRigCount} verified RIG given`}
+              badgeBg="#fffbeb"
+              badgeColor="#92400e"
+              badgeBorder="#fef3c7"
+            />
+
+            {/* Card 3: PEP Started */}
+            <HeadlineKpiCard
+              title="PEP Started"
+              value={givenPepCount}
+              valueSuffix={`of ${newCoursePrescribedCount} prescribed`}
+              progressValue={givenPepCount}
+              progressTotal={newCoursePrescribedCount}
+              progressColor="#0f766e"
+              subtext={`${formatPct(givenPepCount, newCoursePrescribedCount)} started`}
+            />
+
+            {/* Card 4: PEP Completion */}
+            <HeadlineKpiCard
+              title="PEP Completion"
+              value={completedMatureTotal}
+              valueSuffix={`of ${maturedCoursesTotal} mature`}
+              progressValue={completedMatureTotal}
+              progressTotal={maturedCoursesTotal}
+              progressColor="#0f766e"
+              subtext={`${formatPct(completedMatureTotal, maturedCoursesTotal)} · ${doh?.completion_and_outcomes.immature_courses ?? 0} ongoing treatment`}
+            />
+          </Box>
+        )}
+      </Box>
+
+      {/* Single-Row Tab Bar & Compact Filter Controls (Secondary Filters Collapsible) */}
+      <Paper
+        elevation={0}
+        data-walkthrough="bite-cases-filter-bar"
+        data-tour="bite-cases-filter-bar"
+        sx={{
+          border: BC_BORDER,
+          borderRadius: '10px',
+          p: 1.25,
+          mb: 1.5,
+          bgcolor: 'var(--bc-surface)',
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 1,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div
+            role="tablist"
+            aria-label="Bite Cases Summary Views"
+            className="bc-tablist"
+            data-walkthrough="bite-cases-view-tabs"
+            data-tour="bite-cases-view-tabs"
+          >
+            {[
+              { id: 'summary' as ViewTab, label: 'Overview' },
+              { id: 'treatment' as ViewTab, label: 'Treatment & Follow-up' },
+              {
+                id: 'cases' as ViewTab,
+                label: `Episode Drill-Down (${privacyMode === 'aggregate_only' ? 'Hidden' : cases.length})`,
+              },
+            ].map((item) => (
+              <button
+                key={item.id}
+                ref={(el) => {
+                  tabRefs.current[item.id] = el;
+                }}
+                id={`tab-${item.id}`}
+                type="button"
+                role="tab"
+                aria-selected={tab === item.id}
+                tabIndex={tab === item.id ? 0 : -1}
+                className="bc-tab-btn"
+                onClick={() => selectTab(item.id)}
+                onKeyDown={(e) => handleTabKeyDown(e, item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Primary Compact Filter Controls */}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+            <TextField
+              data-walkthrough="bite-cases-search"
+              data-tour="bite-cases-search"
+              size="small"
+              placeholder="Search case #, patient"
+              value={filters.search}
+              onChange={(e) => updateFilter('search', e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchOutlined aria-hidden="true" sx={{ fontSize: 16, color: 'var(--bc-text-secondary)' }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={{ width: { xs: '100%', sm: 210 }, '& .MuiOutlinedInput-root': { height: 34, fontSize: 12.5 } }}
+            />
+
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <Select
+                value={filters.range}
+                aria-label="Filter by Exposure Date Range"
+                onChange={(e) => {
+                  updateFilter('range', e.target.value);
+                  if (e.target.value === 'custom') setShowMoreFilters(true);
+                }}
+                sx={{ height: 34, fontSize: 12.5 }}
+              >
+                <MenuItem value="all">All Recorded Dates</MenuItem>
+                <MenuItem value="last_completed_quarter">Last Completed Quarter</MenuItem>
+                <MenuItem value="week">Last 7 Days</MenuItem>
+                <MenuItem value="month">Last 30 Days</MenuItem>
+                <MenuItem value="quarter">Last 90 Days</MenuItem>
+                <MenuItem value="custom">Custom Range…</MenuItem>
+              </Select>
+            </FormControl>
+
+            <Button
+              size="small"
+              variant={showMoreFilters || hasActiveFilters ? 'contained' : 'outlined'}
+              startIcon={<FilterListOutlined aria-hidden="true" />}
+              onClick={() => setShowMoreFilters((prev) => !prev)}
+              sx={{ textTransform: 'none', borderRadius: '8px', fontWeight: 600, height: 34 }}
+            >
+              Filters
+              {hasActiveFilters ? ' • Active' : ''}
+            </Button>
+
+            {hasActiveFilters && (
+              <Button
+                size="small"
+                variant="text"
+                startIcon={<Clear aria-hidden="true" />}
+                onClick={() => {
+                  clearFilters();
+                  setActiveSnapshotId(null);
+                }}
+                sx={{ textTransform: 'none', fontWeight: 600, height: 34 }}
+              >
+                Reset
+              </Button>
+            )}
+          </Box>
+        </Box>
+
+        {/* Collapsible Secondary Filters Tray */}
+        <Collapse in={showMoreFilters || filters.range === 'custom'}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 1,
+              alignItems: 'center',
+              pt: 1.25,
+              mt: 1,
+              borderTop: BC_BORDER,
+            }}
+          >
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <Select
+                displayEmpty
+                value={filters.severity}
+                aria-label="Filter by WHO Category or Unassessed State"
+                onChange={(e) => updateFilter('severity', e.target.value)}
+                sx={{ height: 34, fontSize: 12.5 }}
+              >
+                <MenuItem value="">All Categories (Incl. Unassessed)</MenuItem>
+                <MenuItem value="I">Category I</MenuItem>
+                <MenuItem value="II">Category II</MenuItem>
+                <MenuItem value="III">Category III</MenuItem>
+                <MenuItem value="not_yet_assessed">Not Yet Assessed (Form 1 Only)</MenuItem>
+                <MenuItem value="assessed_category_missing">Assessed – Category Missing</MenuItem>
+                <MenuItem value="unassessed">All Unassessed / Category Pending</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 215 }}>
+              <Select
+                displayEmpty
+                value={filters.status}
+                aria-label="Filter by Stage or Status"
+                onChange={(e) => updateFilter('status', e.target.value)}
+                sx={{ height: 34, fontSize: 12.5 }}
+              >
+                <MenuItem value="">All Stages &amp; Statuses</MenuItem>
+                <MenuItem value="awaiting_assessment">Form 1: Awaiting Assessment</MenuItem>
+                <MenuItem value="no_administration_recorded">Form 2: PEP Prescribed – No Admin</MenuItem>
+                <MenuItem value="unresolved_review">Unresolved Review (Stage 1 &amp; 2)</MenuItem>
+                <MenuItem value="unresolved_review_over_30_days">Unresolved Review (&gt;30 Days)</MenuItem>
+                <MenuItem value="completed_no_pep">Form 2: Completed – No PEP Required</MenuItem>
+                <MenuItem value="transferred_referred">Form 2: Transferred/Referred</MenuItem>
+                <MenuItem value="treatment_recorded">Form 3: Nurse Treatment Recorded</MenuItem>
+                <MenuItem value="active">Ongoing PEP Treatment</MenuItem>
+                <MenuItem value="completed">Completed PEP Course</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 145 }}>
+              <Select
+                displayEmpty
+                value={filters.animal}
+                aria-label="Filter by Biting Animal"
+                onChange={(e) => updateFilter('animal', e.target.value)}
+                sx={{ height: 34, fontSize: 12.5 }}
+              >
+                <MenuItem value="">All Animals</MenuItem>
+                <MenuItem value="dog">Dog</MenuItem>
+                <MenuItem value="cat">Cat</MenuItem>
+                <MenuItem value="other">Other Animal</MenuItem>
+                <MenuItem value="species_unknown">Species Unknown</MenuItem>
+                <MenuItem value="species_not_recorded">Species Not Recorded</MenuItem>
+                <MenuItem value="unknown">Animal Unknown / Unspecified</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 155 }}>
+              <Select
+                displayEmpty
+                value={filters.animalStatus}
+                aria-label="Filter by Animal Ownership"
+                onChange={(e) => updateFilter('animalStatus', e.target.value)}
+                sx={{ height: 34, fontSize: 12.5 }}
+              >
+                <MenuItem value="">All Ownership</MenuItem>
+                <MenuItem value="owned">Owned</MenuItem>
+                <MenuItem value="stray">Stray</MenuItem>
+                <MenuItem value="unknown">Ownership Unknown</MenuItem>
+                <MenuItem value="not_recorded">Ownership Not Recorded</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 165 }}>
+              <Select
+                displayEmpty
+                value={filters.animalCondition}
+                aria-label="Filter by Animal Condition"
+                onChange={(e) => updateFilter('animalCondition', e.target.value)}
+                sx={{ height: 34, fontSize: 12.5 }}
+              >
+                <MenuItem value="">All Animal Conditions</MenuItem>
+                <MenuItem value="healthy">Healthy</MenuItem>
+                <MenuItem value="sick">Sick</MenuItem>
+                <MenuItem value="died">Dead / Died</MenuItem>
+                <MenuItem value="unknown">Condition Unknown</MenuItem>
+                <MenuItem value="not_recorded">Condition Not Recorded</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 145 }}>
+              <Select
+                displayEmpty
+                value={filters.channel}
+                aria-label="Filter by Registration Channel"
+                onChange={(e) => updateFilter('channel', e.target.value)}
+                sx={{ height: 34, fontSize: 12.5 }}
+              >
+                <MenuItem value="">All Channels</MenuItem>
+                <MenuItem value="walk_in">Walk-in</MenuItem>
+                <MenuItem value="online">Online</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 190 }}>
+              <Select
+                displayEmpty
+                value={filters.ageGroup}
+                aria-label="Filter by Age Group"
+                onChange={(e) => updateFilter('ageGroup', e.target.value)}
+                sx={{ height: 34, fontSize: 12.5 }}
+              >
+                <MenuItem value="">All Age Groups</MenuItem>
+                {BITE_SUMMARY_AGE_GROUPS.map((group) => (
+                  <MenuItem key={group.key} value={group.key}>
+                    {group.label} ({group.range})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {filters.range === 'custom' && (
+              <>
+                <TextField
+                  size="small"
+                  type="date"
+                  label="From"
+                  value={filters.customFrom}
+                  onChange={(e) => updateFilter('customFrom', e.target.value)}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  sx={{ width: 140, '& .MuiOutlinedInput-root': { height: 34, fontSize: 12 } }}
+                />
+                <TextField
+                  size="small"
+                  type="date"
+                  label="To"
+                  value={filters.customTo}
+                  onChange={(e) => updateFilter('customTo', e.target.value)}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  sx={{ width: 140, '& .MuiOutlinedInput-root': { height: 34, fontSize: 12 } }}
+                />
+              </>
+            )}
+
+            <TextField
+              size="small"
+              type="date"
+              label="Outcome Cutoff"
+              value={filters.cutoff}
+              onChange={(e) => updateFilter('cutoff', e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+              sx={{ width: 150, '& .MuiOutlinedInput-root': { height: 34, fontSize: 12 } }}
+            />
+          </Box>
+        </Collapse>
+
+        {/* Visible Active Filters Strip (makes active filters transparent, readable, and dismissible) */}
+        {(Boolean(filters.severity) ||
+          Boolean(filters.status) ||
+          Boolean(filters.animal) ||
+          Boolean(filters.animalStatus) ||
+          Boolean(filters.animalCondition) ||
+          Boolean(filters.channel) ||
+          Boolean(filters.ageGroup) ||
+          Boolean(filters.search)) && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              flexWrap: 'wrap',
+              pt: 1,
+              mt: 1,
+              borderTop: '1px dashed var(--bc-border)',
+            }}
+          >
+            <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+              Active filter:
+            </Typography>
+            {filters.severity && (
+              <Chip
+                size="small"
+                label={
+                  filters.severity === 'not_yet_assessed'
+                    ? 'Severity: Not Yet Assessed'
+                    : filters.severity === 'assessed_category_missing'
+                      ? 'Severity: Category Missing'
+                      : filters.severity === 'unassessed'
+                        ? 'Severity: Unassessed / Pending'
+                        : `Category ${filters.severity}`
+                }
+                onDelete={() => updateFilter('severity', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.status && (
+              <Chip
+                size="small"
+                label={`Status: ${filters.status.replace(/_/g, ' ')}`}
+                onDelete={() => updateFilter('status', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.animal && (
+              <Chip
+                size="small"
+                label={`Animal: ${filters.animal.replace(/_/g, ' ').toUpperCase()}`}
+                onDelete={() => updateFilter('animal', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.animalStatus && (
+              <Chip
+                size="small"
+                label={`Ownership: ${filters.animalStatus.replace(/_/g, ' ')}`}
+                onDelete={() => updateFilter('animalStatus', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.animalCondition && (
+              <Chip
+                size="small"
+                label={`Condition: ${filters.animalCondition === 'died' ? 'dead / died' : filters.animalCondition.replace(/_/g, ' ')}`}
+                onDelete={() => updateFilter('animalCondition', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.channel && (
+              <Chip
+                size="small"
+                label={`Channel: ${filters.channel === 'walk_in' ? 'Walk-in' : 'Online'}`}
+                onDelete={() => updateFilter('channel', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.ageGroup && (
+              <Chip
+                size="small"
+                label={(() => {
+                  const matched = BITE_SUMMARY_AGE_GROUPS.find((g) => g.key === filters.ageGroup);
+                  return matched ? `Age group: ${matched.label} (${matched.range})` : `Age group: ${filters.ageGroup}`;
+                })()}
+                onDelete={() => updateFilter('ageGroup', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.search && (
+              <Chip
+                size="small"
+                label={`Search: “${filters.search}”`}
+                onDelete={() => updateFilter('search', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            <Button
+              size="small"
+              onClick={clearFilters}
+              sx={{ textTransform: 'none', fontSize: 12, fontWeight: 600, p: 0, minWidth: 'auto', color: 'var(--bc-amber-strong)' }}
+            >
+              Clear filter
+            </Button>
+          </Box>
+        )}
+      </Paper>
+
+      {/* Main Content Area by Active Tab */}
+      <Box data-walkthrough="bite-cases-table" data-tour="bite-cases-table">
+        {tab === 'summary' && (
+          <div role="tabpanel" aria-labelledby="tab-summary" tabIndex={0}>
+            <BiteCasesOverviewTab
+              doh={doh}
+              locations={locations}
+              insights={data?.insights}
+              limitations={data?.limitations}
+              totalRecorded={totalRecorded}
+              finalizedCount={finalizedCount}
+              awaitingAssessmentCount={awaitingAssessmentCount}
+              pepPrescribedCount={pepPrescribedCount}
+              givenPepCount={givenPepCount}
+              noAdminCount={noAdminCount}
+              givenRigCount={givenRigCount}
+              completedMatureTotal={completedMatureTotal}
+              overdueEpisodesCount={overdueEpisodesCount}
+              onDrillDownToStage={drillDownToStage}
+              onDrillDownFilter={handleDrillDownFilter}
+              onExportEpisodesCsv={() => {
+                exportCasesToCsv(cases, 'bite-cases-all-episodes.csv', privacyMode);
+                if (privacyMode === 'internal_aggregate' && cases.length > 0) {
+                  setSnackbarMsg(`Exported ${cases.length} episode(s) to CSV.`);
+                }
+              }}
+            />
+          </div>
+        )}
+
+        {tab === 'treatment' && (
+          <div role="tabpanel" aria-labelledby="tab-treatment" tabIndex={0}>
+            <BiteCasesTreatmentTab
+              doh={doh}
+              cases={cases}
+              privacyMode={privacyMode}
+              totalRecorded={totalRecorded}
+              finalizedCount={finalizedCount}
+              awaitingAssessmentCount={awaitingAssessmentCount}
+              pepPrescribedCount={pepPrescribedCount}
+              newCoursePrescribedCount={newCoursePrescribedCount}
+              givenPepCount={givenPepCount}
+              noAdminCount={noAdminCount}
+              explicitNoPepCount={explicitNoPepCount}
+              transferredCount={transferredCount}
+              givenRigCount={givenRigCount}
+              completedMatureTotal={completedMatureTotal}
+              overdueEpisodesCount={overdueEpisodesCount}
+              overduePatientsCount={overduePatientsCount}
+              overdueCoursesCount={overdueCoursesCount}
+              outstandingDoseSlotsCount={outstandingDoseSlotsCount}
+              onDrillDownFilter={handleDrillDownFilter}
+              onSwitchToInternalMode={() => setPrivacyMode('internal_aggregate')}
+              onCaseLogsUpdated={handleCaseLogsUpdated}
+              onNotify={(msg) => setSnackbarMsg(msg)}
+            />
+          </div>
+        )}
+
+        {tab === 'cases' && (
+          <div role="tabpanel" aria-labelledby="tab-cases" tabIndex={0}>
+            <BiteCasesEpisodesTab
+              cases={cases}
+              loading={loading}
+              hasData={Boolean(data)}
+              privacyMode={privacyMode}
+              onSwitchToInternalMode={() => setPrivacyMode('internal_aggregate')}
+              onExportCasesCsv={() => {
+                exportCasesToCsv(cases, 'bite-cases-episodes.csv', privacyMode);
+                if (privacyMode === 'internal_aggregate' && cases.length > 0) {
+                  setSnackbarMsg(`Exported ${cases.length} episode(s) to CSV.`);
+                }
+              }}
+            />
+          </div>
+        )}
+      </Box>
+
+      {/* Location Breakdown Modal */}
+      <ExplainabilityModal
+        open={Boolean(selectedLocationForBreakdown)}
+        onClose={() => setSelectedLocationForBreakdown(null)}
+        location={selectedLocationForBreakdown}
+        maxCases={maxCasesAcrossLocations}
+      />
+
+      {/* 6-Screen Conference Presentation Mode Dialog (BCS-06.2) */}
+      {data && (
+        <BiteCasesPresentationDialog
+          open={presentationOpen}
+          onClose={() => setPresentationOpen(false)}
+          data={data}
+          actions={actions}
+          periodLabel={periodSummaryText}
+          cutoffDate={cutoffLabel}
+          onPrintPack={handlePrintMeetingPack}
+        />
+      )}
+
+      <Snackbar open={Boolean(snackbarMsg)} autoHideDuration={3000} onClose={() => setSnackbarMsg('')} message={snackbarMsg} />
+    </Box>
   );
 }

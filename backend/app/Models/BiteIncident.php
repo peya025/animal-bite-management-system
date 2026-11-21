@@ -2,8 +2,12 @@
 
 namespace App\Models;
 
+use App\Services\Reporting\EpisodeReportingStateResolver;
+use App\Services\Reporting\TreatmentOutcomeResolver;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Schema;
 
 class BiteIncident extends Model
 {
@@ -11,6 +15,8 @@ class BiteIncident extends Model
 
     protected $table = 'bite_incidents';
     protected $primaryKey = 'bite_id';
+
+    protected $appends = ['exposure_category'];
 
     protected $fillable = [
         'clinic_id',
@@ -25,16 +31,23 @@ class BiteIncident extends Model
         'rig_decision_reason',
         'case_number',
         'bite_date',
+        'bite_date_is_provisional',
         'bite_place',
         'site_washed',
         'exposure_type',
+        'exposure_mode',
         'victim_of_exposure',
         'severity',
         'animal_type',
+        'animal_type_others',
         'animal_status',
         'animal_captured',
+        'animal_available',
+        'animal_available_answered',
         'animal_observation_status',
         'site_number',
+        'body_part_exposed',
+        'laterality',
         'wound_description',
         'wound_condition',
         'photo_path',
@@ -44,16 +57,22 @@ class BiteIncident extends Model
         'transferred_at',
         'transfer_reason',
         'remarks',
+        'confirmed_by',
+        'confirmed_at',
         'created_by',
     ];
 
     protected $casts = [
         'bite_date' => 'date:Y-m-d',
+        'bite_date_is_provisional' => 'boolean',
         'site_washed' => 'boolean',
         'animal_captured' => 'boolean',
+        'animal_available' => 'boolean',
+        'animal_available_answered' => 'boolean',
         'is_previously_vaccinated' => 'boolean',
         'external_proof_reviewed_at' => 'datetime',
         'transferred_at' => 'datetime',
+        'confirmed_at' => 'datetime',
     ];
 
     public function isReExposure(): bool
@@ -72,14 +91,59 @@ class BiteIncident extends Model
             || $this->status === 'awaiting_assessment';
     }
 
+    /**
+     * Determine whether bite_date holds an unverified placeholder rather than a confirmed exposure date.
+     */
+    public function hasProvisionalBiteDate(): bool
+    {
+        if ($this->bite_date === null || (bool) ($this->bite_date_is_provisional ?? false) === true) {
+            return true;
+        }
+
+        if (
+            $this->episode_type === 'pending_assessment'
+            && $this->status === 'awaiting_assessment'
+            && stripos((string) ($this->remarks ?? ''), 'exposure details await') !== false
+        ) {
+            $hasIntake = $this->relationLoaded('intake')
+                ? (bool) $this->intake
+                : $this->intake()->exists();
+
+            return !$hasIntake;
+        }
+
+        return false;
+    }
+
     public function isTransferredOut(): bool
     {
         return $this->status === 'transferred_out' || !empty($this->transferred_to_facility);
     }
 
+    /**
+     * Resolve the 6-dimension episode reporting state and stage visibility summary.
+     */
+    public function resolveReportingState(CarbonInterface|string|null $cutoff = null): array
+    {
+        return app(EpisodeReportingStateResolver::class)->resolve($this, $cutoff);
+    }
+
+    /**
+     * Dynamically resolve the clinical episode status for Bite Cases Summary and tracking.
+     */
+    public function resolveStatus(CarbonInterface|string|null $cutoff = null): string
+    {
+        return $this->resolveReportingState($cutoff)['resolved_status'];
+    }
+
     public function externalProofReviewer()
     {
         return $this->belongsTo(User::class, 'external_proof_reviewed_by');
+    }
+
+    public function confirmedBy()
+    {
+        return $this->belongsTo(User::class, 'confirmed_by');
     }
 
     /**
@@ -99,24 +163,37 @@ class BiteIncident extends Model
     /**
      * Generate unique case number: BC-2024-0001
      */
-    public static function generateCaseNumber($clinicId)
+    public static function generateCaseNumber($clinicId = null)
     {
         $year = date('Y');
         $prefix = "BC-{$year}-";
-        
-        $lastCase = static::where('clinic_id', $clinicId)
-            ->where('case_number', 'like', "{$prefix}%")
-            ->orderBy('bite_id', 'desc')
-            ->first();
 
-        if ($lastCase) {
-            $lastNumber = (int) substr($lastCase->case_number, -4);
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
+        // Must include soft-deleted records because case_number has a table-wide unique constraint in MySQL
+        $existingNumbers = static::withTrashed()
+            ->where('case_number', 'like', "{$prefix}%")
+            ->pluck('case_number');
+
+        $maxNumber = 0;
+        foreach ($existingNumbers as $num) {
+            $digits = substr($num, strlen($prefix));
+            if (is_numeric($digits)) {
+                $val = (int) $digits;
+                if ($val > $maxNumber) {
+                    $maxNumber = $val;
+                }
+            }
         }
 
-        return sprintf('%s%04d', $prefix, $nextNumber);
+        $nextNumber = $maxNumber + 1;
+        $candidate = sprintf('%s%04d', $prefix, $nextNumber);
+
+        // Guard against any race condition or collision
+        while (static::withTrashed()->where('case_number', $candidate)->exists()) {
+            $nextNumber++;
+            $candidate = sprintf('%s%04d', $prefix, $nextNumber);
+        }
+
+        return $candidate;
     }
 
     /**
@@ -154,7 +231,7 @@ class BiteIncident extends Model
      */
     public function consultationRecords()
     {
-        return $this->treatmentRecords()->whereNull('dose_number');
+        return $this->treatmentRecords()->whereNull('dose_number')->whereNull('medication_given');
     }
 
     /** Vaccine administrations and scheduled doses for this episode. */
@@ -166,6 +243,12 @@ class BiteIncident extends Model
     public function vaccinationSchedules()
     {
         return $this->hasMany(VaccinationSchedule::class, 'bite_id', 'bite_id');
+    }
+
+    /** Scheduled follow-up visits for this bite episode. */
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class, 'bite_id', 'bite_id');
     }
 
     public function queues()
@@ -183,6 +266,11 @@ class BiteIncident extends Model
         return $this->hasOne(BiteIncidentIntake::class, 'bite_id', 'bite_id');
     }
 
+    public function followupLogs()
+    {
+        return $this->hasMany(PatientFollowupLog::class, 'bite_id', 'bite_id')->orderByDesc('id');
+    }
+
     public function getIncidentDateAttribute()
     {
         return $this->bite_date;
@@ -190,9 +278,6 @@ class BiteIncident extends Model
 
     public function getBiteCategoryAttribute(): string
     {
-        if ($this->relationLoaded('intake') && $this->intake && !empty($this->intake->bite_category)) {
-            return (string) $this->intake->bite_category;
-        }
         $sev = strtolower(trim((string) ($this->severity ?? '')));
         if (in_array($sev, ['severe', 'category iii', 'iii', '3'], true)) {
             return 'III';
@@ -200,25 +285,56 @@ class BiteIncident extends Model
         if (in_array($sev, ['minor', 'category i', 'i', '1'], true)) {
             return 'I';
         }
-        return 'II';
+        if (in_array($sev, ['moderate', 'category ii', 'ii', '2'], true)) {
+            return 'II';
+        }
+        if ($this->isAwaitingAssessment() && ($sev === '' || $sev === 'unassessed')) {
+            return 'Unassessed';
+        }
+        // Legacy clinic-entered intakes may already contain a category. New
+        // mobile submissions cannot set this field.
+        if ($this->relationLoaded('intake') && $this->intake && !empty($this->intake->bite_category)) {
+            return (string) $this->intake->bite_category;
+        }
+        return 'Unassessed';
+    }
+
+    public function getExposureCategoryAttribute(): ?string
+    {
+        $category = $this->bite_category;
+        return in_array($category, ['I', 'II', 'III'], true) ? $category : null;
+    }
+
+    public function getPlaceOfExposureAttribute(): ?string
+    {
+        return $this->bite_place ?? ($this->relationLoaded('intake') ? $this->intake?->bite_place : null);
+    }
+
+    public function getAdministeredRigTypeAttribute(): ?string
+    {
+        return app(TreatmentOutcomeResolver::class)->resolveRigEvidence($this)['administered_rig_type'];
+    }
+
+    public function getIndicatedRigTypeAttribute(): ?string
+    {
+        return app(TreatmentOutcomeResolver::class)->resolveRigEvidence($this)['indicated_rig_type'];
     }
 
     public function getRigTypeAttribute(): ?string
     {
-        if ($this->relationLoaded('intake') && $this->intake && !empty($this->intake->rig_type)) {
-            return (string) $this->intake->rig_type;
+        return $this->administered_rig_type;
+    }
+
+    public static function supportsProvisionalBiteDateColumn(): bool
+    {
+        try {
+            $instance = new static();
+
+            return Schema::connection($instance->getConnectionName())
+                ->hasColumn($instance->getTable(), 'bite_date_is_provisional');
+        } catch (\Throwable) {
+            return false;
         }
-        if ($this->relationLoaded('treatmentRecords')) {
-            $hasHrig = $this->treatmentRecords->contains(fn($r) => strtoupper((string) ($r->medication_given ?? '')) === 'HRIG');
-            if ($hasHrig) return 'HRIG';
-            $hasErig = $this->treatmentRecords->contains(fn($r) => strtoupper((string) ($r->medication_given ?? '')) === 'ERIG');
-            if ($hasErig) return 'ERIG';
-        }
-        if (!empty($this->rig_decision_reason)) {
-            if (stripos($this->rig_decision_reason, 'hrig') !== false) return 'HRIG';
-            if (stripos($this->rig_decision_reason, 'erig') !== false) return 'ERIG';
-        }
-        return null;
     }
 
     /**
@@ -236,15 +352,11 @@ class BiteIncident extends Model
      */
     public function getWhoCategory(): string
     {
-        if ($this->exposure_type === 'lick' && !$this->site_washed) {
-            return 'Category I'; // No vaccination needed
-        }
-        
-        if ($this->exposure_type === 'scratch' || 
-            ($this->exposure_type === 'bite' && $this->severity === 'minor')) {
-            return 'Category II'; // Vaccination + wound treatment
-        }
-        
-        return 'Category III'; // Vaccination + immunoglobulin + wound treatment
+        return match ($this->severity) {
+            'minor' => 'Category I',
+            'moderate' => 'Category II',
+            'severe' => 'Category III',
+            default => 'Unassessed',
+        };
     }
 }

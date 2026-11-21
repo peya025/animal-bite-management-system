@@ -60,7 +60,7 @@ It runs the Laravel scheduler once per minute. Current scheduled commands are:
 - `queue:auto-expire` daily at 00:05;
 - `sanctum:prune-expired --hours=24` daily.
 
-Do not create a queue-worker service for the current implementation. The patient queue is a first-come-first-served MySQL workflow, not a Laravel background queue. Notifications are stored in MySQL and mail is sent directly by the current controllers.
+The clinical patient queue is a first-come-first-served MySQL workflow, not a Laravel background queue. Staff and patient invitations send synchronously through `InvitationDelivery` and do not require a worker. Background messaging uses the `notifications` queue when `MESSAGING_QUEUE_CONNECTION=database`; follow `backend/railway/README.md` for that worker and restart existing workers after configuration changes. Do not create a worker solely for an invitation URL correction.
 
 ## 5. Vercel frontend
 

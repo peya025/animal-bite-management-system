@@ -94,7 +94,7 @@ Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'get
 Route::get('/public/vaccine-availability', [VaccineInventoryController::class, 'publicAvailability']);
 Route::get('/public/announcements', [AnnouncementController::class, 'published']);
 
-Route::middleware(['auth:sanctum', EnsureStaffAccount::class, 'active.user', 'role:admin,developer,registration,triage,treatment,doctor,nurse,staff'])->prefix('announcements')->group(function () {
+Route::middleware(['auth:sanctum', EnsureStaffAccount::class, 'active.user'])->prefix('announcements')->group(function () {
     Route::get('/', [AnnouncementController::class, 'index']);
     Route::post('/', [AnnouncementController::class, 'store']);
     Route::post('/{announcement}', [AnnouncementController::class, 'update']);

@@ -4,11 +4,25 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
+use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Storage;
 
-class AnnouncementController extends Controller
+class AnnouncementController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(static function (Request $request, Closure $next) {
+                abort_unless($request->user()?->isAdmin(), 403);
+
+                return $next($request);
+            }, except: ['published']),
+        ];
+    }
+
     public function published()
     {
         return Announcement::where('is_published', true)
@@ -19,7 +33,7 @@ class AnnouncementController extends Controller
     public function index(Request $request)
     {
         return Announcement::with('author')->where('clinic_id', $request->user()->clinic_id)
-            ->latest()->get()->map(fn ($item) => $this->present($item, $request));
+            ->latest()->get()->map(fn ($item) => $this->present($item, forManagement: true));
     }
 
     public function store(Request $request)
@@ -33,13 +47,8 @@ class AnnouncementController extends Controller
 
     public function update(Request $request, Announcement $announcement)
     {
-        abort_unless($announcement->clinic_id === $request->user()->clinic_id && $this->canManage($announcement, $request), 403);
+        abort_unless($announcement->clinic_id === $request->user()->clinic_id, 403);
         return $this->save($request, $announcement);
-    }
-
-    private function canManage(Announcement $item, Request $request): bool
-    {
-        return $item->user_id === $request->user()->id || $request->user()->isAdmin() || $request->user()->role === 'developer';
     }
 
     private function save(Request $request, Announcement $item)
@@ -66,17 +75,17 @@ class AnnouncementController extends Controller
             throw $e;
         }
         if ($oldPath && $oldPath !== $item->image_path) Storage::disk('public')->delete($oldPath);
-        return response()->json($this->present($item->load('author'), $request), $item->wasRecentlyCreated ? 201 : 200);
+        return response()->json($this->present($item->load('author'), forManagement: true), $item->wasRecentlyCreated ? 201 : 200);
     }
 
-    private function present(Announcement $item, ?Request $request = null): array
+    private function present(Announcement $item, bool $forManagement = false): array
     {
         $data = $item->only(['id', 'title', 'message', 'is_urgent', 'expires_on', 'created_at']);
         $data['image_url'] = $item->image_path ? url('/api/storage/'.$item->image_path) : null;
-        if ($request) {
+        if ($forManagement) {
             $data['is_published'] = $item->is_published;
             $data['author_name'] = $item->author?->name ?? 'Former staff member';
-            $data['can_manage'] = $this->canManage($item, $request);
+            $data['can_manage'] = true;
         }
         return $data;
     }

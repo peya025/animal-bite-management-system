@@ -43,6 +43,7 @@ import Unauthorized from './pages/Unauthorized';
 import { AccessDeniedProvider } from './shared/contexts/AccessDeniedContext';
 import { NotificationProvider } from './shared/contexts/NotificationContext';
 import { ClinicModuleConfigProvider } from './hooks/useClinicModuleConfig';
+import { ROUTES } from './shared/config/routes';
 
 function App() {
   return (
@@ -68,7 +69,7 @@ function App() {
                 <Route path="/dashboard" element={<ProtectedRoute><SimpleDashboardPage /></ProtectedRoute>} />
                 
                 {/* Authenticated Application Routes */}
-                <Route path="/announcements" element={<Navigate to="/dashboard?tab=announcements" replace />} />
+                <Route path="/announcements" element={<ProtectedRoute allowedRoles={['admin']}><Navigate to={`${ROUTES.CLINIC_SETUP.INFO}?tab=announcements`} replace /></ProtectedRoute>} />
                 <Route path="/patients" element={<ProtectedRoute allowedRoles={['registration', 'admin', 'developer']}><AppLayout title="Patient Registration"><PatientList /></AppLayout></ProtectedRoute>} />
                 <Route path="/patient-registry" element={<ProtectedRoute allowedRoles={['triage', 'treatment', 'admin', 'developer']}><AppLayout title="Patient List"><PatientList /></AppLayout></ProtectedRoute>} />
                 <Route path="/patient-list" element={<Navigate to="/patient-registry" replace />} />

@@ -1,5 +1,5 @@
-import { lazy, Suspense, useId, useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useId, useState, useEffect } from 'react';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import { Typography } from '@mui/material';
 import api from '../../../shared/services/api';
@@ -21,8 +21,7 @@ import type { PsgcItem } from '../../patients/types';
 const PSGC_API = 'https://psgc.gitlab.io/api';
 const MIS_OR_CODE = '104300000';
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-const AnnouncementManager = lazy(() => import('../../announcements/AnnouncementsPage'));
-type DashboardTab = 'overview' | 'cases' | 'vaccinations' | 'announcements';
+type DashboardTab = 'overview' | 'cases' | 'vaccinations';
 
 function isAuthenticated(): boolean {
   const token = localStorage.getItem('authToken');
@@ -47,11 +46,8 @@ export function SimpleDashboardPage() {
   const [isLoading, setIsLoading] = useState<boolean>(() => !localStorage.getItem('userData'));
   const [setupCheckDone, setSetupCheckDone] = useState<boolean>(() => !!localStorage.getItem('userData'));
   const [searchParams, setSearchParams] = useSearchParams();
-  const canManageAnnouncements = !!user && user.is_active !== false &&
-    ['admin', 'developer', 'registration', 'triage', 'treatment', 'doctor', 'nurse', 'staff'].includes(user.role);
   const requestedTab = searchParams.get('tab');
-  const activeTab: DashboardTab = requestedTab === 'cases' || requestedTab === 'vaccinations' ||
-    (requestedTab === 'announcements' && canManageAnnouncements) ? requestedTab : 'overview';
+  const activeTab: DashboardTab = requestedTab === 'cases' || requestedTab === 'vaccinations' ? requestedTab : 'overview';
   const setActiveTab = (tab: DashboardTab) => setSearchParams(previous => {
     const next = new URLSearchParams(previous);
     if (tab === 'overview') next.delete('tab');
@@ -312,6 +308,10 @@ export function SimpleDashboardPage() {
     return null;
   }
 
+  if (requestedTab === 'announcements') {
+    return <Navigate to={user.role === 'admin' ? '/announcements' : ROUTES.DASHBOARD} replace />;
+  }
+
   const now = new Date();
 
   return (
@@ -371,22 +371,8 @@ export function SimpleDashboardPage() {
           >
             Vaccinations
           </button>
-          {canManageAnnouncements && <button
-            className={`sd-dash-tab ${activeTab === 'announcements' ? 'sd-dash-tab--active' : ''}`}
-            onClick={() => setActiveTab('announcements')}
-          >
-            Announcements
-          </button>}
         </div>
       </div>
-
-      {activeTab === 'announcements' && canManageAnnouncements && (
-        <section aria-label="Staff announcement management">
-          <Suspense fallback={<p role="status">Loading announcement controls…</p>}>
-            <AnnouncementManager />
-          </Suspense>
-        </section>
-      )}
 
       {activeTab === 'overview' && (
         <>

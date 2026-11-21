@@ -1,6 +1,6 @@
 import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
-import { useState, useEffect, type ReactNode, type ChangeEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { lazy, Suspense, useState, useEffect, type ReactNode, type ChangeEvent } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
 import {
   Accordion,
@@ -48,6 +48,8 @@ import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 import { PatientAppResourcesSection } from './PatientAppResourcesPage';
 
+const AnnouncementsPage = lazy(() => import('../../announcements/AnnouncementsPage'));
+const clinicInformationTabs = ['general', 'accreditation', 'website', 'patient_app', 'announcements'] as const;
 
 // Clean, minimal field style matching the reference design
 const cleanFieldSx = {
@@ -119,11 +121,17 @@ interface ClinicData {
 
 export default function ClinicInformation() {
   const navigate = useNavigate();
-  const { updateClinic } = useAuth();
+  const { updateClinic, user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const canManageAnnouncements = user?.role === 'admin';
+  const requestedTab = searchParams.get('tab');
+  const activeTab = clinicInformationTabs.find(tab =>
+    tab === requestedTab && (tab !== 'announcements' || canManageAnnouncements)
+  ) ?? 'general';
+  const showAnnouncements = activeTab === 'announcements';
   const draft = useFormDraft('clinic-info');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'general' | 'accreditation' | 'website' | 'patient_app'>('general');
   const [savedSnapshot, setSavedSnapshot] = useState<string>('');
   const [expandedFaq, setExpandedFaq] = useState<number | false>(false);
   const [resourcesRefreshTrigger, setResourcesRefreshTrigger] = useState(0);
@@ -929,7 +937,7 @@ export default function ClinicInformation() {
   }
 
   return (
-    <Box sx={{ width: '100%', pb: hasUnsavedChanges ? 8 : 2 }}>
+    <Box sx={{ width: '100%', pb: hasUnsavedChanges && !showAnnouncements ? 8 : 2 }}>
       {/* Header */}
       <Box data-walkthrough="clinic-info-header" sx={{ mb: 2.5, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
@@ -977,7 +985,7 @@ export default function ClinicInformation() {
           </div>
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+        <Box sx={{ display: showAnnouncements ? 'none' : 'flex', alignItems: 'center', gap: 1.25 }}>
           <Button
             data-walkthrough="clinic-save-btn"
             variant={hasUnsavedChanges ? 'contained' : 'outlined'}
@@ -1036,7 +1044,12 @@ export default function ClinicInformation() {
       >
         <Tabs
           value={activeTab}
-          onChange={(_, val) => setActiveTab(val)}
+          onChange={(_, tab) => setSearchParams(previous => {
+            const next = new URLSearchParams(previous);
+            if (tab === 'general') next.delete('tab');
+            else next.set('tab', tab);
+            return next;
+          }, { replace: true })}
           variant="scrollable"
           scrollButtons="auto"
           sx={{
@@ -1064,6 +1077,7 @@ export default function ClinicInformation() {
           <Tab value="accreditation" label="Accreditation & Print" />
           <Tab value="website" label="Public Website" />
           <Tab value="patient_app" label={`Patient App (${clinic.faqs.length} FAQs)`} />
+          {canManageAnnouncements && <Tab value="announcements" label="Announcements" />}
         </Tabs>
       </Box>
 
@@ -2034,8 +2048,14 @@ export default function ClinicInformation() {
         </Box>
       )}
 
+      {showAnnouncements && (
+        <Suspense fallback={<Loader label="Loading Announcements..." />}>
+          <AnnouncementsPage />
+        </Suspense>
+      )}
+
       {/* Sticky Save Bar (appears only when there are unsaved changes) */}
-      {hasUnsavedChanges && (
+      {hasUnsavedChanges && !showAnnouncements && (
         <Paper
           elevation={4}
           sx={{

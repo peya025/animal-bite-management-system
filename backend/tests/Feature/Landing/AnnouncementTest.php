@@ -4,6 +4,7 @@ namespace Tests\Feature\Landing;
 
 use App\Models\Announcement;
 use App\Models\Clinic;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -15,7 +16,7 @@ class AnnouncementTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function staff(string $role = 'registration'): User
+    private function staff(string $role = 'admin'): User
     {
         return User::factory()->create(['clinic_id' => Clinic::firstOrCreate(['name' => 'Test Clinic'])->id, 'role' => $role, 'is_active' => true]);
     }
@@ -25,7 +26,7 @@ class AnnouncementTest extends TestCase
         return array_merge(['title' => 'Clinic update', 'message' => 'Please check the updated schedule.', 'is_published' => true, 'is_urgent' => false], $extra);
     }
 
-    public function test_staff_can_upload_publish_replace_and_unpublish(): void
+    public function test_admin_can_upload_publish_replace_and_unpublish(): void
     {
         Storage::fake('public');
         Sanctum::actingAs($this->staff());
@@ -50,15 +51,26 @@ class AnnouncementTest extends TestCase
         $this->getJson('/api/public/announcements')->assertOk()->assertJsonCount(1)->assertJsonPath('0.title', 'Today');
     }
 
-    public function test_staff_cannot_edit_other_authors_or_other_clinics(): void
+    public function test_only_administrators_can_manage_announcements_for_their_own_clinic(): void
     {
-        Sanctum::actingAs($this->staff());
-        $id = $this->postJson('/api/announcements', $this->payload())->assertCreated()->json('id');
-        Sanctum::actingAs($this->staff('treatment'));
-        $this->postJson('/api/announcements/'.$id, $this->payload())->assertForbidden();
-        $this->getJson('/api/announcements')->assertJsonPath('0.can_manage', false);
-        $admin = $this->staff('admin');
+        $author = $this->staff('registration');
+        $id = Announcement::create($this->payload(['clinic_id' => $author->clinic_id, 'user_id' => $author->id]))->id;
+        $developer = $this->staff('developer');
+        $developer->roles()->attach(Role::where('slug', 'clinic_admin')->firstOrFail()->id);
+
+        foreach ([$author, $this->staff('triage'), $this->staff('treatment'), $developer] as $user) {
+            Sanctum::actingAs($user);
+            $this->getJson('/api/announcements')->assertForbidden();
+            $this->postJson('/api/announcements', $this->payload())->assertForbidden();
+            $this->postJson('/api/announcements/'.$id, $this->payload())->assertForbidden();
+        }
+
+        $admin = $this->staff();
         Sanctum::actingAs($admin);
+        $this->getJson('/api/announcements')
+            ->assertOk()
+            ->assertJsonPath('0.author_name', $author->name)
+            ->assertJsonPath('0.can_manage', true);
         $this->postJson('/api/announcements/'.$id, $this->payload())->assertOk();
         $admin->update(['clinic_id' => Clinic::create(['name' => 'Other clinic'])->id]);
         $this->postJson('/api/announcements/'.$id, $this->payload())->assertForbidden();

@@ -29,6 +29,7 @@ class UpdateSchedulePoliciesRequest extends FormRequest
             'urgent_referral_facility_address' => ['nullable', 'string', 'max:255'],
             'urgent_referral_facility_contact' => ['nullable', 'string', 'max:255'],
             'urgent_referral_instructions'     => ['nullable', 'string', 'max:1000'],
+            'close_on_ph_holidays'             => ['sometimes', 'boolean'],
         ];
     }
 }

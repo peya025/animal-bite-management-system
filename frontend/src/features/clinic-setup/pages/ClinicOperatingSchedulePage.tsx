@@ -38,6 +38,7 @@ import {
 import api from '../../../services/api';
 import Loader from '../../../components/Loader';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+import { getPhilippineRegularHolidays } from '../../../shared/utils/philippineHolidays';
 
 const DAY_NAMES = [
   'Sunday',
@@ -99,6 +100,7 @@ interface ClinicPolicy {
   urgent_referral_facility_address: string;
   urgent_referral_facility_contact: string;
   urgent_referral_instructions: string;
+  close_on_ph_holidays: boolean;
 }
 
 const normalizeSchedulesForSnapshot = (items: ScheduleItem[]) =>
@@ -125,6 +127,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
     urgent_referral_facility_address: '',
     urgent_referral_facility_contact: '',
     urgent_referral_instructions: '',
+    close_on_ph_holidays: true,
   });
 
   const [savedWeeklySnapshot, setSavedWeeklySnapshot] = useState('');
@@ -174,6 +177,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
             urgent_referral_facility_address: res.data.clinic.urgent_referral_facility_address || '',
             urgent_referral_facility_contact: res.data.clinic.urgent_referral_facility_contact || '',
             urgent_referral_instructions: res.data.clinic.urgent_referral_instructions || '',
+            close_on_ph_holidays: res.data.clinic.close_on_ph_holidays ?? true,
           };
           setPolicies(loadedPolicies);
           setSavedPoliciesSnapshot(JSON.stringify(loadedPolicies));
@@ -286,6 +290,10 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
 
   const handleDiscard = () => {
     fetchScheduleData();
+  };
+
+  const handleTogglePhHolidays = (checked: boolean) => {
+    setPolicies((prev) => ({ ...prev, close_on_ph_holidays: checked }));
   };
 
   const handleOpenExceptionModal = (exc?: ScheduleException) => {
@@ -530,7 +538,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
           }}
         >
           <Tab data-walkthrough="schedule-tab-weekly" label="Weekly Pattern" />
-          <Tab data-walkthrough="schedule-tab-exceptions" label={`Holidays & Overrides (${exceptions.length})`} />
+          <Tab data-walkthrough="schedule-tab-exceptions" label="Holidays & Overrides" />
           <Tab data-walkthrough="schedule-tab-policies" label="Drift & Emergency Policies" />
         </Tabs>
       </Box>
@@ -621,6 +629,7 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
                     <Switch
                       size="small"
                       checked={item.is_open}
+                      disabled={saving}
                       onChange={() => handleToggleDay(item.day_of_week)}
                       sx={{
                         '& .MuiSwitch-switchBase.Mui-checked': { color: '#10b981' },
@@ -704,6 +713,145 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
               </Typography>
               <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981' }} />
             </Box>
+          </Box>
+
+          {/* Section 1: Philippine Regular Holidays Auto-Closure Setting */}
+          <Box
+            sx={{
+              mb: 3,
+              p: 2.25,
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: policies.close_on_ph_holidays ? 'rgba(16, 185, 129, 0.35)' : 'var(--border-glow, #e2e8f0)',
+              bgcolor: policies.close_on_ph_holidays ? 'rgba(16, 185, 129, 0.04)' : '#f8fafc',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 2,
+              }}
+            >
+              <Box sx={{ flex: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography sx={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-h, #111827)' }}>
+                    Close on Philippine Regular Holidays
+                  </Typography>
+                  <Chip
+                    size="small"
+                    label={policies.close_on_ph_holidays ? 'Auto-Closed' : 'Manual Only'}
+                    sx={{
+                      height: 20,
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      bgcolor: policies.close_on_ph_holidays ? '#ecfdf5' : '#f1f5f9',
+                      color: policies.close_on_ph_holidays ? '#047857' : '#64748b',
+                      border: policies.close_on_ph_holidays ? '1px solid #a7f3d0' : '1px solid #cbd5e1',
+                    }}
+                  />
+                </Box>
+                <Typography sx={{ fontSize: '12.5px', color: '#64748b', mt: 0.5, lineHeight: 1.5 }}>
+                  {policies.close_on_ph_holidays
+                    ? 'The clinic automatically closes on official Philippine Regular Holidays (shown on the Dashboard calendar and applied to appointment scheduling). You can still add a Special Open override below to stay open on a specific holiday.'
+                    : 'Philippine Regular Holidays are not automatically closed. Only the custom date overrides you add below will mark the clinic closed.'}
+                </Typography>
+              </Box>
+
+              <Switch
+                checked={policies.close_on_ph_holidays}
+                disabled={saving}
+                onChange={(_, checked) => handleTogglePhHolidays(checked)}
+                sx={{
+                  '& .MuiSwitch-switchBase.Mui-checked': { color: '#10b981' },
+                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#10b981' },
+                }}
+              />
+            </Box>
+
+            {policies.close_on_ph_holidays && (
+              <Box
+                sx={{
+                  mt: 2,
+                  pt: 1.75,
+                  borderTop: '1px solid rgba(16, 185, 129, 0.15)',
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(5, minmax(0, 1fr))' },
+                  gap: 1,
+                }}
+              >
+                {getPhilippineRegularHolidays(new Date().getFullYear()).map((h) => {
+                  const dt = new Date(`${h.date}T00:00:00`);
+                  const label = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  return (
+                    <Box
+                      key={h.date}
+                      title={`${label} — ${h.name}`}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.85,
+                        px: 1.25,
+                        py: 0.75,
+                        borderRadius: 1.5,
+                        bgcolor: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '11.5px',
+                        minWidth: 0,
+                      }}
+                    >
+                      <Box component="span" sx={{ fontWeight: 700, color: '#dc2626', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        {label}
+                      </Box>
+                      <Box
+                        component="span"
+                        sx={{
+                          color: '#334155',
+                          fontWeight: 500,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {h.name}
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
+          </Box>
+
+          {/* Section 2: Custom Date Overrides */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 1.5,
+              mb: 1.5,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography sx={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-h, #111827)' }}>
+                Custom Date Overrides
+              </Typography>
+              <Chip
+                size="small"
+                label={exceptions.length}
+                sx={{
+                  height: 20,
+                  minWidth: 24,
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  bgcolor: '#f1f5f9',
+                  color: '#475569',
+                }}
+              />
+            </Box>
 
             <Button
               data-walkthrough="schedule-add-override-btn"
@@ -731,65 +879,88 @@ export const ClinicOperatingSchedulePage: React.FC = () => {
             {exceptions.length === 0 ? (
               <Box sx={{ py: 5, px: 3, textAlign: 'center', bgcolor: '#f8fafc', borderRadius: 2, border: '1px dashed #cbd5e1' }}>
                 <ExceptionIcon sx={{ fontSize: 36, color: '#94a3b8', mb: 1 }} />
-                <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#334155' }}>No Calendar Overrides Configured</Typography>
+                <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#334155' }}>No Custom Date Overrides Configured</Typography>
                 <Typography sx={{ fontSize: 13, color: '#64748b', mt: 0.5 }}>
-                  Add specific dates for national holidays, weather emergencies, or special weekend vaccination sessions.
+                  Add specific dates for local fiestas, weather emergencies, or special open vaccination sessions.
                 </Typography>
               </Box>
             ) : (
               <Box sx={{ border: '1px solid var(--border-glow, #e2e8f0)', borderRadius: 2, overflow: 'hidden' }}>
-                {exceptions.map((exc, idx) => (
-                  <Box
-                    key={exc.id}
-                    sx={{
-                      px: 2.25,
-                      py: 1.75,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 2,
-                      bgcolor: '#ffffff',
-                      borderBottom: idx < exceptions.length - 1 ? '1px solid #eef2f6' : 'none',
-                      '&:hover': { bgcolor: '#f8fafc' },
-                    }}
-                  >
-                    <Box sx={{ minWidth: 0 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
-                        <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>
-                          {exc.exception_date}
-                        </Typography>
-                        <Chip
-                          size="small"
-                          label={exc.is_open ? 'Special Open' : 'Holiday / Closed'}
+                {exceptions.map((exc, idx) => {
+                  const formattedDate = (() => {
+                    const dt = new Date(`${exc.exception_date.slice(0, 10)}T00:00:00`);
+                    if (Number.isNaN(dt.getTime())) return exc.exception_date;
+                    return dt.toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      weekday: 'short',
+                    });
+                  })();
+                  return (
+                    <Box
+                      key={exc.id}
+                      sx={{
+                        px: 2.25,
+                        py: 1.75,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 2,
+                        bgcolor: '#ffffff',
+                        borderBottom: idx < exceptions.length - 1 ? '1px solid #eef2f6' : 'none',
+                        '&:hover': { bgcolor: '#f8fafc' },
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75, minWidth: 0 }}>
+                        <Box
                           sx={{
-                            height: 22,
-                            fontSize: 11,
-                            fontWeight: 600,
-                            bgcolor: exc.is_open ? '#ecfdf5' : '#fef2f2',
-                            color: exc.is_open ? '#059669' : '#dc2626',
+                            width: 3.5,
+                            height: 34,
+                            borderRadius: 99,
+                            bgcolor: exc.is_open ? '#10b981' : '#ef4444',
+                            flexShrink: 0,
                           }}
                         />
-                      </Box>
-                      <Typography sx={{ fontSize: 13, color: '#475569', mt: 0.4 }}>
-                        {exc.reason}
-                        {exc.is_open && exc.open_time && (
-                          <Box component="span" sx={{ color: '#64748b', ml: 1 }}>
-                            ({exc.open_time.substring(0, 5)} – {exc.close_time?.substring(0, 5)})
+                        <Box sx={{ minWidth: 0 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
+                            <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>
+                              {formattedDate}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              label={exc.is_open ? 'Special Open' : 'Holiday / Closed'}
+                              sx={{
+                                height: 22,
+                                fontSize: 11,
+                                fontWeight: 600,
+                                bgcolor: exc.is_open ? '#ecfdf5' : '#fef2f2',
+                                color: exc.is_open ? '#059669' : '#dc2626',
+                              }}
+                            />
                           </Box>
-                        )}
-                      </Typography>
-                    </Box>
+                          <Typography sx={{ fontSize: 13, color: '#475569', mt: 0.35 }}>
+                            {exc.reason}
+                            {exc.is_open && exc.open_time && (
+                              <Box component="span" sx={{ color: '#64748b', ml: 1 }}>
+                                ({exc.open_time.substring(0, 5)} – {exc.close_time?.substring(0, 5)})
+                              </Box>
+                            )}
+                          </Typography>
+                        </Box>
+                      </Box>
 
-                    <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-                      <IconButton size="small" onClick={() => handleOpenExceptionModal(exc)} title="Edit override" sx={{ color: '#475569' }}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => handleDeleteException(exc.id)} title="Delete override" sx={{ color: '#ef4444' }}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+                        <IconButton size="small" onClick={() => handleOpenExceptionModal(exc)} title="Edit override" sx={{ color: '#475569' }}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleDeleteException(exc.id)} title="Delete override" sx={{ color: '#ef4444' }}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
                     </Box>
-                  </Box>
-                ))}
+                  );
+                })}
               </Box>
             )}
           </Box>

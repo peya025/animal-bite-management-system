@@ -868,7 +868,16 @@ export default function BiteCaseRiskDashboard() {
       >
         <Box sx={{ minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--bc-text)', letterSpacing: '-0.02em' }}>
+            <Typography
+              component="h1"
+              sx={{
+                fontSize: '22px',
+                fontWeight: 600,
+                lineHeight: 1.25,
+                letterSpacing: '-0.5px',
+                color: 'var(--bc-text)',
+              }}
+            >
               Bite Cases Summary
             </Typography>
             <Chip

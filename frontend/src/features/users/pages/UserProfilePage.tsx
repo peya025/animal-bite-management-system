@@ -91,10 +91,10 @@ export default function UserProfilePage() {
             component="h1"
             sx={{
               fontFamily: 'Poppins',
-              fontSize: '24px',
-              fontWeight: 700,
-              lineHeight: 1.2,
-              letterSpacing: '-0.02em',
+              fontSize: '22px',
+              fontWeight: 600,
+              lineHeight: 1.25,
+              letterSpacing: '-0.5px',
               color: 'var(--text-h, #111827)',
               mb: 0.5,
             }}
@@ -131,7 +131,7 @@ export default function UserProfilePage() {
         </Box>
       ) : (
         <>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>My profile</Typography>
+          <Typography component="h1" sx={{ fontSize: '22px', fontWeight: 600, lineHeight: 1.25, letterSpacing: '-0.5px', color: 'var(--text-h, #111827)', mb: 0.5 }}>My profile</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             Update your contact details and password.
           </Typography>

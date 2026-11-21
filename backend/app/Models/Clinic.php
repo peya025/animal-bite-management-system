@@ -46,6 +46,7 @@ class Clinic extends Model
         'closing_time',
         'working_days',
         'holiday_dates',
+        'close_on_ph_holidays',
         'schedule_notes',
         'schedule_drift_policy',
         'backward_max_days',
@@ -172,6 +173,7 @@ class Clinic extends Model
         'closing_time' => 'datetime:H:i',
         'working_days' => 'array',
         'holiday_dates' => 'array',
+        'close_on_ph_holidays' => 'boolean',
         'backward_max_days' => 'integer',
     ];
 

@@ -1769,47 +1769,13 @@ export default function PatientList() {
               })
               .catch(() => {});
           }}
-          onSuccess={(createdPatient) => {
+          onSuccess={() => {
             setShowAddModal(false);
             fetchPatients();
             setSuccessModal({
               open: true,
               title: 'Patient Registered',
-              message: (
-                <div>
-                  <p style={{ margin: 0, fontSize: 14 }}>Patient enrolment record has been saved successfully.</p>
-                  {createdPatient && (
-                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #e5e7eb' }}>
-                      <p style={{ fontSize: 13, color: '#4b5563', marginBottom: 8 }}>
-                        Enable online appointment booking and digital treatment card tracking:
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSuccessModal(null);
-                          setSelectedInvitePatient(createdPatient);
-                          setShowInviteModal(true);
-                        }}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          padding: '8px 14px',
-                          backgroundColor: '#0284c7',
-                          color: '#ffffff',
-                          borderRadius: 6,
-                          fontWeight: 600,
-                          fontSize: 13,
-                          cursor: 'pointer',
-                          border: 'none',
-                        }}
-                      >
-                        📱 Send Mobile Portal Invite
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ),
+              message: 'Patient record has been saved successfully.',
             });
           }}
         />

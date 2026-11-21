@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { API_BASE_URL } from '../../shared/services/api';
+import { getPublishedAnnouncements } from './publishedAnnouncements';
 import type { Announcement } from './types';
 import './announcements.css';
 
@@ -9,9 +9,8 @@ export default function AnnouncementHero({ children }: { children: ReactNode }) 
   const track = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`${API_BASE_URL}/public/announcements`, { signal: controller.signal })
-      .then(res => { if (!res.ok) throw new Error(); return res.json(); })
-      .then(data => { if (Array.isArray(data)) setItems(data); })
+    getPublishedAnnouncements(controller.signal)
+      .then(setItems)
       .catch(() => { /* Keep the welcome hero available when announcements cannot load. */ });
     return () => controller.abort();
   }, []);

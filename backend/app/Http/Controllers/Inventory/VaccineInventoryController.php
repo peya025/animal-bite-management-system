@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Inventory\AdjustStockRequest;
 use App\Http\Requests\Inventory\DestroyInventoryRequest;
 use App\Http\Requests\Inventory\DiscardVialRequest;
+use App\Http\Requests\Inventory\DisposeVialRequest;
+use App\Http\Requests\Inventory\ExpireVialRequest;
 use App\Http\Requests\Inventory\GetNextFifoBatchRequest;
 use App\Http\Requests\Inventory\OpenVialRequest;
 use App\Http\Requests\Inventory\StoreInventoryRequest;
@@ -18,6 +20,8 @@ use App\Http\Requests\Inventory\ValidateFifoBatchRequest;
 use App\Models\InventoryTransaction;
 use App\Models\VaccineInventory;
 use App\Models\VaccineTypePreset;
+use App\Models\VaccineVial;
+use App\Models\VaccineVialWastage;
 use App\Services\VaccineInventoryService;
 use App\Services\VaccineInventoryUsageService;
 use Carbon\Carbon;
@@ -155,7 +159,21 @@ class VaccineInventoryController extends Controller
         $presets = VaccineTypePreset::where(fn($q) => $q->whereNull('clinic_id')->orWhere('clinic_id', $clinicId))
             ->get()->keyBy(fn($p) => strtolower(trim($p->vaccine_name)));
 
-        $inventory->getCollection()->transform(function ($item) use ($fifoMap, $presets) {
+        $inventoryIds = $inventory->getCollection()->pluck('inventory_id')->all();
+        $vialTotals = VaccineVial::whereIn('inventory_id', $inventoryIds)
+            ->selectRaw('inventory_id, COALESCE(SUM(administered_portions), 0) as administered_portions, COALESCE(SUM(discarded_portions), 0) as discarded_portions')
+            ->groupBy('inventory_id')
+            ->get()
+            ->keyBy('inventory_id');
+
+        $openVialsByInventory = VaccineVial::whereIn('inventory_id', $inventoryIds)
+            ->where('status', VaccineVial::STATUS_OPENED)
+            ->where(fn ($q) => $q->whereNull('use_by_at')->orWhere('use_by_at', '>', now()))
+            ->orderBy('opened_at', 'asc')
+            ->get()
+            ->groupBy('inventory_id');
+
+        $inventory->getCollection()->transform(function ($item) use ($fifoMap, $presets, $vialTotals, $openVialsByInventory) {
             $ranks       = $fifoMap[$item->vaccine_type] ?? [];
             $rankIndex   = array_search($item->inventory_id, $ranks);
             $item->is_fifo_priority = $rankIndex === 0 && $item->status === 'active' && $item->current_quantity > 0;
@@ -168,6 +186,21 @@ class VaccineInventoryController extends Controller
             } else {
                 $item->doses_per_vial   = max(1, (int) ($item->doses_per_vial ?? 1));
                 $item->vaccine_category = null;
+            }
+
+            $totals = $vialTotals->get($item->inventory_id);
+            $item->administered_portions = $totals ? (int) $totals->administered_portions : 0;
+            $item->discarded_portions    = $totals ? (int) $totals->discarded_portions : 0;
+
+            $activeVial = $openVialsByInventory->get($item->inventory_id)?->first();
+            if ($activeVial) {
+                $item->active_vial_id            = $activeVial->vial_id;
+                $item->active_vial_code          = $activeVial->vial_code;
+                $item->open_vial_doses_remaining = $activeVial->available_portions;
+            } elseif ($item->open_vial_status === 'opened') {
+                $item->open_vial_doses_remaining = max(0, (int) $item->doses_per_vial - (int) ($item->open_vial_doses_used ?? 0));
+            } else {
+                $item->open_vial_doses_remaining = 0;
             }
 
             $item->total_dispensed = max(
@@ -220,6 +253,8 @@ class VaccineInventoryController extends Controller
 
         return response()->json([
             'fifo_batch'       => $preview['batch'],
+            'vial_id'          => $preview['vial_id'] ?? null,
+            'vial_code'        => $preview['vial_code'] ?? null,
             'is_open_vial'     => $preview['is_open_vial'],
             'next_dose_index'  => $preview['next_dose_index'],
             'total_doses'      => $preview['total_doses'],
@@ -411,6 +446,236 @@ class VaccineInventoryController extends Controller
         );
 
         return response()->json(['message' => 'Open vial discard record updated.', 'inventory' => $inventory]);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // GET /api/inventory/vials
+    // ────────────────────────────────────────────────────────────────────────
+    public function listVials(Request $request): JsonResponse
+    {
+        $clinicId = $request->user()->clinic_id;
+        $query    = VaccineVial::where('clinic_id', $clinicId)
+            ->with(['inventory', 'openedBy:id,name', 'expiredBy:id,name', 'disposedBy:id,name', 'wastages.disposedBy:id,name']);
+
+        if ($request->filled('inventory_id')) {
+            $query->where('inventory_id', (int) $request->inventory_id);
+        }
+        if ($request->filled('vaccine_type')) {
+            $query->where('vaccine_type', 'like', '%' . trim($request->vaccine_type) . '%');
+        }
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('vial_code', 'like', "%{$search}%")
+                  ->orWhere('batch_number', 'like', "%{$search}%")
+                  ->orWhere('vaccine_type', 'like', "%{$search}%");
+            });
+        }
+        if ($request->filled('status') && $request->status !== 'all') {
+            $status = $request->status;
+            if ($status === VaccineVial::STATUS_EXPIRED) {
+                $query->where(function ($q) {
+                    $q->where('status', VaccineVial::STATUS_EXPIRED)
+                      ->orWhere(function ($oq) {
+                          $oq->where('status', VaccineVial::STATUS_OPENED)
+                             ->whereNotNull('use_by_at')
+                             ->where('use_by_at', '<=', now());
+                      });
+                });
+            } elseif ($status === VaccineVial::STATUS_OPENED) {
+                $query->where('status', VaccineVial::STATUS_OPENED)
+                    ->where(fn ($q) => $q->whereNull('use_by_at')->orWhere('use_by_at', '>', now()));
+            } else {
+                $query->where('status', $status);
+            }
+        }
+
+        $perPage = min(100, max(5, (int) $request->input('per_page', 20)));
+        $vials   = $query->orderByDesc('opened_at')->orderByDesc('vial_id')->paginate($perPage);
+
+        $vials->getCollection()->transform(function (VaccineVial $vial) {
+            return $this->formatVialPayload($vial);
+        });
+
+        return response()->json($vials);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // GET /api/inventory/vials/{vialId}
+    // ────────────────────────────────────────────────────────────────────────
+    public function showVial(Request $request, int $vialId): JsonResponse
+    {
+        $vial = VaccineVial::where('clinic_id', $request->user()->clinic_id)
+            ->with([
+                'inventory',
+                'openedBy:id,name',
+                'expiredBy:id,name',
+                'disposedBy:id,name',
+                'wastages.disposedBy:id,name',
+                'treatmentRecords' => function ($q) {
+                    $q->with(['patient:patient_id,first_name,last_name,middle_name', 'biteIncident:bite_id,case_number', 'administeredBy:id,name'])
+                      ->orderBy('vial_portion_number')
+                      ->orderBy('administered_at');
+                },
+            ])
+            ->findOrFail($vialId);
+
+        $payload = $this->formatVialPayload($vial);
+        $doseMap = [0 => 'Day 0', 3 => 'Day 3', 7 => 'Day 7', 28 => 'Day 28', 90 => 'Booster 1', 365 => 'Booster 2'];
+
+        $payload['administrations'] = $vial->treatmentRecords->map(function ($r) use ($doseMap) {
+            $patientName = $r->patient
+                ? trim("{$r->patient->last_name}, {$r->patient->first_name} " . ($r->patient->middle_name ?? ''))
+                : 'Unknown Patient';
+
+            return [
+                'treatment_id'         => $r->treatment_id,
+                'patient_id'           => $r->patient_id,
+                'patient_name'         => $patientName,
+                'case_number'          => $r->biteIncident?->case_number,
+                'dose_number'          => $r->dose_number,
+                'dose_label'           => $doseMap[$r->dose_number] ?? "Dose {$r->dose_number}",
+                'route'                => $r->route ?: 'ID',
+                'vial_portion_number'  => $r->vial_portion_number,
+                'treatment_date'       => $r->treatment_date ? Carbon::parse($r->treatment_date)->format('Y-m-d') : null,
+                'administered_at'      => $r->administered_at ? Carbon::parse($r->administered_at)->format('Y-m-d H:i:s') : null,
+                'administered_by_name' => $r->administeredBy?->name ?: 'Staff',
+            ];
+        })->values();
+
+        return response()->json(['vial' => $payload]);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // POST /api/inventory/vials/{vialId}/expire
+    // ────────────────────────────────────────────────────────────────────────
+    public function expireVial(ExpireVialRequest $request, int $vialId): JsonResponse
+    {
+        $vial = $this->usageService->markVialExpired(
+            $request->user()->clinic_id,
+            $request->user(),
+            $vialId,
+            $request->validated('reason'),
+        );
+
+        return response()->json([
+            'message' => "Vial {$vial->vial_code} marked expired / unavailable. Physical disposal has not been recorded yet.",
+            'vial'    => $this->formatVialPayload($vial),
+        ]);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // POST /api/inventory/vials/{vialId}/dispose
+    // ────────────────────────────────────────────────────────────────────────
+    public function disposeVialRecord(DisposeVialRequest $request, int $vialId): JsonResponse
+    {
+        $vial = $this->usageService->disposeVial(
+            $request->user()->clinic_id,
+            $request->user(),
+            $vialId,
+            (int) $request->validated('portions_discarded'),
+            (string) $request->validated('reason'),
+            $request->validated('disposed_at'),
+        );
+
+        return response()->json([
+            'message' => "Physical disposal recorded for Vial {$vial->vial_code}.",
+            'vial'    => $this->formatVialPayload($vial),
+        ]);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // GET /api/inventory/wastages
+    // ────────────────────────────────────────────────────────────────────────
+    public function listWastages(Request $request): JsonResponse
+    {
+        $clinicId = $request->user()->clinic_id;
+        $query    = VaccineVialWastage::where('clinic_id', $clinicId)
+            ->with(['vial:vial_id,vial_code,total_portions,administered_portions,discarded_portions,opened_at,use_by_at,status', 'disposedBy:id,name']);
+
+        if ($request->filled('vaccine_type')) {
+            $query->where('vaccine_type', 'like', '%' . trim($request->vaccine_type) . '%');
+        }
+        if ($request->filled('vial_id')) {
+            $query->where('vial_id', (int) $request->vial_id);
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('disposed_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('disposed_at', '<=', $request->date_to);
+        }
+
+        $totalDiscarded = (int) (clone $query)->sum('portions_discarded');
+        $perPage        = min(100, max(5, (int) $request->input('per_page', 25)));
+        $paginated      = $query->orderByDesc('disposed_at')->orderByDesc('wastage_id')->paginate($perPage);
+
+        return response()->json([
+            'data'         => $paginated->getCollection()->map(fn (VaccineVialWastage $w) => [
+                'wastage_id'         => $w->wastage_id,
+                'vial_id'            => $w->vial_id,
+                'vial_code'          => $w->vial?->vial_code,
+                'inventory_id'       => $w->inventory_id,
+                'vaccine_type'       => $w->vaccine_type,
+                'batch_number'       => $w->batch_number,
+                'portions_discarded' => $w->portions_discarded,
+                'reason'             => $w->reason,
+                'disposed_at'        => $w->disposed_at?->format('Y-m-d H:i:s'),
+                'disposed_by_id'     => $w->disposed_by,
+                'disposed_by_name'   => $w->disposedBy?->name ?: 'Staff',
+            ]),
+            'total'        => $paginated->total(),
+            'current_page' => $paginated->currentPage(),
+            'last_page'    => $paginated->lastPage(),
+            'per_page'     => $paginated->perPage(),
+            'summary'      => [
+                'total_portions_discarded' => $totalDiscarded,
+                'total_wastage_events'     => $paginated->total(),
+            ],
+        ]);
+    }
+
+    private function formatVialPayload(VaccineVial $vial): array
+    {
+        $effectiveStatus = $vial->effective_status;
+
+        return [
+            'vial_id'               => $vial->vial_id,
+            'vial_code'             => $vial->vial_code ?: "V-{$vial->vial_id}",
+            'inventory_id'          => $vial->inventory_id,
+            'vaccine_type'          => $vial->vaccine_type,
+            'batch_number'          => $vial->batch_number,
+            'total_portions'        => (int) $vial->total_portions,
+            'administered_portions' => (int) $vial->administered_portions,
+            'discarded_portions'    => (int) $vial->discarded_portions,
+            'available_portions'    => (int) $vial->available_portions,
+            'undisposed_portions'   => (int) $vial->undisposed_portions,
+            'status'                => $vial->status,
+            'effective_status'      => $effectiveStatus,
+            'is_expired'            => $effectiveStatus === VaccineVial::STATUS_EXPIRED,
+            'is_disposed'           => $effectiveStatus === VaccineVial::STATUS_DISPOSED,
+            'open_vial_hours'       => $vial->open_vial_hours,
+            'opened_at'             => $vial->opened_at?->format('Y-m-d H:i:s'),
+            'use_by_at'             => $vial->use_by_at?->format('Y-m-d H:i:s'),
+            'opened_by_name'        => $vial->openedBy?->name,
+            'expired_at'            => $vial->expired_at?->format('Y-m-d H:i:s'),
+            'expired_by_name'       => $vial->expiredBy?->name,
+            'expired_reason'        => $vial->expired_reason,
+            'disposed_at'           => $vial->disposed_at?->format('Y-m-d H:i:s'),
+            'disposed_by_name'      => $vial->disposedBy?->name,
+            'wastage_reason'        => $vial->wastage_reason,
+            'stock_deducted'        => (bool) $vial->stock_deducted,
+            'summary_text'          => $vial->buildSummaryText(),
+            'wastages'              => $vial->relationLoaded('wastages')
+                ? $vial->wastages->map(fn ($w) => [
+                    'wastage_id'         => $w->wastage_id,
+                    'portions_discarded' => (int) $w->portions_discarded,
+                    'reason'             => $w->reason,
+                    'disposed_at'        => $w->disposed_at?->format('Y-m-d H:i:s'),
+                    'disposed_by_name'   => $w->disposedBy?->name ?: 'Staff',
+                ])->values()
+                : [],
+        ];
     }
 
     // ────────────────────────────────────────────────────────────────────────

@@ -517,7 +517,7 @@ export default function RegistrationReportsPage() {
   return <Box className="registration-reports" sx={{ color: 'text.primary', bgcolor: 'background.default' }}>
     <header className="rr-header" data-walkthrough="reports-header">
       <div>
-        <Typography component="h1" sx={{ fontSize: '24px !important', fontWeight: '700 !important', color: 'var(--text-h)', letterSpacing: '-0.02em', lineHeight: 1.2, mb: 0.5 }}>
+        <Typography component="h1" sx={{ fontSize: '22px !important', fontWeight: '600 !important', color: 'var(--text-h)', letterSpacing: '-0.5px', lineHeight: 1.25, mb: 0.5 }}>
           Reports &amp; Analytics
         </Typography>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>

@@ -384,11 +384,11 @@ export function DoseCard({
                     borderRadius: 4,
                   }}
                 >
-                  {dose.inventory_units_used === '0' ? 'Shared Vial (0 deducted)' : `${dose.inventory_units_used || 1} vial deducted`}
+                  {dose.inventory_units_used === '0' ? 'Shared Open Vial · 0 deducted' : `New Vial · ${dose.inventory_units_used || 1} deducted`}
                 </span>
                 {Number(dose.total_doses) > 1 && (
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
-                    {dose.next_dose_index || 1}/{dose.total_doses} of 1 vial
+                    Dose {dose.next_dose_index || 1} of {dose.total_doses}
                   </span>
                 )}
               </div>
@@ -473,7 +473,7 @@ export function DoseCard({
 
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#1e293b' }}>
                     {Number(dose.total_doses) > 1
-                      ? `Dose ${dose.next_dose_index || 1} of ${dose.total_doses} (${dose.next_dose_index || 1}/${dose.total_doses} of 1 vial)`
+                      ? `Dose ${dose.next_dose_index || 1} of ${dose.total_doses}`
                       : '1 vial (single dose)'}
                   </span>
                 </div>
@@ -491,7 +491,7 @@ export function DoseCard({
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748b', marginBottom: 4 }}>
                     <span>
-                      Vial Progress: <strong>{dose.next_dose_index || 1}/{dose.total_doses} of 1 vial</strong>
+                      Open Vial Progress: <strong>{dose.next_dose_index || 1} of {dose.total_doses} doses</strong>
                     </span>
                     <span>
                       {Math.min(100, Math.round(((Number(dose.next_dose_index) || 1) / Number(dose.total_doses)) * 100))}% used

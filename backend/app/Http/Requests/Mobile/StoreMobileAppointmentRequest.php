@@ -2,11 +2,16 @@
 
 namespace App\Http\Requests\Mobile;
 
+use App\Http\Requests\Mobile\Concerns\UsesMobileIntakePolicy;
+use App\Models\Patient;
+use App\Services\Clinic\FormFieldCatalog;
+use Illuminate\Validation\Validator;
 use App\Support\BiteIntakeContract;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreMobileAppointmentRequest extends FormRequest
 {
+    use UsesMobileIntakePolicy;
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -20,11 +25,7 @@ class StoreMobileAppointmentRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        if ($this->input('appointment_type') === 'consultation' && is_array($this->input('intake'))) {
-            $this->merge([
-                'intake' => BiteIntakeContract::normalize($this->input('intake')),
-            ]);
-        }
+        $this->prepareConfiguredIntake(false);
     }
 
     /**
@@ -44,11 +45,35 @@ class StoreMobileAppointmentRequest extends FormRequest
         ];
 
         if ($this->input('appointment_type') === 'consultation') {
-            $rules['intake'] = ['required', 'array'];
-            $rules = array_merge($rules, BiteIntakeContract::validationRules());
+            $policy = $this->intakePolicy(false);
+            $rules['intake'] = $policy->intakeEnabled() ? ['required', 'array'] : ['nullable', 'array'];
+            $rules = array_merge($rules, $policy->intakeRules());
         }
 
         return $rules;
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty() || $this->input('appointment_type') !== 'consultation') {
+                return;
+            }
+            $patient = $this->user()->patients()->whereKey($this->input('patient_id'))->first();
+            if (! $patient instanceof Patient) {
+                $validator->errors()->add('patient_id', 'Select a patient linked to this account.');
+                return;
+            }
+            $policy = $this->intakePolicy(false);
+            $details = $patient->details;
+            foreach (FormFieldCatalog::PROFILE_FIELDS as $field) {
+                $value = $details?->{$field};
+                $context = ['civil_status' => $details?->civil_status, 'philhealth_member' => $details?->philhealth_member];
+                if ($policy->required($field, $context) && ($value === null || $value === '')) {
+                    $validator->errors()->add('profile.'.$field, 'Complete this field in the selected patient profile before booking.');
+                }
+            }
+        });
     }
 
     /**

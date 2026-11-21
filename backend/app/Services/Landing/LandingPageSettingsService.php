@@ -2,6 +2,7 @@
 
 namespace App\Services\Landing;
 
+use App\Models\Clinic;
 use App\Models\LandingPageSetting;
 
 class LandingPageSettingsService
@@ -9,15 +10,33 @@ class LandingPageSettingsService
     /**
      * Get landing page settings or fall back to defaults.
      */
-    public function getSettings(): LandingPageSetting|array
+    public function getSettings(): array
     {
         $settings = LandingPageSetting::first();
 
-        if (!$settings) {
-            return $this->getDefaultSettings();
+        $data = $settings ? $settings->toArray() : $this->getDefaultSettings();
+
+        // Attach clinic branding (header seals & hero banner)
+        $clinic = Clinic::first();
+        if ($clinic) {
+            $data['header_seal_1_url'] = $clinic->header_seal_1_url ?: '/assets/logo_doh.jpg';
+            $data['header_seal_1_label'] = $clinic->header_seal_1_label ?: 'Department of Health';
+            $data['header_seal_2_url'] = $clinic->header_seal_2_url ?: '/assets/logo_mho_tagoloan.jpg';
+            $data['header_seal_2_label'] = $clinic->header_seal_2_label ?: ($clinic->municipality ? ($clinic->province ? "{$clinic->municipality}, {$clinic->province}" : $clinic->municipality) : 'Tagoloan, Misamis Oriental');
+            $data['header_seal_3_url'] = $clinic->header_seal_3_url ?: '/assets/logo_rhu.jpg';
+            $data['header_seal_3_label'] = $clinic->header_seal_3_label ?: 'Rural Health Unit';
+            $data['hero_image_url'] = $clinic->hero_image_url ?: '/assets/rhu_tagoloan_hero.jpg';
+        } else {
+            $data['header_seal_1_url'] = '/assets/logo_doh.jpg';
+            $data['header_seal_1_label'] = 'Department of Health';
+            $data['header_seal_2_url'] = '/assets/logo_mho_tagoloan.jpg';
+            $data['header_seal_2_label'] = 'Tagoloan, Misamis Oriental';
+            $data['header_seal_3_url'] = '/assets/logo_rhu.jpg';
+            $data['header_seal_3_label'] = 'Rural Health Unit';
+            $data['hero_image_url'] = '/assets/rhu_tagoloan_hero.jpg';
         }
 
-        return $settings;
+        return $data;
     }
 
     /**

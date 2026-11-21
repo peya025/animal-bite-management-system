@@ -15,7 +15,66 @@ use Illuminate\Support\Facades\Log;
 class ClinicScheduleService
 {
     /**
-     * Get operating hours for a specific date (including exceptions)
+     * Official Philippine Regular Holidays for a given year (YYYY-MM-DD => Name)
+     *
+     * @return array<string, string>
+     */
+    public function getPhilippineRegularHolidays(int $year): array
+    {
+        // Anonymous Gregorian algorithm for Easter Sunday (no calendar ext required)
+        $a = $year % 19;
+        $b = intdiv($year, 100);
+        $c = $year % 100;
+        $d = intdiv($b, 4);
+        $e = $b % 4;
+        $f = intdiv($b + 8, 25);
+        $g = intdiv($b - $f + 1, 3);
+        $h = (19 * $a + $b - $d - $g + 15) % 30;
+        $i = intdiv($c, 4);
+        $k = $c % 4;
+        $l = (32 + 2 * $e + 2 * $i - $h - $k) % 7;
+        $m = intdiv($a + 11 * $h + 22 * $l, 451);
+        $month = intdiv($h + $l - 7 * $m + 114, 31);
+        $day = (($h + $l - 7 * $m + 114) % 31) + 1;
+
+        $easter = Carbon::createFromDate($year, $month, $day);
+        $maundyThursday = $easter->copy()->subDays(3)->toDateString();
+        $goodFriday = $easter->copy()->subDays(2)->toDateString();
+
+        // Last Monday of August (National Heroes Day)
+        $aug31 = Carbon::createFromDate($year, 8, 31);
+        $nationalHeroesDay = $aug31->copy()->subDays(($aug31->dayOfWeek + 6) % 7)->toDateString();
+
+        return [
+            sprintf('%04d-01-01', $year) => "New Year's Day",
+            $maundyThursday              => 'Maundy Thursday',
+            $goodFriday                  => 'Good Friday',
+            sprintf('%04d-04-09', $year) => 'Araw ng Kagitingan',
+            sprintf('%04d-05-01', $year) => 'Labor Day',
+            sprintf('%04d-06-12', $year) => 'Independence Day',
+            $nationalHeroesDay           => 'National Heroes Day',
+            sprintf('%04d-11-30', $year) => 'Bonifacio Day',
+            sprintf('%04d-12-25', $year) => 'Christmas Day',
+            sprintf('%04d-12-30', $year) => 'Rizal Day',
+        ];
+    }
+
+    /**
+     * Check if a date is a Philippine Regular Holiday that closes the clinic
+     */
+    public function getClosedPhilippineHolidayName(int $clinicId, Carbon $date): ?string
+    {
+        $clinic = Clinic::find($clinicId);
+        if (!($clinic?->close_on_ph_holidays ?? true)) {
+            return null;
+        }
+
+        $holidays = $this->getPhilippineRegularHolidays((int) $date->year);
+        return $holidays[$date->toDateString()] ?? null;
+    }
+
+    /**
+     * Get operating hours for a specific date (including exceptions and PH regular holidays)
      * @return array{is_open: bool, open_time: string, close_time: string}
      */
     public function getOperatingHoursForDate(int $clinicId, Carbon $date): array
@@ -29,6 +88,14 @@ class ClinicScheduleService
                 'is_open'    => (bool) $exception->is_open,
                 'open_time'  => $exception->open_time ?? '08:00:00',
                 'close_time' => $exception->close_time ?? '17:00:00',
+            ];
+        }
+
+        if ($this->getClosedPhilippineHolidayName($clinicId, $date) !== null) {
+            return [
+                'is_open'    => false,
+                'open_time'  => '08:00:00',
+                'close_time' => '17:00:00',
             ];
         }
 
@@ -136,7 +203,12 @@ class ClinicScheduleService
                 return (bool) $exception->is_open;
             }
 
-            // Priority 2: Check Weekly Recurring Schedule
+            // Priority 2: Check Philippine Regular Holidays (when clinic closes on PH holidays)
+            if ($this->getClosedPhilippineHolidayName($clinicId, $date) !== null) {
+                return false;
+            }
+
+            // Priority 3: Check Weekly Recurring Schedule
             $schedule = ClinicSchedule::where('clinic_id', $clinicId)
                 ->where('day_of_week', $date->dayOfWeek)
                 ->first();
@@ -217,6 +289,11 @@ class ClinicScheduleService
             return $exception->reason ?: 'Holiday / Special Closure';
         }
 
+        $phHolidayName = $this->getClosedPhilippineHolidayName($clinicId, $date);
+        if ($phHolidayName !== null) {
+            return "Philippine Regular Holiday ({$phHolidayName})";
+        }
+
         $dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         $dayName = $dayNames[$date->dayOfWeek] ?? 'Weekend';
 
@@ -278,6 +355,7 @@ class ClinicScheduleService
             'open_days_of_week' => $openDays,
             'schedules' => $schedules,
             'exceptions' => $exceptions,
+            'close_on_ph_holidays' => (bool) ($clinic?->close_on_ph_holidays ?? true),
             'urgent_policy' => $this->getUrgentAccessInfo($clinicId),
             'clinic_info' => [
                 'id' => $clinic?->id ?? 1,
@@ -420,6 +498,7 @@ class ClinicScheduleService
                 'urgent_referral_facility_address' => $clinic->urgent_referral_facility_address,
                 'urgent_referral_facility_contact' => $clinic->urgent_referral_facility_contact,
                 'urgent_referral_instructions'     => $clinic->urgent_referral_instructions,
+                'close_on_ph_holidays'             => (bool) ($clinic->close_on_ph_holidays ?? true),
             ],
             'schedules'  => $clinic->schedules,
             'exceptions' => $clinic->scheduleExceptions,

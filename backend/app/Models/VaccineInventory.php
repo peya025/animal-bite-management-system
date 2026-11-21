@@ -98,4 +98,20 @@ class VaccineInventory extends Model
     {
         return $this->hasMany(TreatmentRecord::class, 'inventory_id', 'inventory_id');
     }
+
+    /**
+     * Relationship: VaccineInventory has many VaccineVials
+     */
+    public function vials()
+    {
+        return $this->hasMany(VaccineVial::class, 'inventory_id', 'inventory_id');
+    }
+
+    /**
+     * Relationship: VaccineInventory has many VaccineVialWastages
+     */
+    public function wastages()
+    {
+        return $this->hasMany(VaccineVialWastage::class, 'inventory_id', 'inventory_id');
+    }
 }

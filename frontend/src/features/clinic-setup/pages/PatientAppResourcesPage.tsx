@@ -1148,6 +1148,7 @@ export function PatientAppResourcesSection({
         {embedded && (
           <>
             <Typography
+              id="patient-resources-table-caption"
               sx={{
                 fontSize: '13px',
                 fontWeight: 600,
@@ -1157,9 +1158,9 @@ export function PatientAppResourcesSection({
                 letterSpacing: '0.05em',
               }}
             >
-              PATIENT APP RESOURCES
+              LEARN MORE RESOURCES
             </Typography>
-            <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 2.5 }} />
+            <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 1.5 }} />
           </>
         )}
 
@@ -1179,15 +1180,22 @@ export function PatientAppResourcesSection({
           }}
         >
           <Box>
-            <Typography
-              id="patient-resources-table-caption"
-              sx={{ fontSize: 15, fontWeight: 700, color: '#111827' }}
-            >
-              Patient App Resources (Mobile &ldquo;Learn More&rdquo;)
-            </Typography>
-            <Typography sx={{ fontSize: 12.5, color: '#6b7280', mt: 0.25 }}>
-              Add orientation videos or website links displayed in the patient mobile app under{' '}
-              <strong>Home &rarr; Learn More</strong>, below Bite Care Guide and above Clinic Information.
+            {!embedded && (
+              <Typography
+                id="patient-resources-table-caption"
+                sx={{ fontSize: 15, fontWeight: 700, color: '#111827' }}
+              >
+                Patient App Resources (Mobile &ldquo;Learn More&rdquo;)
+              </Typography>
+            )}
+            <Typography sx={{ fontSize: 12.5, color: '#6b7280', mt: embedded ? 0 : 0.25 }}>
+              Add orientation videos or website links shown in the patient app under{' '}
+              <strong>Home &rarr; Learn More</strong>.{' '}
+              {embedded && (
+                <Box component="span" sx={{ color: '#059669', fontWeight: 600 }}>
+                  Changes save automatically.
+                </Box>
+              )}
             </Typography>
           </Box>
 
@@ -2664,7 +2672,17 @@ export default function PatientAppResourcesPage() {
         }}
       >
         <Box>
-          <Typography component="h1" sx={{ fontSize: 22, fontWeight: 700, color: '#111827' }}>
+          <Typography
+            component="h1"
+            sx={{
+              fontSize: '22px',
+              fontWeight: 600,
+              lineHeight: 1.25,
+              letterSpacing: '-0.5px',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
+            }}
+          >
             Patient App Resources
           </Typography>
           <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mt: 0.25 }}>

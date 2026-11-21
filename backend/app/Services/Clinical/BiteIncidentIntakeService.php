@@ -170,13 +170,17 @@ class BiteIncidentIntakeService
                 ->where('patient_id', $lockedIntake->patient_id)
                 ->max('episode_number') ?? 0) + 1;
 
+            $missingExposureDate = $lockedIntake->bite_date === null;
             $incident = BiteIncident::create([
                 'clinic_id' => $clinicId,
                 'patient_id' => $lockedIntake->patient_id,
                 'episode_number' => $episodeNumber,
                 'episode_type' => 'pending_assessment',
                 'is_previously_vaccinated' => null,
-                'bite_date' => $lockedIntake->bite_date,
+                // The incident schema requires a date. Mark the check-in date as provisional
+                // until a clinician records the actual patient-reported exposure date.
+                'bite_date' => $missingExposureDate ? $todayDate : $lockedIntake->bite_date,
+                'bite_date_is_provisional' => $missingExposureDate,
                 'bite_place' => null,
                 'site_washed' => null,
                 'exposure_type' => 'unassessed',
@@ -191,7 +195,9 @@ class BiteIncidentIntakeService
                 'laterality' => null,
                 'wound_description' => null,
                 'status' => 'awaiting_assessment',
-                'remarks' => 'Mobile bite intake confirmed at Registration.',
+                'remarks' => $missingExposureDate
+                    ? 'Mobile consultation checked in; exposure date awaits clinical confirmation.'
+                    : 'Mobile bite intake confirmed at Registration.',
                 'created_by' => $user->id,
             ]);
 

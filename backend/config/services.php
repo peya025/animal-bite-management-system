@@ -37,14 +37,20 @@ return [
 
     'firebase' => [
         'project_id' => env('FIREBASE_PROJECT_ID', 'abtc-management-system'),
-        'credentials' => env('GOOGLE_APPLICATION_CREDENTIALS', 'storage/app/private/firebase-credentials.json'),
         'credentials_json' => env('FIREBASE_CREDENTIALS_JSON'),
         'credentials_base64' => env('FIREBASE_CREDENTIALS_BASE64'),
+        'credentials' => env('GOOGLE_APPLICATION_CREDENTIALS', 'storage/app/private/firebase-credentials.json'),
         'fcm_enabled' => (bool) env('FCM_ENABLED', false),
         'fcm_test_mode' => (bool) env('FCM_TEST_MODE', false),
         'channel_id' => env('FCM_ANDROID_CHANNEL_ID', 'abtcare_reminders'),
         'cache_store' => env('FCM_CACHE_STORE', 'file'),
         'allowed_patient_account_ids' => env('FCM_ALLOWED_PATIENT_ACCOUNT_IDS', '1'),
+    ],
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
     ],
 
 ];

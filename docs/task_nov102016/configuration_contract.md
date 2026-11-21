@@ -1,4 +1,4 @@
-# Animal Bite Management System — Module Configuration Contract
+﻿# Animal Bite Management System — Module Configuration Contract
 
 **Document Version:** 1.0.0  
 **Effective Date:** 11 November 2026  
@@ -64,7 +64,7 @@ Controls visibility of major form sections across the application.
 | `triage_section_enabled` | `triage_section_enabled` | `boolean` | `true` | Yes | Clinical assessment & category |
 | `treatment_section_enabled` | `treatment_section_enabled` | `boolean` | `true` | Yes | Vaccine brand, route, dosage |
 
-### 3.3 Canonical Field Rules (41 Keys)
+### 3.3 Canonical Field Rules (41 Keys + 3 Fee Keys = 44 configurable)
 Each field rule must be one of: `'required'`, `'optional'`, or `'hidden'`.
 
 | Category | Field Rule Key | Default | Allowed Values | Locked? |
@@ -393,3 +393,14 @@ Triggered when the submitted `revision` is older or does not match current serve
 ### For Person 4 (Station Workflow & Policy)
 1. **Station Switches:** All 3 station switches (`triage_module_enabled`, `registration_module_enabled`, `treatment_module_enabled`) are persisted and validated non-null booleans.
 2. **Disabling Transitions:** Use the effective configuration from `ClinicModuleConfigService::getOrCreateConfigForClinic($clinicId)` to verify station availability before routing or queuing patients.
+
+---
+
+## Addendum (Nov 2026): Supported surfaces and effective-rule semantics
+
+- Total configurable field-rule keys: **44** (41 clinical/profile keys + `rig_fee`, `anti_rabies_fee`, `additional_fees`; fees default `hidden` and require `registration_module_enabled`). `exposure_category` is locked to `required`.
+- A field is effective only if its enclosing section flag (and station module, for triage/treatment/fees) is enabled and its rule is not `hidden`. Parent-dependent fields (`spouse_name`, `philhealth_status/no/category`) follow their parent value.
+- Surfaces: Mobile Profile (patient registration, address, socioeconomic, gov programs), Mobile Intake (bite intake), Web Form 1 (profile + intake), Clinician Form 2 (triage), Clinician Form 3 (treatment), Staff Fees.
+- Hidden or disabled fields are omitted from requests, never blanked, so saved values are preserved. A composite `address` is sent only when municipality and barangay are both visible.
+- Implementations: backend `EffectiveFieldRuleComposer`; web `frontend/src/shared/forms/configuredFieldPolicy.ts` / `configuredPayload.ts`; mobile `mobile/lib/utils/configured_field_policy.dart` / `configured_payload_builder.dart`.
+- `animal_status` means ownership (Owned/Stray/Unknown); `animal_captured` means captured/restrained.

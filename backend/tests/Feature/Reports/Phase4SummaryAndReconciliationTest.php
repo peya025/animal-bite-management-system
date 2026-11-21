@@ -1465,4 +1465,100 @@ class Phase4SummaryAndReconciliationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('summary.total_cases', 2);
     }
+
+    public function test_location_summary_computes_four_age_groups_and_filters_while_preserving_doh_demographics(): void
+    {
+        $this->actingAs($this->admin);
+
+        $fixtures = [
+            // [case_number, dob, bite_date, expected_age, expected_group]
+            ['AG-INFANT-00', '2026-05-01', '2026-11-10', 0, null],       // <1 year -> excluded from 4 groups
+            ['AG-CHILD-01', '2025-11-10', '2026-11-10', 1, 'children'],  // exact 1
+            ['AG-CHILD-12', '2013-11-11', '2026-11-10', 12, 'children'], // 1 day before 13th bday -> 12
+            ['AG-TEEN-13', '2013-11-10', '2026-11-10', 13, 'teenagers'], // exact 13
+            ['AG-TEEN-17', '2009-01-15', '2026-11-10', 17, 'teenagers'], // 17
+            ['AG-ADULT-18', '2008-11-10', '2026-11-10', 18, 'adults'],   // exact 18
+            ['AG-ADULT-59', '1966-11-11', '2026-11-10', 59, 'adults'],   // 59
+            ['AG-SENIOR-60', '1966-11-10', '2026-11-10', 60, 'senior_citizens'], // exact 60
+            ['AG-SENIOR-72', '1954-02-01', '2026-11-20', 72, 'senior_citizens'], // 72 (later date)
+            ['AG-NODOB', null, '2026-11-10', null, null],                // missing DOB -> excluded
+            ['AG-FUTUREDOB', '2027-01-01', '2026-11-10', null, null],    // invalid DOB > bite_date -> excluded
+        ];
+
+        foreach ($fixtures as $idx => [$caseNumber, $dob, $biteDate]) {
+            $patient = Patient::create([
+                'clinic_id' => $this->clinic->id,
+                'patient_number' => 'PAT-AG-' . str_pad((string) ($idx + 1), 3, '0', STR_PAD_LEFT),
+                'first_name' => 'AgeTest',
+                'last_name' => 'Case' . ($idx + 1),
+                'gender' => $idx % 2 === 0 ? 'male' : 'female',
+                'date_of_birth' => $dob,
+            ]);
+
+            BiteIncident::create([
+                'clinic_id' => $this->clinic->id,
+                'patient_id' => $patient->patient_id,
+                'case_number' => $caseNumber,
+                'episode_type' => 'primary',
+                'bite_date' => $biteDate,
+                'bite_date_is_provisional' => false,
+                'bite_place' => 'Poblacion, Tagoloan',
+                'severity' => 'moderate',
+                'animal_type' => 'dog',
+                'animal_status' => 'owned',
+                'status' => 'active',
+                'confirmed_at' => $biteDate . ' 09:00:00',
+                'created_by' => $this->admin->id,
+            ]);
+        }
+
+        // Full November cohort: 11 total records preserved, 8 valid ages categorized across 4 groups
+        $res = $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30')
+            ->assertOk()
+            ->assertJsonPath('summary.total_cases', 11)
+            ->assertJsonPath('doh_summary.age_groups.children', 2)
+            ->assertJsonPath('doh_summary.age_groups.teenagers', 2)
+            ->assertJsonPath('doh_summary.age_groups.adults', 2)
+            ->assertJsonPath('doh_summary.age_groups.senior_citizens', 2)
+            ->assertJsonPath('doh_summary.age_groups.valid_total', 8);
+
+        // Official DOH demographics (<15 / >=15 / unknown) remain intact and sum to total_cases (11)
+        $demo = $res->json('doh_summary.demographics');
+        $this->assertSame(11, $demo['age_below_15'] + $demo['age_15_above'] + $demo['age_unknown']);
+
+        // Drill-down filter by each age group returns exact matching cases
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30&age_group=children')
+            ->assertOk()
+            ->assertJsonPath('summary.total_cases', 2)
+            ->assertJsonPath('doh_summary.age_groups.children', 2)
+            ->assertJsonPath('doh_summary.age_groups.valid_total', 2);
+
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30&age_group=teenagers')
+            ->assertOk()
+            ->assertJsonPath('summary.total_cases', 2);
+
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30&age_group=adults')
+            ->assertOk()
+            ->assertJsonPath('summary.total_cases', 2);
+
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30&age_group=senior_citizens')
+            ->assertOk()
+            ->assertJsonPath('summary.total_cases', 2);
+
+        // Date filter updates age group counts dynamically (Nov 15–30 only has AG-SENIOR-72)
+        $this->getJson('/api/cases/location-summary?from=2026-11-15&to=2026-11-30&cutoff=2026-11-30')
+            ->assertOk()
+            ->assertJsonPath('summary.total_cases', 1)
+            ->assertJsonPath('doh_summary.age_groups.children', 0)
+            ->assertJsonPath('doh_summary.age_groups.teenagers', 0)
+            ->assertJsonPath('doh_summary.age_groups.adults', 0)
+            ->assertJsonPath('doh_summary.age_groups.senior_citizens', 1)
+            ->assertJsonPath('doh_summary.age_groups.valid_total', 1);
+
+        // Conference privacy mode preserves age_groups while omitting individual cases
+        $this->getJson('/api/cases/location-summary?from=2026-11-01&to=2026-11-30&cutoff=2026-11-30&privacy_mode=aggregate_only')
+            ->assertOk()
+            ->assertJsonMissingPath('cases')
+            ->assertJsonPath('doh_summary.age_groups.valid_total', 8);
+    }
 }

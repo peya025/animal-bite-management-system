@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Typography } from '@mui/material';
+import { Box, Button, Paper, Tab, Tabs, Typography } from '@mui/material';
+import { Save as SaveIcon } from '@mui/icons-material';
 import {
   clinicConfigApi,
   ClinicConfigConflictError,
   ClinicConfigValidationError,
 } from '../../api/clinicConfigApi';
 import { useClinicModuleConfig } from '../../hooks/useClinicModuleConfig';
+import { SECTION_SURFACES, SURFACE_LABELS } from '../../shared/forms/configuredFieldPolicy';
 import { ROUTES } from '../../shared/config/routes';
 import { Icon } from '../../shared/components/ui/Icon';
 import ConfirmationDialog from '../../components/feedback/ConfirmationDialog';
@@ -112,8 +114,8 @@ const CANONICAL_SECTIONS: SectionMeta[] = [
       { key: 'site_washed', label: 'Site Washed with Soap and Water', description: 'Immediate pre-hospital first-aid washing' },
       { key: 'exposure_type', label: 'Type of Exposure', description: 'Bite, Scratch, or Non-bite contact' },
       { key: 'animal_type', label: 'Animal Type', description: 'Dog, Cat, or Other animal' },
-      { key: 'animal_status', label: 'Animal Status', description: 'Alive, Dead, Killed, or Lost' },
-      { key: 'animal_captured', label: 'Animal Captured / Quarantined', description: 'Available for 14-day observation' },
+      { key: 'animal_status', label: 'Animal Ownership', description: 'Owned, Stray, or Unknown (Mobile Intake and Web Form 1)' },
+      { key: 'animal_captured', label: 'Animal Captured / Restrained', description: 'Whether the animal was captured or restrained (Mobile Intake and Web Form 1)' },
       { key: 'wound_location', label: 'Wound Anatomical Location', description: 'Anatomical site on body' },
       { key: 'patient_description', label: 'Patient Remarks / Description', description: 'Additional incident notes' },
     ],
@@ -226,6 +228,7 @@ export default function ModuleConfigPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'modules' | 'form1' | 'form2' | 'form3'>('modules');
 
   // Accordion expansion state
   const [expandedSections, setExpandedSections] = useState<string[]>([
@@ -530,35 +533,6 @@ export default function ModuleConfigPage() {
     }
   };
 
-  const getFieldRuleBadge = (value: FieldRuleValue) => {
-    const badges = {
-      required: { bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd', text: 'Required' },
-      optional: { bg: '#e8f5ed', color: '#047857', border: '#d7ebdf', text: 'Optional' },
-      hidden: { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0', text: 'Hidden' },
-    };
-    const badge = badges[value] || badges.optional;
-    return (
-      <span
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '0.25rem',
-          background: badge.bg,
-          color: badge.color,
-          border: `1px solid ${badge.border}`,
-          fontSize: '0.7rem',
-          padding: '0.15rem 0.45rem',
-          borderRadius: '0.3rem',
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.3px',
-        }}
-      >
-        {badge.text}
-      </span>
-    );
-  };
-
   const getSectionStats = (section: SectionMeta) => {
     const required = section.fields.filter(
       (f) => (draft.fieldRules[f.key] ?? DEFAULT_CANONICAL_FIELD_RULES[f.key]) === 'required'
@@ -572,97 +546,146 @@ export default function ModuleConfigPage() {
     return { required, optional, hidden, total: section.fields.length };
   };
 
-  return (
-    <div style={{ width: '100%', margin: 0, padding: 0, maxWidth: '1440px', boxSizing: 'border-box' }}>
-      {/* ── Page Header ── */}
+  const formatSectionStatsText = (stats: { required: number; optional: number; hidden: number }) => {
+    const parts: string[] = [];
+    if (stats.required > 0) parts.push(`${stats.required} required`);
+    if (stats.optional > 0) parts.push(`${stats.optional} optional`);
+    if (stats.hidden > 0) parts.push(`${stats.hidden} hidden`);
+    return parts.join(' · ') || 'No fields';
+  };
+
+  const renderFieldRuleControl = (field: FieldMeta, currentRule: FieldRuleValue, hasFieldError: boolean) => {
+    if (field.locked) {
+      return (
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            padding: '0.3rem 0.7rem',
+            borderRadius: '6px',
+            background: '#fef3c7',
+            border: '1px solid #fde68a',
+            color: '#92400e',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Required (Locked)
+        </span>
+      );
+    }
+
+    const options: Array<{ value: FieldRuleValue; label: string; activeBg: string; activeColor: string; activeBorder: string }> = [
+      { value: 'required', label: 'Required', activeBg: '#ecfdf5', activeColor: '#047857', activeBorder: '#10b981' },
+      { value: 'optional', label: 'Optional', activeBg: '#eff6ff', activeColor: '#1d4ed8', activeBorder: '#60a5fa' },
+      { value: 'hidden', label: 'Hidden', activeBg: '#f1f5f9', activeColor: '#475569', activeBorder: '#94a3b8' },
+    ];
+
+    return (
       <div
-        data-walkthrough="module-config-header"
+        role="radiogroup"
+        aria-label={`Rule for ${field.label}`}
         style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          background: '#f8fafc',
+          border: `1px solid ${hasFieldError ? '#ef4444' : '#e2e8f0'}`,
+          borderRadius: '8px',
+          padding: '2px',
+          gap: '2px',
+          flexShrink: 0,
+        }}
+      >
+        {options.map((opt) => {
+          const isActive = currentRule === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={isActive}
+              disabled={!canEdit}
+              onClick={() => handleFieldRuleChange(field.key, opt.value)}
+              style={{
+                padding: '0.28rem 0.65rem',
+                borderRadius: '6px',
+                border: isActive ? `1px solid ${opt.activeBorder}` : '1px solid transparent',
+                background: isActive ? opt.activeBg : 'transparent',
+                color: isActive ? opt.activeColor : '#64748b',
+                fontSize: '0.75rem',
+                fontWeight: isActive ? 700 : 500,
+                cursor: canEdit ? 'pointer' : 'not-allowed',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <Box sx={{ width: '100%', pb: hasChanges && canEdit ? 8 : 2 }}>
+      {/* ── Page Header ── */}
+      <Box
+        data-walkthrough="module-config-header"
+        sx={{
+          mb: 2.5,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-start',
           flexWrap: 'wrap',
-          gap: '1rem',
-          marginBottom: '1.25rem',
+          gap: 2,
         }}
       >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
             <Typography
               component="h1"
               sx={{
-                fontSize: { xs: '20px', sm: '24px' },
-                fontWeight: 700,
-                lineHeight: 1.2,
-                letterSpacing: '-0.02em',
+                fontSize: '22px',
+                fontWeight: 600,
+                lineHeight: 1.25,
+                letterSpacing: '-0.5px',
                 color: 'var(--text-h, #111827)',
+                mb: 0.5,
               }}
             >
-              Clinic Module Configuration
+              Module Configuration
             </Typography>
 
-            {/* Read-Only badge if not editable */}
             {!canEdit && (
               <span
                 style={{
                   background: '#fef3c7',
                   color: '#92400e',
                   border: '1px solid #fde68a',
-                  padding: '0.2rem 0.6rem',
+                  padding: '0.18rem 0.55rem',
                   borderRadius: '999px',
-                  fontSize: '0.75rem',
+                  fontSize: '0.72rem',
                   fontWeight: 600,
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '0.3rem',
                 }}
               >
-                <Icon name="info" size={14} color="#92400e" />
-                Read-Only (Developer / Staff View)
+                <Icon name="info" size={13} color="#92400e" />
+                Read-Only
               </span>
             )}
-
-            {savedBaseline && (
-              <span
-                data-walkthrough="module-config-revision-badge"
-                style={{
-                  background: '#f1f5f9',
-                  color: '#475569',
-                  border: '1px solid #e2e8f0',
-                  padding: '0.2rem 0.5rem',
-                  borderRadius: '6px',
-                  fontSize: '0.75rem',
-                  fontFamily: 'monospace',
-                }}
-              >
-                Revision #{savedBaseline.revision}
-              </span>
-            )}
-          </div>
+          </Box>
 
           {/* Breadcrumb */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              marginTop: '6px',
-              fontSize: '13px',
-              flexWrap: 'wrap',
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '13px', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => handleGuardedNavigate(ROUTES.DASHBOARD)}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                color: '#2563eb',
-                fontSize: '13px',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
             >
               Dashboard
             </button>
@@ -671,33 +694,65 @@ export default function ModuleConfigPage() {
             <span style={{ color: '#9ca3af' }}>›</span>
             <span style={{ color: '#6b7280' }}>Module Configuration</span>
           </div>
-        </div>
+        </Box>
 
-        {/* History action button */}
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <button
-            type="button"
+        {/* Header Actions */}
+        <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Button
             data-walkthrough="module-config-history-btn"
+            variant="outlined"
+            size="small"
             onClick={openHistory}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              borderRadius: '8px',
-              padding: '0.5rem 0.85rem',
-              fontSize: '0.8125rem',
-              fontWeight: 500,
+            startIcon={<Icon name="activity" size={16} color="#475569" />}
+            sx={{
+              textTransform: 'none',
+              fontSize: '13px',
+              fontWeight: 600,
               color: '#334155',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              cursor: 'pointer',
+              borderColor: '#d7e3da',
+              height: 38,
+              px: 1.75,
+              borderRadius: 1.5,
+              bgcolor: '#ffffff',
+              '&:hover': { bgcolor: '#f8fafc', borderColor: '#94a3b8' },
             }}
           >
-            <Icon name="activity" size={16} color="#64748b" />
-            Audit History
-          </button>
-        </div>
-      </div>
+            {savedBaseline ? `Audit History (Rev #${savedBaseline.revision})` : 'Audit History'}
+          </Button>
+
+          {canEdit && (
+            <Button
+              data-walkthrough="module-config-save-btn"
+              variant={hasChanges && !stationPolicyError ? 'contained' : 'outlined'}
+              size="small"
+              startIcon={<SaveIcon sx={{ fontSize: 17 }} />}
+              onClick={() => handleSave()}
+              disabled={saving || !hasChanges || Boolean(stationPolicyError)}
+              disableElevation
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '13px',
+                px: 2,
+                height: 38,
+                borderRadius: 1.5,
+                ...(hasChanges && !stationPolicyError
+                  ? {
+                      bgcolor: '#10b981',
+                      color: '#ffffff',
+                      '&:hover': { bgcolor: '#059669' },
+                    }
+                  : {
+                      borderColor: '#d1d5db',
+                      color: '#6b7280',
+                    }),
+              }}
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          )}
+        </Box>
+      </Box>
 
       {/* ── Initial Load Error State with Functioning Retry Action ── */}
       {loadError && (
@@ -834,181 +889,49 @@ export default function ModuleConfigPage() {
         </div>
       ) : loadError ? null : (
         <>
-          {/* ── Station Modules Row: Registration → Triage → Treatment ── */}
-          <div
-            data-walkthrough="module-config-stations-row"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: '1rem',
-              marginBottom: '1.25rem',
-            }}
-          >
-            {STATION_MODULES_CONFIG.map(({ key, label, desc, color, whenOn, whenOff }) => {
-              const isEnabled = draft.stations[key];
-              return (
-                <div
-                  key={key}
-                  style={{
-                    background: '#ffffff',
-                    borderRadius: '14px',
-                    border: `1.5px solid ${isEnabled ? color + '44' : '#e2e8f0'}`,
-                    boxShadow: isEnabled ? `0 2px 8px ${color}18` : '0 1px 3px rgba(0,0,0,0.04)',
-                    padding: '1.25rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.75rem',
-                    transition: 'border-color 0.2s, box-shadow 0.2s',
-                    opacity: canEdit ? 1 : 0.9,
-                  }}
-                >
-                  {/* Card Header & Switch */}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
-                    <div>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{label}</span>
-                      <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.75rem', color: '#64748b', lineHeight: 1.4 }}>
-                        {desc}
-                      </p>
-                    </div>
-
-                    {/* Accessible Switch Button */}
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={isEnabled}
-                      aria-label={`Toggle ${label}`}
-                      disabled={!canEdit}
-                      onClick={() => handleStationToggle(key)}
-                      onKeyDown={(e) => {
-                        if (e.key === ' ' || e.key === 'Enter') {
-                          e.preventDefault();
-                          handleStationToggle(key);
-                        }
-                      }}
-                      style={{
-                        flexShrink: 0,
-                        width: 44,
-                        height: 24,
-                        borderRadius: 12,
-                        background: isEnabled ? color : '#cbd5e1',
-                        border: 'none',
-                        cursor: canEdit ? 'pointer' : 'not-allowed',
-                        position: 'relative',
-                        transition: 'background 0.2s',
-                        outline: 'none',
-                        boxShadow: isEnabled ? `0 0 0 3px ${color}33` : 'none',
-                        padding: 0,
-                      }}
-                    >
-                      <span
-                        style={{
-                          position: 'absolute',
-                          top: 3,
-                          left: isEnabled ? 23 : 3,
-                          width: 18,
-                          height: 18,
-                          borderRadius: '50%',
-                          background: '#ffffff',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
-                          transition: 'left 0.2s',
-                          display: 'block',
-                        }}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Status row */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.45rem 0.65rem',
-                      background: isEnabled ? color + '0d' : '#f8fafc',
-                      borderRadius: '8px',
-                      border: `1px solid ${isEnabled ? color + '30' : '#e2e8f0'}`,
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: '50%',
-                        flexShrink: 0,
-                        background: isEnabled ? color : '#94a3b8',
-                      }}
-                    />
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: isEnabled ? color : '#64748b' }}>
-                      {isEnabled ? `${label.split(' ')[0]} Enabled` : `${label.split(' ')[0]} Disabled`}
-                    </span>
-                  </div>
-
-                  <p style={{ margin: 0, fontSize: '0.72rem', color: '#64748b', lineHeight: 1.45 }}>
-                    {isEnabled ? whenOn : whenOff}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* ── Active Patient Flow Diagram (Identifies Draft vs Saved State) ── */}
-          <div
-            data-walkthrough="module-config-flow-diagram"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.65rem 1rem',
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '10px',
-              marginBottom: '1.25rem',
-              flexWrap: 'wrap',
-              gap: '0.75rem',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155' }}>
-                Patient Flow {hasChanges ? '(Draft Preview)' : '(Saved Active Flow)'}:
-              </span>
-              {[
-                { label: 'Registration', enabled: draft.stations.registration_module_enabled, color: '#10b981' },
-                { label: 'Triage', enabled: draft.stations.triage_module_enabled, color: '#10b981' },
-                { label: 'Treatment', enabled: draft.stations.treatment_module_enabled, color: '#10b981' },
-              ].map((step, idx) => (
-                <span key={step.label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  {idx > 0 && <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>→</span>}
-                  <span
-                    style={{
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      color: step.enabled ? step.color : '#94a3b8',
-                      textDecoration: step.enabled ? 'none' : 'line-through',
-                      opacity: step.enabled ? 1 : 0.5,
-                    }}
-                  >
-                    {step.label}
-                  </span>
-                </span>
-              ))}
-            </div>
-
-            {hasChanges && (
-              <span
-                style={{
-                  fontSize: '0.72rem',
+          {/* ── Borderless Navigation Tabs ── */}
+          <Box sx={{ borderBottom: '1px solid var(--border-glow, #e2e8f0)', mb: 3 }}>
+            <Tabs
+              value={activeTab}
+              onChange={(_, v) => setActiveTab(v)}
+              variant="scrollable"
+              scrollButtons="auto"
+              sx={{
+                minHeight: 42,
+                '& .MuiTabs-indicator': {
+                  backgroundColor: '#10b981',
+                  height: 2.5,
+                  borderRadius: '2px 2px 0 0',
+                },
+                '& .MuiTab-root': {
+                  textTransform: 'none',
                   fontWeight: 600,
-                  color: '#d97706',
-                  background: '#fef3c7',
-                  padding: '0.2rem 0.5rem',
-                  borderRadius: '6px',
-                  border: '1px solid #fde68a',
-                }}
-              >
-                ● Unsaved draft changes
-              </span>
-            )}
-          </div>
+                  fontSize: '13.5px',
+                  color: '#64748b',
+                  minHeight: 42,
+                  px: 2,
+                  '&.Mui-selected': {
+                    color: '#059669',
+                    fontWeight: 700,
+                  },
+                },
+              }}
+            >
+              <Tab value="modules" label="Modules & Flow" />
+              <Tab
+                value="form1"
+                label={draft.stations.registration_module_enabled ? 'Form 1: Registration' : 'Form 1: Registration (Off)'}
+              />
+              <Tab
+                value="form2"
+                label={draft.stations.triage_module_enabled ? 'Form 2: Triage' : 'Form 2: Triage (Off)'}
+              />
+              <Tab
+                value="form3"
+                label={draft.stations.treatment_module_enabled ? 'Form 3: Treatment' : 'Form 3: Treatment (Off)'}
+              />
+            </Tabs>
+          </Box>
 
           {stationPolicyError && (
             <div
@@ -1028,234 +951,321 @@ export default function ModuleConfigPage() {
             </div>
           )}
 
-          {/* ── Form Field Rules Accordion Groups ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {/* Group 1: Registration Form Sections */}
-            {draft.stations.registration_module_enabled && (
+          {/* ── TAB 1: MODULES & FLOW ── */}
+          {activeTab === 'modules' && (
+            <Paper
+              elevation={0}
+              sx={{
+                border: '1px solid var(--border-glow, #e0eae3)',
+                borderRadius: 2,
+                p: 3,
+                bgcolor: 'var(--card-bg-solid, #fff)',
+              }}
+            >
+              <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                CLINIC WORKFLOW MODULES
+              </Typography>
+              <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 2.5 }} />
+
               <div
-                data-walkthrough="module-config-registration-group"
+                data-walkthrough="module-config-stations-row"
                 style={{
-                  background: '#ffffff',
-                  borderRadius: '14px',
-                  border: '1px solid #bfdbfe',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                  padding: '1.25rem',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                  gap: '1rem',
+                  marginBottom: '1.25rem',
                 }}
               >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.625rem',
-                    paddingBottom: '0.875rem',
-                    borderBottom: '1px solid #e0f2fe',
-                    marginBottom: '1rem',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#0f172a' }}>
-                      Form 1 — Patient Registration Sections & Fields
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 2 }}>
-                      Configure visibility and requirement rules for demographics, address, socioeconomic, and bite intake.
-                    </div>
-                  </div>
-                </div>
+                {STATION_MODULES_CONFIG.map(({ key, label, desc, color, whenOn, whenOff }) => {
+                  const isEnabled = draft.stations[key];
+                  return (
+                    <div
+                      key={key}
+                      style={{
+                        background: isEnabled ? '#ffffff' : '#f8fafc',
+                        borderRadius: '10px',
+                        border: `1px solid ${isEnabled ? '#a7f3d0' : '#e2e8f0'}`,
+                        borderTop: `3px solid ${isEnabled ? '#10b981' : '#cbd5e1'}`,
+                        padding: '1.15rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.6rem',
+                        transition: 'border-color 0.2s, background 0.2s',
+                        opacity: canEdit ? 1 : 0.9,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+                        <div>
+                          <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{label}</div>
+                          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.78rem', color: '#64748b', lineHeight: 1.45 }}>
+                            {desc}
+                          </p>
+                        </div>
 
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                    gap: '1rem',
-                    alignItems: 'start',
-                  }}
-                >
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={isEnabled}
+                          aria-label={`Toggle ${label}`}
+                          disabled={!canEdit}
+                          onClick={() => handleStationToggle(key)}
+                          onKeyDown={(e) => {
+                            if (e.key === ' ' || e.key === 'Enter') {
+                              e.preventDefault();
+                              handleStationToggle(key);
+                            }
+                          }}
+                          style={{
+                            flexShrink: 0,
+                            width: 42,
+                            height: 24,
+                            borderRadius: 12,
+                            background: isEnabled ? color : '#cbd5e1',
+                            border: 'none',
+                            cursor: canEdit ? 'pointer' : 'not-allowed',
+                            position: 'relative',
+                            transition: 'background 0.2s',
+                            outline: 'none',
+                            padding: 0,
+                          }}
+                        >
+                          <span
+                            style={{
+                              position: 'absolute',
+                              top: 3,
+                              left: isEnabled ? 21 : 3,
+                              width: 18,
+                              height: 18,
+                              borderRadius: '50%',
+                              background: '#ffffff',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.22)',
+                              transition: 'left 0.2s',
+                              display: 'block',
+                            }}
+                          />
+                        </button>
+                      </div>
+
+                      <p style={{ margin: '0.25rem 0 0 0', paddingTop: '0.55rem', borderTop: '1px solid #f1f5f9', fontSize: '0.75rem', color: isEnabled ? '#047857' : '#64748b', lineHeight: 1.45 }}>
+                        {isEnabled ? whenOn : whenOff}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Active Patient Flow */}
+              <div
+                data-walkthrough="module-config-flow-diagram"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.75rem 1rem',
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155' }}>
+                    Patient Flow {hasChanges ? '(Draft Preview)' : '(Active)'}:
+                  </span>
+                  {[
+                    { label: 'Registration', enabled: draft.stations.registration_module_enabled },
+                    { label: 'Triage', enabled: draft.stations.triage_module_enabled },
+                    { label: 'Treatment', enabled: draft.stations.treatment_module_enabled },
+                  ].map((step, idx) => (
+                    <span key={step.label} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      {idx > 0 && <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>→</span>}
+                      <span
+                        style={{
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          color: step.enabled ? '#059669' : '#94a3b8',
+                          textDecoration: step.enabled ? 'none' : 'line-through',
+                          opacity: step.enabled ? 1 : 0.55,
+                        }}
+                      >
+                        {step.label}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </Paper>
+          )}
+
+          {/* ── TAB 2: FORM 1 — REGISTRATION ── */}
+          {activeTab === 'form1' && (
+            <Paper
+              data-walkthrough="module-config-registration-group"
+              elevation={0}
+              sx={{
+                border: '1px solid var(--border-glow, #e0eae3)',
+                borderRadius: 2,
+                p: 3,
+                bgcolor: 'var(--card-bg-solid, #fff)',
+              }}
+            >
+              <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                FORM 1 — PATIENT REGISTRATION SECTIONS &amp; FIELDS
+              </Typography>
+              <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 2.5 }} />
+
+              {!draft.stations.registration_module_enabled ? (
+                <Box sx={{ p: 3, borderRadius: 2, bgcolor: '#f8fafc', border: '1px dashed #cbd5e1', textAlign: 'center', color: '#64748b', fontSize: 13.5 }}>
+                  The Registration Module is currently disabled. Enable it under <strong>Modules &amp; Flow</strong> to configure Form 1 sections.
+                </Box>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {CANONICAL_SECTIONS.filter((s) => s.moduleKey === 'registration_module_enabled').map((section) =>
                     renderSectionCard(section)
                   )}
                   {renderFeesAndPaymentCard()}
                 </div>
-              </div>
-            )}
+              )}
+            </Paper>
+          )}
 
-            {/* Group 2: Triage Form Sections */}
-            {draft.stations.triage_module_enabled && (
-              <div
-                data-walkthrough="module-config-triage-group"
-                style={{
-                  background: '#ffffff',
-                  borderRadius: '14px',
-                  border: '1px solid #bbf7d0',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                  padding: '1.25rem',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.625rem',
-                    paddingBottom: '0.875rem',
-                    borderBottom: '1px solid #dcfce7',
-                    marginBottom: '1rem',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#0f172a' }}>
-                      Form 2 — Triage & Clinical Assessment Sections & Fields
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 2 }}>
-                      WHO Category evaluation, bite site inspection, and animal observation during doctor assessment.
-                    </div>
-                  </div>
-                </div>
+          {/* ── TAB 3: FORM 2 — TRIAGE ── */}
+          {activeTab === 'form2' && (
+            <Paper
+              data-walkthrough="module-config-triage-group"
+              elevation={0}
+              sx={{
+                border: '1px solid var(--border-glow, #e0eae3)',
+                borderRadius: 2,
+                p: 3,
+                bgcolor: 'var(--card-bg-solid, #fff)',
+              }}
+            >
+              <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                FORM 2 — TRIAGE &amp; CLINICAL ASSESSMENT
+              </Typography>
+              <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 2.5 }} />
 
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                    gap: '1rem',
-                    alignItems: 'start',
-                  }}
-                >
+              {!draft.stations.triage_module_enabled ? (
+                <Box sx={{ p: 3, borderRadius: 2, bgcolor: '#f8fafc', border: '1px dashed #cbd5e1', textAlign: 'center', color: '#64748b', fontSize: 13.5 }}>
+                  The Triage Module is currently disabled. Enable it under <strong>Modules &amp; Flow</strong> to configure Form 2 fields.
+                </Box>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {CANONICAL_SECTIONS.filter((s) => s.moduleKey === 'triage_module_enabled').map((section) =>
                     renderSectionCard(section)
                   )}
                 </div>
-              </div>
-            )}
+              )}
+            </Paper>
+          )}
 
-            {/* Group 3: Treatment Form Sections */}
-            {draft.stations.treatment_module_enabled && (
-              <div
-                data-walkthrough="module-config-treatment-group"
-                style={{
-                  background: '#ffffff',
-                  borderRadius: '14px',
-                  border: '1px solid #fed7aa',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                  padding: '1.25rem',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.625rem',
-                    paddingBottom: '0.875rem',
-                    borderBottom: '1px solid #ffedd5',
-                    marginBottom: '1rem',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#0f172a' }}>
-                      Form 3 — Treatment & Vaccination Sections & Fields
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 2 }}>
-                      Vaccine brand, route, dosage, batch tracking, and post-vaccination monitoring.
-                    </div>
-                  </div>
-                </div>
+          {/* ── TAB 4: FORM 3 — TREATMENT ── */}
+          {activeTab === 'form3' && (
+            <Paper
+              data-walkthrough="module-config-treatment-group"
+              elevation={0}
+              sx={{
+                border: '1px solid var(--border-glow, #e0eae3)',
+                borderRadius: 2,
+                p: 3,
+                bgcolor: 'var(--card-bg-solid, #fff)',
+              }}
+            >
+              <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#277a4b', mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                FORM 3 — TREATMENT &amp; VACCINATION
+              </Typography>
+              <Box sx={{ height: '2px', width: '40px', bgcolor: '#10b981', mb: 2.5 }} />
 
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                    gap: '1rem',
-                    alignItems: 'start',
-                  }}
-                >
+              {!draft.stations.treatment_module_enabled ? (
+                <Box sx={{ p: 3, borderRadius: 2, bgcolor: '#f8fafc', border: '1px dashed #cbd5e1', textAlign: 'center', color: '#64748b', fontSize: 13.5 }}>
+                  The Treatment Module is currently disabled. Enable it under <strong>Modules &amp; Flow</strong> to configure Form 3 fields.
+                </Box>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {CANONICAL_SECTIONS.filter((s) => s.moduleKey === 'treatment_module_enabled').map((section) =>
                     renderSectionCard(section)
                   )}
                 </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── Action Buttons (Save & Reset) ── */}
-          <div
-            style={{
-              marginTop: '1.75rem',
-              paddingTop: '1rem',
-              borderTop: '1px solid #e2e8f0',
-              display: 'flex',
-              gap: '0.75rem',
-              justifyContent: 'flex-end',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-            }}
-          >
-            {hasChanges && (
-              <span style={{ fontSize: '0.8125rem', color: '#64748b', marginRight: 'auto' }}>
-                You have unsaved changes in your draft.
-              </span>
-            )}
-
-            <button
-              type="button"
-              data-walkthrough="module-config-reset-btn"
-              onClick={handleReset}
-              disabled={saving || !hasChanges || !canEdit}
-              style={{
-                background: '#ffffff',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                padding: '0.65rem 1.25rem',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                color: '#334155',
-                cursor: saving || !hasChanges || !canEdit ? 'not-allowed' : 'pointer',
-                opacity: saving || !hasChanges || !canEdit ? 0.5 : 1,
-                transition: 'all 0.15s',
-              }}
-            >
-              Reset Changes
-            </button>
-
-            <button
-              type="button"
-              data-walkthrough="module-config-save-btn"
-              onClick={() => handleSave()}
-              disabled={saving || !hasChanges || !canEdit || Boolean(stationPolicyError)}
-              style={{
-                background: hasChanges && canEdit && !stationPolicyError ? '#10b981' : '#cbd5e1',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '0.65rem 1.5rem',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                cursor: saving || !hasChanges || !canEdit || Boolean(stationPolicyError) ? 'not-allowed' : 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                opacity: saving ? 0.7 : 1,
-                transition: 'all 0.15s',
-              }}
-            >
-              {saving ? (
-                <>
-                  <div
-                    style={{
-                      width: '14px',
-                      height: '14px',
-                      border: '2px solid #ffffff',
-                      borderTop: '2px solid transparent',
-                      borderRadius: '50%',
-                      animation: 'spin 0.6s linear infinite',
-                    }}
-                  />
-                  Saving Configuration...
-                </>
-              ) : (
-                <>
-                  <Icon name="check" size={16} color="#ffffff" />
-                  Save Configuration
-                </>
               )}
-            </button>
-          </div>
+            </Paper>
+          )}
+
+          {/* ── Sticky Save Bar (appears only when there are unsaved changes) ── */}
+          {hasChanges && canEdit && (
+            <Paper
+              elevation={4}
+              sx={{
+                position: 'sticky',
+                bottom: 16,
+                zIndex: 30,
+                mt: 3,
+                px: 2.5,
+                py: 1.5,
+                borderRadius: 2,
+                border: '1px solid #a7f3d0',
+                bgcolor: 'rgba(255, 255, 255, 0.96)',
+                backdropFilter: 'blur(8px)',
+                boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 1.5,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f59e0b', flexShrink: 0 }} />
+                <Typography sx={{ fontSize: '13.5px', fontWeight: 600, color: '#111827' }}>
+                  Unsaved configuration changes
+                </Typography>
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                <Button
+                  data-walkthrough="module-config-reset-btn"
+                  variant="outlined"
+                  size="small"
+                  onClick={handleReset}
+                  disabled={saving}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    color: '#475569',
+                    borderColor: '#cbd5e1',
+                    px: 2,
+                    py: 0.75,
+                    borderRadius: 1.5,
+                    '&:hover': { borderColor: '#94a3b8', bgcolor: '#f8fafc' },
+                  }}
+                >
+                  Discard
+                </Button>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<SaveIcon />}
+                  onClick={() => handleSave()}
+                  disabled={saving || Boolean(stationPolicyError)}
+                  disableElevation
+                  sx={{
+                    bgcolor: '#10b981',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '13.5px',
+                    px: 2.5,
+                    py: 0.75,
+                    borderRadius: 1.5,
+                    '&:hover': { bgcolor: '#059669' },
+                  }}
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </Box>
+            </Paper>
+          )}
         </>
       )}
 
@@ -1591,7 +1601,7 @@ export default function ModuleConfigPage() {
           </div>
         </div>
       )}
-    </div>
+    </Box>
   );
 
   // Helper to render an individual section card
@@ -1678,6 +1688,16 @@ export default function ModuleConfigPage() {
               >
                 {section.description}
               </div>
+              <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', marginTop: '0.3rem' }} aria-label="Affected surfaces">
+                {(SECTION_SURFACES[section.id as keyof typeof SECTION_SURFACES] ?? []).map((surface) => (
+                  <span
+                    key={surface}
+                    style={{ fontSize: '0.62rem', fontWeight: 600, color: '#0369a1', background: '#e0f2fe', borderRadius: 4, padding: '1px 6px' }}
+                  >
+                    {SURFACE_LABELS[surface]}
+                  </span>
+                ))}
+              </div>
             </div>
           </button>
 
@@ -1691,8 +1711,21 @@ export default function ModuleConfigPage() {
               marginLeft: '0.75rem',
             }}
           >
+            {/* Stats summary */}
+            <div
+              style={{
+                fontSize: '0.72rem',
+                color: '#64748b',
+                borderRight: '1px solid #e2e8f0',
+                paddingRight: '0.65rem',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {formatSectionStatsText(stats)}
+            </div>
+
             {/* Accessible Switch Button — Stop propagation to prevent accordion toggling */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <button
                 type="button"
                 role="switch"
@@ -1745,23 +1778,11 @@ export default function ModuleConfigPage() {
                   fontWeight: 700,
                   color: isSectionEnabled ? '#10b981' : '#94a3b8',
                   userSelect: 'none',
-                  minWidth: '46px',
+                  minWidth: '48px',
                 }}
               >
                 {isSectionEnabled ? 'Enabled' : 'Disabled'}
               </span>
-            </div>
-
-            {/* Stats summary */}
-            <div
-              style={{
-                fontSize: '0.65rem',
-                color: '#94a3b8',
-                borderLeft: '1px solid #e2e8f0',
-                paddingLeft: '0.5rem',
-              }}
-            >
-              {stats.required}R · {stats.optional}O · {stats.hidden}H
             </div>
 
             {/* Accordion expand indicator */}
@@ -1881,52 +1902,7 @@ export default function ModuleConfigPage() {
                         )}
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div>{getFieldRuleBadge(currentRule)}</div>
-
-                        {field.locked ? (
-                          <select
-                            id={`field-select-${field.key}`}
-                            disabled
-                            value="required"
-                            style={{
-                              background: '#f8fafc',
-                              border: '1px solid #cbd5e1',
-                              borderRadius: '6px',
-                              padding: '0.35rem 0.5rem',
-                              fontSize: '0.8125rem',
-                              color: '#64748b',
-                              cursor: 'not-allowed',
-                            }}
-                          >
-                            <option value="required">Required (Locked)</option>
-                          </select>
-                        ) : (
-                          <select
-                            id={`field-select-${field.key}`}
-                            aria-label={`Rule for ${field.label}`}
-                            disabled={!canEdit}
-                            value={currentRule}
-                            onChange={(e) =>
-                              handleFieldRuleChange(field.key, e.target.value as FieldRuleValue)
-                            }
-                            style={{
-                              background: '#ffffff',
-                              border: `1px solid ${hasFieldError ? '#ef4444' : '#cbd5e1'}`,
-                              borderRadius: '6px',
-                              padding: '0.35rem 0.5rem',
-                              fontSize: '0.8125rem',
-                              color: '#1e293b',
-                              cursor: canEdit ? 'pointer' : 'not-allowed',
-                              outline: 'none',
-                            }}
-                          >
-                            <option value="required">Required</option>
-                            <option value="optional">Optional</option>
-                            <option value="hidden">Hidden</option>
-                          </select>
-                        )}
-                      </div>
+                      {renderFieldRuleControl(field, currentRule, hasFieldError)}
                     </div>
                   );
                 })}
@@ -2151,33 +2127,7 @@ export default function ModuleConfigPage() {
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <div>{getFieldRuleBadge(currentRule)}</div>
-
-                      <select
-                        id={`field-select-${field.key}`}
-                        aria-label={`Rule for ${field.label}`}
-                        disabled={!canEdit}
-                        value={currentRule}
-                        onChange={(e) =>
-                          handleFieldRuleChange(field.key, e.target.value as FieldRuleValue)
-                        }
-                        style={{
-                          background: '#ffffff',
-                          border: `1px solid ${hasFieldError ? '#ef4444' : '#cbd5e1'}`,
-                          borderRadius: '6px',
-                          padding: '0.35rem 0.5rem',
-                          fontSize: '0.8125rem',
-                          color: '#1e293b',
-                          cursor: canEdit ? 'pointer' : 'not-allowed',
-                          outline: 'none',
-                        }}
-                      >
-                        <option value="required">Required</option>
-                        <option value="optional">Optional</option>
-                        <option value="hidden">Hidden</option>
-                      </select>
-                    </div>
+                    {renderFieldRuleControl(field, currentRule, hasFieldError)}
                   </div>
                 );
               })}

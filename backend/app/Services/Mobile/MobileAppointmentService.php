@@ -289,8 +289,8 @@ class MobileAppointmentService
                 AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($day3Appt, 'created', (int) $account->id));
             }
 
-            if ($appointment->appointment_type === 'consultation' && !empty($validated['intake'])) {
-                $intakeData = BiteIntakeContract::storagePayload($validated['intake']);
+            if ($appointment->appointment_type === 'consultation') {
+                $intakeData = BiteIntakeContract::storagePayload($validated['intake'] ?? []);
 
                 BiteIncidentIntake::create([
                     ...$intakeData,
@@ -402,12 +402,12 @@ class MobileAppointmentService
             );
         }
 
-        $storagePayload = BiteIntakeContract::storagePayload($intakeData);
+        $storagePayload = BiteIntakeContract::storagePayload($intakeData, true);
 
         $intake = $appointment->biteIntake;
         if ($intake) {
             $intake->update($storagePayload);
-        } else {
+        } elseif ($storagePayload !== []) {
             $intake = BiteIncidentIntake::create([
                 ...$storagePayload,
                 'clinic_id'          => $appointment->clinic_id,
@@ -416,6 +416,12 @@ class MobileAppointmentService
                 'appointment_id'     => $appointment->appointment_id,
                 'status'             => 'pending',
                 'submitted_at'       => now(),
+            ]);
+        }
+
+        if ($intake === null) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'intake' => ['Provide at least one intake answer before creating an intake record.'],
             ]);
         }
 

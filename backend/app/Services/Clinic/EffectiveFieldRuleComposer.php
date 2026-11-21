@@ -73,7 +73,9 @@ class EffectiveFieldRuleComposer
             }
         }
 
-        return $this->getFieldRule($clinicId, $fieldKey) !== 'hidden';
+        $section = $this->getEnclosingSection($fieldKey);
+        return ($section === null || $this->isSectionEnabled($clinicId, $section))
+            && $this->getFieldRule($clinicId, $fieldKey) !== 'hidden';
     }
 
     /**
@@ -135,61 +137,7 @@ class EffectiveFieldRuleComposer
      */
     public function getEnclosingSection(string $fieldKey): ?string
     {
-        return match ($fieldKey) {
-            'blood_type',
-            'mother_maiden_name',
-            'civil_status',
-            'spouse_name' => 'patient_registration_enabled',
-
-            'address_municipality',
-            'address_barangay',
-            'address_purok',
-            'province' => 'address_section_enabled',
-
-            'educational_attainment',
-            'employment_status',
-            'family_member' => 'socioeconomic_section_enabled',
-
-            'philhealth_member',
-            'philhealth_status',
-            'philhealth_no',
-            'philhealth_category',
-            'fourps_member',
-            'dswd_nhts' => 'gov_programs_section_enabled',
-
-            'bite_date',
-            'bite_place',
-            'site_washed',
-            'exposure_type',
-            'animal_type',
-            'animal_status',
-            'animal_captured',
-            'wound_location',
-            'patient_description' => 'bite_intake_section_enabled',
-
-            'blood_pressure',
-            'temperature',
-            'weight',
-            'height',
-            'bite_site' => 'triage_section_enabled',
-
-            'exposure_category',
-            'animal_observation_status',
-            'treatment_given',
-            'protocol_type',
-            'route',
-            'injection_site',
-            'dosage_ml',
-            'vaccine_brand',
-            'vaccine_generic',
-            'batch_no',
-            'tt_status',
-            'medication_given',
-            'adverse_reaction',
-            'cost_recovery' => 'treatment_section_enabled',
-
-            default => null,
-        };
+        return FormFieldCatalog::sectionFor($fieldKey);
     }
 
     /**
@@ -210,7 +158,7 @@ class EffectiveFieldRuleComposer
             'first_name' => $isUpdate ? 'sometimes|required|string|max:255' : 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'last_name' => $isUpdate ? 'sometimes|required|string|max:255' : 'required|string|max:255',
-            'suffix' => 'nullable|string|max:50',
+            'suffix' => $isUpdate ? 'nullable|string|max:50' : 'nullable|string|in:Jr.,Sr.,II,III,IV,V',
             'gender' => $isUpdate ? 'sometimes|required|in:male,female' : 'required|in:male,female',
             'age' => 'nullable|integer|min:0|max:150',
             'date_of_birth' => 'nullable|date|before_or_equal:today',

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../models/bite_intake_contract.dart';
+import '../../models/form_configuration.dart';
 import '../../services/api.dart';
+import '../../services/form_configuration_repository.dart';
+import '../../utils/configured_field_policy.dart';
+import '../../utils/configured_payload_builder.dart';
 import '../common/app_toast.dart';
 import 'history_filters.dart';
 
@@ -499,9 +504,11 @@ class _HistoryTimelineItemState extends State<HistoryTimelineItem> {
                     ),
                     _infoRow(
                       'Wound washed',
-                      intake['site_washed'] == true
-                          ? 'Yes (Washed with soap & water)'
-                          : 'No',
+                      intake['site_washed'] == null
+                          ? 'Not answered'
+                          : (intake['site_washed'] == true
+                                ? 'Yes (Washed)'
+                                : 'No'),
                     ),
                     if (intake['past_bite_history'] != null)
                       _infoRow(
@@ -681,46 +688,73 @@ class _EditBiteIntakeSheet extends StatefulWidget {
 }
 
 class _EditBiteIntakeSheetState extends State<_EditBiteIntakeSheet> {
-  late DateTime _exposureDate;
-  late String _exposureType;
-  late String _animalSpecies;
-  late String _animalOwnership;
-  late String _bodyPartGroup;
+  DateTime? _exposureDate;
+  String? _exposureType;
+  String? _animalSpecies;
+  late TextEditingController _animalSpeciesOtherController;
+  String? _animalOwnership;
+  bool? _animalCaptured;
+  String? _bodyPartGroup;
   late TextEditingController _detailController;
   late TextEditingController _placeController;
   late TextEditingController _narrativeController;
-  late bool _siteWashed;
+  bool? _siteWashed;
+
+  FormConfiguration? _config;
+  bool _loadingConfig = true;
+  String? _configError;
   bool _isSaving = false;
+  String? _validationError;
 
   @override
   void initState() {
     super.initState();
     final intake = widget.record.intake ?? const <String, dynamic>{};
 
-    try {
-      _exposureDate = intake['date_of_exposure'] != null
-          ? DateTime.parse(intake['date_of_exposure'].toString())
-          : DateTime.now();
-    } catch (_) {
-      _exposureDate = DateTime.now();
-    }
+    _exposureDate = intake['date_of_exposure'] != null
+        ? DateTime.tryParse(intake['date_of_exposure'].toString())
+        : null;
 
-    _exposureType = intake['reported_mode_of_exposure']?.toString() ?? 'bite';
-    if (!['bite', 'scratch_abrasion', 'scratch', 'non_bite'].contains(_exposureType)) {
-      _exposureType = 'bite';
-    }
+    final rawExposure = intake['reported_mode_of_exposure']?.toString();
+    _exposureType = switch (rawExposure) {
+      'bite' => 'transdermal_bite',
+      'scratch' => 'scratch_abrasion',
+      'lick' => 'nibbling_uncovered_skin',
+      'non_bite' || 'other' => 'nibbling_broken_skin',
+      _ => BiteIntakeContract.fallback.exposureModes.containsKey(rawExposure)
+          ? rawExposure
+          : null,
+    };
 
-    _animalSpecies = intake['animal_species']?.toString() ?? 'dog';
-    if (!['dog', 'cat', 'other'].contains(_animalSpecies)) {
-      _animalSpecies = 'dog';
-    }
+    final rawSpecies = intake['animal_species']?.toString();
+    _animalSpecies =
+        (rawSpecies != null &&
+            BiteIntakeContract.fallback.animalSpecies.containsKey(rawSpecies))
+        ? rawSpecies
+        : null;
+    _animalSpeciesOtherController = TextEditingController(
+      text: intake['animal_species_other']?.toString() ?? '',
+    );
 
-    _animalOwnership = intake['animal_ownership']?.toString() ?? 'owned';
-    if (!['owned', 'stray'].contains(_animalOwnership)) {
-      _animalOwnership = 'owned';
-    }
+    final rawOwnership = intake['animal_ownership']?.toString();
+    _animalOwnership =
+        (rawOwnership != null &&
+            BiteIntakeContract.fallback.animalOwnership.containsKey(
+              rawOwnership,
+            ))
+        ? rawOwnership
+        : null;
 
-    _bodyPartGroup = intake['body_part_group']?.toString() ?? 'lower_extremities';
+    final rawCaptured = intake['animal_captured'];
+    _animalCaptured = rawCaptured is bool ? rawCaptured : null;
+
+    final rawBodyPart = intake['body_part_group']?.toString();
+    _bodyPartGroup =
+        (rawBodyPart != null &&
+            BiteIntakeContract.fallback.bodyPartGroups.containsKey(rawBodyPart))
+        ? rawBodyPart
+        : null;
+
     _detailController = TextEditingController(
       text: intake['body_part_detail']?.toString() ?? '',
     );
@@ -730,11 +764,47 @@ class _EditBiteIntakeSheetState extends State<_EditBiteIntakeSheet> {
     _narrativeController = TextEditingController(
       text: intake['incident_narrative']?.toString() ?? '',
     );
-    _siteWashed = intake['site_washed'] == true;
+    final rawWashed = intake['site_washed'];
+    _siteWashed = rawWashed is bool ? rawWashed : null;
+
+    _loadConfig();
+  }
+
+  Future<void> _loadConfig({bool forceRefresh = false}) async {
+    final apptId = widget.record.appointmentId;
+    if (apptId == null) {
+      setState(() {
+        _loadingConfig = false;
+        _configError = 'Appointment reference is missing.';
+      });
+      return;
+    }
+    setState(() {
+      _loadingConfig = true;
+      _configError = null;
+    });
+    try {
+      final cfg = await const FormConfigurationRepository().forAppointment(
+        apptId,
+        forceRefresh: forceRefresh,
+      );
+      if (!mounted) return;
+      setState(() {
+        _config = cfg;
+        _loadingConfig = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingConfig = false;
+        _configError = e.toString();
+      });
+    }
   }
 
   @override
   void dispose() {
+    _animalSpeciesOtherController.dispose();
     _detailController.dispose();
     _placeController.dispose();
     _narrativeController.dispose();
@@ -744,7 +814,7 @@ class _EditBiteIntakeSheetState extends State<_EditBiteIntakeSheet> {
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _exposureDate,
+      initialDate: _exposureDate ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
       builder: (context, child) {
@@ -765,24 +835,101 @@ class _EditBiteIntakeSheetState extends State<_EditBiteIntakeSheet> {
     }
   }
 
+  String? _validateForPolicy(ConfiguredFieldPolicy policy) {
+    if (!policy.isIntakeSectionEnabled) {
+      return 'Bite intake is disabled for this clinic.';
+    }
+    if (policy.isIntakeFieldRequired('bite_date') && _exposureDate == null) {
+      return 'Date of exposure is required.';
+    }
+    if (policy.isIntakeFieldRequired('bite_place') &&
+        _placeController.text.trim().isEmpty) {
+      return 'Place of exposure is required.';
+    }
+    if (policy.isIntakeFieldRequired('site_washed') && _siteWashed == null) {
+      return 'Please indicate whether the wound was washed.';
+    }
+    if (policy.isIntakeFieldRequired('exposure_type') &&
+        (_exposureType == null || _exposureType!.isEmpty)) {
+      return 'Mode of exposure is required.';
+    }
+    if (policy.isIntakeFieldRequired('animal_type') &&
+        (_animalSpecies == null || _animalSpecies!.isEmpty)) {
+      return 'Animal species is required.';
+    }
+    if (policy.isIntakeFieldVisible('animal_type') &&
+        _animalSpecies == 'other' &&
+        _animalSpeciesOtherController.text.trim().isEmpty) {
+      return 'Please specify the other animal species.';
+    }
+    if (policy.isIntakeFieldRequired('animal_status') &&
+        (_animalOwnership == null || _animalOwnership!.isEmpty)) {
+      return 'Animal ownership is required.';
+    }
+    if (policy.isIntakeFieldRequired('animal_captured') &&
+        _animalCaptured == null) {
+      return 'Please indicate whether the animal was captured.';
+    }
+    if (policy.isIntakeFieldRequired('wound_location') &&
+        (_bodyPartGroup == null || _bodyPartGroup!.isEmpty) &&
+        _detailController.text.trim().isEmpty) {
+      return 'Body part exposed is required.';
+    }
+    if (policy.isIntakeFieldRequired('patient_description') &&
+        _narrativeController.text.trim().isEmpty) {
+      return 'Incident description is required.';
+    }
+    return null;
+  }
+
   Future<void> _save() async {
-    if (_isSaving) return;
+    if (_isSaving || _config == null) return;
     final apptId = widget.record.appointmentId;
     if (apptId == null) return;
 
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _validationError = null;
+    });
     try {
-      final payload = {
-        'date_of_exposure': _exposureDate.toIso8601String().split('T').first,
-        'reported_mode_of_exposure': _exposureType,
-        'animal_species': _animalSpecies,
-        'animal_ownership': _animalOwnership,
-        'body_part_group': _bodyPartGroup,
-        'body_part_detail': _detailController.text.trim(),
-        'place_of_exposure': _placeController.text.trim(),
-        'site_washed': _siteWashed,
-        'incident_narrative': _narrativeController.text.trim(),
-      };
+      final previousRevision = _config!.revision;
+      final refreshed = await const FormConfigurationRepository()
+          .forAppointment(apptId, forceRefresh: true);
+      if (!mounted) return;
+      final policy = ConfiguredFieldPolicy(refreshed);
+      if (refreshed.revision != previousRevision) {
+        setState(() {
+          _config = refreshed;
+          _isSaving = false;
+          _validationError =
+              'Clinic form requirements changed. Please review and save again.';
+        });
+        return;
+      }
+
+      final validationMessage = _validateForPolicy(policy);
+      if (validationMessage != null) {
+        setState(() {
+          _isSaving = false;
+          _validationError = validationMessage;
+        });
+        return;
+      }
+
+      final payload = ConfiguredPayloadBuilder.buildIntakeUpdatePayload(
+        policy: policy,
+        dateOfExposure: _exposureDate,
+        placeOfExposure: _placeController.text,
+        siteWashed: _siteWashed,
+        reportedModeOfExposure: _exposureType,
+        animalSpecies: _animalSpecies,
+        animalSpeciesOther: _animalSpeciesOtherController.text,
+        animalOwnership: _animalOwnership,
+        animalCaptured: _animalCaptured,
+        bodyPartGroup: _bodyPartGroup,
+        bodyPartDetail: _detailController.text,
+        incidentNarrative: _narrativeController.text,
+      );
 
       await api.updateAppointmentIntake(
         appointmentId: apptId,
@@ -803,6 +950,7 @@ class _EditBiteIntakeSheetState extends State<_EditBiteIntakeSheet> {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
+    final policy = _config == null ? null : ConfiguredFieldPolicy(_config!);
 
     return Container(
       constraints: BoxConstraints(
@@ -871,216 +1019,423 @@ class _EditBiteIntakeSheetState extends State<_EditBiteIntakeSheet> {
           Flexible(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Exposure Date Picker
-                  _label('Date of Exposure / Incident *'),
-                  InkWell(
-                    onTap: _pickDate,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFD1D5DB)),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            LucideIcons.calendar,
-                            size: 16,
-                            color: Color(0xFF1D9E75),
+              child: _loadingConfig
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : _configError != null || policy == null
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          _configError ?? 'Could not load clinic intake rules.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFDC2626),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _exposureDate.toIso8601String().split('T').first,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF111827),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: () => _loadConfig(forceRefresh: true),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    )
+                  : !policy.isIntakeSectionEnabled
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        'Bite intake editing is disabled by this clinic. Clinic staff will review details during your visit.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_validationError != null) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFFFCA5A5),
+                              ),
                             ),
-                          ),
-                          const Spacer(),
-                          const Text(
-                            'Change',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: Color(0xFF1D9E75),
-                              fontWeight: FontWeight.w600,
+                            child: Text(
+                              _validationError!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFFDC2626),
+                              ),
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Exposure Mode
-                  _label('Mode of Exposure *'),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      _choiceChip('Bite', 'bite', _exposureType, (val) {
-                        setState(() => _exposureType = val);
-                      }),
-                      _choiceChip('Scratch / Abrasion', 'scratch_abrasion', _exposureType, (val) {
-                        setState(() => _exposureType = val);
-                      }),
-                      _choiceChip('Non-bite', 'non_bite', _exposureType, (val) {
-                        setState(() => _exposureType = val);
-                      }),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Animal Species
-                  _label('Animal Species *'),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      _choiceChip('Dog', 'dog', _animalSpecies, (val) {
-                        setState(() => _animalSpecies = val);
-                      }),
-                      _choiceChip('Cat', 'cat', _animalSpecies, (val) {
-                        setState(() => _animalSpecies = val);
-                      }),
-                      _choiceChip('Other', 'other', _animalSpecies, (val) {
-                        setState(() => _animalSpecies = val);
-                      }),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Animal Ownership
-                  _label('Animal Ownership / Status *'),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      _choiceChip('Owned pet', 'owned', _animalOwnership, (val) {
-                        setState(() => _animalOwnership = val);
-                      }),
-                      _choiceChip('Stray animal', 'stray', _animalOwnership, (val) {
-                        setState(() => _animalOwnership = val);
-                      }),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Body Part Group
-                  _label('Body Part Exposed *'),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFD1D5DB)),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        isExpanded: true,
-                        value: _bodyPartGroup,
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'lower_extremities',
-                            child: Text('Lower extremities (leg / foot)'),
+                        if (policy.isIntakeFieldVisible('bite_date')) ...[
+                          _label(
+                            policy.isIntakeFieldRequired('bite_date')
+                                ? 'Date of Exposure / Incident *'
+                                : 'Date of Exposure / Incident',
                           ),
-                          DropdownMenuItem(
-                            value: 'upper_extremities',
-                            child: Text('Upper extremities (arm / hand)'),
+                          InkWell(
+                            onTap: _pickDate,
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: const Color(0xFFD1D5DB),
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    LucideIcons.calendar,
+                                    size: 16,
+                                    color: Color(0xFF1D9E75),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _exposureDate == null
+                                        ? 'Not recorded'
+                                        : _exposureDate!
+                                              .toIso8601String()
+                                              .split('T')
+                                              .first,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF111827),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  const Text(
+                                    'Change',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: Color(0xFF1D9E75),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          DropdownMenuItem(
-                            value: 'head_neck',
-                            child: Text('Head and neck'),
+                          const SizedBox(height: 14),
+                        ],
+                        if (policy.isIntakeFieldVisible('exposure_type')) ...[
+                          _label(
+                            policy.isIntakeFieldRequired('exposure_type')
+                                ? 'Mode of Exposure *'
+                                : 'Mode of Exposure',
                           ),
-                          DropdownMenuItem(
-                            value: 'trunk_torso',
-                            child: Text('Trunk or torso'),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: BiteIntakeContract
+                                .fallback
+                                .exposureModes
+                                .entries
+                                .map(
+                                  (e) => _choiceChip(
+                                    e.value,
+                                    e.key,
+                                    _exposureType,
+                                    (val) => setState(
+                                      () => _exposureType =
+                                          (_exposureType == val &&
+                                              !policy.isIntakeFieldRequired(
+                                                'exposure_type',
+                                              ))
+                                          ? null
+                                          : val,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
                           ),
-                          DropdownMenuItem(
-                            value: 'multiple_sites',
-                            child: Text('Multiple sites'),
+                          const SizedBox(height: 14),
+                        ],
+                        if (policy.isIntakeFieldVisible('animal_type')) ...[
+                          _label(
+                            policy.isIntakeFieldRequired('animal_type')
+                                ? 'Animal Species *'
+                                : 'Animal Species',
+                          ),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: BiteIntakeContract
+                                .fallback
+                                .animalSpecies
+                                .entries
+                                .map(
+                                  (e) => _choiceChip(
+                                    e.value,
+                                    e.key,
+                                    _animalSpecies,
+                                    (val) => setState(
+                                      () => _animalSpecies =
+                                          (_animalSpecies == val &&
+                                              !policy.isIntakeFieldRequired(
+                                                'animal_type',
+                                              ))
+                                          ? null
+                                          : val,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                          if (_animalSpecies == 'other') ...[
+                            const SizedBox(height: 10),
+                            _label('Specify Animal Species *'),
+                            TextField(
+                              controller: _animalSpeciesOtherController,
+                              decoration: InputDecoration(
+                                hintText: 'e.g. Bat, Monkey',
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFD1D5DB),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 14),
+                        ],
+                        if (policy.isIntakeFieldVisible('animal_status')) ...[
+                          _label(
+                            policy.isIntakeFieldRequired('animal_status')
+                                ? 'Animal Ownership / Status *'
+                                : 'Animal Ownership / Status',
+                          ),
+                          Wrap(
+                            spacing: 8,
+                            children: BiteIntakeContract
+                                .fallback
+                                .animalOwnership
+                                .entries
+                                .map(
+                                  (e) => _choiceChip(
+                                    e.value,
+                                    e.key,
+                                    _animalOwnership,
+                                    (val) => setState(
+                                      () => _animalOwnership =
+                                          (_animalOwnership == val &&
+                                              !policy.isIntakeFieldRequired(
+                                                'animal_status',
+                                              ))
+                                          ? null
+                                          : val,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                        if (policy.isIntakeFieldVisible('animal_captured')) ...[
+                          _label(
+                            policy.isIntakeFieldRequired('animal_captured')
+                                ? 'Was the animal captured or restrained? *'
+                                : 'Was the animal captured or restrained?',
+                          ),
+                          Row(
+                            children: [
+                              _choiceChip('Yes', true, _animalCaptured, (val) {
+                                setState(
+                                  () => _animalCaptured =
+                                      (_animalCaptured == true &&
+                                          !policy.isIntakeFieldRequired(
+                                            'animal_captured',
+                                          ))
+                                      ? null
+                                      : true,
+                                );
+                              }),
+                              const SizedBox(width: 8),
+                              _choiceChip('No', false, _animalCaptured, (val) {
+                                setState(
+                                  () => _animalCaptured =
+                                      (_animalCaptured == false &&
+                                          !policy.isIntakeFieldRequired(
+                                            'animal_captured',
+                                          ))
+                                      ? null
+                                      : false,
+                                );
+                              }),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                        if (policy.isIntakeFieldVisible('wound_location')) ...[
+                          _label(
+                            policy.isIntakeFieldRequired('wound_location')
+                                ? 'Body Part Exposed *'
+                                : 'Body Part Exposed',
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: const Color(0xFFD1D5DB),
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                isExpanded: true,
+                                value: _bodyPartGroup,
+                                hint: const Text('Select body-part group'),
+                                items: [
+                                  if (!policy.isIntakeFieldRequired(
+                                    'wound_location',
+                                  ))
+                                    const DropdownMenuItem<String>(
+                                      value: null,
+                                      child: Text('Not specified'),
+                                    ),
+                                  ...BiteIntakeContract
+                                      .fallback
+                                      .bodyPartGroups
+                                      .entries
+                                      .map(
+                                        (e) => DropdownMenuItem(
+                                          value: e.key,
+                                          child: Text(e.value),
+                                        ),
+                                      ),
+                                ],
+                                onChanged: (val) =>
+                                    setState(() => _bodyPartGroup = val),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          _label('Specific Wound Location (Optional)'),
+                          TextField(
+                            controller: _detailController,
+                            decoration: InputDecoration(
+                              hintText:
+                                  'e.g. Right calf, left palm, back of thigh',
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFD1D5DB),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                        if (policy.isIntakeFieldVisible('bite_place')) ...[
+                          _label(
+                            policy.isIntakeFieldRequired('bite_place')
+                                ? 'Place of Exposure / Incident Location *'
+                                : 'Place of Exposure / Incident Location',
+                          ),
+                          TextField(
+                            controller: _placeController,
+                            decoration: InputDecoration(
+                              hintText: 'e.g. Barangay Poblacion, Tagoloan',
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFD1D5DB),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                        if (policy.isIntakeFieldVisible('site_washed')) ...[
+                          _label(
+                            policy.isIntakeFieldRequired('site_washed')
+                                ? 'Was the wound washed? *'
+                                : 'Was the wound washed?',
+                          ),
+                          Row(
+                            children: [
+                              _choiceChip('Yes, washed', true, _siteWashed, (
+                                val,
+                              ) {
+                                setState(
+                                  () => _siteWashed =
+                                      (_siteWashed == true &&
+                                          !policy.isIntakeFieldRequired(
+                                            'site_washed',
+                                          ))
+                                      ? null
+                                      : true,
+                                );
+                              }),
+                              const SizedBox(width: 8),
+                              _choiceChip('No', false, _siteWashed, (val) {
+                                setState(
+                                  () => _siteWashed =
+                                      (_siteWashed == false &&
+                                          !policy.isIntakeFieldRequired(
+                                            'site_washed',
+                                          ))
+                                      ? null
+                                      : false,
+                                );
+                              }),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                        if (policy.isIntakeFieldVisible(
+                          'patient_description',
+                        )) ...[
+                          _label(
+                            policy.isIntakeFieldRequired('patient_description')
+                                ? 'Incident Description *'
+                                : 'Incident Description / Additional Notes',
+                          ),
+                          TextField(
+                            controller: _narrativeController,
+                            maxLines: 3,
+                            decoration: InputDecoration(
+                              hintText: 'Describe how the incident occurred...',
+                              contentPadding: const EdgeInsets.all(12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFD1D5DB),
+                                ),
+                              ),
+                            ),
                           ),
                         ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() => _bodyPartGroup = val);
-                          }
-                        },
-                      ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Specific Wound Detail
-                  _label('Specific Wound Location (Optional)'),
-                  TextField(
-                    controller: _detailController,
-                    decoration: InputDecoration(
-                      hintText: 'e.g. Right calf, left palm, back of thigh',
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Place of Exposure
-                  _label('Place of Exposure / Incident Location'),
-                  TextField(
-                    controller: _placeController,
-                    decoration: InputDecoration(
-                      hintText: 'e.g. Barangay Poblacion, Tagoloan',
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Site Washed
-                  _label('Was the wound washed with soap and running water?'),
-                  Row(
-                    children: [
-                      _choiceChip('Yes, washed', true, _siteWashed, (val) {
-                        setState(() => _siteWashed = true);
-                      }),
-                      const SizedBox(width: 8),
-                      _choiceChip('No', false, _siteWashed, (val) {
-                        setState(() => _siteWashed = false);
-                      }),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Incident Narrative
-                  _label('Incident Description / Additional Notes'),
-                  TextField(
-                    controller: _narrativeController,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      hintText: 'Describe how the incident occurred...',
-                      contentPadding: const EdgeInsets.all(12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
 
@@ -1090,7 +1445,13 @@ class _EditBiteIntakeSheetState extends State<_EditBiteIntakeSheet> {
             child: SizedBox(
               height: 48,
               child: FilledButton(
-                onPressed: _isSaving ? null : _save,
+                onPressed:
+                    (_isSaving ||
+                        _loadingConfig ||
+                        policy == null ||
+                        !policy.isIntakeSectionEnabled)
+                    ? null
+                    : _save,
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF1D9E75),
                   shape: RoundedRectangleBorder(
@@ -1137,7 +1498,7 @@ class _EditBiteIntakeSheetState extends State<_EditBiteIntakeSheet> {
   Widget _choiceChip<T>(
     String label,
     T value,
-    T selectedValue,
+    T? selectedValue,
     ValueChanged<T> onSelected,
   ) {
     final isSelected = value == selectedValue;

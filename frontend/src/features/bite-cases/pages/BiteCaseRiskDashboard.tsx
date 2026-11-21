@@ -53,6 +53,7 @@ import { BiteCasesPresentationDialog } from '../components/BiteCasesPresentation
 import { BC_BORDER, DohStatLine } from '../components/BiteCasesSharedUi';
 import { BiteCasesTreatmentTab } from '../components/BiteCasesTreatmentTab';
 import {
+  BITE_SUMMARY_AGE_GROUPS,
   computeDateRange,
   computePriorityBreakdown,
   formatDaysAgo,
@@ -364,6 +365,7 @@ export default function BiteCaseRiskDashboard() {
     animalStatus: '',
     animalCondition: '',
     channel: '',
+    ageGroup: '',
     range: rangeParam && ALLOWED_RANGES.includes(rangeParam) ? rangeParam : 'all',
     customFrom: '',
     customTo: '',
@@ -471,7 +473,7 @@ export default function BiteCaseRiskDashboard() {
   );
 
   const query = useMemo(() => {
-    const { cutoff, search, severity, status, animal, animalStatus, animalCondition, channel } = filters;
+    const { cutoff, search, severity, status, animal, animalStatus, animalCondition, channel, ageGroup } = filters;
     return {
       privacy_mode: privacyMode,
       ...(search ? { search } : {}),
@@ -481,6 +483,7 @@ export default function BiteCaseRiskDashboard() {
       ...(animalStatus ? { animal_status: animalStatus } : {}),
       ...(animalCondition ? { animal_condition: animalCondition } : {}),
       ...(channel ? { channel } : {}),
+      ...(ageGroup ? { age_group: ageGroup } : {}),
       ...(cutoff ? { cutoff } : {}),
       ...(activeDateRange.from ? { from: activeDateRange.from } : {}),
       ...(activeDateRange.to ? { to: activeDateRange.to } : {}),
@@ -510,7 +513,7 @@ export default function BiteCaseRiskDashboard() {
           const response = await api.get<DashboardData>('/cases/location-summary', { params: query });
           if (!active) return;
           setData(response.data);
-          if (!filters.search && !filters.severity && !filters.status && !filters.animal && !filters.animalStatus && !filters.animalCondition && !filters.channel) {
+          if (!filters.search && !filters.severity && !filters.status && !filters.animal && !filters.animalStatus && !filters.animalCondition && !filters.channel && !filters.ageGroup) {
             setBaselineData(response.data);
           }
         }
@@ -684,6 +687,7 @@ export default function BiteCaseRiskDashboard() {
       animalStatus: '',
       animalCondition: '',
       channel: '',
+      ageGroup: '',
       range: 'all',
       customFrom: '',
       customTo: '',
@@ -698,6 +702,7 @@ export default function BiteCaseRiskDashboard() {
       filters.animalStatus ||
       filters.animalCondition ||
       filters.channel ||
+      filters.ageGroup ||
       filters.cutoff ||
       filters.range !== 'all'
   );
@@ -763,6 +768,7 @@ export default function BiteCaseRiskDashboard() {
     animal_status?: string;
     animal_condition?: string;
     channel?: string;
+    age_group?: string;
     search?: string;
   }) => {
     setFilters((f) => ({
@@ -773,6 +779,7 @@ export default function BiteCaseRiskDashboard() {
       ...(next.animal_status !== undefined ? { animalStatus: next.animal_status } : {}),
       ...(next.animal_condition !== undefined ? { animalCondition: next.animal_condition } : {}),
       ...(next.channel !== undefined ? { channel: next.channel } : {}),
+      ...(next.age_group !== undefined ? { ageGroup: next.age_group } : {}),
       ...(next.search !== undefined ? { search: next.search } : {}),
     }));
     selectTab('cases');
@@ -785,7 +792,8 @@ export default function BiteCaseRiskDashboard() {
       filters.animal ||
       filters.animalStatus ||
       filters.animalCondition ||
-      filters.channel
+      filters.channel ||
+      filters.ageGroup
   );
   // When secondary drill-down filters (search, severity, status, animal) are active, keep the baseline cohort figures for headline KPI cards so the clinic's true total never vanishes to 0!
   const activeBaseline = hasSecondaryFilters && baselineData ? baselineData : data;
@@ -825,17 +833,6 @@ export default function BiteCaseRiskDashboard() {
           ? `Up to ${activeDateRange.to}`
           : 'All recorded dates';
 
-  const unrecordedLocationsCount = (locations || []).filter((l) => {
-    const raw = (l.normalized_barangay || l.location || '').trim().toLowerCase();
-    return raw === 'unknown' || raw === 'not recorded' || raw === 'unrecorded' || raw === '';
-  }).reduce((sum, l) => sum + l.total_cases, 0);
-
-  const placeCompleteness = totalRecorded > 0 ? Math.round(((totalRecorded - unrecordedLocationsCount) / totalRecorded) * 100) : 100;
-  const animalUnknownCount = activeDoh?.animals.unknown ?? 0;
-  const animalCompleteness = totalRecorded > 0 ? Math.round(((totalRecorded - animalUnknownCount) / totalRecorded) * 100) : 100;
-  const ownershipKnownCount = (activeDoh?.animals.owned ?? 0) + (activeDoh?.animals.stray ?? 0);
-  const ownershipCompleteness = totalRecorded > 0 ? Math.round((ownershipKnownCount / totalRecorded) * 100) : 100;
-
   const handleCaseLogsUpdated = (biteId: number, log: PatientFollowupLog) => {
     setData((prev) => {
       if (!prev?.cases) return prev;
@@ -871,7 +868,16 @@ export default function BiteCaseRiskDashboard() {
       >
         <Box sx={{ minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--bc-text)', letterSpacing: '-0.02em' }}>
+            <Typography
+              component="h1"
+              sx={{
+                fontSize: '22px',
+                fontWeight: 600,
+                lineHeight: 1.25,
+                letterSpacing: '-0.5px',
+                color: 'var(--bc-text)',
+              }}
+            >
               Bite Cases Summary
             </Typography>
             <Chip
@@ -1022,26 +1028,6 @@ export default function BiteCaseRiskDashboard() {
         </Box>
       </Box>
 
-      {/* Metadata Line */}
-      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: { xs: 1, md: 2.25 }, mb: 2, fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
-        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
-          Period <strong style={{ color: 'var(--bc-text)' }}>{periodSummaryText}</strong>
-        </Typography>
-        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
-          Basis <strong style={{ color: 'var(--bc-text)' }}>Verified exposure date</strong>
-        </Typography>
-        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
-          Outcome cutoff <strong style={{ color: 'var(--bc-text)' }}>{cutoffLabel}</strong>
-        </Typography>
-        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
-          Episodes <strong style={{ color: 'var(--bc-text)' }}>{totalRecorded} recorded</strong>
-        </Typography>
-        <Typography component="span" sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)' }}>
-          Completeness <strong style={{ color: 'var(--bc-text)' }}>Place {placeCompleteness}% · Animal {animalCompleteness}% · </strong>
-          <strong style={{ color: ownershipCompleteness < 50 ? '#b45309' : 'var(--bc-text)' }}>Ownership {ownershipCompleteness}%</strong>
-        </Typography>
-      </Box>
-
       {error && (
         <Alert severity="error" sx={{ mb: 1.5 }} action={<Button size="small" onClick={() => setFilters((f) => ({ ...f }))}>Retry</Button>}>
           {error}
@@ -1076,14 +1062,6 @@ export default function BiteCaseRiskDashboard() {
               title="Recorded Exposures"
               value={totalRecorded}
               subtext={`${awaitingAssessmentCount} awaiting assessment`}
-              badgeText={
-                doh?.period_comparison?.indicators?.recorded_episodes
-                  ? `${doh.period_comparison.indicators.recorded_episodes.delta >= 0 ? '+' : ''}${doh.period_comparison.indicators.recorded_episodes.delta} vs prior`
-                  : '+9 vs prior'
-              }
-              badgeBg="#ecfdf5"
-              badgeColor="#0f766e"
-              badgeBorder="#d1fae5"
             />
 
             {/* Card 2: Category III Exposures */}
@@ -1119,7 +1097,7 @@ export default function BiteCaseRiskDashboard() {
               progressValue={completedMatureTotal}
               progressTotal={maturedCoursesTotal}
               progressColor="#0f766e"
-              subtext={`${formatPct(completedMatureTotal, maturedCoursesTotal)} · ${doh?.completion_and_outcomes.immature_courses ?? 1} active in window`}
+              subtext={`${formatPct(completedMatureTotal, maturedCoursesTotal)} · ${doh?.completion_and_outcomes.immature_courses ?? 0} ongoing treatment`}
             />
           </Box>
         )}
@@ -1366,6 +1344,23 @@ export default function BiteCaseRiskDashboard() {
               </Select>
             </FormControl>
 
+            <FormControl size="small" sx={{ minWidth: 190 }}>
+              <Select
+                displayEmpty
+                value={filters.ageGroup}
+                aria-label="Filter by Age Group"
+                onChange={(e) => updateFilter('ageGroup', e.target.value)}
+                sx={{ height: 34, fontSize: 12.5 }}
+              >
+                <MenuItem value="">All Age Groups</MenuItem>
+                {BITE_SUMMARY_AGE_GROUPS.map((group) => (
+                  <MenuItem key={group.key} value={group.key}>
+                    {group.label} ({group.range})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
             {filters.range === 'custom' && (
               <>
                 <TextField
@@ -1408,6 +1403,7 @@ export default function BiteCaseRiskDashboard() {
           Boolean(filters.animalStatus) ||
           Boolean(filters.animalCondition) ||
           Boolean(filters.channel) ||
+          Boolean(filters.ageGroup) ||
           Boolean(filters.search)) && (
           <Box
             sx={{
@@ -1476,6 +1472,17 @@ export default function BiteCaseRiskDashboard() {
                 size="small"
                 label={`Channel: ${filters.channel === 'walk_in' ? 'Walk-in' : 'Online'}`}
                 onDelete={() => updateFilter('channel', '')}
+                sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
+              />
+            )}
+            {filters.ageGroup && (
+              <Chip
+                size="small"
+                label={(() => {
+                  const matched = BITE_SUMMARY_AGE_GROUPS.find((g) => g.key === filters.ageGroup);
+                  return matched ? `Age group: ${matched.label} (${matched.range})` : `Age group: ${filters.ageGroup}`;
+                })()}
+                onDelete={() => updateFilter('ageGroup', '')}
                 sx={{ fontSize: 12, fontWeight: 600, bgcolor: 'var(--bc-surface-3)', color: 'var(--bc-text)' }}
               />
             )}

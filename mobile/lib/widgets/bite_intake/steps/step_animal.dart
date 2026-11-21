@@ -2,18 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../app/app_theme.dart';
+import '../../../utils/configured_field_policy.dart';
 import '../../menu/menu_surface.dart';
 import '../helpers/intake_ui_helpers.dart';
+import '../helpers/required_intake_group.dart';
 
-/// Step 3: Animal details (species, ownership, observation availability, condition).
+/// Step 3: Animal details (species, ownership, capture, observation availability, condition).
 class StepAnimal extends StatelessWidget {
   const StepAnimal({
     super.key,
+    required this.policy,
     required this.animalType,
     required this.onAnimalTypeChanged,
+    required this.animalSpeciesOtherController,
     required this.animalStatus,
     required this.onAnimalStatusChanged,
     required this.animalOwnershipOptions,
+    required this.animalCaptured,
+    required this.onAnimalCapturedChanged,
     required this.animalAvailable,
     required this.onAnimalAvailableChanged,
     required this.animalConditionReported,
@@ -22,11 +28,15 @@ class StepAnimal extends StatelessWidget {
     required this.isSubmitting,
   });
 
-  final String animalType;
-  final ValueChanged<String> onAnimalTypeChanged;
+  final ConfiguredFieldPolicy policy;
+  final String? animalType;
+  final ValueChanged<String?> onAnimalTypeChanged;
+  final TextEditingController animalSpeciesOtherController;
   final String? animalStatus;
   final ValueChanged<String?> onAnimalStatusChanged;
   final Map<String, String> animalOwnershipOptions;
+  final bool? animalCaptured;
+  final ValueChanged<bool?> onAnimalCapturedChanged;
   final bool? animalAvailable;
   final ValueChanged<bool?> onAnimalAvailableChanged;
   final String? animalConditionReported;
@@ -38,12 +48,16 @@ class StepAnimal extends StatelessWidget {
     String value,
     String label, {
     IconData? icon,
-    Widget? customIcon,
+    required bool allowClear,
   }) {
     final selected = animalType == value;
     return Expanded(
       child: InkWell(
-        onTap: isSubmitting ? null : () => onAnimalTypeChanged(value),
+        onTap: isSubmitting
+            ? null
+            : () => onAnimalTypeChanged(
+                selected && allowClear ? null : value,
+              ),
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
@@ -59,14 +73,11 @@ class StepAnimal extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              customIcon ??
-                  Icon(
-                    icon,
-                    size: 22,
-                    color: selected
-                        ? AppColors.primary
-                        : const Color(0xFF6B7280),
-                  ),
+              Icon(
+                icon,
+                size: 22,
+                color: selected ? AppColors.primary : const Color(0xFF6B7280),
+              ),
               const SizedBox(height: 6),
               Text(
                 label,
@@ -85,6 +96,13 @@ class StepAnimal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showAnimalType = policy.isIntakeFieldVisible('animal_type');
+    final reqAnimalType = policy.isIntakeFieldRequired('animal_type');
+    final showAnimalStatus = policy.isIntakeFieldVisible('animal_status');
+    final reqAnimalStatus = policy.isIntakeFieldRequired('animal_status');
+    final showAnimalCaptured = policy.isIntakeFieldVisible('animal_captured');
+    final reqAnimalCaptured = policy.isIntakeFieldRequired('animal_captured');
+
     return MenuSurface(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -101,33 +119,132 @@ class StepAnimal extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          const IntakeFieldLabel('Type of animal *'),
-          Row(
-            children: [
-              _animalTypeChip('dog', 'Dog', icon: LucideIcons.dog),
-              const SizedBox(width: 8),
-              _animalTypeChip('cat', 'Cat', icon: LucideIcons.cat),
-            ],
-          ),
-          const SizedBox(height: 16),
+          if (showAnimalType) ...[
+            RequiredIntakeGroup(
+              key: const ValueKey('animal-type-validation'),
+              valid: !reqAnimalType || (animalType != null && animalType!.isNotEmpty),
+              message: 'Please select the type of animal.',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  IntakeFieldLabel(
+                    reqAnimalType ? 'Type of animal *' : 'Type of animal',
+                  ),
+                  Row(
+                    children: [
+                      _animalTypeChip(
+                        'dog',
+                        'Dog',
+                        icon: LucideIcons.dog,
+                        allowClear: !reqAnimalType,
+                      ),
+                      const SizedBox(width: 8),
+                      _animalTypeChip(
+                        'cat',
+                        'Cat',
+                        icon: LucideIcons.cat,
+                        allowClear: !reqAnimalType,
+                      ),
+                    ],
+                  ),
+                  if (animalType == 'other') ...[
+                    const SizedBox(height: 12),
+                    const IntakeFieldLabel('Specify animal species *'),
+                    TextFormField(
+                      controller: animalSpeciesOtherController,
+                      enabled: !isSubmitting,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty)
+                          ? 'Please specify the animal species.'
+                          : null,
+                      decoration: const InputDecoration(
+                        hintText: 'e.g. Bat, Monkey, Rat',
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ],
 
-          const IntakeFieldLabel('Animal ownership *'),
-          DropdownButtonFormField<String>(
-            isExpanded: true,
-            initialValue: animalStatus,
-            hint: const Text('Select ownership'),
-            items: animalOwnershipOptions.entries
-                .map(
+          if (showAnimalStatus) ...[
+            IntakeFieldLabel(
+              reqAnimalStatus ? 'Animal ownership *' : 'Animal ownership',
+            ),
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: animalStatus,
+              hint: const Text('Select ownership'),
+              items: [
+                if (!reqAnimalStatus)
+                  const DropdownMenuItem<String>(
+                    value: null,
+                    child: Text('Not specified'),
+                  ),
+                ...animalOwnershipOptions.entries.map(
                   (e) => DropdownMenuItem(
                     value: e.key,
                     child: Text(e.value, style: const TextStyle(fontSize: 13)),
                   ),
-                )
-                .toList(),
-            onChanged: isSubmitting ? null : onAnimalStatusChanged,
-            validator: (v) => v == null ? 'Animal ownership is required' : null,
-          ),
-          const SizedBox(height: 14),
+                ),
+              ],
+              onChanged: isSubmitting ? null : onAnimalStatusChanged,
+              validator: (v) => (reqAnimalStatus && v == null)
+                  ? 'Animal ownership is required'
+                  : null,
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          if (showAnimalCaptured) ...[
+            RequiredIntakeGroup(
+              key: const ValueKey('animal-captured-validation'),
+              valid: !reqAnimalCaptured || animalCaptured != null,
+              message: 'Please indicate whether the animal was captured.',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  IntakeFieldLabel(
+                    reqAnimalCaptured
+                        ? 'Was the animal captured or restrained? *'
+                        : 'Was the animal captured or restrained?',
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: const Text('Yes'),
+                        selected: animalCaptured == true,
+                        selectedColor: const Color(0xFFE1F5EE),
+                        onSelected: isSubmitting
+                            ? null
+                            : (selected) => onAnimalCapturedChanged(
+                                selected
+                                    ? true
+                                    : (reqAnimalCaptured ? true : null),
+                              ),
+                      ),
+                      ChoiceChip(
+                        label: const Text('No'),
+                        selected: animalCaptured == false,
+                        selectedColor: const Color(0xFFE1F5EE),
+                        onSelected: isSubmitting
+                            ? null
+                            : (selected) => onAnimalCapturedChanged(
+                                selected
+                                    ? false
+                                    : (reqAnimalCaptured ? false : null),
+                              ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                ],
+              ),
+            ),
+          ],
 
           const IntakeFieldLabel('Is the animal available for observation?'),
           DropdownButtonFormField<bool?>(

@@ -60,6 +60,11 @@ class MobileAppointmentCharacterizationTest extends TestCase
             'date_of_birth' => '2024-01-01',
             'gender'        => 'Female',
         ]);
+        $this->patient->details()->create([
+            'address_municipality' => 'Tagoloan',
+            'address_barangay' => 'Poblacion',
+            'province' => 'Misamis Oriental',
+        ]);
 
         $this->patientAccount->patients()->attach($this->patient->patient_id, [
             'relationship' => 'child',

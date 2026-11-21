@@ -26,7 +26,7 @@ return new class extends Migration
 
         // ── Clinic-level SSO configuration (in clinic_module_configs) ──
         Schema::table('clinic_module_configs', function (Blueprint $table) {
-            $table->boolean('google_sso_enabled')->default(false)->after('treatment_section_enabled');
+            $table->boolean('google_sso_enabled')->default(true)->after('treatment_section_enabled');
             // JSON array of allowed roles, e.g. ["admin","registration","triage","treatment"]
             $table->json('google_sso_roles')->nullable()->after('google_sso_enabled');
             // Optional domain restriction, e.g. "@doh.gov.ph"

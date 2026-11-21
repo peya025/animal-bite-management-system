@@ -4,6 +4,7 @@ import '../helpers/required_intake_group.dart';
 
 import '../../../app/app_theme.dart';
 import '../../../services/psgc_service.dart';
+import '../../../utils/configured_field_policy.dart';
 import '../../menu/menu_surface.dart';
 import '../constants/referral_locations.dart';
 import '../helpers/intake_ui_helpers.dart';
@@ -13,8 +14,10 @@ import '../helpers/vitals_helper.dart';
 class StepIncident extends StatelessWidget {
   const StepIncident({
     super.key,
+    required this.policy,
     required this.biteDateController,
     required this.onChooseBiteDate,
+    this.onClearBiteDate,
     required this.incidentTime,
     required this.onChooseIncidentTime,
     required this.purokController,
@@ -26,6 +29,12 @@ class StepIncident extends StatelessWidget {
     required this.loadingBarangays,
     required this.onMunicipalityChanged,
     required this.onBarangayChanged,
+    required this.siteWashed,
+    required this.onSiteWashedChanged,
+    required this.washMethod,
+    required this.onWashMethodChanged,
+    required this.washMethods,
+    required this.washDurationController,
     required this.exposureType,
     required this.onExposureTypeChanged,
     required this.exposureModes,
@@ -58,8 +67,10 @@ class StepIncident extends StatelessWidget {
     required this.isSubmitting,
   });
 
+  final ConfiguredFieldPolicy policy;
   final TextEditingController biteDateController;
   final VoidCallback onChooseBiteDate;
+  final VoidCallback? onClearBiteDate;
   final TimeOfDay? incidentTime;
   final VoidCallback onChooseIncidentTime;
   final TextEditingController purokController;
@@ -71,6 +82,12 @@ class StepIncident extends StatelessWidget {
   final bool loadingBarangays;
   final ValueChanged<String?> onMunicipalityChanged;
   final ValueChanged<String?> onBarangayChanged;
+  final bool? siteWashed;
+  final ValueChanged<bool?> onSiteWashedChanged;
+  final String? washMethod;
+  final ValueChanged<String?> onWashMethodChanged;
+  final Map<String, String> washMethods;
+  final TextEditingController washDurationController;
   final String? exposureType;
   final ValueChanged<String?> onExposureTypeChanged;
   final Map<String, String> exposureModes;
@@ -104,6 +121,19 @@ class StepIncident extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showDate = policy.isIntakeFieldVisible('bite_date');
+    final reqDate = policy.isIntakeFieldRequired('bite_date');
+    final showPlace = policy.isIntakeFieldVisible('bite_place');
+    final reqPlace = policy.isIntakeFieldRequired('bite_place');
+    final showWash = policy.isIntakeFieldVisible('site_washed');
+    final reqWash = policy.isIntakeFieldRequired('site_washed');
+    final showExposure = policy.isIntakeFieldVisible('exposure_type');
+    final reqExposure = policy.isIntakeFieldRequired('exposure_type');
+    final showWound = policy.isIntakeFieldVisible('wound_location');
+    final reqWound = policy.isIntakeFieldRequired('wound_location');
+    final showDescription = policy.isIntakeFieldVisible('patient_description');
+    final reqDescription = policy.isIntakeFieldRequired('patient_description');
+
     return MenuSurface(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -120,29 +150,50 @@ class StepIncident extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // Date of incident
-          const IntakeFieldLabel('Date of incident *'),
-          TextFormField(
-            controller: biteDateController,
-            validator: (value) {
-              final date = DateTime.tryParse(value ?? '');
-              if (date == null) return 'Please select the incident date.';
-              if (date.isAfter(DateUtils.dateOnly(DateTime.now()))) {
-                return 'The incident date must be today or earlier.';
-              }
-              return null;
-            },
-            readOnly: true,
-            onTap: isSubmitting ? null : onChooseBiteDate,
-            decoration: InputDecoration(
-              suffixIcon: IconButton(
-                tooltip: 'Choose incident date',
-                onPressed: isSubmitting ? null : onChooseBiteDate,
-                icon: const Icon(Icons.event_outlined),
+          if (showDate) ...[
+            IntakeFieldLabel(
+              reqDate ? 'Date of incident *' : 'Date of incident',
+            ),
+            TextFormField(
+              controller: biteDateController,
+              validator: (value) {
+                final text = (value ?? '').trim();
+                if (text.isEmpty) {
+                  return reqDate ? 'Please select the incident date.' : null;
+                }
+                final date = DateTime.tryParse(text);
+                if (date == null) return 'Please select the incident date.';
+                if (date.isAfter(DateUtils.dateOnly(DateTime.now()))) {
+                  return 'The incident date must be today or earlier.';
+                }
+                return null;
+              },
+              readOnly: true,
+              onTap: isSubmitting ? null : onChooseBiteDate,
+              decoration: InputDecoration(
+                hintText: reqDate ? null : 'Select date (optional)',
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!reqDate &&
+                        biteDateController.text.isNotEmpty &&
+                        onClearBiteDate != null)
+                      IconButton(
+                        tooltip: 'Clear incident date',
+                        onPressed: isSubmitting ? null : onClearBiteDate,
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                      ),
+                    IconButton(
+                      tooltip: 'Choose incident date',
+                      onPressed: isSubmitting ? null : onChooseBiteDate,
+                      icon: const Icon(Icons.event_outlined),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
+          ],
 
           // Time of incident
           const IntakeFieldLabel('Approximate time of incident'),
@@ -159,185 +210,306 @@ class StepIncident extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Place of incident (PSGC)
-          const IntakeFieldLabel('Place of incident'),
-          const SizedBox(height: 4),
+          if (showPlace) ...[
+            IntakeFieldLabel(
+              reqPlace ? 'Place of incident *' : 'Place of incident',
+            ),
+            const SizedBox(height: 4),
 
-          // Municipality
-          const IntakeFieldLabel('Municipality *'),
-          municipalities.isEmpty && !loadingMunicipalities
-              ? TextFormField(
-                  controller: purokController,
-                  enabled: !isSubmitting,
-                  decoration: const InputDecoration(
-                    hintText: 'e.g. Barangay 5, Tagoloan',
-                  ),
-                  textCapitalization: TextCapitalization.words,
-                )
-              : DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: selectedMunicipalityCode,
-                  hint: Text(
-                    loadingMunicipalities
-                        ? 'Loading municipalities...'
-                        : 'Select municipality',
-                  ),
-                  items: municipalities
-                      .map(
-                        (m) => DropdownMenuItem(
-                          value: m.code,
-                          child: Text(
-                            m.name,
-                            style: const TextStyle(fontSize: 13),
+            // Municipality
+            IntakeFieldLabel(reqPlace ? 'Municipality *' : 'Municipality'),
+            municipalities.isEmpty && !loadingMunicipalities
+                ? TextFormField(
+                    controller: purokController,
+                    enabled: !isSubmitting,
+                    validator: (value) =>
+                        (reqPlace && (value == null || value.trim().isEmpty))
+                        ? 'Please enter the place of incident.'
+                        : null,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. Barangay 5, Tagoloan',
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                  )
+                : DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    initialValue: selectedMunicipalityCode,
+                    hint: Text(
+                      loadingMunicipalities
+                          ? 'Loading municipalities...'
+                          : 'Select municipality',
+                    ),
+                    items: municipalities
+                        .map(
+                          (m) => DropdownMenuItem(
+                            value: m.code,
+                            child: Text(
+                              m.name,
+                              style: const TextStyle(fontSize: 13),
+                            ),
                           ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: isSubmitting || loadingMunicipalities
-                      ? null
-                      : onMunicipalityChanged,
-                ),
-          const SizedBox(height: 10),
+                        )
+                        .toList(),
+                    validator: (value) {
+                      if (!reqPlace) return null;
+                      if ((value == null || value.isEmpty) &&
+                          purokController.text.trim().isEmpty) {
+                        return 'Please select the municipality.';
+                      }
+                      return null;
+                    },
+                    onChanged: isSubmitting || loadingMunicipalities
+                        ? null
+                        : onMunicipalityChanged,
+                  ),
+            const SizedBox(height: 10),
 
-          // Barangay
-          if (municipalities.isNotEmpty) ...[
-            const IntakeFieldLabel('Barangay'),
+            if (municipalities.isNotEmpty) ...[
+              const IntakeFieldLabel('Barangay'),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: selectedBarangayCode,
+                hint: Text(
+                  loadingBarangays
+                      ? 'Loading barangays...'
+                      : selectedMunicipalityCode == null
+                      ? 'Select municipality first'
+                      : 'Select barangay',
+                ),
+                items: barangays
+                    .map(
+                      (b) => DropdownMenuItem(
+                        value: b.code,
+                        child: Text(
+                          b.name,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged:
+                    isSubmitting ||
+                        loadingBarangays ||
+                        selectedMunicipalityCode == null
+                    ? null
+                    : onBarangayChanged,
+              ),
+              const SizedBox(height: 10),
+            ],
+
+            const IntakeFieldLabel('Purok / Zone / Street'),
+            TextFormField(
+              controller: purokController,
+              enabled: !isSubmitting,
+              decoration: const InputDecoration(
+                hintText: 'e.g. Purok 3, Rizal St.',
+              ),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          if (showWash) ...[
+            RequiredIntakeGroup(
+              key: const ValueKey('site-washed-validation'),
+              valid: !reqWash || siteWashed != null,
+              message: 'Please indicate whether the wound was washed.',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  IntakeFieldLabel(
+                    reqWash
+                        ? 'Was the wound / site washed? *'
+                        : 'Was the wound / site washed?',
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: const Text('Yes'),
+                        selected: siteWashed == true,
+                        selectedColor: const Color(0xFFE1F5EE),
+                        onSelected: isSubmitting
+                            ? null
+                            : (selected) => onSiteWashedChanged(
+                                selected ? true : (reqWash ? true : null),
+                              ),
+                      ),
+                      ChoiceChip(
+                        label: const Text('No'),
+                        selected: siteWashed == false,
+                        selectedColor: const Color(0xFFE1F5EE),
+                        onSelected: isSubmitting
+                            ? null
+                            : (selected) => onSiteWashedChanged(
+                                selected ? false : (reqWash ? false : null),
+                              ),
+                      ),
+                    ],
+                  ),
+                  if (siteWashed == true) ...[
+                    const SizedBox(height: 12),
+                    const IntakeFieldLabel('Washing method (optional)'),
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: washMethod,
+                      hint: const Text('Select washing method'),
+                      items: washMethods.entries
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e.key,
+                              child: Text(
+                                e.value,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: isSubmitting ? null : onWashMethodChanged,
+                    ),
+                    const SizedBox(height: 10),
+                    const IntakeFieldLabel(
+                      'Washing duration in minutes (optional)',
+                    ),
+                    TextFormField(
+                      controller: washDurationController,
+                      enabled: !isSubmitting,
+                      keyboardType: TextInputType.number,
+                      validator: (v) {
+                        final text = (v ?? '').trim();
+                        if (text.isEmpty) return null;
+                        final mins = int.tryParse(text);
+                        if (mins == null || mins < 0 || mins > 240) {
+                          return 'Enter minutes between 0 and 240.';
+                        }
+                        return null;
+                      },
+                      decoration: const InputDecoration(hintText: 'e.g. 15'),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ],
+
+          if (showExposure)
+            RequiredIntakeGroup(
+              key: const ValueKey('exposure-validation'),
+              valid: !reqExposure || exposureType != null,
+              message: 'Please select the mode of exposure.',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  IntakeFieldLabel(
+                    reqExposure ? 'Mode of exposure *' : 'Mode of exposure',
+                  ),
+                  ...exposureModes.entries.map(
+                    (opt) => RadioListTile<String>(
+                      value: opt.key,
+                      groupValue: exposureType,
+                      title: Text(
+                        opt.value,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      activeColor: AppColors.primary,
+                      onChanged: isSubmitting ? null : onExposureTypeChanged,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+
+          if (showWound) ...[
+            RequiredIntakeGroup(
+              key: const ValueKey('body-part-validation'),
+              valid:
+                  !reqWound ||
+                  bodyPartGroup != null ||
+                  bodyPartDetailController.text.trim().isNotEmpty,
+              message: 'Please select the body-part group.',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  IntakeFieldLabel(
+                    reqWound ? 'Body-part group *' : 'Body-part group',
+                  ),
+                  ...bodyPartGroups.entries.map(
+                    (opt) => RadioListTile<String>(
+                      value: opt.key,
+                      groupValue: bodyPartGroup,
+                      title: Text(
+                        opt.value,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      activeColor: AppColors.primary,
+                      onChanged: isSubmitting ? null : onBodyPartGroupChanged,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+            const IntakeFieldLabel('Specific body part or wound location'),
+            TextFormField(
+              controller: bodyPartDetailController,
+              enabled: !isSubmitting,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                hintText: 'e.g. palm, index finger, lower leg',
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            const IntakeFieldLabel('Side of body'),
             DropdownButtonFormField<String>(
               isExpanded: true,
-              initialValue: selectedBarangayCode,
-              hint: Text(
-                loadingBarangays
-                    ? 'Loading barangays...'
-                    : selectedMunicipalityCode == null
-                    ? 'Select municipality first'
-                    : 'Select barangay',
-              ),
-              items: barangays
+              initialValue: laterality,
+              hint: const Text('Select side'),
+              items: lateralityOptions.entries
                   .map(
-                    (b) => DropdownMenuItem(
-                      value: b.code,
-                      child: Text(b.name, style: const TextStyle(fontSize: 13)),
+                    (e) => DropdownMenuItem(
+                      value: e.key,
+                      child: Text(
+                        e.value,
+                        style: const TextStyle(fontSize: 13),
+                      ),
                     ),
                   )
                   .toList(),
-              onChanged:
-                  isSubmitting ||
-                      loadingBarangays ||
-                      selectedMunicipalityCode == null
-                  ? null
-                  : onBarangayChanged,
+              onChanged: isSubmitting ? null : onLateralityChanged,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 18),
           ],
 
-          // Purok / street
-          const IntakeFieldLabel('Purok / Zone / Street'),
-          TextFormField(
-            controller: purokController,
-            enabled: !isSubmitting,
-            decoration: const InputDecoration(
-              hintText: 'e.g. Purok 3, Rizal St.',
+          if (showDescription) ...[
+            IntakeFieldLabel(
+              reqDescription
+                  ? 'Patient description of the incident *'
+                  : 'Patient description of the incident',
             ),
-            textCapitalization: TextCapitalization.words,
-          ),
-          const SizedBox(height: 16),
-
-          // Mode of exposure
-          RequiredIntakeGroup(
-            key: const ValueKey('exposure-validation'),
-            valid: exposureType != null,
-            message: 'Please select the mode of exposure.',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const IntakeFieldLabel('Mode of exposure *'),
-                ...exposureModes.entries.map(
-                  (opt) => RadioListTile<String>(
-                    value: opt.key,
-                    groupValue: exposureType,
-                    title: Text(
-                      opt.value,
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    contentPadding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                    activeColor: AppColors.primary,
-                    onChanged: isSubmitting ? null : onExposureTypeChanged,
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
+            TextFormField(
+              controller: descriptionController,
+              enabled: !isSubmitting,
+              minLines: 3,
+              maxLines: 5,
+              maxLength: 2000,
+              validator: (v) =>
+                  (reqDescription && (v == null || v.trim().isEmpty))
+                  ? 'Please describe the incident.'
+                  : null,
+              decoration: const InputDecoration(
+                hintText: 'Describe what happened and any visible signs.',
+              ),
             ),
-          ),
-          // Body-part group
-          RequiredIntakeGroup(
-            key: const ValueKey('body-part-validation'),
-            valid: bodyPartGroup != null,
-            message: 'Please select the body-part group.',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const IntakeFieldLabel('Body-part group *'),
-                ...bodyPartGroups.entries.map(
-                  (opt) => RadioListTile<String>(
-                    value: opt.key,
-                    groupValue: bodyPartGroup,
-                    title: Text(
-                      opt.value,
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    contentPadding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                    activeColor: AppColors.primary,
-                    onChanged: isSubmitting ? null : onBodyPartGroupChanged,
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
-          // Specific body part
-          const IntakeFieldLabel('Specific body part or wound location'),
-          TextFormField(
-            controller: bodyPartDetailController,
-            enabled: !isSubmitting,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              hintText: 'e.g. palm, index finger, lower leg',
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Laterality
-          const IntakeFieldLabel('Side of body'),
-          DropdownButtonFormField<String>(
-            isExpanded: true,
-            initialValue: laterality,
-            hint: const Text('Select side'),
-            items: lateralityOptions.entries
-                .map(
-                  (e) => DropdownMenuItem(
-                    value: e.key,
-                    child: Text(e.value, style: const TextStyle(fontSize: 13)),
-                  ),
-                )
-                .toList(),
-            onChanged: isSubmitting ? null : onLateralityChanged,
-          ),
-          const SizedBox(height: 18),
-
-          const IntakeFieldLabel('Patient description of the incident'),
-          TextFormField(
-            controller: descriptionController,
-            enabled: !isSubmitting,
-            minLines: 3,
-            maxLines: 5,
-            maxLength: 2000,
-            decoration: const InputDecoration(
-              hintText: 'Describe what happened and any visible signs.',
-            ),
-          ),
-          const SizedBox(height: 18),
+            const SizedBox(height: 18),
+          ],
 
           // Referral section
           const IntakeSectionHeader(

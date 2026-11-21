@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Medicine01Icon, AlertCircleIcon, Tick02Icon } from '@hugeicons/core-free-icons';
 import { PROPHYLAXIS_GROUPS, PROPHYLAXIS_LABELS, PROPHYLAXIS_PRODUCTS } from '../../../shared/types/prophylaxis';
@@ -52,6 +53,7 @@ export default function ProphylaxisAdministrationSection({
   icdCode,
   onIcdCodeChange,
 }: ProphylaxisAdministrationSectionProps) {
+  const { isFieldVisible } = useClinicModuleConfig();
   const hasAutoInitializedRef = useRef<Record<string, boolean>>({});
 
   const update = (medication: string, field: keyof ProphylaxisAdministration, next: string) =>
@@ -591,7 +593,7 @@ export default function ProphylaxisAdministrationSection({
                         </label>
                       )}
 
-                      {group === 'rig' && (
+                      {group === 'rig' && isFieldVisible('injection_site') && (
                         <label className="fm-field" style={{ margin: 0 }}>
                           <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
                             Wound infiltration sites

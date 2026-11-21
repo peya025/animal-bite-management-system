@@ -51,6 +51,33 @@ export interface Patient {
   created_at: string;
   status?: 'active' | 'pending' | 'inactive';
   has_completed_primary?: boolean;
+  actions?: {
+    primary: 'reassess' | 'checkin' | null;
+    check_in_blocked_reason: string | null;
+    invite: 'send' | 'resend' | null;
+    invite_disabled_reason: string | null;
+    has_email?: boolean;
+    view: boolean;
+    invitation_id?: number | null;
+  };
+}
+
+export const PATIENT_SUFFIX_OPTIONS = ['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'] as const;
+export type PatientSuffix = (typeof PATIENT_SUFFIX_OPTIONS)[number];
+
+export function normalizePatientSuffix(value?: string | null): string {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed) return '';
+  const key = trimmed.replace(/\.+$/, '').toLowerCase();
+  const canonicalMap: Record<string, PatientSuffix> = {
+    jr: 'Jr.',
+    sr: 'Sr.',
+    ii: 'II',
+    iii: 'III',
+    iv: 'IV',
+    v: 'V',
+  };
+  return canonicalMap[key] ?? trimmed;
 }
 
 export interface EnrolmentFormData {

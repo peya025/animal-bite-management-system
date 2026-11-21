@@ -73,55 +73,79 @@ export function BiteCasesTreatmentTab({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
-      {/* Assessment & Treatment Progress Strip (Appendix C supporting strip) */}
-      <Paper elevation={0} sx={{ border: BC_BORDER, borderRadius: '10px', p: 1.75 }}>
-        <Typography sx={{ fontSize: 14.5, fontWeight: 800, color: 'var(--bc-text)', mb: 0.25 }}>
-          Assessment &amp; Treatment Progress Strip
-        </Typography>
-        <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', mb: 1.25 }}>
-          Explicitly labeled clinical measures across Form 1, Form 2, and Form 3. Overlapping operational indicators (Transfers, Overdue) are separated rather than added into journey stages.
-        </Typography>
+      {/* Assessment & Treatment Progress */}
+      <Paper elevation={0} sx={{ border: BC_BORDER, borderRadius: '12px', p: 2, bgcolor: 'var(--bc-surface)' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+          <Typography sx={{ fontSize: 14.5, fontWeight: 800, color: 'var(--bc-text)' }}>
+            Assessment &amp; Treatment Progress
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+            <Chip
+              size="small"
+              clickable
+              onClick={() => onDrillDownFilter({ status: 'completed_no_pep' })}
+              label={`No PEP Required: ${explicitNoPepCount}`}
+              sx={{
+                fontSize: 11.5,
+                fontWeight: 600,
+                bgcolor: 'var(--bc-success-bg)',
+                color: 'var(--bc-green-strong)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                height: 24,
+              }}
+            />
+            <Chip
+              size="small"
+              clickable
+              onClick={() => onDrillDownFilter({ status: 'transferred_referred' })}
+              label={`Transferred / Referred: ${transferredCount}`}
+              sx={{
+                fontSize: 11.5,
+                fontWeight: 600,
+                bgcolor: 'var(--bc-surface-2)',
+                color: 'var(--bc-text-secondary)',
+                border: BC_BORDER,
+                height: 24,
+              }}
+            />
+          </Box>
+        </Box>
 
         <Box
           sx={{
             display: 'grid',
             gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
-            gap: 1.1,
-            mb: 1.1,
+            gap: 1.25,
           }}
         >
           {[
             {
-              label: '1. No Finalized Assessment',
+              label: '1. Awaiting Assessment',
               value: awaitingAssessmentCount,
-              hint: `${formatPct(awaitingAssessmentCount, totalRecorded)} of recorded (Form 1 only)`,
+              hint: `${formatPct(awaitingAssessmentCount, totalRecorded)} of cases`,
               status: 'awaiting_assessment',
-              bg: 'var(--bc-surface-2)',
-              accent: 'var(--bc-focus-ring)',
+              accent: '#2563eb',
             },
             {
-              label: '2. Assessed – Decision Not Recorded',
+              label: '2. Pending PEP Decision',
               value: decisionPendingCount + (doh?.pep_and_biologics.decision_missing ?? 0),
-              hint: 'Finalized doctor assessment awaiting recorded PEP plan decision',
+              hint: 'Awaiting plan',
               status: 'unresolved_review',
-              bg: 'var(--bc-amber-bg)',
-              accent: 'var(--bc-amber-strong)',
+              accent: '#d97706',
             },
             {
-              label: '3. PEP Prescribed – No Admin Recorded',
+              label: '3. Prescribed, Not Started',
               value: noAdminCount,
-              hint: `${formatPct(noAdminCount, pepPrescribedCount)} of prescribed (may have care elsewhere)`,
+              hint: `${formatPct(noAdminCount, pepPrescribedCount)} of prescribed`,
               status: 'no_administration_recorded',
-              bg: 'var(--bc-danger-bg-subtle)',
-              accent: 'var(--bc-red-strong)',
+              accent: '#dc2626',
             },
             {
-              label: '4. PEP Started (Given PEP)',
+              label: '4. PEP Started',
               value: givenPepCount,
-              hint: `${formatPct(givenPepCount, newCoursePrescribedCount)} of new courses prescribed • ${explicitNoPepCount} No PEP required`,
+              hint: `${formatPct(givenPepCount, newCoursePrescribedCount)} of prescribed`,
               status: 'treatment_recorded',
-              bg: 'var(--bc-success-bg)',
-              accent: 'var(--bc-green-strong)',
+              accent: '#059669',
             },
           ].map((step) => (
             <Paper
@@ -131,65 +155,36 @@ export function BiteCasesTreatmentTab({
               elevation={0}
               onClick={() => onDrillDownFilter({ status: step.status })}
               sx={{
-                p: 1.2,
+                p: 1.5,
                 textAlign: 'left',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 border: BC_BORDER,
-                bgcolor: step.bg,
+                borderTop: `3px solid ${step.accent}`,
+                bgcolor: 'var(--bc-surface)',
                 cursor: 'pointer',
-                '&:hover': { borderColor: step.accent },
+                transition: 'border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease',
+                '&:hover': {
+                  borderColor: step.accent,
+                  boxShadow: '0 4px 12px rgba(15, 23, 42, 0.06)',
+                  transform: 'translateY(-1px)',
+                },
                 '&:focus-visible': {
                   outline: '2px solid var(--bc-focus-ring)',
                   outlineOffset: '2px',
                 },
               }}
             >
-              <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: step.accent }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'var(--bc-text-secondary)' }}>
                 {step.label}
               </Typography>
-              <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--bc-text)', my: 0.25 }}>
+              <Typography sx={{ fontSize: 24, fontWeight: 800, color: 'var(--bc-text)', my: 0.35, lineHeight: 1.15 }}>
                 {step.value}
               </Typography>
-              <Typography sx={{ fontSize: 11, color: 'var(--bc-text-secondary)', lineHeight: 1.3 }}>
+              <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)', lineHeight: 1.3 }}>
                 {step.hint}
               </Typography>
             </Paper>
           ))}
-        </Box>
-
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}>
-          <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: 'var(--bc-text-secondary)' }}>
-            Overlapping Operational Indicators:
-          </Typography>
-          <Chip
-            size="small"
-            clickable
-            onClick={() => onDrillDownFilter({ status: 'completed_no_pep' })}
-            label={`Completed – No PEP Required: ${explicitNoPepCount}`}
-            sx={{ fontSize: 11.5, fontWeight: 700, bgcolor: 'var(--bc-success-bg)', color: 'var(--bc-green-strong)' }}
-          />
-          <Chip
-            size="small"
-            clickable
-            onClick={() => onDrillDownFilter({ status: 'transferred_referred' })}
-            label={`Transferred / Referred: ${transferredCount} (external outcome unknown unless verified)`}
-            sx={{ fontSize: 11.5, fontWeight: 700, bgcolor: 'var(--bc-amber-bg)', color: 'var(--bc-amber-strong)' }}
-          />
-          <Chip
-            size="small"
-            clickable={overdueEpisodesCount > 0}
-            onClick={
-              overdueEpisodesCount > 0
-                ? () => {
-                    document
-                      .getElementById('bc-overdue-followup-section')
-                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }
-                : undefined
-            }
-            label={`Currently Overdue Follow-up (as of cutoff): ${overdueEpisodesCount} ep / ${outstandingDoseSlotsCount} slots`}
-            sx={{ fontSize: 11.5, fontWeight: 700, bgcolor: overdueEpisodesCount > 0 ? 'var(--bc-danger-bg)' : 'var(--bc-surface-3)', color: overdueEpisodesCount > 0 ? 'var(--bc-red-strong)' : 'var(--bc-text-secondary)' }}
-          />
         </Box>
       </Paper>
 

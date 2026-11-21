@@ -13,7 +13,7 @@ export const ADMIN_DASHBOARD_STEPS: WalkthroughStep[] = [
     route: ROUTES.DASHBOARD,
     title: 'Dashboard Overview',
     content:
-      'This is your administrative command center for overseeing clinic operations and bite surveillance. It displays real-time patient counts, active bite cases, and vaccination workloads at a glance. Review this screen daily to monitor overall clinic performance and resource readiness.',
+      'See published clinic announcements, patient totals, bite case counts, and pending vaccine doses on the Overview tab.',
     targetSelector: '[data-walkthrough="dashboard-overview"], [data-tour="dashboard-overview"], .sd-dashboard-container',
     fallbackSelector: 'main.page-content',
     placement: 'bottom',
@@ -78,7 +78,7 @@ export const ADMIN_DASHBOARD_STEPS: WalkthroughStep[] = [
     route: ROUTES.DASHBOARD,
     title: 'Clinic Statistics & Summary Cards',
     content:
-      'These summary cards display key operational metrics: Total Patients, Today’s Queue, New Today, Total Bite Cases, Active & Completed Cases, Pending Doses, Total Scheduled, and Queue Count. Together, they provide a real-time snapshot of patient volume, bite incidents, and vaccination progress so you can assess daily clinic workload at a single glance.',
+      'See Total Patients, Total Bite Cases, Completed Cases, and Pending Doses. Published clinic announcements appear above these cards.',
     targetSelector: '[data-walkthrough="dashboard-stat-cards"], [data-tour="dashboard-summary-cards"], .sd-cards-grid',
     fallbackSelector: '.sd-top-arrangement',
     placement: 'bottom',
@@ -188,7 +188,7 @@ export const ADMIN_DASHBOARD_STEPS: WalkthroughStep[] = [
     route: ROUTES.DASHBOARD,
     title: 'Recent Bite Incident Cases Tab & Table',
     content:
-      'This view shows recent bite incident intakes alongside summary cards for Total, Active, and Completed Cases. Administrators can verify biting animal species, exposure categories, and treatment statuses. It ensures accurate case documentation before submitting surveillance reports.',
+      'See recent bite incidents alongside Total Bite Cases and Completed Cases. Review animal species, exposure categories, and treatment statuses before preparing surveillance reports.',
     targetSelector: '[data-walkthrough="cases-tab-view"], [data-walkthrough="table-recent-cases"]',
     fallbackSelector: '[data-walkthrough="dashboard-tabs"]',
     placement: 'top',
@@ -201,7 +201,7 @@ export const ADMIN_DASHBOARD_STEPS: WalkthroughStep[] = [
     route: ROUTES.DASHBOARD,
     title: 'Recent Vaccinations & Scheduled Doses Tab',
     content:
-      'Displays recently administered anti-rabies vaccine doses alongside summary counters for Pending Doses, Total Scheduled, and Queue Count. Check patient names, vaccine brands, dose numbers, administration dates, and completed statuses to ensure high treatment compliance.',
+      'See Pending Doses, Total Scheduled, and recent vaccine doses. Check vaccine brands, dose numbers, administration dates, and treatment statuses.',
     targetSelector: '[data-walkthrough="vaccinations-tab-view"], [data-walkthrough="table-recent-vaccinations"]',
     fallbackSelector: '[data-walkthrough="dashboard-tabs"]',
     placement: 'top',
@@ -297,9 +297,9 @@ export const REGISTRATION_DASHBOARD_STEPS: WalkthroughStep[] = [
     module: 'Dashboard',
     section: 'Section 2 – Dashboard Summary',
     route: ROUTES.DASHBOARD,
-    title: 'Patient & Queue Summary Cards',
+    title: 'Patient & Case Summary Cards',
     content:
-      'These summary cards display key intake statistics: Total Patients, Today’s Queue, New Today, Total Bite Cases, Active Cases, and Scheduled Follow-ups. Together, they give registration staff a comprehensive snapshot of patient arrivals, waiting room volume, and daily registrations at a glance.',
+      'See Total Patients, Total Bite Cases, Completed Cases, and Pending Doses. Published clinic announcements appear above these cards.',
     targetSelector: '[data-walkthrough="dashboard-stat-cards"], [data-tour="dashboard-summary-cards"], .sd-cards-grid',
     fallbackSelector: '.sd-top-arrangement',
     placement: 'bottom',
@@ -409,7 +409,7 @@ export const REGISTRATION_DASHBOARD_STEPS: WalkthroughStep[] = [
     route: ROUTES.DASHBOARD,
     title: 'Recent Bite Incident Cases Tab',
     content:
-      'Displays recently registered bite intakes with summary cards for Total, Active, and Completed cases. Registration staff can verify animal species, exposure categories, and current treatment status to confirm patient records without navigating away.',
+      'See recent bite intakes alongside Total Bite Cases and Completed Cases. Verify animal species, exposure categories, and current treatment status here.',
     targetSelector: '[data-walkthrough="cases-tab-view"], [data-walkthrough="table-recent-cases"]',
     fallbackSelector: '[data-walkthrough="dashboard-tabs"]',
     placement: 'top',
@@ -422,7 +422,7 @@ export const REGISTRATION_DASHBOARD_STEPS: WalkthroughStep[] = [
     route: ROUTES.DASHBOARD,
     title: 'Recent Vaccinations & Scheduled Doses Tab',
     content:
-      'Displays recently administered anti-rabies vaccine doses alongside Pending Doses, Total Scheduled visits, and today’s Queue Count. Registration staff can verify administered vaccine brands, dose numbers, and return dates when patients check in at the clinic.',
+      'See Pending Doses, Total Scheduled, and recent vaccine doses. Verify vaccine brands, dose numbers, and return dates when patients check in.',
     targetSelector: '[data-walkthrough="vaccinations-tab-view"], [data-walkthrough="table-recent-vaccinations"]',
     fallbackSelector: '[data-walkthrough="dashboard-tabs"]',
     placement: 'top',
@@ -520,7 +520,7 @@ export const TREATMENT_NURSE_DASHBOARD_STEPS: WalkthroughStep[] = [
     route: ROUTES.DASHBOARD,
     title: 'Treatment & Vaccination Summary Cards',
     content:
-      'These summary cards present your clinical workload at a glance: Pending Doses, Total Scheduled, Today’s Queue, Active Treatment Cases, Completed Regimens, and Registered Patients. Together, they help nurses monitor immediate dose demands, anticipate arriving patients, and ensure high treatment completion across the clinic.',
+      'See Total Patients, Total Bite Cases, Completed Cases, and Pending Doses. Published clinic announcements appear above these cards.',
     targetSelector: '[data-walkthrough="dashboard-stat-cards"], [data-tour="dashboard-summary-cards"], .sd-cards-grid',
     fallbackSelector: '.sd-top-arrangement',
     placement: 'bottom',
@@ -630,7 +630,7 @@ export const TREATMENT_NURSE_DASHBOARD_STEPS: WalkthroughStep[] = [
     route: ROUTES.DASHBOARD,
     title: 'Recent Bite Incident Cases Tab',
     content:
-      'Displays recently admitted bite cases with summary cards for Total, Active, and Completed cases. Nurses can review physician diagnosis, biting animal health status, and ordered regimens to connect clinical assessment with accurate vaccination administration.',
+      'See recent bite cases alongside Total Bite Cases and Completed Cases. Review the recorded exposure category and treatment status for each case.',
     targetSelector: '[data-walkthrough="cases-tab-view"], [data-walkthrough="table-recent-cases"]',
     fallbackSelector: '[data-walkthrough="dashboard-tabs"]',
     placement: 'top',
@@ -643,7 +643,7 @@ export const TREATMENT_NURSE_DASHBOARD_STEPS: WalkthroughStep[] = [
     route: ROUTES.DASHBOARD,
     title: 'Recent Vaccinations & Scheduled Doses Tab',
     content:
-      'This clinical table logs recent vaccine doses alongside summary counters for Pending Doses, Total Scheduled, and Queue Count. Verify patient name, vaccine brand, dose number (Day 0, 3, 7), date given, and completed status for batch traceability and quality control.',
+      'See Pending Doses, Total Scheduled, and recent vaccine doses. Verify the patient name, vaccine brand, dose number, administration date, and status.',
     targetSelector: '[data-walkthrough="vaccinations-tab-view"], [data-walkthrough="table-recent-vaccinations"]',
     fallbackSelector: '[data-walkthrough="dashboard-tabs"]',
     placement: 'top',
@@ -739,9 +739,9 @@ export const TRIAGE_DOCTOR_DASHBOARD_STEPS: WalkthroughStep[] = [
     module: 'Dashboard',
     section: 'Section 2 – Dashboard Summary',
     route: ROUTES.DASHBOARD,
-    title: 'Clinical Bite Cases & Queue Summary',
+    title: 'Clinical Bite Cases & Treatment Summary',
     content:
-      'These summary cards present your clinical caseload at a glance: Active Bite Cases, Patients Awaiting Triage, Total Bite Exposures, Completed Treatments, and Pending Doses. Together, they help doctors monitor patient urgency, identify severe Category III bite victims, and track treatment adherence across all active cohorts.',
+      'See Total Patients, Total Bite Cases, Completed Cases, and Pending Doses. Published clinic announcements appear above these cards.',
     targetSelector: '[data-walkthrough="dashboard-stat-cards"], [data-tour="dashboard-summary-cards"], .sd-cards-grid',
     fallbackSelector: '.sd-top-arrangement',
     placement: 'bottom',
@@ -851,7 +851,7 @@ export const TRIAGE_DOCTOR_DASHBOARD_STEPS: WalkthroughStep[] = [
     route: ROUTES.DASHBOARD,
     title: 'Recent Bite Incident Cases Tab & Table',
     content:
-      'Clinical table of recent animal exposure incidents with Total, Active, and Completed case summary cards. Review patient name, exposure date, animal species, WHO category, and treatment status to verify appropriate clinical triage categorization.',
+      'See recent animal exposure incidents alongside Total Bite Cases and Completed Cases. Review exposure dates, animal species, exposure categories, and treatment status.',
     targetSelector: '[data-walkthrough="cases-tab-view"], [data-walkthrough="table-recent-cases"]',
     fallbackSelector: '[data-walkthrough="dashboard-tabs"]',
     placement: 'top',
@@ -864,7 +864,7 @@ export const TRIAGE_DOCTOR_DASHBOARD_STEPS: WalkthroughStep[] = [
     route: ROUTES.DASHBOARD,
     title: 'Recent Vaccinations & Scheduled Doses Tab (View-Only)',
     content:
-      'Clinical log of administered vaccine doses, lot numbers, and administration dates in read-only mode, alongside Pending Doses, Total Scheduled, and Queue Count. Confirms that prescribed immunizations were administered according to clinical guidelines.',
+      'See Pending Doses, Total Scheduled, and recent vaccination records, including vaccine brands, dose numbers, and administration dates.',
     targetSelector: '[data-walkthrough="vaccinations-tab-view"], [data-walkthrough="table-recent-vaccinations"]',
     fallbackSelector: '[data-walkthrough="dashboard-tabs"]',
     placement: 'top',

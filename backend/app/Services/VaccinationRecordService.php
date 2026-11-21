@@ -430,16 +430,20 @@ class VaccinationRecordService
                     $usage = $this->inventoryUsageService->administerDoseAutomated(
                         $clinicId, $userId, (int) $record->treatment_id, $selectedVaccineType
                     );
-                    $batch = $usage['batch'];
+                    $batch    = $usage['batch'];
+                    $vialCode = $usage['vial_code'] ?? null;
+                    $vialTag  = $vialCode ? "Vial {$vialCode} · " : '';
                     $record->update([
                         'inventory_id'         => $batch->inventory_id,
+                        'vial_id'              => $usage['vial_id'] ?? null,
+                        'vial_portion_number'  => $usage['dose_index'] ?? 1,
                         'batch_no'             => $batch->batch_number,
                         'expiration_date'      => $batch->expiration_date,
                         'inventory_units_used' => $usage['units_deducted'],
                         'administration_notes' => $usage['is_shared']
-                            ? "Shared open vial (Dose {$usage['dose_index']} of {$usage['total_doses']}) from batch {$batch->batch_number}"
-                            : "New vial opened (Dose 1 of {$usage['total_doses']}) from FIFO batch {$batch->batch_number}",
-                        'remarks' => trim(($remarks ?: '') . " | Dose {$usage['dose_index']} of {$usage['total_doses']}" . ($usage['is_shared'] ? ' (Shared Open Vial)' : ' (New Vial)')),
+                            ? "{$vialTag}Shared open vial (Dose {$usage['dose_index']} of {$usage['total_doses']}) from batch {$batch->batch_number}"
+                            : "{$vialTag}New vial opened (Dose {$usage['dose_index']} of {$usage['total_doses']}) from FIFO batch {$batch->batch_number}",
+                        'remarks' => trim(($remarks ?: '') . " | {$vialTag}Dose {$usage['dose_index']} of {$usage['total_doses']}" . ($usage['is_shared'] ? ' (Shared Open Vial)' : ' (New Vial)')),
                     ]);
                 }
             }

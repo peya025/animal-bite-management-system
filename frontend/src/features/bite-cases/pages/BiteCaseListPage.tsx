@@ -233,10 +233,10 @@ export default function BiteCaseListPage() {
                 component="h1"
                 sx={{
                   fontFamily: 'Poppins',
-                  fontSize: '24px',
-                  fontWeight: 700,
-                  lineHeight: 1.2,
-                  letterSpacing: '-0.02em',
+                  fontSize: '22px',
+                  fontWeight: 600,
+                  lineHeight: 1.25,
+                  letterSpacing: '-0.5px',
                   color: 'var(--text-h, #111827)',
                   mb: 0.5,
                 }}

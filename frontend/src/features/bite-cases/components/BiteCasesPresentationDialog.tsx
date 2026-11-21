@@ -4,6 +4,8 @@ import {
   ChevronLeftOutlined,
   ChevronRightOutlined,
   CloseOutlined,
+  FullscreenExitOutlined,
+  FullscreenOutlined,
   PrintOutlined,
   SlideshowOutlined,
   VerifiedUserOutlined,
@@ -40,6 +42,7 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
   onPrintPack,
 }) => {
   const [slideIdx, setSlideIdx] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -73,6 +76,20 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
     d0CompletionRate !== null && d0CompletionRate !== undefined
       ? `${d0CompletionRate}%`
       : formatPct(completedMature, matureCourses);
+  const completionRateNum =
+    d0CompletionRate !== null && d0CompletionRate !== undefined
+      ? Number(d0CompletionRate)
+      : matureCourses > 0
+        ? (completedMature / matureCourses) * 100
+        : null;
+  const completionColor =
+    completionRateNum === null
+      ? 'var(--bc-text-secondary)'
+      : completionRateNum < 50
+        ? 'var(--bc-red)'
+        : completionRateNum < 80
+          ? 'var(--bc-amber-strong)'
+          : 'var(--bc-green-strong)';
 
   return (
     <Dialog
@@ -80,17 +97,18 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
       onClose={onClose}
       maxWidth="lg"
       fullWidth
+      fullScreen={isFullscreen}
       aria-labelledby="bc-presentation-dialog-title"
       slotProps={{
         paper: {
           sx: {
-            borderRadius: '14px',
-            minHeight: '640px',
-            maxHeight: '90vh',
+            borderRadius: isFullscreen ? 0 : '14px',
+            minHeight: isFullscreen ? '100vh' : '640px',
+            maxHeight: isFullscreen ? '100vh' : '90vh',
             display: 'flex',
             flexDirection: 'column',
             bgcolor: 'var(--bc-surface)',
-            border: '1px solid var(--bc-border)',
+            border: isFullscreen ? 'none' : '1px solid var(--bc-border)',
           },
         },
       }}
@@ -120,7 +138,7 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
               Bite Cases Summary — Conference &amp; Program Review Deck
             </Typography>
             <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', fontWeight: 600 }}>
-              Scope: {periodLabel} • Outcome Cutoff: {cutoffDate} • Aggregate-Only Projection (Zero Patient Identifiers)
+              Scope: {periodLabel} • Outcome Cutoff: {cutoffDate} • No Patient Identifiers
             </Typography>
           </Box>
         </Box>
@@ -151,6 +169,26 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
           >
             Print A4 Pack
           </Button>
+          <button
+            type="button"
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            onClick={() => setIsFullscreen((prev) => !prev)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              border: '1px solid var(--bc-border)',
+              background: 'var(--bc-surface)',
+              color: 'var(--bc-text)',
+              cursor: 'pointer',
+            }}
+          >
+            {isFullscreen ? <FullscreenExitOutlined sx={{ fontSize: 18 }} /> : <FullscreenOutlined sx={{ fontSize: 18 }} />}
+          </button>
           <button
             type="button"
             aria-label="Close presentation mode"
@@ -215,11 +253,8 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
         {/* SLIDE 1: SITUATION OVERVIEW */}
         {slideIdx === 0 && (
           <Box>
-            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--bc-text)', mb: 0.5 }}>
-              Screen 1: Situation Overview &amp; Headline Indicators
-            </Typography>
-            <Typography sx={{ fontSize: 13.5, color: 'var(--bc-text-secondary)', mb: 2.5 }}>
-              Summary of recorded exposure episodes, finalized assessments, verified PEP initiation, and mature cohort completion.
+            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--bc-text)', mb: 2.5 }}>
+              Situation Overview &amp; Headline Indicators
             </Typography>
 
             <Box
@@ -238,7 +273,7 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
                   {recordedTotal}
                 </Typography>
                 <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)', fontWeight: 600 }}>
-                  Assessed: <strong>{assessedTotal}</strong> • Awaiting Form 2: <strong>{awaitingAssessment}</strong>
+                  Assessed: <strong>{assessedTotal}</strong> • <strong>{awaitingAssessment}</strong> awaiting assessment
                 </Typography>
               </Box>
 
@@ -250,19 +285,19 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
                   {cats?.III ?? 0}
                 </Typography>
                 <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)', fontWeight: 600 }}>
-                  {formatPct(cats?.III ?? 0, cats?.categorized_total ?? 0)} of <strong>{cats?.categorized_total ?? 0}</strong> categorized
+                  {formatPct(cats?.III ?? 0, cats?.categorized_total ?? 0)} of <strong>{cats?.categorized_total ?? 0}</strong> assessed
                 </Typography>
               </Box>
 
               <Box sx={{ p: 2.5, borderRadius: '10px', border: '1px solid var(--bc-border)', bgcolor: 'var(--bc-surface-alt)' }}>
                 <Typography sx={{ fontSize: 11.5, fontWeight: 800, color: 'var(--bc-text-secondary)', textTransform: 'uppercase' }}>
-                  3. PEP Started (Given PEP)
+                  3. PEP Started
                 </Typography>
                 <Typography sx={{ fontSize: 38, fontWeight: 900, color: 'var(--bc-green-strong)', my: 0.5, fontVariantNumeric: 'tabular-nums' }}>
                   {givenPep}
                 </Typography>
                 <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)', fontWeight: 600 }}>
-                  Of <strong>{pepPrescribed}</strong> prescribed • <strong>{noAdminRecorded}</strong> no admin recorded
+                  Of <strong>{pepPrescribed}</strong> prescribed • <strong>{noAdminRecorded}</strong> not started
                 </Typography>
               </Box>
 
@@ -270,7 +305,7 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
                 <Typography sx={{ fontSize: 11.5, fontWeight: 800, color: 'var(--bc-text-secondary)', textTransform: 'uppercase' }}>
                   4. PEP Completion (Mature)
                 </Typography>
-                <Typography sx={{ fontSize: 38, fontWeight: 900, color: 'var(--bc-green)', my: 0.5, fontVariantNumeric: 'tabular-nums' }}>
+                <Typography sx={{ fontSize: 38, fontWeight: 900, color: completionColor, my: 0.5, fontVariantNumeric: 'tabular-nums' }}>
                   {completionPct}
                 </Typography>
                 <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text-secondary)', fontWeight: 600 }}>
@@ -283,14 +318,15 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
               sx={{
                 p: 2.5,
                 borderRadius: '10px',
-                border: '1px solid var(--bc-info-border)',
-                bgcolor: 'var(--bc-info-bg)',
+                border: '1px solid var(--bc-border)',
+                borderLeft: '4px solid var(--bc-green-strong)',
+                bgcolor: '#f8fafc',
               }}
             >
-              <Typography sx={{ fontSize: 12, fontWeight: 800, color: 'var(--bc-info-text)', textTransform: 'uppercase', mb: 0.75 }}>
+              <Typography sx={{ fontSize: 11.5, fontWeight: 800, color: 'var(--bc-green-strong)', textTransform: 'uppercase', letterSpacing: '0.04em', mb: 0.75 }}>
                 Meeting Narrative Statement
               </Typography>
-              <Typography sx={{ fontSize: 16, fontWeight: 600, color: 'var(--bc-text)', lineHeight: 1.6 }}>
+              <Typography sx={{ fontSize: 15.5, fontWeight: 500, color: 'var(--bc-text)', lineHeight: 1.65 }}>
                 “{doh?.meeting_narrative || `Of ${recordedTotal} recorded exposure episodes, ${assessedTotal} had a completed doctor assessment and ${awaitingAssessment} were awaiting assessment.`}”
               </Typography>
             </Box>
@@ -300,11 +336,8 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
         {/* SLIDE 2: EXPOSURE PROFILE */}
         {slideIdx === 1 && (
           <Box>
-            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--bc-text)', mb: 0.5 }}>
-              Screen 2: Exposure Profile — Categories, Animal Source &amp; Demographics
-            </Typography>
-            <Typography sx={{ fontSize: 13.5, color: 'var(--bc-text-secondary)', mb: 2.5 }}>
-              Assessed WHO Categories I–III are separated from unassessed episodes. Missing fields are shown explicitly.
+            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--bc-text)', mb: 2.5 }}>
+              Exposure Profile — Categories, Animal Source &amp; Demographics
             </Typography>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
@@ -316,7 +349,7 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
                   { label: 'Category I (No Risk / Touching)', count: cats?.I ?? 0, den: cats?.categorized_total ?? 0, color: 'var(--bc-green)' },
                   { label: 'Category II (Minor Scratches / Abrasions)', count: cats?.II ?? 0, den: cats?.categorized_total ?? 0, color: 'var(--bc-amber)' },
                   { label: 'Category III (Transdermal / Mucous Membrane)', count: cats?.III ?? 0, den: cats?.categorized_total ?? 0, color: 'var(--bc-red)' },
-                  { label: 'Not Yet Assessed (Stopped at Form 1)', count: cats?.not_yet_assessed ?? awaitingAssessment, den: recordedTotal, color: 'var(--bc-text-muted)' },
+                  { label: 'Not Yet Assessed', count: cats?.not_yet_assessed ?? awaitingAssessment, den: recordedTotal, color: 'var(--bc-text-muted)' },
                 ].map((item) => (
                   <Box key={item.label} sx={{ mb: 1.75 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
@@ -397,11 +430,8 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
         {/* SLIDE 3: GEOGRAPHIC DISTRIBUTION */}
         {slideIdx === 2 && (
           <Box>
-            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--bc-text)', mb: 0.5 }}>
-              Screen 3: Geographic Distribution by Place of Exposure
-            </Typography>
-            <Typography sx={{ fontSize: 13.5, color: 'var(--bc-text-secondary)', mb: 2.5 }}>
-              Normalized barangay counts based on place of exposure. Cells with &lt;5 cases are suppressed in Conference Mode.
+            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--bc-text)', mb: 2.5 }}>
+              Geographic Distribution by Place of Exposure
             </Typography>
 
             <Box sx={{ borderRadius: '10px', border: '1px solid var(--bc-border)', overflow: 'hidden' }}>
@@ -449,11 +479,8 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
         {/* SLIDE 4: TREATMENT & FOLLOW-UP */}
         {slideIdx === 3 && (
           <Box>
-            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--bc-text)', mb: 0.5 }}>
-              Screen 4: Treatment Initiation, Biologics &amp; Cohort Completion
-            </Typography>
-            <Typography sx={{ fontSize: 13.5, color: 'var(--bc-text-secondary)', mb: 2.5 }}>
-              Treatment measures are calculated only from their valid clinical denominator. Patients awaiting Form 2 assessment are never counted as PEP dropouts.
+            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--bc-text)', mb: 2.5 }}>
+              Treatment Initiation, Biologics &amp; Cohort Completion
             </Typography>
 
             <Box sx={{ borderRadius: '10px', border: '1px solid var(--bc-border)', overflow: 'hidden', mb: 2.5 }}>
@@ -492,11 +519,8 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
         {/* SLIDE 5: SERVICE WORKLOAD & QUALITY */}
         {slideIdx === 4 && (
           <Box>
-            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--bc-text)', mb: 0.5 }}>
-              Screen 5: Service Workload, 5-Stage Journey &amp; Data Completeness
-            </Typography>
-            <Typography sx={{ fontSize: 13.5, color: 'var(--bc-text-secondary)', mb: 2.5 }}>
-              Every registered exposure episode is accounted for across the 5 clinical stages (Form 1, Form 2, Form 3).
+            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--bc-text)', mb: 2.5 }}>
+              Service Workload, Patient Journey &amp; Data Completeness
             </Typography>
 
             <Box sx={{ borderRadius: '10px', border: '1px solid var(--bc-border)', overflow: 'hidden', mb: 2.5 }}>
@@ -527,34 +551,68 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
         {/* SLIDE 6: ACTION PLAN */}
         {slideIdx === 5 && (
           <Box>
-            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--bc-text)', mb: 0.5 }}>
-              Screen 6: Findings &amp; Action Register
-            </Typography>
-            <Typography sx={{ fontSize: 13.5, color: 'var(--bc-text-secondary)', mb: 2 }}>
-              Evidence-based descriptive findings and tracked program actions for clinic and LGU follow-up.
+            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--bc-text)', mb: 2 }}>
+              Findings &amp; Action Register
             </Typography>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
-              {(data.insights || []).map((insight) => (
-                <Box
-                  key={insight.finding_key}
-                  sx={{
-                    p: 2,
-                    borderRadius: '10px',
-                    border: '1px solid var(--bc-border)',
-                    bgcolor: 'var(--bc-surface-alt)',
-                  }}
-                >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                    <Typography sx={{ fontSize: 14, fontWeight: 800, color: 'var(--bc-text)' }}>{insight.title}</Typography>
-                    <Chip size="small" label={insight.supporting_metric} sx={{ fontWeight: 700, fontSize: 11.5 }} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, mb: 2.5 }}>
+              {(data.insights || []).map((insight) => {
+                const overdueEp = doh?.completion_and_outcomes?.overdue_episodes ?? 0;
+                const isCritical =
+                  insight.finding_key === 'severity_completion_and_followup' &&
+                  (overdueEp > 0 || (matureCourses > 0 && completedMature === 0));
+                const isWarning =
+                  !isCritical &&
+                  ((insight.finding_key === 'exposure_and_assessment_coverage' && awaitingAssessment > 0) ||
+                    (insight.finding_key === 'pep_initiation_and_pending_admin' && noAdminRecorded > 0));
+                const accentColor = isCritical ? '#dc2626' : isWarning ? '#d97706' : '#059669';
+                const pillBg = isCritical ? '#fef2f2' : isWarning ? '#fffbeb' : '#ecfdf5';
+                const pillColor = isCritical ? '#b91c1c' : isWarning ? '#b45309' : '#047857';
+                const pillBorder = isCritical ? '#fecaca' : isWarning ? '#fde68a' : '#a7f3d0';
+                const cleanMetric = (insight.supporting_metric || '')
+                  .replace(/\s*\|\s*(Period|Cutoff|Rule):[^|]*/gi, '')
+                  .trim();
+
+                return (
+                  <Box
+                    key={insight.finding_key}
+                    sx={{
+                      px: 2,
+                      py: 1.5,
+                      borderRadius: '10px',
+                      border: '1px solid var(--bc-border)',
+                      borderLeft: `4px solid ${accentColor}`,
+                      bgcolor: 'var(--bc-surface)',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 0.6 }}>
+                      <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: 'var(--bc-text)' }}>
+                        {insight.title}
+                      </Typography>
+                      {cleanMetric && (
+                        <Chip
+                          size="small"
+                          label={cleanMetric}
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: 11.5,
+                            bgcolor: pillBg,
+                            color: pillColor,
+                            border: `1px solid ${pillBorder}`,
+                            height: 24,
+                          }}
+                        />
+                      )}
+                    </Box>
+                    <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text)', lineHeight: 1.5, mb: 0.5 }}>
+                      {insight.statement}
+                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)', lineHeight: 1.45 }}>
+                      <strong style={{ color: accentColor }}>Recommended Action:</strong> {insight.recommended_review}
+                    </Typography>
                   </Box>
-                  <Typography sx={{ fontSize: 13, color: 'var(--bc-text)', mb: 0.5 }}>{insight.statement}</Typography>
-                  <Typography sx={{ fontSize: 12, color: 'var(--bc-green-strong)', fontWeight: 700 }}>
-                    Recommended Review: {insight.recommended_review}
-                  </Typography>
-                </Box>
-              ))}
+                );
+              })}
             </Box>
 
             <Typography sx={{ fontSize: 14, fontWeight: 800, color: 'var(--bc-text)', mb: 1 }}>

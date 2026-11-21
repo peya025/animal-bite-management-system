@@ -18,7 +18,7 @@ import {
 import { LockOutlined as LockIcon, CheckCircleOutlined as CheckIcon } from '@mui/icons-material';
 import api from '../../../shared/services/api';
 import { isValidFourDigitYearDate, sanitizeDateInput } from '../../../shared/utils/date';
-import type { Patient } from '../types';
+import { PATIENT_SUFFIX_OPTIONS, normalizePatientSuffix, type Patient } from '../types';
 import ButtonSpinner from '../../../components/common/ButtonSpinner';
 import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
@@ -92,7 +92,7 @@ export default function PatientEditModal({
         first_name: data.first_name || '',
         middle_name: data.middle_name || '',
         last_name: data.last_name || '',
-        suffix: (details.suffix as string) || (data.suffix as string) || '',
+        suffix: normalizePatientSuffix((details.suffix as string) || (data.suffix as string) || ''),
         date_of_birth: data.date_of_birth ? data.date_of_birth.split('T')[0] : '',
         gender: (data.gender as string) || (data.sex as string) || 'male',
         philhealth_no: (details.philhealth_no as string) || data.philhealth_no || '',
@@ -180,7 +180,11 @@ export default function PatientEditModal({
       };
 
       if (isSectionEnabled('address_section_enabled')) {
-        payload.address = formData.address || null;
+        // Only send the composite address when both municipality and barangay are editable,
+        // otherwise a partial/stale string could overwrite the saved address.
+        if (isFieldVisible('address_municipality') && isFieldVisible('address_barangay')) {
+          payload.address = formData.address || null;
+        }
         if (isFieldVisible('address_purok')) {
           payload.address_purok = formData.address_purok || null;
         }
@@ -313,14 +317,35 @@ export default function PatientEditModal({
               />
             </Grid>
             <Grid item xs={12} sm={3}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Suffix (Jr, Sr, III)"
-                value={formData.suffix}
-                onChange={handleChange('suffix')}
-                disabled={!isAdminOrReg}
-              />
+              {(() => {
+                const suffixValue = normalizePatientSuffix(formData.suffix);
+                const hasLegacySuffix =
+                  suffixValue !== '' &&
+                  !(PATIENT_SUFFIX_OPTIONS as readonly string[]).includes(suffixValue);
+                return (
+                  <TextField
+                    fullWidth
+                    select
+                    size="small"
+                    label="Suffix"
+                    value={suffixValue}
+                    onChange={handleChange('suffix')}
+                    disabled={!isAdminOrReg}
+                    InputLabelProps={{ shrink: true }}
+                    SelectProps={{ displayEmpty: true }}
+                  >
+                    <MenuItem value="">None</MenuItem>
+                    {PATIENT_SUFFIX_OPTIONS.map((opt) => (
+                      <MenuItem key={opt} value={opt}>
+                        {opt}
+                      </MenuItem>
+                    ))}
+                    {hasLegacySuffix && (
+                      <MenuItem value={suffixValue}>{suffixValue}</MenuItem>
+                    )}
+                  </TextField>
+                );
+              })()}
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField

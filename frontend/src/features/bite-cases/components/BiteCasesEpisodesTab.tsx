@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import { useState, useMemo, useEffect } from 'react';
 import { BITE_CASE_STATUS_LABELS, formatAnimalConditionLabel, formatAnimalOwnershipLabel } from '../utils/biteCaseUtils';
+import { BITE_SUMMARY_AGE_GROUPS } from '../types/biteCasesSummary.types';
 import type { CaseSummary, PrivacyMode } from '../types/biteCasesSummary.types';
 import { BC_BORDER, DohStatLine, SemanticChip } from './BiteCasesSharedUi';
 
@@ -102,10 +103,7 @@ export function BiteCasesEpisodesTab({
         >
           <Box>
             <Typography sx={{ fontSize: 14.5, fontWeight: 800, color: 'var(--bc-text)' }}>
-              All Recorded Exposure Episodes (Form 1, Form 2 &amp; Form 3)
-            </Typography>
-            <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)' }}>
-              Includes patients whose encounter stopped at Form 1 or Form 2, keeping unknown/pending fields explicit. Click any episode to inspect full stage evidence.
+              All Recorded Exposure Episodes
             </Typography>
           </Box>
 
@@ -126,12 +124,9 @@ export function BiteCasesEpisodesTab({
           className="bc-table-scroll-region"
           tabIndex={0}
           role="region"
-          aria-labelledby="cases-table-caption"
+          aria-label="All Recorded Exposure Episodes"
         >
           <Table size="small" stickyHeader>
-            <caption id="cases-table-caption" className="bc-table-caption">
-              Authorized clinical drill-down of recorded exposure episodes with Form 1 exposure details, Form 2 assessment decision, Form 3 vaccine/RIG administration, and follow-up age.
-            </caption>
             <TableHead>
               <TableRow>
                 <TableCell component="th" scope="col" sx={{ fontWeight: 700, fontSize: 12 }}>Case # &amp; Patient</TableCell>
@@ -174,8 +169,12 @@ export function BiteCasesEpisodesTab({
                         <Typography sx={{ fontSize: 12, color: 'var(--bc-text-2)' }}>
                           {c.patient_name}
                         </Typography>
-                        <Typography sx={{ fontSize: 11, color: 'var(--bc-text-secondary)' }}>
-                          {c.age !== null && c.age !== undefined ? `${c.age}y` : 'Age Unk'} • {c.gender || 'Unknown'}
+                        <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)', mt: 0.2 }}>
+                          <Box component="span" sx={{ fontWeight: 600, color: 'var(--bc-text-2)' }}>
+                            {c.age !== null && c.age !== undefined ? `Age: ${c.age} yrs` : 'Age: Not recorded'}
+                          </Box>
+                          {' • '}
+                          {c.gender || 'Unknown'}
                         </Typography>
                       </TableCell>
                       <TableCell sx={{ minWidth: 145 }}>
@@ -205,12 +204,9 @@ export function BiteCasesEpisodesTab({
                           {formatAnimalOwnershipLabel(c.animal_ownership ?? c.animal_status)} · {formatAnimalConditionLabel(c.animal_condition)}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ minWidth: 175 }}>
-                        <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'var(--bc-text)' }}>
+                      <TableCell sx={{ minWidth: 140 }}>
+                        <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: 'var(--bc-text)' }}>
                           {c.stage_label || BITE_CASE_STATUS_LABELS[c.status] || c.status}
-                        </Typography>
-                        <Typography sx={{ fontSize: 11, color: 'var(--bc-text-secondary)' }}>
-                          {c.what_can_be_reported || '—'}
                         </Typography>
                       </TableCell>
                       <TableCell>
@@ -347,6 +343,17 @@ export function BiteCasesEpisodesTab({
                   <Typography sx={{ fontSize: 12, fontWeight: 800, color: 'var(--bc-green-strong)', mb: 0.75 }}>
                     Form 1: Registration &amp; Exposure
                   </Typography>
+                  <DohStatLine
+                    label="Age at Exposure"
+                    value={
+                      selectedCase.age !== null && selectedCase.age !== undefined
+                        ? (() => {
+                            const matched = BITE_SUMMARY_AGE_GROUPS.find((g) => g.key === selectedCase.age_group);
+                            return matched ? `${selectedCase.age} yrs (${matched.label})` : `${selectedCase.age} yrs`;
+                          })()
+                        : 'Not recorded'
+                    }
+                  />
                   <DohStatLine label="Exposure Date" value={selectedCase.bite_date || 'Unknown'} />
                   <DohStatLine label="Normalized Barangay" value={selectedCase.normalized_barangay || selectedCase.location} />
                   <DohStatLine label="Raw Location" value={selectedCase.location} />

@@ -4,7 +4,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { useEcho } from '../../../shared/hooks/useEcho';
 import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
-import { Typography } from '@mui/material';
+import { Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, Snackbar, Alert } from '@mui/material';
+import LockIcon from '@mui/icons-material/Lock';
+import PatientRowActions from '../components/PatientRowActions';
 import { ROUTES } from '../../../shared/config/routes';
 import AddPatientModal from '../components/AddPatientModal';
 import InvitePatientModal from '../components/InvitePatientModal';
@@ -95,8 +97,11 @@ export default function PatientList() {
   const [checkingInPatientId,      setCheckingInPatientId]      = useState<number | null>(null);
   const [checkingInNursePatientId, setCheckingInNursePatientId] = useState<number | null>(null);
 
-  // Returning Patient Reassessment Check-In state
-  const [reassessmentCheckInPatient, setReassessmentCheckInPatient] = useState<Patient | null>(null);
+  // Returning Patient Vitals & Referral Check-In / Reassessment state
+  const [reassessmentCheckInPatient, setReassessmentCheckInPatient] = useState<{
+    patient: Patient;
+    mode: 'reassess' | 'checkin';
+  } | null>(null);
 
   // Online Mobile Booking Intake Check-In state
   const [onlineCheckInTarget, setOnlineCheckInTarget] = useState<{
@@ -106,6 +111,36 @@ export default function PatientList() {
 
   const { clinic: authClinic, user: authUser } = useAuth();
   const { echo, isConnected } = useEcho();
+  const [invitingPatientId, setInvitingPatientId] = useState<number | null>(null);
+  const [reassessConfirmPatient, setReassessConfirmPatient] = useState<Patient | null>(null);
+  const [toast, setToast] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'info' | 'warning' | 'error';
+  }>({
+    open: false,
+    message: '',
+    severity: 'info',
+  });
+
+  const showToast = useCallback((message: string, severity: 'success' | 'info' | 'warning' | 'error' = 'success') => {
+    setToast({ open: true, message, severity });
+  }, []);
+
+  const getSourceTagInfo = useCallback((patient: Patient) => {
+    const isOnlineOrigin = patient.registration_source === 'mobile' || patient.registration_source === 'online';
+    const accounts: any[] = (patient as any).accounts || [];
+    const hasVerifiedAccount = accounts.some((a: any) => a.pivot?.status === 'verified');
+
+    if (!isOnlineOrigin && hasVerifiedAccount) {
+      return { type: 'app-linked', label: 'Walk-in · App linked' };
+    }
+    if (!isOnlineOrigin) {
+      return { type: 'walkin', label: 'Walk-in' };
+    }
+    return { type: 'online', label: 'Online' };
+  }, []);
+
   const userData   = localStorage.getItem('userData');
   const clinicData = localStorage.getItem('clinicData');
   const storedClinic = clinicData ? JSON.parse(clinicData) : null;
@@ -320,7 +355,7 @@ export default function PatientList() {
     const appointment = ((p as any).appointments || [])
       .find((item: any) => item.appointment_id === intake.appointment_id);
     const scheduledDate = String(appointment?.scheduled_date || appointment?.appointment_date || '').slice(0, 10);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getManilaDateString();
 
     return Boolean(scheduledDate && scheduledDate <= today);
   };
@@ -361,8 +396,10 @@ export default function PatientList() {
     }
 
     const patientId = patient.patient_id || (patient as any).id;
-    if (!patientId) {
-      setCheckInError('The patient record could not be identified. Please refresh the page and try again.');
+    if (!patientId || checkingInPatientId === patientId) {
+      if (!patientId) {
+        setCheckInError('The patient record could not be identified. Please refresh the page and try again.');
+      }
       return;
     }
 
@@ -370,27 +407,77 @@ export default function PatientList() {
     try {
       const response = await api.post(`/patients/${patientId}/check-in`);
       const queue = response.data?.queue;
-      setCheckInModalData({
-        patientName: fullName(patient),
-        patientNumber: patient.patient_number || '',
-        queueNumber: response.data?.queue_number || queue?.queue_number || '',
-        station: 'Doctor Assessment',
-      });
-      fetchPatients();
+
+      if (response.data?.code === 'ALREADY_IN_QUEUE') {
+        showToast('Patient is already in the queue.', 'info');
+      } else {
+        setCheckInModalData({
+          patientName: fullName(patient),
+          patientNumber: patient.patient_number || '',
+          queueNumber: response.data?.queue_number || queue?.queue_number || '',
+          station: 'Doctor Assessment',
+        });
+        showToast('Patient checked in successfully!', 'success');
+      }
+      await fetchPatients();
     } catch (err: any) {
+      const errCode = err.response?.data?.code;
+      if (errCode === 'REASSESSMENT_REQUIRED') {
+        showToast('Reassessment required before check-in.', 'error');
+        await fetchPatients();
+        return;
+      }
+      if (errCode === 'ALREADY_IN_QUEUE') {
+        showToast('Patient is already in the queue.', 'info');
+        await fetchPatients();
+        return;
+      }
       if (err.response?.status === 404) {
         setCheckInError('This patient is no longer available in your clinic. The patient list has been refreshed. Please select an available patient.');
         await fetchPatients();
         return;
       }
-      setCheckInError(err.response?.data?.message || 'Unable to check in this patient for Doctor Triage.');
+      showToast(err.response?.data?.message || 'Unable to check in this patient for Doctor Triage.', 'error');
     } finally {
       setCheckingInPatientId(null);
     }
   };
 
-  const handleOpenReassessmentCheckIn = (patient: Patient) => {
-    setReassessmentCheckInPatient(patient);
+  const handleDirectInvite = async (patient: Patient, mode: 'send' | 'resend') => {
+    const patientId = patient.patient_id || (patient as any).id;
+    if (!patientId || invitingPatientId === patientId) return;
+
+    setInvitingPatientId(patientId);
+    try {
+      if (mode === 'resend') {
+        const invId = patient.actions?.invitation_id || (patient as any).invitations?.[0]?.id;
+        if (invId) {
+          await api.post(`/patient-invitations/${invId}/resend`);
+        } else {
+          await api.post('/patient-invitations', { patient_id: patientId });
+        }
+        showToast('Invitation resent successfully!', 'success');
+      } else {
+        await api.post('/patient-invitations', { patient_id: patientId });
+        showToast('Invitation sent successfully!', 'success');
+      }
+      await fetchPatients();
+    } catch (err: any) {
+      const code = err.response?.data?.code;
+      if (code === 'THROTTLED') {
+        showToast(err.response?.data?.message || 'Please wait at least 5 minutes before resending another invitation.', 'warning');
+      } else if (code === 'NO_CONTACT') {
+        showToast('Add a contact number first.', 'warning');
+      } else {
+        showToast(err.response?.data?.message || 'Failed to send portal invitation.', 'error');
+      }
+    } finally {
+      setInvitingPatientId(null);
+    }
+  };
+
+  const handleOpenReassessmentCheckIn = (patient: Patient, mode: 'reassess' | 'checkin' = 'reassess') => {
+    setReassessmentCheckInPatient({ patient, mode });
   };
 
   const handleNurseCheckIn = async (patient: Patient) => {
@@ -1428,12 +1515,12 @@ export default function PatientList() {
                         />
                       )}
                     </th>
-                    <th style={{ textAlign: 'center' }}>Patient No.</th>
+                    <th style={{ textAlign: 'center', minWidth: '115px' }}>Patient No.</th>
                     <th>Patient Name</th>
                     <th style={{ textAlign: 'center' }}>Source</th>
                     <th style={{ textAlign: 'center' }}>Date Registered</th>
                     <th style={{ textAlign: 'center' }}>Status / Schedule</th>
-                    <th style={{ textAlign: 'center' }}>Action</th>
+                    <th style={{ textAlign: 'right', paddingRight: '22px', minWidth: '330px' }} className="pm-th-actions">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1535,10 +1622,18 @@ export default function PatientList() {
                             <span style={{ color: '#9ca3af', fontSize: '12px' }}>—</span>
                           )}
                         </td>
-                        <td style={{ textAlign: 'center' }}><span className="pm-patient-no">{p.patient_number}</span></td>
+                        <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}><span className="pm-patient-no">{p.patient_number}</span></td>
                         <td>
                           <div>
                             <span className="pm-patient-name">{fullName(p)}</span>
+                            {(() => {
+                              const tag = getSourceTagInfo(p);
+                              return (
+                                <span className={`pm-source-tag pm-source-tag--${tag.type}`}>
+                                  {tag.label}
+                                </span>
+                              );
+                            })()}
                             <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
                               {p.age ? `${p.age}y · ` : ''}{p.gender} {p.contact_number ? `· ${p.contact_number}` : ''}
                             </div>
@@ -1571,213 +1666,77 @@ export default function PatientList() {
                             {statusInfo.icon && <HugeiconsIcon icon={statusInfo.icon} size={13} strokeWidth={2} />}
                             {statusInfo.label}
                           </span>
+                          {p.actions?.check_in_blocked_reason === 'REASSESSMENT_REQUIRED' && (
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '4px',
+                              marginTop: '4px',
+                              fontSize: '11px',
+                              fontWeight: 500,
+                              color: '#d97706',
+                            }}>
+                              <LockIcon sx={{ fontSize: 13 }} />
+                              <span>Check in blocked until reassessed</span>
+                            </div>
+                          )}
                         </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <div className="pm-actions" style={{ justifyContent: 'center', gap: '6px' }}>
-                            {ongoingCourse && !activeQueue && !canCheckInForReassessment ? (
-                              <span style={{ fontSize: 12, color: '#047857', maxWidth: 220 }} title={ongoingCourse.message}>
-                                Treatment ongoing — proceed to Follow-up
-                                <small style={{ display: 'block', color: '#6b7280' }}>
-                                  {ongoingCourse.scheduled_date ? `Day ${ongoingCourse.next_dose}: ${ongoingCourse.scheduled_date}` : 'Follow-up schedule needs review'}
-                                </small>
-                              </span>
-                            ) : mobileIntakeIsDue && mobileIntakeForCheckIn ? (
-                              <button
-                                className="pm-btn-checkin"
-                                title="Review submitted bite intake and referral details, record baseline vitals, and check in to Doctor queue"
-                                data-patient-action="checkin-mobile"
-                                disabled={checkingInIntakeId === mobileIntakeForCheckIn.intake_id}
-                                onClick={(event) => {
-                                  (event.currentTarget as HTMLElement).blur();
-                                  handleOpenMobileIntakeCheckIn(p, mobileIntakeForCheckIn);
-                                }}
-                              >
-                                {checkingInIntakeId === mobileIntakeForCheckIn.intake_id ? 'Checking In…' : 'Check In to Triage'}
-                              </button>
-                            ) : mobileIntakeForCheckIn ? (
-                              <span
-                                data-patient-action="awaiting-checkin"
-                                className="pm-badge-awaiting-checkin"
-                                title="This patient has a submitted mobile bite intake. Check in the patient on the scheduled appointment date."
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  padding: '4px 8px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  backgroundColor: '#eff6ff',
-                                  color: '#1d4ed8',
-                                  border: '1px solid #bfdbfe',
-                                }}
-                              >
-                                Booked — Awaiting Check-In
-                              </span>
-                            ) : canCheckInForReassessment ? (
-                              <button
-                                className="pm-btn-checkin"
-                                title="Patient returned with pending unadministered treatment from a previous visit. Collect updated vitals and route to Doctor Reassessment Queue."
-                                data-patient-action="checkin-reassessment"
-                                disabled={checkingInPatientId === patientId}
-                                style={{
-                                  fontSize: '12px',
-                                  padding: '4px 12px',
-                                  textTransform: 'none',
-                                  fontWeight: 600,
-                                  borderRadius: '6px',
-                                  backgroundColor: '#d97706',
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  cursor: checkingInPatientId === patientId ? 'not-allowed' : 'pointer',
-                                  opacity: checkingInPatientId === patientId ? 0.7 : 1,
-                                  boxShadow: '0 2px 6px rgba(217,119,6,0.3)',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '5px',
-                                }}
-                                onClick={(event) => {
-                                  (event.currentTarget as HTMLElement).blur();
-                                  handleOpenReassessmentCheckIn(p);
-                                }}
-                              >
-                                {checkingInPatientId === patientId ? 'Checking in...' : 'Check In for Reassessment'}
-                              </button>
-                            ) : canCheckInReturning ? (
-                              <button
-                                data-patient-action="checkin"
-                                className="pm-btn-checkin"
-                                title={
-                                  requiresCheckinQueue
-                                    ? "Patient did not respond 3 times. Check in to restart triage queue with a fresh 0/3 count."
-                                    : "Patient was previously registered or scheduled but did not proceed to Triage. Check in to today's Doctor Triage queue."
-                                }
-                                disabled={checkingInPatientId === patientId}
-                                style={{
-                                  fontSize: '12px',
-                                  padding: '4px 12px',
-                                  textTransform: 'none',
-                                  fontWeight: 600,
-                                  borderRadius: '6px',
-                                  backgroundColor: '#10b981',
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  cursor: checkingInPatientId === patientId ? 'not-allowed' : 'pointer',
-                                  opacity: checkingInPatientId === patientId ? 0.7 : 1,
-                                  boxShadow: '0 2px 6px rgba(16,185,129,0.3)',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                }}
-                                onClick={(event) => {
-                                  (event.currentTarget as HTMLElement).blur();
-                                  handleTriageCheckIn(p);
-                                }}
-                              >
-                                {checkingInPatientId === patientId ? 'Checking in...' : 'Check In'}
-                              </button>
-                            ) : canCheckInToNurse ? (
-                              <button
-                                className="pm-btn-checkin"
-                                title="Patient was not attended to within 1 day or needs follow-up vaccination. Re-check in to today's Nurse Treatment queue."
-                                data-patient-action="checkin-nurse"
-                                disabled={checkingInNursePatientId === patientId}
-                                style={{
-                                  fontSize: '12px',
-                                  padding: '4px 12px',
-                                  textTransform: 'none',
-                                  fontWeight: 600,
-                                  borderRadius: '6px',
-                                  backgroundColor: '#0d9488',
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  cursor: checkingInNursePatientId === patientId ? 'not-allowed' : 'pointer',
-                                  opacity: checkingInNursePatientId === patientId ? 0.7 : 1,
-                                  boxShadow: '0 2px 6px rgba(13,148,136,0.3)',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '5px',
-                                }}
-                                onClick={(event) => {
-                                  (event.currentTarget as HTMLElement).blur();
-                                  handleNurseCheckIn(p);
-                                }}
-                              >
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M12 5v14M5 12h14" />
-                                </svg>
-                                {checkingInNursePatientId === patientId ? 'Checking in...' : 'Check In to Nurse'}
-                              </button>
-                            ) : canRegisterNewExposure ? (
-                              <button
-                                className="pm-btn-checkin"
-                                title="Register a distinct new rabies exposure incident (Re-Exposure)"
-                                data-patient-action="new-exposure"
-                                style={{
-                                  backgroundColor: '#0284c7',
-                                  borderColor: '#0284c7',
-                                  color: '#ffffff',
-                                  padding: '4px 9px',
-                                  fontSize: '11px',
-                                  borderRadius: '6px',
-                                  fontWeight: 600,
-                                  cursor: 'pointer',
-                                }}
-                                onClick={(event) => {
-                                  (event.currentTarget as HTMLElement).blur();
-                                  setSelectedViewPatient(p);
-                                  setOpenReExposureOnView(true);
-                                  setShowViewModal(true);
-                                }}
-                              >
-                                + New Exposure
-                              </button>
-                            ) : null}
-                            {!isOnline && canSendPortalInvite && (
-                              <button
-                                className="pm-btn-invite"
-                                data-patient-action="portal-invite"
-                                title="Invite Walk-in Patient to Mobile Portal"
-                                onClick={(e) => {
-                                  (e.currentTarget as HTMLElement)?.blur();
-                                  setSelectedInvitePatient(p);
-                                  setShowInviteModal(true);
-                                }}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '4px 9px',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  border: '1px solid #bbf7d0',
-                                  backgroundColor: '#f0fdf4',
-                                  color: '#166534',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                                </svg>
-                                Portal Invite
-                              </button>
+                        <td style={{ textAlign: 'right', paddingRight: '16px', minWidth: '330px' }}>
+                          <PatientRowActions
+                            patient={p}
+                            actions={p.actions}
+                            secondaryClinical={
+                              canCheckInToNurse
+                                ? 'nurse_queue'
+                                : canRegisterNewExposure
+                                ? 'new_exposure'
+                                : null
+                            }
+                            canClinical={Boolean(
+                              isAuthorizedRegistrationRole &&
+                              registrationStationEnabled &&
+                              triageStationEnabled
                             )}
-                            <button
-                              className="pm-btn-view"
-                              data-patient-action="view"
-                              onClick={(e) => {
-                                (e.currentTarget as HTMLElement)?.blur();
-                                setSelectedViewPatient(p);
-                                setOpenReExposureOnView(false);
-                                setShowViewModal(true);
-                              }}
-                            >
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                              </svg>
-                              View
-                            </button>
-                          </div>
+                            canInvite={canSendPortalInvite}
+                            onCheckIn={(patient) => {
+                              if (mobileIntakeIsDue && mobileIntakeForCheckIn) {
+                                handleOpenMobileIntakeCheckIn(patient, mobileIntakeForCheckIn);
+                              } else {
+                                handleOpenReassessmentCheckIn(patient, 'checkin');
+                              }
+                            }}
+                            onReassess={(patient) => setReassessConfirmPatient(patient)}
+                            onNurseCheckIn={handleNurseCheckIn}
+                            onNewExposure={(patient) => {
+                              setSelectedViewPatient(patient);
+                              setOpenReExposureOnView(true);
+                              setShowViewModal(true);
+                            }}
+                            onInvite={(patient, mode) => {
+                              const hasEmail = Boolean(patient.email && patient.email.trim());
+                              if (!hasEmail) {
+                                setSelectedInvitePatient(patient);
+                                setShowInviteModal(true);
+                              } else {
+                                handleDirectInvite(patient, mode);
+                              }
+                            }}
+                            onView={(patient) => {
+                              setSelectedViewPatient(patient);
+                              setOpenReExposureOnView(false);
+                              setShowViewModal(true);
+                            }}
+                            loadingAction={
+                              checkingInPatientId === (p.patient_id || p.id)
+                                ? 'checkin'
+                                : checkingInNursePatientId === (p.patient_id || p.id)
+                                ? 'nurse_queue'
+                                : invitingPatientId === (p.patient_id || p.id)
+                                ? 'invite'
+                                : null
+                            }
+                          />
                         </td>
                       </tr>
                     );
@@ -1825,47 +1784,13 @@ export default function PatientList() {
               })
               .catch(() => {});
           }}
-          onSuccess={(createdPatient) => {
+          onSuccess={() => {
             setShowAddModal(false);
             fetchPatients();
             setSuccessModal({
               open: true,
               title: 'Patient Registered',
-              message: (
-                <div>
-                  <p style={{ margin: 0, fontSize: 14 }}>Patient enrolment record has been saved successfully.</p>
-                  {createdPatient && (
-                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #e5e7eb' }}>
-                      <p style={{ fontSize: 13, color: '#4b5563', marginBottom: 8 }}>
-                        Enable online appointment booking and digital treatment card tracking:
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSuccessModal(null);
-                          setSelectedInvitePatient(createdPatient);
-                          setShowInviteModal(true);
-                        }}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          padding: '8px 14px',
-                          backgroundColor: '#0284c7',
-                          color: '#ffffff',
-                          borderRadius: 6,
-                          fontWeight: 600,
-                          fontSize: 13,
-                          cursor: 'pointer',
-                          border: 'none',
-                        }}
-                      >
-                        📱 Send Mobile Portal Invite
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ),
+              message: 'Patient record has been saved successfully.',
             });
           }}
         />
@@ -2066,15 +1991,21 @@ export default function PatientList() {
         />
       )}
 
-      {/* ── Returning Patient Reassessment Check-In Modal (Updated Vitals Required) ── */}
+      {/* ── Returning Patient Vitals & Referral Check-In / Reassessment Modal ── */}
       {reassessmentCheckInPatient && (
         <ReturningPatientCheckInModal
           open={Boolean(reassessmentCheckInPatient)}
-          patient={reassessmentCheckInPatient}
+          mode={reassessmentCheckInPatient.mode}
+          patient={reassessmentCheckInPatient.patient}
           onClose={() => setReassessmentCheckInPatient(null)}
           onSuccess={(modalData) => {
             setReassessmentCheckInPatient(null);
-            setCheckInModalData(modalData);
+            if (modalData.alreadyInQueue) {
+              showToast('Patient is already in the queue.', 'info');
+            } else {
+              setCheckInModalData(modalData);
+              showToast('Patient checked in successfully!', 'success');
+            }
             fetchPatients();
           }}
         />
@@ -2106,6 +2037,70 @@ export default function PatientList() {
           onConfirm={() => setSuccessModal(null)}
         />
       )}
+
+      {/* ── Reassess Confirmation Dialog ── */}
+      <Dialog
+        open={Boolean(reassessConfirmPatient)}
+        onClose={() => setReassessConfirmPatient(null)}
+        maxWidth="xs"
+        fullWidth
+        slotProps={{
+          paper: { sx: { borderRadius: '12px', p: 1 } },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 600, fontSize: '16px', pb: 1 }}>
+          Physician Reassessment
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: '#374151' }}>
+            This patient has an unfinished prior visit. Send to the doctor for reassessment?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, pt: 1, gap: 1 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setReassessConfirmPatient(null)}
+            sx={{ textTransform: 'none', borderRadius: '8px' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const target = reassessConfirmPatient;
+              setReassessConfirmPatient(null);
+              if (target) {
+                handleOpenReassessmentCheckIn(target);
+              }
+            }}
+            sx={{
+              backgroundColor: '#d97706',
+              '&:hover': { backgroundColor: '#b45309' },
+              textTransform: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+            }}
+          >
+            Send
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Global Toast / Snackbar ── */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={() => setToast(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setToast(prev => ({ ...prev, open: false }))}
+          severity={toast.severity}
+          sx={{ width: '100%', borderRadius: '8px', boxShadow: 3 }}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </PatientListRoot>
   );
 }

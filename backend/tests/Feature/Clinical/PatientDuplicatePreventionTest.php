@@ -274,4 +274,74 @@ class PatientDuplicatePreventionTest extends TestCase
             'blood_pressure' => '120/80',
         ]);
     }
+
+    public function test_patient_suffix_dropdown_options_create_and_edit_behavior(): void
+    {
+        // 1. Default "None" (null/empty) saves suffix as null
+        $noneRes = $this->actingAs($this->registrationStaff)
+            ->postJson('/api/patients', [
+                'first_name'               => 'Maria',
+                'last_name'                => 'Santos',
+                'suffix'                   => null,
+                'gender'                   => 'female',
+                'date_of_birth'            => '1995-04-10',
+                'contact_number'           => '09171234561',
+                'emergency_contact_name'   => 'Jose Santos',
+                'emergency_contact_number' => '09171234562',
+            ]);
+
+        $noneRes->assertStatus(201)
+            ->assertJsonPath('patient.suffix', null);
+
+        // 2. Predefined option ("Jr.") saves and appears in full name
+        $jrRes = $this->actingAs($this->registrationStaff)
+            ->postJson('/api/patients', [
+                'first_name'               => 'Pedro',
+                'middle_name'              => 'Reyes',
+                'last_name'                => 'Cruz',
+                'suffix'                   => 'Jr.',
+                'gender'                   => 'male',
+                'date_of_birth'            => '1992-08-20',
+                'contact_number'           => '09171234563',
+                'emergency_contact_name'   => 'Ana Cruz',
+                'emergency_contact_number' => '09171234564',
+            ]);
+
+        $jrRes->assertStatus(201)
+            ->assertJsonPath('patient.suffix', 'Jr.')
+            ->assertJsonPath('patient.name', 'Pedro Reyes Cruz Jr.');
+
+        $patientId = $jrRes->json('patient.patient_id');
+
+        // 3. Rejects arbitrary manual text on patient creation
+        $invalidRes = $this->actingAs($this->registrationStaff)
+            ->postJson('/api/patients', [
+                'first_name'               => 'Invalid',
+                'last_name'                => 'SuffixUser',
+                'suffix'                   => 'CustomText',
+                'gender'                   => 'male',
+                'date_of_birth'            => '1993-01-01',
+                'contact_number'           => '09171234565',
+                'emergency_contact_name'   => 'Contact',
+                'emergency_contact_number' => '09171234566',
+            ]);
+
+        $invalidRes->assertStatus(422)
+            ->assertJsonValidationErrors(['suffix']);
+
+        // 4. Editing patient updates suffix to another valid option ("V") and clears back to null ("None")
+        $this->actingAs($this->registrationStaff)
+            ->putJson("/api/patients/{$patientId}", [
+                'suffix' => 'V',
+            ])
+            ->assertOk()
+            ->assertJsonPath('patient.suffix', 'V');
+
+        $this->actingAs($this->registrationStaff)
+            ->putJson("/api/patients/{$patientId}", [
+                'suffix' => null,
+            ])
+            ->assertOk()
+            ->assertJsonPath('patient.suffix', null);
+    }
 }

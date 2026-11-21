@@ -481,6 +481,12 @@ class DomainServicesBroadcastingIntegrationTest extends TestCase
     {
         Event::fake([AppointmentStatusChanged::class]);
 
+        $this->patient->details()->updateOrCreate([], [
+            'address_municipality' => 'Tagoloan',
+            'address_barangay' => 'Poblacion',
+            'province' => 'Misamis Oriental',
+        ]);
+
         $futureDate = Carbon::tomorrow()->toDateString();
 
         // 1. Mobile booking
@@ -492,6 +498,9 @@ class DomainServicesBroadcastingIntegrationTest extends TestCase
                 'time_slot' => 'morning',
                 'intake' => [
                     'bite_date' => Carbon::yesterday()->toDateString(),
+                    'bite_place' => 'Poblacion, Tagoloan',
+                    'site_washed' => true,
+                    'wound_location' => 'Left arm',
                     'exposure_type' => 'bite',
                     'animal_type' => 'dog',
                     'animal_status' => 'owned',
@@ -731,7 +740,20 @@ class DomainServicesBroadcastingIntegrationTest extends TestCase
                 && $event->action === 'vial_opened';
         });
 
-        // 2. Discard vial
+        // 2. Expiring a physical vial updates availability without deducting stock again.
+        $vial = \App\Models\VaccineVial::where('inventory_id', $batch->inventory_id)->firstOrFail();
+        app(VaccineInventoryUsageService::class)->markVialExpired(
+            $this->clinic1->id, $this->nurse, $vial->vial_id, 'Beyond usable period'
+        );
+        Event::assertDispatched(VaccineStockUpdated::class, function (VaccineStockUpdated $event) use ($batch) {
+            return $event->inventoryId === $batch->inventory_id
+                && $event->clinicId === $this->clinic1->id
+                && $event->currentQuantity === 9
+                && $event->openVialStatus === 'unopened'
+                && $event->action === 'vial_expired';
+        });
+
+        // 3. Discard vial through the legacy batch endpoint.
         $discarded = $inventoryService->discardVial($this->clinic1->id, $this->nurse, $batch->inventory_id, 'End of clinic day');
         $this->assertSame('unopened', $discarded->open_vial_status);
 
@@ -740,6 +762,8 @@ class DomainServicesBroadcastingIntegrationTest extends TestCase
                 && $event->openVialStatus === 'unopened'
                 && $event->action === 'vial_discarded';
         });
+        Event::assertDispatchedTimes(VaccineStockUpdated::class, 3);
+        $this->assertSame(9, $discarded->current_quantity);
     }
 
     public function test_automated_vial_usage_service_dispatches_vaccine_stock_updated_events(): void

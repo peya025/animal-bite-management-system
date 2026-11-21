@@ -22,7 +22,7 @@ The production architecture consists of four dedicated Railway services and one 
 3. **Queue Worker Service (Background Jobs & Broadcast Dispatcher)**
    - **Role:** Processes asynchronous jobs including queued broadcasting events (`AppointmentStatusChanged`, `StaffNotificationBroadcast`, `VaccineStockUpdated`) and outbound push jobs (`SendFcmPushNotification`).
    - **Start Command:** `sh railway/run-worker.sh`
-   - **Command Details:** `exec php artisan queue:work database --queue=notifications,default --sleep=3 --tries=3 --timeout=60 --max-time=3600`
+   - **Command Details:** `exec php artisan queue:work "${QUEUE_CONNECTION:-database}" --queue=notifications,default --sleep=3 --tries=3 --timeout=60 --max-time=3600`
    - **Public Networking:** Disabled (private worker). Shares the database, application encryption key, and Reverb configuration.
 
 4. **Cron Service (Scheduler)**
@@ -404,3 +404,50 @@ All unrecoverable job exceptions are recorded in the MySQL `failed_jobs` table.
   Skipping [appointments:auto-recall] because the command already ran on another server.
   ```
 - Mutex timeouts (`30m`, `5m`, `15m`) guarantee that an unexpected container termination or OOM event does not lock the command out for 24 hours.
+
+## Provider configuration and invitations
+
+Set all variables from `.env.railway.example` in Railway's Variables dashboard. Add the MySQL service values as `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD`; never commit them.
+
+## Live invitations
+
+Staff links use `FRONTEND_URL` (the exact public Vercel HTTPS origin); patient
+portal links use `APP_URL` (the public Railway HTTPS origin). Neither value
+includes `/api` or a trailing slash. Vercel's Production `VITE_API_URL` and
+`VITE_API_BASE_URL` must both be the Railway origin followed by `/api`; rebuild
+the frontend after changing them. Local `.env` changes do not update Railway.
+
+The example deliberately disables email delivery. Invitations require
+`MAIL_MAILER=smtp`, `EMAIL_ENABLED=true`, explicit SMTP credentials, and a verified
+sender. Use `MAIL_SCHEME=smtp` with port 587, or `smtps` with port 465; leave
+`MAIL_URL` unset. When `MESSAGING_TEST_MODE=true`, every test recipient must be
+in `MESSAGING_TEST_RECIPIENTS`. Run `php artisan email:diagnose --connect` in the
+production service to check TLS/authentication without sending mail. This does
+not prove mailbox receipt; verify receipt with fresh controlled invitations.
+
+Both staff and patient invitations are sent synchronously through
+`InvitationDelivery`. A worker is needed for queued notifications, not for
+invitations. Restart existing workers after configuration changes, but do not
+create one just to repair invitation URLs.
+
+For an existing deployment's configuration-only refresh, run
+`php artisan config:clear` then `php artisan config:cache` in the production
+application environment using Railway's persistent deployment process. Do not
+run the migration/seeding pre-deploy script just to refresh configuration.
+Preserve the production database and `APP_KEY`, keep `SEED_DEMO_DATA=false`, and
+retain `SESSION_SECURE_COOKIE=true` for the portal form. Follow
+[`live-invitations-plan.md`](../../docs/tasks/06-deployment-and-audits/live-invitations-plan.md)
+for network checks and rollback evidence.
+
+## Merge review: configuration and deployment gates
+
+- Preserve the existing frontend API origin in `frontend/.env.production`; both API variables end in `/api`. Example domains elsewhere in this guide are placeholders, not verified production endpoints.
+- `VITE_REVERB_HOST` and `VITE_REVERB_APP_KEY` are intentionally blank in the committed production file. Supply the actual public Reverb host and public app key at frontend build time; use HTTPS/443. Never expose `REVERB_APP_SECRET` or provider credentials through Vite variables.
+- Preserve the incoming public Google OAuth client ID. Confirm it matches backend `GOOGLE_CLIENT_ID` and the authorized frontend origins; it need not belong to the FCM Firebase project. Backend Google configuration also supports `GOOGLE_CLIENT_SECRET` and `GOOGLE_REDIRECT_URI`.
+- Android Firebase project selection is still unresolved. Do not build/release Android until `mobile/android/app/google-services.json` is explicitly resolved and checked against the backend project and credentials.
+- Backend FCM defaults remain disabled. Configure `FIREBASE_PROJECT_ID`, exactly one of `FIREBASE_CREDENTIALS_JSON` / `FIREBASE_CREDENTIALS_BASE64` (or a private file via `GOOGLE_APPLICATION_CREDENTIALS`), `FCM_ANDROID_CHANNEL_ID`, `FCM_CACHE_STORE`, `FCM_TEST_MODE`, and `FCM_ALLOWED_PATIENT_ACCOUNT_IDS` on every process that delivers notifications. Keep `FCM_ENABLED=false` until separately approved. The current default allowlist is account ID 1; confirm intended controlled test accounts explicitly.
+- Runtime credential resolution prefers JSON, then Base64, then the private file. The pre-deploy script keeps an existing file and otherwise prefers Base64 over JSON. Set only one environment credential source to avoid inconsistent copies. Base64 is encoding, not encryption. Never include credential output in logs or version control.
+- Queue workers consume `notifications,default` on `QUEUE_CONNECTION` (default `database`). Keep messaging queue/connection settings consistent with workers. Restart workers after code or configuration changes.
+- `init-app.sh` runs `migrate --force`; this is not a configuration-only command. This merge review does not authorize running it. New vial tables do not backfill existing open-vial summaries into physical vial records: reconcile legacy open vials before rollout to avoid treating remaining portions as a new sealed vial.
+- The Google SSO migration enables SSO for all existing clinic configurations; its rollback disables all of them. Review clinic intent before applying it. Intake changes alter MySQL columns and may lock tables; rollback is blocked while nullable answers exist. SQLite tests do not validate MySQL migration locking or concurrent deductions.
+- Preserve storage/provider configuration and persistent uploads across services. Announcement images use the public disk and `/api/storage/...`; verify uploaded assets survive redeployment. Configure SMTP/provider secrets only in Railway. No live email, SMS, FCM, database migration, or deployment validation was performed during this merge.

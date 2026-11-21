@@ -169,6 +169,10 @@ interface ExistingVaccinationRecord {
   inventory_units_used?: number | null;
   signature?: string | null;
   remarks?: string | null;
+  administration_notes?: string | null;
+  inventory?: {
+    doses_per_vial?: number | null;
+  } | null;
   administered_by?: {
     id?: number;
     name?: string | null;
@@ -720,6 +724,16 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           const staffName = staff?.name || extractGivenBy(record.remarks, null) || (record.is_external ? (record.external_facility_name ? `External (${record.external_facility_name})` : 'External Clinic') : 'Staff Nurse');
           const staffLicense = staff?.professional_license_no || '';
           const signaturePath = record.signature || '';
+          const doseMatch = (record.administration_notes || record.remarks || '').match(/Dose\s+(\d+)\s+of\s+(\d+)/i);
+          const unitsUsedNum = (record.inventory_units_used !== null && record.inventory_units_used !== undefined)
+            ? Number(record.inventory_units_used)
+            : 1;
+          const totalDoses = doseMatch
+            ? Number(doseMatch[2])
+            : (record.inventory?.doses_per_vial ? Number(record.inventory.doses_per_vial) : undefined);
+          const doseIndex = doseMatch
+            ? Number(doseMatch[1])
+            : (!record.is_external && unitsUsedNum === 0 ? 2 : 1);
 
           return {
             ...dose,
@@ -735,6 +749,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             batch_number: record.batch_no || '',
             expiration_date: record.expiration_date ? formatDateForInput(record.expiration_date) : '',
             available_stock: undefined,
+            is_open_vial: !record.is_external && unitsUsedNum === 0,
+            next_dose_index: totalDoses ? doseIndex : undefined,
+            total_doses: totalDoses,
             inventory_linked: Boolean(record.inventory_id),
             is_completed: true,
             is_external: Boolean(record.is_external),

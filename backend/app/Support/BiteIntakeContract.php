@@ -173,15 +173,33 @@ final class BiteIntakeContract
             return null;
         };
 
-        $normalized['schema_version'] = $alias(['schema_version']) ?? 'legacy';
-        $normalized['bite_date'] = $alias(['date_of_exposure', 'bite_date']);
-        $normalized['incident_time'] = $alias(['time_of_exposure', 'incident_time']);
-        $normalized['bite_place'] = $alias(['place_of_exposure', 'bite_place']);
-        $normalized['patient_description'] = $alias(['incident_narrative', 'patient_description']);
-        $bodyDetail = $alias(['body_part_detail', 'wound_location']);
-        $bodyGroup = $alias(['body_part_group', 'body_part_exposed']);
-        if ($bodyGroup === 'other_parts') {
-            $bodyGroup = match ($bodyDetail) {
+        foreach ([
+            'bite_date' => ['date_of_exposure', 'bite_date'],
+            'incident_time' => ['time_of_exposure', 'incident_time'],
+            'bite_place' => ['place_of_exposure', 'bite_place'],
+            'patient_description' => ['incident_narrative', 'patient_description'],
+            'wound_location' => ['body_part_detail', 'wound_location'],
+            'body_part_exposed' => ['body_part_group', 'body_part_exposed'],
+            'animal_status' => ['animal_ownership', 'animal_status'],
+            'animal_available' => ['animal_available_for_observation', 'animal_available'],
+            'referral_facility' => ['referral_source', 'referral_facility'],
+            'referral_blood_pressure' => ['referral_blood_pressure', 'blood_pressure'],
+            'referral_temperature' => ['referral_temperature', 'temperature'],
+            'referral_height' => ['referral_height', 'height'],
+            'referral_weight' => ['referral_weight', 'weight'],
+            'referral_provider_name' => ['referral_provider_name', 'name_of_attending_provider'],
+            'referral_document_photo' => ['referral_document_photo', 'referral_photo'],
+        ] as $canonical => $keys) {
+            foreach ($keys as $key) {
+                if (array_key_exists($key, $input)) {
+                    $normalized[$canonical] = $input[$key];
+                    break;
+                }
+            }
+        }
+        $bodyDetail = $normalized['wound_location'] ?? null;
+        if (($normalized['body_part_exposed'] ?? null) === 'other_parts') {
+            $normalized['body_part_exposed'] = match ($bodyDetail) {
                 'face', 'head', 'neck' => 'head_neck',
                 'upper_arm', 'forearm', 'hand' => 'upper_extremities',
                 'trunk' => 'trunk_torso',
@@ -190,52 +208,48 @@ final class BiteIntakeContract
                 default => 'other_parts',
             };
         }
-        $normalized['body_part_exposed'] = $bodyGroup;
-        $normalized['wound_location'] = $bodyDetail;
-        $normalized['animal_status'] = $alias(['animal_ownership', 'animal_status']);
-        $normalized['animal_available'] = $alias(['animal_available_for_observation', 'animal_available']);
-        $normalized['site_washed'] = (bool) ($alias(['wound_washed', 'site_washed']) ?? false);
-        $normalized['referral_facility'] = $alias(['referral_source', 'referral_facility']);
-        $normalized['referral_blood_pressure'] = $alias(['referral_blood_pressure', 'blood_pressure']);
-        $normalized['referral_temperature'] = $alias(['referral_temperature', 'temperature']);
-        $normalized['referral_height'] = $alias(['referral_height', 'height']);
-        $normalized['referral_weight'] = $alias(['referral_weight', 'weight']);
-        $normalized['referral_provider_name'] = $alias(['referral_provider_name', 'name_of_attending_provider']);
-        $normalized['referral_document_photo'] = $alias(['referral_document_photo', 'referral_photo']);
+        if (array_key_exists('wound_washed', $input) || array_key_exists('site_washed', $input)) {
+            $normalized['site_washed'] = $alias(['wound_washed', 'site_washed']);
+        }
 
         $mode = $alias(['reported_mode_of_exposure', 'exposure_type', 'exposure_mode', 'mode_of_exposure']);
-        $normalized['exposure_type'] = match ($mode) {
-            'bite' => 'transdermal_bite',
-            'scratch' => 'scratch_abrasion',
-            'lick' => 'nibbling_uncovered_skin',
-            'other' => 'nibbling_broken_skin',
-            default => $mode,
-        };
-
-        $species = strtolower(trim((string) ($alias(['animal_species', 'animal_type']) ?? '')));
-        $species = match ($species) {
-            'others' => 'other',
-            'non-human primate', 'non human primate', 'primate' => 'monkey',
-            default => $species,
-        };
-        if ($species !== '' && !array_key_exists($species, self::ANIMAL_SPECIES)) {
-            $normalized['animal_type_others'] = $alias(['animal_species_other', 'animal_type_others']) ?: $species;
-            $species = 'other';
-        } else {
-            $normalized['animal_type_others'] = $alias(['animal_species_other', 'animal_type_others']);
+        if ($mode !== null || array_key_exists('exposure_type', $input)) {
+            $normalized['exposure_type'] = match ($mode) {
+                'bite' => 'transdermal_bite',
+                'scratch' => 'scratch_abrasion',
+                'lick' => 'nibbling_uncovered_skin',
+                'other' => 'nibbling_broken_skin',
+                default => $mode,
+            };
         }
-        $normalized['animal_type'] = $species;
 
-        $normalized['prior_pep_status'] = $alias(['prior_pep_status']);
-        $normalized['prior_pep_date'] = $alias(['prior_pep_date']);
-        $normalized['prior_pep_facility'] = $alias(['prior_pep_facility']);
+        $speciesInput = $alias(['animal_species', 'animal_type']);
+        if ($speciesInput !== null) {
+            $species = strtolower(trim((string) $speciesInput));
+            $species = match ($species) {
+                'others' => 'other',
+                'non-human primate', 'non human primate', 'primate' => 'monkey',
+                default => $species,
+            };
+            if ($species !== '' && !array_key_exists($species, self::ANIMAL_SPECIES)) {
+                $normalized['animal_type_others'] = $alias(['animal_species_other', 'animal_type_others']) ?: $species;
+                $species = 'other';
+            } else {
+                $normalized['animal_type_others'] = $alias(['animal_species_other', 'animal_type_others']);
+            }
+            $normalized['animal_type'] = $species;
+        }
 
         return $normalized;
     }
 
-    public static function storagePayload(array $input): array
+    public static function storagePayload(array $input, bool $isUpdate = false): array
     {
-        return Arr::only(self::normalize($input), self::STORAGE_FIELDS);
+        $payload = Arr::only(self::normalize($input), self::STORAGE_FIELDS);
+        if (! $isUpdate && ! array_key_exists('schema_version', $payload)) {
+            $payload['schema_version'] = 'legacy';
+        }
+        return $payload;
     }
 
     public static function validationRules(string $prefix = 'intake.'): array

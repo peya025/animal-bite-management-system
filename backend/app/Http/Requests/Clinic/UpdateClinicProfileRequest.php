@@ -53,6 +53,17 @@ class UpdateClinicProfileRequest extends FormRequest
             'remove_left_print_logo'      => 'nullable',
             'right_print_logo'            => 'nullable|image|max:2048',
             'remove_right_print_logo'     => 'nullable',
+            'header_seal_1'               => 'nullable|image|max:2048',
+            'remove_header_seal_1'        => 'nullable',
+            'header_seal_1_label'         => 'nullable|string|max:100',
+            'header_seal_2'               => 'nullable|image|max:2048',
+            'remove_header_seal_2'        => 'nullable',
+            'header_seal_2_label'         => 'nullable|string|max:100',
+            'header_seal_3'               => 'nullable|image|max:2048',
+            'remove_header_seal_3'        => 'nullable',
+            'header_seal_3_label'         => 'nullable|string|max:100',
+            'hero_image'                  => 'nullable|image|max:5120',
+            'remove_hero_image'           => 'nullable',
         ];
     }
 

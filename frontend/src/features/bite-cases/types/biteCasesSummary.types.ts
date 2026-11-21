@@ -7,6 +7,18 @@ export type PriorityLevel = 'high' | 'medium' | 'low' | 'limited_data';
 export type RiskLevel = 'high' | 'medium' | 'low';
 export type ViewTab = 'summary' | 'treatment' | 'risk' | 'cases';
 export type PrivacyMode = 'internal_aggregate' | 'aggregate_only';
+export type BiteSummaryAgeGroupKey = 'children' | 'teenagers' | 'adults' | 'senior_citizens';
+
+export const BITE_SUMMARY_AGE_GROUPS: ReadonlyArray<{
+  key: BiteSummaryAgeGroupKey;
+  label: string;
+  range: string;
+}> = [
+  { key: 'senior_citizens', label: 'Senior Citizens', range: '60 years and above' },
+  { key: 'adults', label: 'Adults', range: '18–59 years' },
+  { key: 'teenagers', label: 'Teenagers', range: '13–17 years' },
+  { key: 'children', label: 'Children', range: '1–12 years' },
+];
 export type LocationSortKey =
   | 'priority'
   | 'location'
@@ -155,6 +167,7 @@ export type CaseSummary = {
   patient_id?: number;
   patient_name: string;
   age?: number | null;
+  age_group?: BiteSummaryAgeGroupKey | null;
   gender?: string;
   contact_number?: string | null;
   emergency_contact_number?: string | null;
@@ -245,6 +258,13 @@ export type DohSummary = {
     age_below_15: number;
     age_15_above: number;
     age_unknown: number;
+  };
+  age_groups?: {
+    children: number;
+    teenagers: number;
+    adults: number;
+    senior_citizens: number;
+    valid_total: number;
   };
   categories: {
     I: number;
@@ -501,6 +521,7 @@ export type Filters = {
   animalStatus: string;
   animalCondition: string;
   channel: string;
+  ageGroup: string;
   range: string;
   customFrom: string;
   customTo: string;

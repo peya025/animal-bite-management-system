@@ -440,7 +440,7 @@ export default function PredefinedTemplatesPage() {
         data-walkthrough="templates-header"
         sx={{
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'space-between',
           mb: 2.5,
           flexWrap: 'wrap',
@@ -449,16 +449,33 @@ export default function PredefinedTemplatesPage() {
       >
         <Box>
           <Typography
-            variant="h4"
-            sx={{ fontWeight: 800, color: 'var(--text-primary, #111827)', letterSpacing: '-0.02em', mb: 0.25 }}
+            component="h1"
+            sx={{
+              fontSize: '22px',
+              fontWeight: 600,
+              lineHeight: 1.25,
+              letterSpacing: '-0.5px',
+              color: 'var(--text-h, #111827)',
+              mb: 0.5,
+            }}
           >
             Predefined Templates
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, fontSize: '0.85rem' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', mt: '6px', fontSize: '13px' }}>
             <Box
-              component="span"
-              onClick={() => navigate('/dashboard')}
-              sx={{ color: '#2563eb', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+              component="button"
+              type="button"
+              onClick={() => navigate(ROUTES.DASHBOARD)}
+              sx={{
+                background: 'none',
+                border: 'none',
+                p: 0,
+                color: '#3b82f6',
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                '&:hover': { textDecoration: 'underline' },
+              }}
             >
               Dashboard
             </Box>

@@ -7,7 +7,7 @@ export const SetupWizardRoot = styled('div')`
   background: linear-gradient(135deg, #021411 0%, #062f26 50%, #010f0c 100%);
   display: flex;
   flex-direction: column;
-  font-family: 'Outfit', 'Inter', -apple-system, sans-serif;
+  font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
   color: rgba(255, 255, 255, 0.85);
 
   /* Floating Neon Green & Mint Blobs */

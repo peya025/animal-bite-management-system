@@ -76,6 +76,7 @@ export async function createPatientRecord(
     emergency_contact_number: enrolment.emergency_contact_phone,
     
     // Clean fields that shouldn't send empty strings to strict enum rules
+    suffix: cleanField(enrolment.suffix),
     civil_status: cleanField(enrolment.civil_status),
     philhealth_member: membershipFields.philhealth_member,
     philhealth_status: cleanField(membershipFields.philhealth_status ?? enrolment.philhealth_status),

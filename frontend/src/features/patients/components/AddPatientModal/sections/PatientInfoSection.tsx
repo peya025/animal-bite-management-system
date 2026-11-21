@@ -1,7 +1,12 @@
 import React from 'react';
 import { FormField } from './FormField';
 import { DuplicatePatientBanner } from './DuplicatePatientBanner';
-import type { DuplicatePatientMatch, EnrolmentFormData } from '../../../types';
+import {
+  PATIENT_SUFFIX_OPTIONS,
+  normalizePatientSuffix,
+  type DuplicatePatientMatch,
+  type EnrolmentFormData,
+} from '../../../types';
 import { useClinicModuleConfig } from '../../../../../hooks/useClinicModuleConfig';
 
 interface PatientInfoSectionProps {
@@ -49,8 +54,32 @@ export function PatientInfoSection({
           <FormField label="Middle Name">
             <input className="fm-input" name="middle_name" value={data.middle_name} onChange={onChange('middle_name')} placeholder="Santos" />
           </FormField>
-          <FormField label="Suffix">
-            <input className="fm-input" name="suffix" value={data.suffix} onChange={onChange('suffix')} placeholder="Jr." />
+          <FormField id="field-suffix" label="Suffix" error={!!errors.suffix} errorText={errors.suffix}>
+            {(() => {
+              const suffixValue = normalizePatientSuffix(data.suffix);
+              const hasLegacySuffix =
+                suffixValue !== '' &&
+                !(PATIENT_SUFFIX_OPTIONS as readonly string[]).includes(suffixValue);
+              return (
+                <select
+                  className="fm-select"
+                  name="suffix"
+                  value={suffixValue}
+                  onChange={onChange('suffix')}
+                  style={errors.suffix ? { borderColor: '#ef4444' } : undefined}
+                >
+                  <option value="">None</option>
+                  {PATIENT_SUFFIX_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                  {hasLegacySuffix && (
+                    <option value={suffixValue}>{suffixValue}</option>
+                  )}
+                </select>
+              );
+            })()}
           </FormField>
         </div>
 

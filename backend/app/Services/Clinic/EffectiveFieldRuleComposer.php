@@ -158,7 +158,7 @@ class EffectiveFieldRuleComposer
             'first_name' => $isUpdate ? 'sometimes|required|string|max:255' : 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'last_name' => $isUpdate ? 'sometimes|required|string|max:255' : 'required|string|max:255',
-            'suffix' => 'nullable|string|max:50',
+            'suffix' => $isUpdate ? 'nullable|string|max:50' : 'nullable|string|in:Jr.,Sr.,II,III,IV,V',
             'gender' => $isUpdate ? 'sometimes|required|in:male,female' : 'required|in:male,female',
             'age' => 'nullable|integer|min:0|max:150',
             'date_of_birth' => 'nullable|date|before_or_equal:today',

@@ -195,6 +195,7 @@ class BiteCaseController extends Controller
             'animal_status' => 'nullable|in:all,owned,stray,unknown,not_recorded,unassessed',
             'animal_condition' => 'nullable|in:all,healthy,sick,died,dead,unknown,not_recorded,unassessed',
             'channel' => 'nullable|in:all,walk_in,online',
+            'age_group' => 'nullable|in:all,ALL,children,teenagers,adults,senior_citizens',
             'search' => 'nullable|string|max:255',
             'aggregate_only' => 'nullable|boolean',
             'privacy_mode' => 'nullable|in:aggregate_only,internal_aggregate',

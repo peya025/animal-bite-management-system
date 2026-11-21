@@ -5,6 +5,10 @@ import { Typography } from '@mui/material';
 import api from '../../../shared/services/api';
 import { ROUTES } from '../../../shared/config/routes';
 import DashboardLayout from '../../../components/Layout/DashboardLayout';
+import {
+  getPhilippineRegularHolidays,
+  type CalendarHoliday,
+} from '../../../shared/utils/philippineHolidays';
 
 import {
   MISAMIS_ORIENTAL_MUNICIPALITIES,
@@ -322,10 +326,10 @@ export function SimpleDashboardPage() {
             component="h1"
             sx={{
               fontFamily: 'Poppins',
-              fontSize: '24px',
-              fontWeight: 700,
-              lineHeight: 1.2,
-              letterSpacing: '-0.02em',
+              fontSize: '22px',
+              fontWeight: 600,
+              lineHeight: 1.25,
+              letterSpacing: '-0.5px',
               color: 'var(--text-h, #111827)',
               mb: 0.5,
             }}
@@ -388,40 +392,39 @@ export function SimpleDashboardPage() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(280px, 340px) 1fr',
-              gap: '14px',
+              gridTemplateColumns: 'minmax(400px, 1.2fr) 1fr',
+              gap: '16px',
               marginBottom: '16px',
               alignItems: 'stretch',
             }}
             className="sd-top-arrangement"
           >
-            {/* Calendar Card on the Left */}
+            {/* Bigger Calendar Card on the Left */}
             <SdCalendar />
 
-            {/* Cards Grid: Overview statistics + Cases summary + Vaccination summary */}
-            <div style={{ minWidth: 0 }}>
+            {/* Rearranged 2×3 Core Overview KPIs on the Right */}
+            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
               <div
-                className="sd-cards-grid"
+                className="sd-overview-kpi-grid"
                 data-walkthrough="dashboard-stat-cards" data-tour="dashboard-summary-cards"
                 style={{
-                  marginBottom: 0,
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
                   gap: '12px',
+                  flex: 1,
                 }}
               >
-                {/* 1. Overview Statistics */}
+                {/* Row 1: Patients & Queue */}
                 <SdCard color="purple" label="Total Patients" value={stats.totalPatients.toString()} sub="Registered" />
                 <SdCard color="teal" label="Today's Queue" value={stats.todayQueue.toString()} sub="Waiting" />
-                <SdCard color="emerald" label="New Today" value={stats.newToday.toString()} sub="Registered" />
 
-                {/* 2. Cases Summary Cards */}
+                {/* Row 2: Bite Cases */}
                 <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" />
                 <SdCard color="blue" label="Active Cases" value={stats.activeCases.toString()} sub="Ongoing treatment" />
-                <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" />
 
-                {/* 3. Vaccination Summary Cards */}
+                {/* Row 3: Outcomes & Doses */}
+                <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" />
                 <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
-                <SdCard color="purple" label="Total Scheduled" value={stats.followupPatients.toString()} sub="Doses tracked" />
-                <SdCard color="teal" label="Queue Count" value={stats.todayQueue.toString()} sub="Today waiting" />
               </div>
             </div>
           </div>
@@ -893,27 +896,94 @@ function SdCalendar() {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [closeOnPhHolidays, setCloseOnPhHolidays] = useState<boolean>(true);
+  const [clinicHolidays, setClinicHolidays] = useState<CalendarHoliday[]>([]);
+  const [specialOpenDates, setSpecialOpenDates] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get('/clinics/schedule')
+      .then((res) => {
+        if (!active) return;
+        const closePh = res.data?.clinic?.close_on_ph_holidays ?? true;
+        setCloseOnPhHolidays(Boolean(closePh));
+
+        const exceptions = Array.isArray(res.data?.exceptions) ? res.data.exceptions : [];
+        const closedDates: CalendarHoliday[] = [];
+        const openOverrides = new Set<string>();
+
+        exceptions.forEach((exc: any) => {
+          if (!exc.exception_date) return;
+          const dateStr = String(exc.exception_date).slice(0, 10);
+          if (exc.is_open) {
+            openOverrides.add(dateStr);
+          } else {
+            closedDates.push({
+              date: dateStr,
+              name: exc.reason?.trim() || 'Clinic Holiday / Closed',
+              isClinicOverride: true,
+            });
+          }
+        });
+
+        setClinicHolidays(closedDates);
+        setSpecialOpenDates(openOverrides);
+      })
+      .catch(() => {
+        // Non-fatal: keep default PH regular holidays
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
+  const shortMonthNames = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const daysInPrevMonth = new Date(year, month, 0).getDate();
   const today = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const monthPrefix = `${year}-${pad(month + 1)}-`;
+
+  // Always display PH Regular Holidays on the calendar;
+  // Operating Schedule (close_on_ph_holidays + manual overrides) decides whether the clinic is Open or Closed.
+  type ResolvedCalendarHoliday = CalendarHoliday & { isClosed: boolean };
+  const holidayMap = new Map<string, ResolvedCalendarHoliday>();
+
+  getPhilippineRegularHolidays(year).forEach((h) => {
+    const isClosed = specialOpenDates.has(h.date) ? false : closeOnPhHolidays;
+    holidayMap.set(h.date, { ...h, isClosed });
+  });
+
+  clinicHolidays.forEach((h) => {
+    holidayMap.set(h.date, { ...h, isClosed: true });
+  });
+
+  const monthHolidays = Array.from(holidayMap.values())
+    .filter((h) => h.date.startsWith(monthPrefix))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
-  const days = [];
+  const days: Array<{ day: number; isCurrent: boolean; isToday: boolean; holiday?: ResolvedCalendarHoliday }> = [];
   for (let i = firstDay - 1; i >= 0; i--) {
     days.push({ day: daysInPrevMonth - i, isCurrent: false, isToday: false });
   }
   for (let i = 1; i <= daysInMonth; i++) {
     const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === i;
-    days.push({ day: i, isCurrent: true, isToday });
+    const dateKey = `${year}-${pad(month + 1)}-${pad(i)}`;
+    days.push({ day: i, isCurrent: true, isToday, holiday: holidayMap.get(dateKey) });
   }
   const remaining = (7 - (days.length % 7)) % 7;
   for (let i = 1; i <= remaining; i++) {
@@ -929,124 +999,318 @@ function SdCalendar() {
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        minHeight: '260px',
+        minHeight: '340px',
         borderRadius: '20px',
-        padding: '20px 22px',
+        padding: '22px 24px',
         justifyContent: 'space-between',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-        <p className="sd-chart-title" style={{ margin: 0 }}>
+      {/* Centered Month & Year Header with Flanking Arrows */}
+      <div
+        data-walkthrough="calendar-nav"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '22px',
+          marginBottom: '18px',
+        }}
+      >
+        <button
+          onClick={prevMonth}
+          aria-label="Previous month"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            borderRadius: '50%',
+            width: '32px',
+            height: '32px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: isDark ? '#a7f3d0' : '#475569',
+            fontSize: '20px',
+            fontWeight: 600,
+            lineHeight: 1,
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)';
+            (e.currentTarget as HTMLButtonElement).style.color = isDark ? '#ffffff' : '#047857';
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+            (e.currentTarget as HTMLButtonElement).style.color = isDark ? '#a7f3d0' : '#475569';
+          }}
+        >
+          ‹
+        </button>
+
+        <p
+          className="sd-chart-title"
+          style={{
+            margin: 0,
+            fontSize: '20px',
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+            color: 'var(--text-h, #111827)',
+            minWidth: '185px',
+            textAlign: 'center',
+          }}
+        >
           {monthNames[month]} {year}
         </p>
-        <div style={{ display: 'flex', gap: '5px' }} data-walkthrough="calendar-nav">
-          <button
-            onClick={prevMonth}
-            style={{
-              background: isDark ? 'rgba(255,255,255,0.06)' : '#f8fafc',
-              border: isDark ? '1px solid rgba(16,185,129,0.25)' : '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '4px 10px',
-              cursor: 'pointer',
-              color: isDark ? '#a7f3d0' : '#475569',
-              fontSize: '13px',
-              fontWeight: 700,
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.12)';
-              (e.currentTarget as HTMLButtonElement).style.color = isDark ? '#ffffff' : '#047857';
-              (e.currentTarget as HTMLButtonElement).style.borderColor = isDark ? 'rgba(52, 211, 153, 0.6)' : 'rgba(16, 185, 129, 0.4)';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(255,255,255,0.06)' : '#f8fafc';
-              (e.currentTarget as HTMLButtonElement).style.color = isDark ? '#a7f3d0' : '#475569';
-              (e.currentTarget as HTMLButtonElement).style.borderColor = isDark ? '1px solid rgba(16,185,129,0.25)' : '1px solid #e2e8f0';
-            }}
-          >
-            ‹
-          </button>
-          <button
-            onClick={nextMonth}
-            style={{
-              background: isDark ? 'rgba(255,255,255,0.06)' : '#f8fafc',
-              border: isDark ? '1px solid rgba(16,185,129,0.25)' : '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '4px 10px',
-              cursor: 'pointer',
-              color: isDark ? '#a7f3d0' : '#475569',
-              fontSize: '13px',
-              fontWeight: 700,
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.12)';
-              (e.currentTarget as HTMLButtonElement).style.color = isDark ? '#ffffff' : '#047857';
-              (e.currentTarget as HTMLButtonElement).style.borderColor = isDark ? 'rgba(52, 211, 153, 0.6)' : 'rgba(16, 185, 129, 0.4)';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(255,255,255,0.06)' : '#f8fafc';
-              (e.currentTarget as HTMLButtonElement).style.color = isDark ? '#a7f3d0' : '#475569';
-              (e.currentTarget as HTMLButtonElement).style.borderColor = isDark ? '1px solid rgba(16,185,129,0.25)' : '1px solid #e2e8f0';
-            }}
-          >
-            ›
-          </button>
-        </div>
+
+        <button
+          onClick={nextMonth}
+          aria-label="Next month"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            borderRadius: '50%',
+            width: '32px',
+            height: '32px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: isDark ? '#a7f3d0' : '#475569',
+            fontSize: '20px',
+            fontWeight: 600,
+            lineHeight: 1,
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)';
+            (e.currentTarget as HTMLButtonElement).style.color = isDark ? '#ffffff' : '#047857';
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+            (e.currentTarget as HTMLButtonElement).style.color = isDark ? '#a7f3d0' : '#475569';
+          }}
+        >
+          ›
+        </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', gap: '4px', marginBottom: '8px' }}>
-        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d, i) => (
-          <span key={i} style={{ fontSize: '11px', fontWeight: 650, color: '#64748b' }}>
+      {/* Uppercase Weekday Row with Divider */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(7, 1fr)',
+          textAlign: 'center',
+          gap: '4px',
+          paddingBottom: '12px',
+          marginBottom: '10px',
+          borderBottom: isDark ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid #e5e7eb',
+        }}
+      >
+        {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((d, i) => (
+          <span
+            key={i}
+            style={{
+              fontSize: '11.5px',
+              fontWeight: 600,
+              letterSpacing: '0.04em',
+              color: 'var(--text-h, #111827)',
+            }}
+          >
             {d}
           </span>
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', flex: 1, alignItems: 'center' }}>
-        {days.map((item, idx) => (
-          <div
-            key={idx}
-            style={{
-              textAlign: 'center',
-              padding: '7px 0',
-              fontSize: '12.5px',
-              borderRadius: '10px',
-              color: item.isToday ? '#ffffff' : item.isCurrent ? 'var(--text-h)' : 'var(--text-secondary)',
-              opacity: item.isCurrent ? 1 : 0.4,
-              background: item.isToday ? '#10b981' : 'transparent',
-              fontWeight: item.isToday ? 700 : 500,
-              boxShadow: item.isToday ? '0 2px 8px rgba(16,185,129,0.4)' : 'none',
-              border: item.isToday ? '1px solid #10b981' : '1px solid transparent',
-              cursor: item.isCurrent ? 'pointer' : 'default',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={e => {
-              if (!item.isToday && item.isCurrent) {
-                if (isDark) {
-                  (e.currentTarget as HTMLDivElement).style.background = 'rgba(16, 185, 129, 0.32)';
-                  (e.currentTarget as HTMLDivElement).style.color = '#ffffff';
-                  (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(52, 211, 153, 0.65)';
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.4)';
-                } else {
-                  (e.currentTarget as HTMLDivElement).style.background = 'rgba(16, 185, 129, 0.15)';
-                  (e.currentTarget as HTMLDivElement).style.color = '#047857';
-                  (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(16, 185, 129, 0.35)';
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', rowGap: '8px', columnGap: '4px', flex: 1, alignItems: 'center' }}>
+        {days.map((item, idx) => {
+          const isHoliday = Boolean(item.isCurrent && item.holiday);
+          const defaultBg = item.isToday ? '#10b981' : 'transparent';
+          const defaultColor = item.isToday
+            ? '#ffffff'
+            : isHoliday
+              ? (isDark ? '#f87171' : '#dc2626')
+              : item.isCurrent
+                ? 'var(--text-h)'
+                : 'var(--text-secondary)';
+          const defaultBorder = item.isToday ? '1px solid #10b981' : '1px solid transparent';
+
+          return (
+            <div
+              key={idx}
+              title={item.holiday ? `${item.holiday.name} — ${item.holiday.isClosed ? 'Clinic Closed' : 'Clinic Open'}` : undefined}
+              style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '38px',
+                height: '38px',
+                margin: '0 auto',
+                fontSize: '13.5px',
+                borderRadius: '50%',
+                color: defaultColor,
+                opacity: item.isCurrent ? 1 : 0.35,
+                background: defaultBg,
+                fontWeight: item.isToday || isHoliday ? 700 : 500,
+                boxShadow: item.isToday ? '0 2px 8px rgba(16,185,129,0.4)' : 'none',
+                border: defaultBorder,
+                cursor: item.isCurrent ? 'pointer' : 'default',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={e => {
+                if (!item.isToday && item.isCurrent) {
+                  if (isHoliday) {
+                    (e.currentTarget as HTMLDivElement).style.color = isDark ? '#fca5a5' : '#b91c1c';
+                  } else if (isDark) {
+                    (e.currentTarget as HTMLDivElement).style.background = 'rgba(16, 185, 129, 0.32)';
+                    (e.currentTarget as HTMLDivElement).style.color = '#ffffff';
+                    (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(52, 211, 153, 0.65)';
+                    (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.4)';
+                  } else {
+                    (e.currentTarget as HTMLDivElement).style.background = 'rgba(16, 185, 129, 0.15)';
+                    (e.currentTarget as HTMLDivElement).style.color = '#047857';
+                    (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(16, 185, 129, 0.35)';
+                  }
                 }
-              }
-            }}
-            onMouseLeave={e => {
-              if (!item.isToday && item.isCurrent) {
-                (e.currentTarget as HTMLDivElement).style.background = 'transparent';
-                (e.currentTarget as HTMLDivElement).style.color = 'var(--text-h)';
-                (e.currentTarget as HTMLDivElement).style.borderColor = 'transparent';
-                (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
-              }
+              }}
+              onMouseLeave={e => {
+                if (!item.isToday && item.isCurrent) {
+                  (e.currentTarget as HTMLDivElement).style.background = defaultBg;
+                  (e.currentTarget as HTMLDivElement).style.color = defaultColor;
+                  (e.currentTarget as HTMLDivElement).style.borderColor = 'transparent';
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
+                }
+              }}
+            >
+              <span style={{ lineHeight: 1.1 }}>{item.day}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Compact Holiday List for the Current Month */}
+      <div
+        style={{
+          marginTop: '14px',
+          paddingTop: '12px',
+          borderTop: isDark ? '1px solid rgba(16, 185, 129, 0.18)' : '1px solid #f1f5f9',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '10px',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: isDark ? '#94a3b8' : '#64748b',
             }}
           >
-            {item.day}
+            Holidays · {monthNames[month]}
+          </span>
+          {monthHolidays.length > 0 && (
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: isDark ? '#f87171' : '#dc2626',
+              }}
+            >
+              {monthHolidays.length} {monthHolidays.length === 1 ? 'day' : 'days'}
+            </span>
+          )}
+        </div>
+
+        {monthHolidays.length === 0 ? (
+          <p style={{ margin: 0, fontSize: '12px', color: isDark ? '#64748b' : '#94a3b8' }}>
+            No holidays scheduled this month.
+          </p>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: '8px',
+            }}
+          >
+            {monthHolidays.map((h) => {
+              const dayNum = Number(h.date.slice(8, 10));
+              return (
+                <div
+                  key={h.date}
+                  title={`${h.name} — ${h.isClosed ? 'Clinic Closed' : 'Clinic Open'}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '7px 10px',
+                    borderRadius: '10px',
+                    background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #f1f5f9',
+                    minWidth: 0,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '3px',
+                      height: '18px',
+                      borderRadius: '99px',
+                      background: isDark ? '#f87171' : '#ef4444',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: isDark ? '#f87171' : '#dc2626',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      minWidth: '42px',
+                    }}
+                  >
+                    {shortMonthNames[month]} {dayNum}
+                  </span>
+                  <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: 'var(--text-h, #111827)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {h.name}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        color: h.isClosed
+                          ? (isDark ? '#fca5a5' : '#b91c1c')
+                          : (isDark ? '#34d399' : '#059669'),
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}
+                    >
+                      · {h.isClosed ? 'Closed' : 'Open'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

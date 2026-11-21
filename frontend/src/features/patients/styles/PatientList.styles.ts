@@ -40,12 +40,12 @@ export const PatientListRoot = styled('div')`
     gap: 12px;
   }
   .pm-title {
-    font-size: 24px;
-    font-weight: 700;
+    font-size: 22px;
+    font-weight: 600;
     color: var(--text-h);
     margin: 0 0 4px;
-    letter-spacing: -0.4px;
-    line-height: 1.2;
+    letter-spacing: -0.5px;
+    line-height: 1.25;
   }
   .pm-subtitle { font-size: 13px; color: var(--text-secondary); margin: 0; }
   

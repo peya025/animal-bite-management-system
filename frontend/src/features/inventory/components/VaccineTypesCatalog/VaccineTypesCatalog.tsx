@@ -150,7 +150,16 @@ export default function VaccineTypesCatalog({ onStockBatch }: VaccineTypesCatalo
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--text-h, #0f172a)', fontSize: '1.45rem', letterSpacing: '-0.3px' }}>
+            <Typography
+              component="h1"
+              sx={{
+                fontSize: '22px',
+                fontWeight: 600,
+                lineHeight: 1.25,
+                letterSpacing: '-0.5px',
+                color: 'var(--text-h, #111827)',
+              }}
+            >
               Vaccine Type Catalog
             </Typography>
             <Chip

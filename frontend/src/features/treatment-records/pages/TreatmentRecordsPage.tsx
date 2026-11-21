@@ -577,7 +577,7 @@ export default function TreatmentRecordsPage() {
       {/* Header */}
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:12, marginBottom:16 }}>
         <div>
-          <h1 style={{ fontSize: 25, fontWeight: 700, color: 'var(--text-h)', margin: '0 0 7px', letterSpacing: -0.5 }}>Treatment Records</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-h)', margin: '0 0 7px', letterSpacing: -0.5, lineHeight: 1.25 }}>Treatment Records</h1>
           <p style={{ fontSize:13, color: isDark ? '#a7f3d0' : '#77877d', margin:0 }}>ABTC paper form and clinical management for animal bite treatments.</p>
           {/* Breadcrumb */}
           <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:8, fontSize:13 }}>

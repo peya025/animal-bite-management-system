@@ -1625,12 +1625,12 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
           <Typography
             component="h1"
             sx={{
-              fontSize: 24,
-              fontWeight: 700,
-              color: 'text.primary',
+              fontSize: '22px',
+              fontWeight: 600,
+              color: 'var(--text-h, #111827)',
               fontFamily: POPPINS,
-              lineHeight: 1.2,
-              letterSpacing: '-0.02em',
+              lineHeight: 1.25,
+              letterSpacing: '-0.5px',
             }}
           >
             Reports &amp; Analytics

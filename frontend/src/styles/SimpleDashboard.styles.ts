@@ -404,7 +404,7 @@ export const AppStyleScope = styled('div')`
   }
   @media (max-width: 600px) {
     .sd-filters-bar-grid { grid-template-columns: 1fr !important; }
-    .sd-cards-grid { grid-template-columns: 1fr !important; }
+    .sd-cards-grid, .sd-overview-kpi-grid { grid-template-columns: 1fr !important; }
     .sd-content { padding: 16px; }
     .sd-topbar { padding: 0 16px; }
   }

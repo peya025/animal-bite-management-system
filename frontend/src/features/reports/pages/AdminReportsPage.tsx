@@ -382,7 +382,7 @@ export default function AdminReportsPage({ initialTab }: { initialTab?: 'summary
 
   return <Box sx={{ px: { xs: 1, sm: 3 }, pb: 24 }}>
     <Box sx={{ mb: 3 }}>
-      <Typography component="h1" sx={{ fontSize: 24, fontWeight: 700, color: 'text.primary' }}>Reports &amp; Analytics</Typography>
+      <Typography component="h1" sx={{ fontSize: '22px', fontWeight: 600, lineHeight: 1.25, letterSpacing: '-0.5px', color: 'var(--text-h, #111827)' }}>Reports &amp; Analytics</Typography>
       <Typography variant="caption" color="text.secondary">
         <Box component={RouterLink} to={ROUTES.DASHBOARD} sx={{ color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>Dashboard</Box>
         {' › Reports & Analytics'}

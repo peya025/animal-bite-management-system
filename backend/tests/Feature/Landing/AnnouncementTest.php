@@ -47,8 +47,12 @@ class AnnouncementTest extends TestCase
         Sanctum::actingAs($this->staff());
         $this->postJson('/api/announcements', $this->payload(['expires_on' => '2026-11-11']))->assertCreated();
         $this->postJson('/api/announcements', $this->payload(['expires_on' => '2026-11-12', 'title' => 'Today']))->assertCreated();
+        $this->postJson('/api/announcements', $this->payload(['expires_on' => '', 'title' => 'No expiry']))
+            ->assertCreated()
+            ->assertJsonPath('expires_on', null);
+        $this->assertDatabaseHas('announcements', ['title' => 'No expiry', 'expires_on' => null]);
         $this->postJson('/api/announcements', $this->payload(['is_published' => false]))->assertCreated();
-        $this->getJson('/api/public/announcements')->assertOk()->assertJsonCount(1)->assertJsonPath('0.title', 'Today');
+        $this->getJson('/api/public/announcements')->assertOk()->assertJsonCount(2);
     }
 
     public function test_only_administrators_can_manage_announcements_for_their_own_clinic(): void
@@ -74,7 +78,32 @@ class AnnouncementTest extends TestCase
         $this->postJson('/api/announcements/'.$id, $this->payload())->assertOk();
         $admin->update(['clinic_id' => Clinic::create(['name' => 'Other clinic'])->id]);
         $this->postJson('/api/announcements/'.$id, $this->payload())->assertForbidden();
+        $this->deleteJson('/api/announcements/'.$id)->assertForbidden();
         $this->getJson('/api/announcements')->assertExactJson([]);
+    }
+
+    public function test_admin_can_delete_own_clinic_announcement_and_its_image(): void
+    {
+        Storage::fake('public');
+        $admin = $this->staff();
+        Sanctum::actingAs($admin);
+
+        $created = $this->postJson('/api/announcements', $this->payload([
+            'image' => UploadedFile::fake()->image('to-remove.png'),
+        ]))->assertCreated();
+        $id = $created->json('id');
+        $path = Announcement::findOrFail($id)->image_path;
+        Storage::disk('public')->assertExists($path);
+
+        // Non-admin cannot delete
+        Sanctum::actingAs($this->staff('registration'));
+        $this->deleteJson('/api/announcements/'.$id)->assertForbidden();
+
+        // Admin can delete
+        Sanctum::actingAs($admin);
+        $this->deleteJson('/api/announcements/'.$id)->assertNoContent();
+        $this->assertDatabaseMissing('announcements', ['id' => $id]);
+        Storage::disk('public')->assertMissing($path);
     }
 
     public function test_guests_inactive_staff_and_invalid_uploads_are_rejected(): void

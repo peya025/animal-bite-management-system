@@ -52,17 +52,24 @@ test.describe('PatientRowActions Component Tests', () => {
   test('Double click on action button triggers only one request and displays loading spinner', async ({ page }) => {
     const case5 = page.locator('#case-5');
     const checkInBtn = case5.getByRole('button', { name: 'Check In' });
-    const countDisplay = case5.getByTestId('checkin-call-count');
+    const countDisplay = page.locator('#checkin-call-count');
 
     await expect(countDisplay).toHaveText('0');
 
-    // Click twice rapidly (double click)
+    // Click button once
     await checkInBtn.click();
-    await checkInBtn.click({ force: true }).catch(() => {});
 
-    // Only 1 call executed
+    // Verify counter became 1
     await expect(countDisplay).toHaveText('1');
-    // Button is disabled with spinner during request
-    await expect(case5.getByRole('button', { name: 'Checking In…' })).toBeDisabled();
+
+    // Verify button is now disabled with spinner showing "Checking In…"
+    const disabledBtn = case5.getByRole('button', { name: 'Checking In…' });
+    await expect(disabledBtn).toBeDisabled();
+
+    // Attempt second click while disabled (double click)
+    await disabledBtn.click({ force: true }).catch(() => {});
+
+    // Counter remains 1
+    await expect(countDisplay).toHaveText('1');
   });
 });

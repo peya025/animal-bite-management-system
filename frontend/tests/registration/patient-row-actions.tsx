@@ -113,7 +113,7 @@ function Harness() {
         {/* Case 5: Double-click testing */}
         <div id="case-5">
           <h3>Case 5: Double Click Protection</h3>
-          <div data-testid="checkin-call-count">{checkInCalls}</div>
+          <div id="checkin-call-count">{checkInCalls}</div>
           <PatientRowActions
             patient={basePatient}
             actions={{

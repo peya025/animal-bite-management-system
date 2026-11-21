@@ -98,6 +98,7 @@ Route::middleware(['auth:sanctum', EnsureStaffAccount::class, 'active.user'])->p
     Route::get('/', [AnnouncementController::class, 'index']);
     Route::post('/', [AnnouncementController::class, 'store']);
     Route::post('/{announcement}', [AnnouncementController::class, 'update']);
+    Route::delete('/{announcement}', [AnnouncementController::class, 'destroy']);
 });
 
 // Form 1 Printout Route

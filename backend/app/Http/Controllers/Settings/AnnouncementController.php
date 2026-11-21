@@ -51,6 +51,17 @@ class AnnouncementController extends Controller implements HasMiddleware
         return $this->save($request, $announcement);
     }
 
+    public function destroy(Request $request, Announcement $announcement)
+    {
+        abort_unless($announcement->clinic_id === $request->user()->clinic_id, 403);
+        $imagePath = $announcement->image_path;
+        $announcement->delete();
+        if ($imagePath) {
+            Storage::disk('public')->delete($imagePath);
+        }
+        return response()->noContent();
+    }
+
     private function save(Request $request, Announcement $item)
     {
         $data = $request->validate([
@@ -63,6 +74,7 @@ class AnnouncementController extends Controller implements HasMiddleware
             'remove_image' => 'sometimes|boolean',
         ]);
         unset($data['image'], $data['remove_image']);
+        $data['expires_on'] = ($data['expires_on'] ?? '') !== '' ? $data['expires_on'] : null;
         $oldPath = $item->image_path;
         $newPath = $request->hasFile('image') ? $request->file('image')->store('announcements', 'public') : null;
         if ($newPath || $request->boolean('remove_image')) {

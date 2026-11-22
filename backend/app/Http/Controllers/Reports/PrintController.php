@@ -71,4 +71,26 @@ class PrintController extends Controller
 
         return view('prints.bite-summary-meeting-pack', $data);
     }
+
+    /**
+     * PHASE 4 — 1-Page Barangay / MAO Surveillance Advisory Memorandum (Zero PII)
+     * GET /print/reports/barangay-advisory-memo
+     */
+    public function barangayAdvisoryMemo(Request $request): View
+    {
+        $data = $this->printDocumentService->getBarangayAdvisoryMemoData($request);
+
+        return view('prints.barangay-advisory-memo', $data);
+    }
+
+    /**
+     * PHASE 4 — 1-Page Daily Shift Turnover & Morning Preparation Print Slip
+     * GET /print/reports/daily-turnover
+     */
+    public function dailyTurnoverSlip(Request $request): View
+    {
+        $data = $this->printDocumentService->getDailyTurnoverSlipData($request);
+
+        return view('prints.daily-turnover-slip', $data);
+    }
 }

@@ -10,6 +10,7 @@ import '../services/walkthrough_service.dart';
 import '../widgets/learn_more_section.dart';
 import '../widgets/menu/campaign_banner.dart';
 import '../widgets/menu/announcement_carousel.dart';
+import '../widgets/menu/community_bite_watch_card.dart';
 import '../widgets/menu/guidelines_section.dart';
 import '../widgets/menu/information_panels.dart';
 import '../widgets/menu/menu_navigation.dart';
@@ -36,6 +37,7 @@ class _MenuViewState extends State<MenuView> {
   int _selectedIndex = 0;
   int _resourcesRefreshTrigger = 0;
   String? _userName;
+  String? _userBarangay;
   bool _hasCompletedPEP = false;
 
   final GlobalKey _guideButtonKey = GlobalKey();
@@ -131,10 +133,18 @@ class _MenuViewState extends State<MenuView> {
             : account.name.trim();
 
         final hasCompleted = account.patients.any((p) => p.hasCompletedPrimary);
+        final resolvedBarangay =
+            selfProfile?.details?.addressBarangay?.trim() ??
+            account.patients
+                .map((p) => p.details?.addressBarangay?.trim() ?? '')
+                .firstWhere((b) => b.isNotEmpty, orElse: () => '');
 
         setState(() {
           if (resolvedName.isNotEmpty) {
             _userName = resolvedName;
+          }
+          if (resolvedBarangay.isNotEmpty) {
+            _userBarangay = resolvedBarangay;
           }
           if (widget.hasCompletedPEP == null) {
             _hasCompletedPEP = hasCompleted;
@@ -198,6 +208,7 @@ class _MenuViewState extends State<MenuView> {
                           AnnouncementCarousel(
                             key: _heroKey,
                             refreshTrigger: _resourcesRefreshTrigger,
+                            userBarangay: _userBarangay,
                             welcome: CampaignBanner(
                               walkthroughButtonKey: _guideButtonKey,
                               onStartWalkthrough: _startWalkthrough,
@@ -231,6 +242,14 @@ class _MenuViewState extends State<MenuView> {
                                 if (mounted) _refreshHome();
                               },
                             ),
+                          ),
+                          const SizedBox(height: 16),
+                          CommunityBiteWatchCard(
+                            userBarangay: _userBarangay,
+                            refreshTrigger: _resourcesRefreshTrigger,
+                            onBookVisit: () => Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.booking),
                           ),
                           const SizedBox(height: 20),
                           const GuidelinesSection(),

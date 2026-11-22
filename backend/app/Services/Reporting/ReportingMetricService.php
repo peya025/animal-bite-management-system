@@ -130,7 +130,10 @@ class ReportingMetricService
                 $currentMetrics,
                 $servicePeriod,
                 $backlog,
-                $params
+                array_merge($params, [
+                    'resolved_items' => $primaryItems,
+                    'resolved_covers_recent_30d' => $from->lte($cutoff->subDays(29)) && $to->gte($cutoff->startOfDay()),
+                ])
             );
 
             $result = [

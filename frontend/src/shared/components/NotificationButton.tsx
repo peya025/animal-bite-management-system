@@ -56,9 +56,12 @@ function getNotificationVisuals(category: string, type: string): {
 } {
   switch (type) {
     case 'high_risk_area':
+    case 'rig_pending':
+    case 'animal_risk':
       return { icon: 'biteCases', variant: 'danger' };
     case 'out_of_stock':
     case 'stock_expired':
+    case 'vial_shortfall_7d':
       return { icon: 'warning', variant: 'danger' };
     case 'low_stock':
     case 'near_expiry':

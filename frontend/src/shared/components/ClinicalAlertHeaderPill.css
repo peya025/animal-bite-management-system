@@ -1,0 +1,226 @@
+.clinical-alert-pill-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.clinical-alert-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+}
+
+.clinical-alert-pill-btn--critical {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.clinical-alert-pill-btn--critical:hover {
+  background: #fee2e2;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.18);
+}
+
+.clinical-alert-pill-btn--warning {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.clinical-alert-pill-btn--warning:hover {
+  background: #fef3c7;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.16);
+}
+
+.clinical-alert-pill-btn--snoozed {
+  width: 32px;
+  padding: 0;
+  justify-content: center;
+}
+
+.clinical-alert-pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.clinical-alert-pill-dot--critical {
+  background: #dc2626;
+}
+
+.clinical-alert-pill-dot--warning {
+  background: #d97706;
+}
+
+.clinical-alert-popover {
+  width: min(350px, calc(100vw - 24px));
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: var(--card-bg-solid, #ffffff);
+  color: var(--text-h, #0f172a);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.16);
+  overflow: hidden;
+}
+
+/* Native CSS Anchor Positioning gated via @supports so unsupported browsers never strand at (0,0) */
+@supports (position-area: block-end) {
+  .clinical-alert-popover {
+    inset: auto;
+    margin: 8px 0 0 0;
+    position-area: block-end span-inline-start;
+    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  }
+}
+
+@supports not (position-area: block-end) {
+  .clinical-alert-popover {
+    position: fixed;
+    top: 62px;
+    right: 16px;
+    left: auto;
+    bottom: auto;
+    margin: 0;
+  }
+}
+
+.clinical-alert-popover-fallback {
+  position: fixed;
+  top: 62px;
+  right: 16px;
+  z-index: 1400;
+}
+
+.clinical-alert-popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
+.clinical-alert-popover-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.clinical-alert-popover-list {
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  gap: 4px;
+  max-height: min(360px, 60vh);
+  overflow-y: auto;
+}
+
+.clinical-alert-item-btn {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.clinical-alert-item-btn:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.clinical-alert-item-btn:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 1px;
+}
+
+.clinical-alert-item-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.clinical-alert-item-detail {
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 2px;
+  line-height: 1.35;
+}
+
+.clinical-alert-item-badge {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.clinical-alert-item-badge--critical {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.clinical-alert-item-badge--warning {
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.clinical-alert-popover-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
+.clinical-alert-footer-btn {
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.clinical-alert-footer-btn--muted {
+  color: #64748b;
+}
+
+.clinical-alert-footer-btn--muted:hover {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.clinical-alert-footer-btn--primary {
+  color: #0f766e;
+}
+
+.clinical-alert-footer-btn--primary:hover {
+  background: #f0fdfa;
+}

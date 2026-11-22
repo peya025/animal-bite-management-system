@@ -3,9 +3,7 @@
  * Preserves backend-computed clinical and DOH cohort definitions without recalculating formulas in the browser.
  */
 
-export type PriorityLevel = 'high' | 'medium' | 'low' | 'limited_data';
-export type RiskLevel = 'high' | 'medium' | 'low';
-export type ViewTab = 'summary' | 'treatment' | 'risk' | 'cases';
+export type ViewTab = 'summary' | 'treatment' | 'cases';
 export type PrivacyMode = 'internal_aggregate' | 'aggregate_only';
 export type BiteSummaryAgeGroupKey = 'children' | 'teenagers' | 'adults' | 'senior_citizens';
 
@@ -19,21 +17,6 @@ export const BITE_SUMMARY_AGE_GROUPS: ReadonlyArray<{
   { key: 'teenagers', label: 'Teenagers', range: '13–17 years' },
   { key: 'children', label: 'Children', range: '1–12 years' },
 ];
-export type LocationSortKey =
-  | 'priority'
-  | 'location'
-  | 'cases'
-  | 'cat_3'
-  | 'pep'
-  | 'overdue'
-  | 'last_incident';
-
-export type OptionalBarangayColumn =
-  | 'demographics'
-  | 'rig_details'
-  | 'animals'
-  | 'trend'
-  | 'risk_score';
 
 export type LocationSummary = {
   location: string;
@@ -41,8 +24,10 @@ export type LocationSummary = {
   municipality?: string | null;
   geography_scope?: string;
   location_level: string;
-  risk_score: number;
-  risk_level: RiskLevel;
+  surge_level?: 'cluster' | 'surge' | null;
+  cases_last_7d?: number | null;
+  surge_ratio?: number | null;
+  surge_reason?: string | null;
   total?: number;
   total_cases: number;
   previous_total?: number;
@@ -183,6 +168,19 @@ export type CaseSummary = {
   animal_status?: string;
   animal_ownership?: string;
   animal_condition?: string;
+  animal_observation_date?: string | null;
+  animal_last_checked_at?: string | null;
+  animal_observation_day?: number | null;
+  animal_observation_due?: boolean;
+  animal_observation_policy?:
+    | 'high_risk_full_pep'
+    | 'full_pep_required'
+    | 'md_discontinuation_review'
+    | 'day14_check_due'
+    | 'observing'
+    | 'healthy_observed'
+    | string;
+  animal_observation_badge?: string | null;
   registration_channel?: 'walk_in' | 'online';
   status: string;
   last_completed_stage?: string;
@@ -199,6 +197,9 @@ export type CaseSummary = {
   encounter_disposition?: string;
   rig_given?: string;
   rig_indicated?: string;
+  rig_pending?: boolean;
+  rig_pending_hours?: number | null;
+  is_unassessed_over_48h?: boolean;
   is_overdue?: boolean;
   days_overdue?: number;
   overdue_dose?: string | null;
@@ -477,6 +478,93 @@ export interface PlanningProjectionsPayload {
   baseline_forecast: BaselineForecastPayload;
 }
 
+export interface BarangaySurgeAlert {
+  barangay: string;
+  municipality: string;
+  scope: string;
+  level: 'cluster' | 'surge';
+  severity: 'critical' | 'warning';
+  total_7d: number;
+  cat_1_7d: number;
+  cat_2_7d: number;
+  cat_3_7d: number;
+  awaiting_assessment_7d: number;
+  baseline_30d_total: number;
+  baseline_weekly_avg: number;
+  surge_ratio: number | null;
+  latest_bite_date: string | null;
+  reason: string;
+  disclaimer: string;
+}
+
+export interface VialReadinessSummary {
+  status: 'shortfall' | 'tight' | 'expiring' | 'ok';
+  severity: 'critical' | 'warning' | 'ok';
+  usable_arv_vials: number;
+  usable_rig_vials: number;
+  effective_doses_per_vial: number;
+  next_7d_committed_followups: number;
+  today_waiting_d0_doses: number;
+  next_7d_expected_walkin_d0: number;
+  next_7d_vials_committed_only: number;
+  next_7d_vials_realistic: number;
+  next_7d_vials_conservative_im: number;
+  next_14d_committed_followups: number;
+  next_14d_vials_realistic: number;
+  projected_stock_after_7d: number;
+  projected_stockout_date: string | null;
+  committed_stockout_date: string | null;
+  expiring_within_30d_vials: number;
+  expiring_unused_vials: number;
+  rig_pending_cases: number;
+  rig_projected_7d_vials: number;
+  rig_status: 'shortfall' | 'tight' | 'ok';
+  high_wastage_days_next_7d: number;
+  headline: string;
+}
+
+export interface ClinicalAlertsSummary {
+  rule_version: string;
+  cutoff: string;
+  has_critical_alerts: boolean;
+  rig_pending: {
+    total: number;
+    urgent_within_48h: number;
+    over_48h: number;
+  };
+  overdue_pep: {
+    overdue_episodes: number;
+    critical_3d_plus: number;
+    warning_1_2d: number;
+    overdue_patients: number;
+    overdue_courses: number;
+    outstanding_dose_slots: number;
+  };
+  high_risk_animals: {
+    died: number;
+    sick: number;
+    total: number;
+  };
+  workflow_pending: {
+    awaiting_assessment: number;
+    unassessed_over_48h: number;
+    no_administration_recorded: number;
+    unresolved_over_30_days: number;
+    assessed_category_missing: number;
+  };
+  data_completeness: {
+    unknown_location_count: number;
+    unknown_location_pct: number;
+    unknown_location_warning: boolean;
+    provisional_exposure_date_count: number;
+    unknown_location_7d: number;
+  };
+  vial_readiness?: VialReadinessSummary;
+  barangay_surges: BarangaySurgeAlert[];
+  cluster_zones: string[];
+  surge_zones: string[];
+}
+
 export type DashboardData = {
   rule_version?: string;
   privacy_mode?: PrivacyMode;
@@ -507,8 +595,11 @@ export type DashboardData = {
   insights?: DescriptiveFinding[];
   limitations?: string[];
   snapshot?: ReportSnapshotHeader;
+  clinical_alerts?: ClinicalAlertsSummary;
   risk_alerts: {
     high_risk_zones: string[];
+    cluster_zones?: string[];
+    surge_zones?: string[];
     overdue_count: number;
   };
 };
@@ -527,135 +618,6 @@ export type Filters = {
   customTo: string;
   cutoff: string;
 };
-
-export const priorityConfig: Record<
-  PriorityLevel,
-  {
-    label: string;
-    shortLabel: string;
-    color: string;
-    background: string;
-    border: string;
-    desc: string;
-  }
-> = {
-  high: {
-    label: 'High Priority',
-    shortLabel: 'High',
-    color: 'var(--bc-red)',
-    background: 'var(--bc-danger-bg)',
-    border: 'var(--bc-danger-border)',
-    desc: 'High case volume, severe Category III exposures, or overdue PEP patients requiring immediate attention.',
-  },
-  medium: {
-    label: 'Medium Priority',
-    shortLabel: 'Medium',
-    color: 'var(--bc-amber)',
-    background: 'var(--bc-amber-bg)',
-    border: 'var(--bc-amber-border)',
-    desc: 'Moderate case frequency or mixed exposure severity. Continue standard monitoring.',
-  },
-  low: {
-    label: 'Low Priority',
-    shortLabel: 'Low',
-    color: 'var(--bc-green)',
-    background: 'var(--bc-success-bg)',
-    border: 'var(--bc-success-border)',
-    desc: 'Low bite case counts and stable follow-up compliance.',
-  },
-  limited_data: {
-    label: 'Limited Data (<3 cases)',
-    shortLabel: 'Limited data',
-    color: 'var(--bc-text-secondary)',
-    background: 'var(--bc-surface-3)',
-    border: 'var(--bc-border)',
-    desc: 'Fewer than 3 cases. Shown for reference only so isolated cases do not distort barangay ranking.',
-  },
-};
-
-export interface PriorityBreakdown {
-  caseBurdenScore: number;
-  severityScore: number;
-  overdueScore: number;
-  trendScore: number;
-  compositeScore: number;
-  priorityLevel: PriorityLevel;
-  isLimitedData: boolean;
-  explanation: string;
-}
-
-export function computePriorityBreakdown(
-  row: LocationSummary,
-  maxCasesAcrossLocations = 1
-): PriorityBreakdown {
-  const isLimitedData = row.total_cases < 3;
-
-  const caseBurdenScore = Math.min(
-    100,
-    Math.round((row.total_cases / Math.max(1, maxCasesAcrossLocations)) * 100)
-  );
-  const severityScore =
-    row.total_cases > 0 ? Math.min(100, Math.round((row.cat_3 / row.total_cases) * 100)) : 0;
-  const overdueScore =
-    row.total_cases > 0 ? Math.min(100, Math.round((row.overdue_doses / row.total_cases) * 100)) : 0;
-
-  let trendScore = 50;
-  if (row.trend === 'up') {
-    trendScore = Math.min(100, 50 + (row.trend_diff ? Math.min(50, row.trend_diff * 15) : 25));
-  } else if (row.trend === 'down') {
-    trendScore = Math.max(0, 50 - (row.trend_diff ? Math.min(50, Math.abs(row.trend_diff) * 15) : 25));
-  } else if (row.trend === 'new') {
-    trendScore = 60;
-  }
-
-  const rawComposite =
-    caseBurdenScore * 0.35 + severityScore * 0.35 + overdueScore * 0.2 + trendScore * 0.1;
-  const compositeScore = Math.min(100, Math.max(0, Math.round(rawComposite)));
-
-  let priorityLevel: PriorityLevel;
-  if (isLimitedData) {
-    priorityLevel = 'limited_data';
-  } else if (compositeScore >= 70) {
-    priorityLevel = 'high';
-  } else if (compositeScore >= 40) {
-    priorityLevel = 'medium';
-  } else {
-    priorityLevel = 'low';
-  }
-
-  let explanation = '';
-  if (isLimitedData) {
-    explanation = `${row.location} recorded ${row.total_cases} case${
-      row.total_cases === 1 ? '' : 's'
-    } (${row.cat_3} Category III) during this period. Classified as Limited Data (N<3) to prevent isolated incidents from distorting community surveillance.`;
-  } else if (priorityLevel === 'high') {
-    const reasons: string[] = [];
-    if (caseBurdenScore >= 60) reasons.push(`substantial bite volume (${row.total_cases} cases)`);
-    if (severityScore >= 50)
-      reasons.push(`${severityScore}% Category III exposures (${row.cat_3}/${row.total_cases})`);
-    if (row.overdue_doses > 0)
-      reasons.push(`${row.overdue_doses} episode(s) with overdue PEP follow-up`);
-    if (row.trend === 'up') reasons.push(`an upward change (+${row.trend_diff ?? 1} cases)`);
-    explanation = `Flagged for review due to ${reasons.join(', ')}. Review and follow-up recommended.`;
-  } else if (priorityLevel === 'medium') {
-    explanation = `Moderate activity with ${row.total_cases} recorded exposure episodes (${row.cat_3} Cat III, ${row.cat_2} Cat II). Continue routine follow-up tracking.`;
-  } else {
-    explanation = `Low review burden with ${row.total_cases} recorded exposure episode${
-      row.total_cases === 1 ? '' : 's'
-    } and stable follow-up.`;
-  }
-
-  return {
-    caseBurdenScore,
-    severityScore,
-    overdueScore,
-    trendScore,
-    compositeScore,
-    priorityLevel,
-    isLimitedData,
-    explanation,
-  };
-}
 
 export function formatDaysAgo(days: number | null): string {
   if (days === null || days === undefined) return '—';
@@ -734,32 +696,4 @@ export function normalizeSeverityParam(value: string | null): string {
   if (lower === 'not_yet_assessed') return 'not_yet_assessed';
   if (lower === 'assessed_category_missing') return 'assessed_category_missing';
   return '';
-}
-
-export function buildExplicitReviewReasons(loc: LocationSummary): string[] {
-  if (loc.is_small_cell_suppressed) {
-    return ['<5 cases (Conference Cell Suppressed)'];
-  }
-  const reasons: string[] = [];
-  if (loc.cat_3 > 0) {
-    const pct = loc.total_cases > 0 ? Math.round((loc.cat_3 / loc.total_cases) * 100) : 0;
-    reasons.push(`Cat III: ${loc.cat_3} (${pct}%)`);
-  }
-  if ((loc.no_administration_recorded ?? 0) > 0) {
-    reasons.push(`No Admin Recorded: ${loc.no_administration_recorded}`);
-  }
-  const overdue = loc.overdue_episodes ?? loc.overdue_doses ?? 0;
-  if (overdue > 0) {
-    reasons.push(`Overdue: ${overdue} ep (${loc.outstanding_dose_slots ?? overdue} slots)`);
-  }
-  if ((loc.age_below_15 ?? 0) > 0) {
-    reasons.push(`Children <15y: ${loc.age_below_15}`);
-  }
-  if ((loc.unassessed ?? 0) > 0) {
-    reasons.push(`Unassessed: ${loc.unassessed}`);
-  }
-  if (loc.trend === 'up' && loc.trend_diff && loc.trend_diff > 0) {
-    reasons.push(`+${loc.trend_diff} vs prior`);
-  }
-  return reasons;
 }

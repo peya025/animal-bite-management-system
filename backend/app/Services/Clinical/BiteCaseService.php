@@ -13,6 +13,7 @@ use App\Models\TreatmentRecord;
 use App\Models\User;
 use App\Services\GeocodingService;
 use App\Services\NotificationService;
+use App\Services\Reporting\ClinicalRiskAlertService;
 use App\Services\Reporting\EpisodeReportingStateResolver;
 use App\Services\Reporting\ExposureReportingQuery;
 use App\Services\Reporting\ReportingMetricService;
@@ -459,6 +460,7 @@ class BiteCaseService
         $outcomeResolver = app(TreatmentOutcomeResolver::class);
         $stateResolver = new EpisodeReportingStateResolver($outcomeResolver);
         $reportingQuery = new ExposureReportingQuery($stateResolver, $outcomeResolver);
+        $alertService = new ClinicalRiskAlertService($outcomeResolver, $stateResolver, $reportingQuery);
 
         $rawSeverity = trim((string) ($validated['severity'] ?? ''));
         $lowerSeverity = strtolower($rawSeverity);
@@ -548,6 +550,8 @@ class BiteCaseService
         )['barangay'];
 
         $previousCases = $previousResult['cases']->groupBy($groupByExposureBarangay);
+        $surgeSummary = $alertService->detectBarangaySurges($clinicId, $cutoff, $clinic);
+        $surgeAlertMap = $surgeSummary['alert_map'] ?? [];
 
         $locations = $cases->groupBy($groupByExposureBarangay)
             ->map(function ($locationCases, $location) use (
@@ -557,7 +561,8 @@ class BiteCaseService
                 $reportingQuery,
                 $clinicMunicipality,
                 $clinicProvince,
-                $cutoff
+                $cutoff,
+                $surgeAlertMap
             ) {
                 $total = $locationCases->count();
                 $geo = $reportingQuery->normalizeExposureGeography(
@@ -572,8 +577,7 @@ class BiteCaseService
                 $cat3 = $categories->filter(fn ($category) => $category === 'III')->count();
                 $unassessed = $categories->filter(fn ($category) => $category === 'Unassessed')->count();
 
-                $riskScore = $total ? (int) round((($cat3 * 1.5) + $cat2) / $total * 100) : 0;
-                $riskLevel = $riskScore >= 65 ? 'high' : ($riskScore >= 35 ? 'medium' : 'low');
+                $surgeInfo = $surgeAlertMap[$geo['barangay']] ?? null;
 
                 // Calculate vaccine initiation strictly among prescribed PEP courses, never awaiting-assessment or no-PEP rows
                 $eligibleCases = $locationCases
@@ -678,8 +682,10 @@ class BiteCaseService
                     'municipality' => $geo['municipality'],
                     'geography_scope' => $geo['scope'],
                     'location_level' => $location === 'Unknown' ? 'Unknown' : 'Barangay',
-                    'risk_score' => $riskScore,
-                    'risk_level' => $riskLevel,
+                    'surge_level' => $surgeInfo['level'] ?? null,
+                    'cases_last_7d' => $surgeInfo['total_7d'] ?? null,
+                    'surge_ratio' => $surgeInfo['surge_ratio'] ?? null,
+                    'surge_reason' => $surgeInfo['reason'] ?? null,
                     'total' => $total,
                     'total_cases' => $total,
                     'previous_total' => $previousTotal,
@@ -730,7 +736,7 @@ class BiteCaseService
                     'last_incident' => $lastIncident?->format('M d, Y'),
                     'last_incident_days_ago' => $lastIncident ? abs(Carbon::today()->diffInDays($lastIncident)) : null,
                 ];
-            })->sortByDesc('risk_score')->values();
+            })->sortByDesc('total_cases')->values();
 
         $resolvedCollection = $cases->map(fn (BiteIncident $case) => $resolvedMap[$case->bite_id]);
         $overdueMetrics = $outcomeResolver->summarizeOverdueMetrics($resolvedCollection);
@@ -1090,6 +1096,31 @@ class BiteCaseService
             ),
         ];
 
+        $clinicalAlerts = $alertService->summarizeClinicalAlerts(
+            $cases,
+            $resolvedMap,
+            $overdueMetrics,
+            $reconciliation,
+            $unknownExposureDateCount,
+            $cutoff,
+            $reportingQuery,
+            $stateResolver,
+            $clinicMunicipality,
+            $clinicProvince,
+            $surgeSummary
+        );
+        $vialReadiness = $dohSummary['planning_projections']['supply_scenarios']['vial_readiness'] ?? null;
+        if (is_array($vialReadiness)) {
+            $clinicalAlerts['vial_readiness'] = $vialReadiness;
+            if (($vialReadiness['severity'] ?? 'ok') === 'critical') {
+                $clinicalAlerts['has_critical_alerts'] = true;
+            }
+        }
+        $activeAlertZones = array_values(array_unique(array_merge(
+            $clinicalAlerts['cluster_zones'],
+            $clinicalAlerts['surge_zones']
+        )));
+
         $payload = [
             'rule_version' => ReportingMetricService::RULE_VERSION,
             'privacy_mode' => $privacyMode,
@@ -1100,7 +1131,7 @@ class BiteCaseService
                 'awaiting_assessment' => (int) $reconciliation['awaiting_assessment'],
                 'awaiting_treatment' => (int) $reconciliation['no_administration_recorded'],
                 'completed' => $cases->filter(fn ($c) => in_array($resolvedMap[$c->bite_id]['resolved_status'], ['completed', 'completed_no_pep'], true))->count(),
-                'high_risk_zones' => $locations->where('risk_level', 'high')->count(),
+                'high_risk_zones' => count($activeAlertZones),
                 'overdue_doses' => $overdueMetrics['overdue_episodes'],
                 'overdue_episodes' => $overdueMetrics['overdue_episodes'],
                 'overdue_patients' => $overdueMetrics['overdue_patients'],
@@ -1122,8 +1153,11 @@ class BiteCaseService
             'service_period_metrics' => $servicePeriodMetrics,
             'doh_summary' => $dohSummary,
             'locations' => $locations->values()->all(),
+            'clinical_alerts' => $clinicalAlerts,
             'risk_alerts' => [
-                'high_risk_zones' => $locations->where('risk_level', 'high')->pluck('location')->values(),
+                'high_risk_zones' => $activeAlertZones,
+                'cluster_zones' => $clinicalAlerts['cluster_zones'],
+                'surge_zones' => $clinicalAlerts['surge_zones'],
                 'overdue_count' => $overdueMetrics['overdue_episodes'],
             ],
         ];
@@ -1160,6 +1194,7 @@ class BiteCaseService
                 $resolvedMap,
                 $reviewAgeMap,
                 $reportingQuery,
+                $alertService,
                 $clinicMunicipality,
                 $clinicProvince,
                 $cutoff,
@@ -1169,6 +1204,9 @@ class BiteCaseService
                 $stage = $state['stage_summary'];
                 $course = $state['course_outcome'];
                 $rig = $state['rig_evidence'];
+                $isRigPending = $alertService->isRigPending($state);
+                $rigPendingHours = $isRigPending ? $alertService->rigPendingHours($case, $state, $cutoff) : null;
+                $isUnassessedOver48h = $alertService->isUnassessedOver48Hours($case, $state, $cutoff);
                 $reviewAge = $reviewAgeMap[$case->bite_id] ?? ['is_unresolved_review' => false, 'review_age_days' => null, 'review_age_bucket' => null];
                 $expGeo = $reportingQuery->normalizeExposureGeography($case, $clinicMunicipality, $clinicProvince);
 
@@ -1196,6 +1234,9 @@ class BiteCaseService
                 ])->values()->all();
 
                 $summaryAge = $this->resolveSummaryAgeYears($case);
+                $animalOwnership = $reportingQuery->normalizedAnimalOwnership($case);
+                $animalCondition = $reportingQuery->normalizedAnimalCondition($case);
+                $animalObs = $this->resolveAnimalObservationMeta($case, $animalOwnership, $animalCondition, $cutoff);
 
                 return [
                     'bite_id' => $case->bite_id,
@@ -1217,8 +1258,14 @@ class BiteCaseService
                     'animal_type' => $reportingQuery->normalizedAnimalCategory($case),
                     'animal_type_detail' => $reportingQuery->normalizedAnimalSpeciesDetail($case),
                     'animal_status' => $case->animal_status ?? $case->intake?->animal_status ?? 'unassessed',
-                    'animal_ownership' => $reportingQuery->normalizedAnimalOwnership($case),
-                    'animal_condition' => $reportingQuery->normalizedAnimalCondition($case),
+                    'animal_ownership' => $animalOwnership,
+                    'animal_condition' => $animalCondition,
+                    'animal_observation_date' => $case->animal_observation_date?->format('Y-m-d'),
+                    'animal_last_checked_at' => $case->animal_last_checked_at?->toIso8601String(),
+                    'animal_observation_day' => $animalObs['day'],
+                    'animal_observation_due' => $animalObs['due'],
+                    'animal_observation_policy' => $animalObs['policy'],
+                    'animal_observation_badge' => $animalObs['badge'],
                     'registration_channel' => $reportingQuery->normalizedRegistrationChannel($case),
                     'status' => $stage['resolved_status'],
                     'last_completed_stage' => $stage['last_completed_stage'],
@@ -1235,6 +1282,9 @@ class BiteCaseService
                     'encounter_disposition' => $state['encounter_disposition'],
                     'rig_given' => $rig['administered_rig_type'] ?: 'None',
                     'rig_indicated' => $rig['indicated_rig_type'] ?: 'None',
+                    'rig_pending' => $isRigPending,
+                    'rig_pending_hours' => $rigPendingHours,
+                    'is_unassessed_over_48h' => $isUnassessedOver48h,
                     'is_overdue' => (bool) ($course['is_overdue'] ?? false),
                     'days_overdue' => (int) ($course['days_overdue'] ?? 0),
                     'overdue_dose' => $course['overdue_dose'] ?? null,
@@ -1321,8 +1371,9 @@ class BiteCaseService
             ->reject(fn (BiteIncident $case) => $case->hasProvisionalBiteDate())
             ->values();
 
+        $alertService = new ClinicalRiskAlertService(app(TreatmentOutcomeResolver::class), $stateResolver, $reportingQuery);
         $resolvedMap = [];
-        $cases = $verifiedCases->filter(function (BiteIncident $case) use ($statusFilter, $severityFilter, $stateResolver, $cutoff, &$resolvedMap) {
+        $cases = $verifiedCases->filter(function (BiteIncident $case) use ($statusFilter, $severityFilter, $stateResolver, $alertService, $cutoff, &$resolvedMap) {
             $state = $stateResolver->resolve($case, $cutoff);
             $resolvedMap[$case->bite_id] = $state;
             $case->setAttribute('resolved_status', $state['resolved_status']);
@@ -1352,6 +1403,14 @@ class BiteCaseService
 
                 if (in_array($statusFilter, ['form_2_pep_prescribed', 'form_2_no_pep', 'form_2_transferred'], true)) {
                     return ($state['stage_summary']['last_completed_stage'] ?? '') === $statusFilter;
+                }
+
+                if ($statusFilter === 'rig_pending') {
+                    return $alertService->isRigPending($state);
+                }
+
+                if ($statusFilter === 'unassessed_over_48h') {
+                    return $alertService->isUnassessedOver48Hours($case, $state, $cutoff);
                 }
 
                 if ($statusFilter === 'no_administration_recorded') {
@@ -1873,5 +1932,216 @@ class BiteCaseService
         }
 
         return array_values(array_filter(array_map('trim', explode(',', $address)), fn ($part) => $part !== ''));
+    }
+
+    /**
+     * Resolve 14-day animal observation tracking metadata for an episode.
+     * - Stray / wild / unobservable animals always require full PEP (no Day-14 discontinuation prompt).
+     * - Owned / domestic dogs & cats track Day X/14, prompt Day-14 check during Days 14–21 when still unknown,
+     *   and show MD discontinuation review note if verified healthy at Day 14+.
+     */
+    public function resolveAnimalObservationMeta(
+        BiteIncident $case,
+        string $ownership,
+        string $condition,
+        CarbonImmutable $cutoff
+    ): array {
+        $ownerNorm = strtolower(trim($ownership));
+        $condNorm = strtolower(trim($condition));
+        $isOwned = in_array($ownerNorm, ['owned', 'domestic', 'pet', 'leashed', 'known'], true);
+        $isStrayOrUnobservable = in_array($ownerNorm, ['stray', 'wild', 'unowned'], true)
+            || ($case->animal_available_answered && $case->animal_available === false);
+
+        $daysSinceExposure = null;
+        if ($case->bite_date && !$case->hasProvisionalBiteDate()) {
+            $biteDay = CarbonImmutable::parse($case->bite_date)->startOfDay();
+            $diff = (int) $biteDay->diffInDays($cutoff->startOfDay(), false);
+            if ($diff >= 0) {
+                $daysSinceExposure = $diff;
+            }
+        }
+
+        if (in_array($condNorm, ['died', 'dead', 'sick'], true)) {
+            $label = $condNorm === 'sick' ? 'Animal Sick — Full PEP + RIG' : 'Animal Died — Full PEP + RIG';
+            return [
+                'day' => $daysSinceExposure,
+                'due' => false,
+                'policy' => 'high_risk_full_pep',
+                'badge' => $label,
+            ];
+        }
+
+        if ($isStrayOrUnobservable || !$isOwned) {
+            return [
+                'day' => $daysSinceExposure,
+                'due' => false,
+                'policy' => 'full_pep_required',
+                'badge' => $isStrayOrUnobservable
+                    ? 'Stray / Unobservable — Full PEP Required'
+                    : ($daysSinceExposure !== null ? "Day {$daysSinceExposure} · Unowned/Unknown" : 'Ownership Unknown — Full PEP Required'),
+            ];
+        }
+
+        // Owned / domestic observable pet
+        if ($condNorm === 'healthy' && $daysSinceExposure !== null && $daysSinceExposure >= 14) {
+            return [
+                'day' => $daysSinceExposure,
+                'due' => false,
+                'policy' => 'md_discontinuation_review',
+                'badge' => 'Day 14+ Healthy — MD Discontinuation Review',
+            ];
+        }
+
+        if (in_array($condNorm, ['unknown', 'not_recorded', 'unassessed', ''], true) && $daysSinceExposure !== null && $daysSinceExposure >= 14 && $daysSinceExposure <= 21) {
+            return [
+                'day' => $daysSinceExposure,
+                'due' => true,
+                'policy' => 'day14_check_due',
+                'badge' => 'Day-14 Observation Check Due',
+            ];
+        }
+
+        if ($daysSinceExposure !== null && $daysSinceExposure <= 14) {
+            return [
+                'day' => $daysSinceExposure,
+                'due' => false,
+                'policy' => 'observing',
+                'badge' => "Day {$daysSinceExposure}/14 Observing",
+            ];
+        }
+
+        return [
+            'day' => $daysSinceExposure,
+            'due' => false,
+            'policy' => $condNorm === 'healthy' ? 'healthy_observed' : 'observing',
+            'badge' => $condNorm === 'healthy' ? 'Healthy (Observed)' : 'Day 14+ Follow-up',
+        ];
+    }
+
+    /**
+     * Update 14-day animal observation status & timestamp, then trigger real-time safety sync.
+     */
+    public function updateAnimalObservation(int $clinicId, int $biteId, array $validated): BiteIncident
+    {
+        $incident = BiteIncident::where('clinic_id', $clinicId)->findOrFail($biteId);
+
+        $incident->animal_observation_status = $validated['animal_observation_status'];
+        $incident->animal_observation_date = $validated['animal_observation_date'] ?? now()->toDateString();
+        $incident->animal_last_checked_at = now();
+        if (!empty($validated['remarks'])) {
+            $existing = trim((string) ($incident->remarks ?? ''));
+            $note = '[Animal Obs ' . now()->format('Y-m-d') . '] ' . trim((string) $validated['remarks']);
+            $incident->remarks = $existing !== '' ? ($existing . "\n" . $note) : $note;
+        }
+        $incident->save();
+
+        \Illuminate\Support\Facades\Cache::forget("clinical-alerts:header:clinic:{$clinicId}");
+        app(\App\Services\NotificationService::class)->triggerClinicalSafetySync($clinicId, false);
+
+        return $incident->fresh();
+    }
+
+    /**
+     * Lightweight cached clinical alert summary for the global Top-Header Clinical Alert Pill.
+     */
+    public function getHeaderClinicalAlertSummary(int $clinicId): array
+    {
+        $cacheKey = "clinical-alerts:header:clinic:{$clinicId}";
+        $compute = function () use ($clinicId): array {
+            $cutoff = CarbonImmutable::now()->endOfDay();
+            $recentStart = $cutoff->subDays(30)->toDateString();
+
+            $episodes = BiteIncident::where('clinic_id', $clinicId)
+                ->whereNotIn('status', ['void', 'voided', 'duplicate', 'cancelled'])
+                ->where(function ($q) use ($recentStart) {
+                    $q->whereDate('created_at', '>=', $recentStart)
+                        ->orWhereDate('bite_date', '>=', $recentStart);
+                })
+                ->with(['intake', 'treatmentPlan', 'treatmentRecords', 'appointments'])
+                ->get();
+
+            $stateResolver = new EpisodeReportingStateResolver(new TreatmentOutcomeResolver());
+            $reportingQuery = app(ExposureReportingQuery::class);
+            $alertService = app(ClinicalRiskAlertService::class);
+
+            $rigPendingTotal = 0;
+            $rigPendingUrgent48h = 0;
+            $animalDied = 0;
+            $animalSick = 0;
+            $overdueCritical3d = 0;
+            $overdueEpisodes = 0;
+            $unassessedOver48h = 0;
+            $day14DueCount = 0;
+
+            foreach ($episodes as $ep) {
+                $state = $stateResolver->resolve($ep, $cutoff);
+                if ($alertService->isRigPending($state)) {
+                    $rigPendingTotal++;
+                    $hrs = $alertService->rigPendingHours($ep, $state, $cutoff);
+                    if ($hrs !== null && $hrs <= 48) {
+                        $rigPendingUrgent48h++;
+                    }
+                }
+                if ($alertService->isUnassessedOver48Hours($ep, $state, $cutoff)) {
+                    $unassessedOver48h++;
+                }
+
+                $cond = $reportingQuery->normalizedAnimalCondition($ep);
+                $isOpen = !in_array($state['resolved_status'] ?? '', ['completed', 'completed_no_pep', 'transferred'], true);
+                if ($isOpen && $cond === 'died') {
+                    $animalDied++;
+                } elseif ($isOpen && $cond === 'sick') {
+                    $animalSick++;
+                }
+
+                $course = $state['course_outcome'] ?? [];
+                if (!empty($course['is_overdue'])) {
+                    $overdueEpisodes++;
+                    if ((int) ($course['days_overdue'] ?? 0) >= 3) {
+                        $overdueCritical3d++;
+                    }
+                }
+
+                $obs = $this->resolveAnimalObservationMeta($ep, $reportingQuery->normalizedAnimalOwnership($ep), $cond, $cutoff);
+                if ($isOpen && $obs['due']) {
+                    $day14DueCount++;
+                }
+            }
+
+            $surgeData = $alertService->detectBarangaySurges($clinicId, $cutoff);
+            $clusterZones = [];
+            foreach ($surgeData['alerts'] as $item) {
+                if (($item['level'] ?? '') === 'cluster') {
+                    $clusterZones[] = $item['barangay'];
+                }
+            }
+
+            $supply = app(\App\Services\Reporting\SupplyPlanningService::class)->buildFollowupVialSchedule($clinicId, 14, $cutoff);
+            $vr = $supply['vial_readiness'] ?? [];
+
+            return [
+                'rig_pending_total' => $rigPendingTotal,
+                'rig_pending_urgent_48h' => $rigPendingUrgent48h,
+                'animal_died' => $animalDied,
+                'animal_sick' => $animalSick,
+                'overdue_episodes' => $overdueEpisodes,
+                'overdue_critical_3d_plus' => $overdueCritical3d,
+                'unassessed_over_48h' => $unassessedOver48h,
+                'day14_observation_due' => $day14DueCount,
+                'vial_readiness_status' => $vr['status'] ?? 'ok',
+                'vial_readiness_headline' => $vr['headline'] ?? '',
+                'usable_arv_vials' => (int) ($vr['usable_arv_vials'] ?? 0),
+                'projected_stockout_date' => $vr['projected_stockout_date'] ?? null,
+                'barangay_clusters_count' => count($clusterZones),
+                'barangay_clusters' => $clusterZones,
+                'updated_at' => now()->toIso8601String(),
+            ];
+        };
+
+        if (app()->runningUnitTests()) {
+            return $compute();
+        }
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, $compute);
     }
 }

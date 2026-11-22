@@ -11,11 +11,13 @@ class AnnouncementCarousel extends StatefulWidget {
     super.key,
     required this.welcome,
     this.refreshTrigger = 0,
+    this.userBarangay,
     this.loadAnnouncements,
   });
 
   final Widget welcome;
   final int refreshTrigger;
+  final String? userBarangay;
   final Future<List<Announcement>> Function()? loadAnnouncements;
 
   @override
@@ -43,13 +45,28 @@ class AnnouncementCarouselState extends State<AnnouncementCarousel> {
     if (oldWidget.refreshTrigger != widget.refreshTrigger) _load();
   }
 
+  bool _isNearUserBarangay(Announcement item) {
+    final target = item.targetBarangay?.trim().toLowerCase() ?? '';
+    final userBrgy = widget.userBarangay?.trim().toLowerCase() ?? '';
+    if (target.isEmpty || userBrgy.isEmpty) return false;
+    return target == userBrgy ||
+        userBrgy.contains(target) ||
+        target.contains(userBrgy);
+  }
+
   Future<void> _load() async {
     final request = ++_request;
     try {
-      final items =
+      final rawItems =
           await (widget.loadAnnouncements?.call() ??
               api.fetchAnnouncements() as Future<List<Announcement>>);
       if (!mounted || request != _request) return;
+      final items = [...rawItems]
+        ..sort((a, b) {
+          final aNear = _isNearUserBarangay(a) ? 1 : 0;
+          final bNear = _isNearUserBarangay(b) ? 1 : 0;
+          return bNear.compareTo(aNear);
+        });
       showWelcome();
       setState(() {
         _items = items;
@@ -149,6 +166,7 @@ class AnnouncementCarouselState extends State<AnnouncementCarousel> {
                       item: item,
                       minHeight: _welcomeHeight ?? 220,
                       isExpanded: isExpanded,
+                      isNearUserBarangay: _isNearUserBarangay(item),
                       onToggle: () {
                         setState(() {
                           if (isExpanded) {
@@ -214,12 +232,14 @@ class _AnnouncementCard extends StatelessWidget {
     required this.item,
     required this.minHeight,
     required this.isExpanded,
+    required this.isNearUserBarangay,
     required this.onToggle,
   });
 
   final Announcement item;
   final double minHeight;
   final bool isExpanded;
+  final bool isNearUserBarangay;
   final VoidCallback onToggle;
 
   @override
@@ -427,28 +447,56 @@ class _AnnouncementCard extends StatelessWidget {
   }
 
   Widget _buildCategoryBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        color: item.isUrgent
-            ? const Color(0xB3DC2626)
-            : const Color(0xB3064E3B),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        item.isUrgent ? 'IMPORTANT NOTICE' : 'CLINIC ANNOUNCEMENT',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          letterSpacing: .7,
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 4,
+          ),
+          decoration: BoxDecoration(
+            color: item.isUrgent
+                ? const Color(0xB3DC2626)
+                : const Color(0xB3064E3B),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            item.isUrgent ? 'IMPORTANT NOTICE' : 'CLINIC ANNOUNCEMENT',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: .7,
+            ),
+          ),
         ),
-      ),
+        if (isNearUserBarangay)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 9,
+              vertical: 4,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xCCFEF3C7),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text(
+              'NEAR YOUR BARANGAY',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Color(0xFF92400E),
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: .5,
+              ),
+            ),
+          ),
+      ],
     );
   }
 

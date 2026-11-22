@@ -620,7 +620,7 @@ export const BiteCasesPresentationDialog: React.FC<BiteCasesPresentationDialogPr
             </Typography>
             {actions.length === 0 ? (
               <Box sx={{ p: 2, borderRadius: '8px', border: '1px dashed var(--bc-border)', color: 'var(--bc-text-secondary)', fontSize: 13 }}>
-                No action items recorded yet. Add action items in the “Planning &amp; Actions” tab.
+                No action items recorded yet for this clinic.
               </Box>
             ) : (
               <Box sx={{ borderRadius: '10px', border: '1px solid var(--bc-border)', overflow: 'hidden' }}>

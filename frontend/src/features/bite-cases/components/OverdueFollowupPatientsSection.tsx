@@ -77,6 +77,7 @@ function formatLogStatusLabel(status: string): string {
     sms_simulated: 'SMS Simulated',
     sms_logged: 'SMS Reminder Logged',
     sms_failed: 'SMS Failed',
+    auto_recalled: 'Auto Recall Sent',
     refused: 'Refused Follow-up',
     completed_elsewhere: 'Completed Elsewhere',
   };
@@ -84,7 +85,7 @@ function formatLogStatusLabel(status: string): string {
 }
 
 function getLogStatusStyle(status: string): { bg: string; color: string; border: string } {
-  if (['promised_visit', 'reached', 'sms_sent', 'sms_delivered', 'completed_elsewhere'].includes(status)) {
+  if (['promised_visit', 'reached', 'sms_sent', 'sms_delivered', 'auto_recalled', 'completed_elsewhere'].includes(status)) {
     return { bg: 'var(--bc-success-bg)', color: 'var(--bc-green-strong)', border: 'var(--bc-success-border)' };
   }
   if (['sms_failed', 'wrong_number', 'refused'].includes(status)) {

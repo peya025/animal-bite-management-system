@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\VaccineStockUpdated;
 use App\Models\AuditLog;
 use App\Models\InventoryTransaction;
 use App\Models\VaccineInventory;
@@ -159,8 +160,11 @@ class VaccineInventoryUsageService
                     'description' => "Portion {$newUsed}/{$totalPortions} administered from Vial {$openVial->vial_code} (batch {$batch->batch_number})",
                 ]);
 
+                $freshBatch = $batch->fresh();
+                VaccineStockUpdated::dispatch(VaccineStockUpdated::fromModel($freshBatch, 'dose_administered'));
+
                 return [
-                    'batch'          => $batch,
+                    'batch'          => $freshBatch,
                     'vial'           => $openVial->fresh(),
                     'vial_id'        => $openVial->vial_id,
                     'vial_code'      => $openVial->vial_code,
@@ -259,8 +263,11 @@ class VaccineInventoryUsageService
                 'description' => "Vial {$vial->vial_code} opened for batch {$batch->batch_number} (Treatment ID: {$treatmentId})",
             ]);
 
+            $freshBatch = $batch->fresh();
+            VaccineStockUpdated::dispatch(VaccineStockUpdated::fromModel($freshBatch, 'vial_opened'));
+
             return [
-                'batch'          => $batch,
+                'batch'          => $freshBatch,
                 'vial'           => $vial->fresh(),
                 'vial_id'        => $vial->vial_id,
                 'vial_code'      => $vial->vial_code,
@@ -325,7 +332,8 @@ class VaccineInventoryUsageService
                 ->lockForUpdate()
                 ->first();
             if ($batch) {
-                $this->syncBatchOpenVialSummary($batch);
+                $batch = $this->syncBatchOpenVialSummary($batch);
+                VaccineStockUpdated::dispatch(VaccineStockUpdated::fromModel($batch, 'vial_expired'));
             }
 
             AuditLog::create([
@@ -414,7 +422,7 @@ class VaccineInventoryUsageService
                 'wastage_reason'     => $reason,
             ]);
 
-            $this->syncBatchOpenVialSummary($batch);
+            $batch = $this->syncBatchOpenVialSummary($batch);
 
             InventoryTransaction::create([
                 'inventory_id'     => $batch->inventory_id,
@@ -441,6 +449,8 @@ class VaccineInventoryUsageService
                 ],
                 'description' => "Disposed {$portionsDiscarded} unused portion(s) from Vial {$vial->vial_code}: {$reason}",
             ]);
+
+            VaccineStockUpdated::dispatch(VaccineStockUpdated::fromModel($batch, 'vial_discarded'));
 
             return $vial->fresh(['inventory', 'openedBy', 'expiredBy', 'disposedBy', 'wastages.disposedBy']);
         });
@@ -609,8 +619,11 @@ class VaccineInventoryUsageService
                 'description' => "Deducted {$quantity} unit(s) from batch {$batch->batch_number} (Treatment ID: {$treatmentId})",
             ]);
 
+            $freshBatch = $batch->fresh();
+            VaccineStockUpdated::dispatch(VaccineStockUpdated::fromModel($freshBatch, 'deducted'));
+
             return [
-                'batch'              => $batch->fresh(),
+                'batch'              => $freshBatch,
                 'quantity_used'      => $quantity,
                 'remaining_quantity' => $newQuantity,
             ];

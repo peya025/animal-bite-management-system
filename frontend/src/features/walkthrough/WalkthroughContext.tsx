@@ -33,6 +33,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [welcomeModuleId, setWelcomeModuleId] = useState<string>(ROUTES.DASHBOARD);
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
+  const [completedModuleName, setCompletedModuleName] = useState<string>('Dashboard');
 
   const activeModule = useMemo(() => modules.find(module => module.id === activeModuleId), [modules, activeModuleId]);
   const currentStep = activeModule?.steps[currentStepIndex] || null;
@@ -145,10 +146,9 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
         localStorage.setItem(`abtc_walkthrough_status_${user.id}`, 'completed');
         localStorage.setItem(`abtc_walkthrough_status_admin_${user.id}`, 'completed');
       }
+      setCompletedModuleName(isDashboard ? 'Dashboard' : (activeModule?.name || 'Dashboard'));
       setActiveModuleId(null);
-      if (isDashboard) {
-        setIsCompletionModalOpen(true);
-      }
+      setIsCompletionModalOpen(true);
     }
   }, [activeModuleId, activeModule, saveProgress, user?.id]);
 
@@ -251,8 +251,8 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
         totalSteps={
           isWelcomeDashboard
-            ? (dashboardModule?.steps.length || getDashboardStepsForRole(user?.role).length || 16)
-            : (welcomeModule?.steps.length || 16)
+            ? (dashboardModule?.steps.length || getDashboardStepsForRole(user?.role).length || 15)
+            : (welcomeModule?.steps.length || 15)
         }
         onStart={() => {
           setIsWelcomeModalOpen(false);
@@ -280,6 +280,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
       {/* Completion Modal */}
       <WalkthroughCompletionModal
         open={isCompletionModalOpen && !isLandingOrPublic}
+        moduleName={completedModuleName}
         onFinish={() => setIsCompletionModalOpen(false)}
       />
     </WalkthroughContext.Provider>

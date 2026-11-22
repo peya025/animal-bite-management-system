@@ -5,10 +5,70 @@
 import axios, { AxiosError } from 'axios';
 import type { AxiosInstance } from 'axios';
 
-export const API_BASE_URL =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
-  'http://localhost:8000/api';
+/**
+ * Resolves and normalizes the API base URL.
+ * Ensures consistent `/api` suffix without trailing slashes or duplicate `/api/api`.
+ * Provides runtime error diagnostics in production if configuration is missing or pointing to localhost.
+ */
+export const resolveApiBaseUrl = (): string => {
+  const envUrl =
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL);
+
+  const isProd = typeof import.meta !== 'undefined' && Boolean(import.meta.env?.PROD);
+
+  if (!envUrl) {
+    if (isProd) {
+      console.error(
+        '[API Configuration Error] VITE_API_URL is missing in production! ' +
+        'Set VITE_API_URL in your Vercel project environment variables (e.g. https://your-railway-backend.up.railway.app/api).'
+      );
+    }
+    return 'http://localhost:8000/api';
+  }
+
+  // Strip trailing slashes and whitespace
+  let cleanUrl = envUrl.trim().replace(/\/+$/, '');
+
+  // Guard against accidental duplicate /api/api
+  if (cleanUrl.endsWith('/api/api')) {
+    cleanUrl = cleanUrl.slice(0, -4);
+  }
+
+  // Ensure path ends with /api
+  if (!cleanUrl.endsWith('/api')) {
+    cleanUrl = `${cleanUrl}/api`;
+  }
+
+  // Production security check: warn if production build points to localhost or private LAN IP
+  if (isProd) {
+    try {
+      const parsed = new URL(cleanUrl);
+      const host = parsed.hostname.toLowerCase();
+      const isLocalHost =
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '::1' ||
+        host.endsWith('.local') ||
+        /^10\./.test(host) ||
+        /^192\.168\./.test(host) ||
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host);
+
+      if (isLocalHost) {
+        console.warn(
+          `[API Configuration Warning] Production build is targeting a local address (${cleanUrl}). ` +
+          'Configure a public Railway backend URL in Vercel environment variables.'
+        );
+      }
+    } catch {
+      console.error(`[API Configuration Error] Malformed VITE_API_URL: "${cleanUrl}".`);
+    }
+  }
+
+  return cleanUrl;
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
 const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
 const LAST_ACTIVITY_KEY = 'lastActivityAt';
 

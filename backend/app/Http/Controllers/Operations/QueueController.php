@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Operations;
 
+use App\Events\AppointmentStatusChanged;
+use App\Events\QueueTicketUpdated;
 use App\Http\Controllers\Concerns\EnforcesStationCapabilities;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Queue\CancelQueueRequest;
@@ -214,6 +216,7 @@ class QueueController extends Controller
             ]);
 
             $this->queueService->flushCache($clinicId, $date);
+            QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'called'));
 
             return response()->json([
                 'message'      => "Called #{$queue->queue_number}",
@@ -261,6 +264,7 @@ class QueueController extends Controller
             ]);
 
             $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'called'));
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -322,6 +326,7 @@ class QueueController extends Controller
             ]);
 
             $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'serving'));
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -369,6 +374,7 @@ class QueueController extends Controller
             }
 
             $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), $queue->status));
 
             return response()->json([
                 'message'          => $msg,
@@ -403,6 +409,7 @@ class QueueController extends Controller
             $this->queueService->logHistory($queue, 'recalled', 'called', $request->user()->id, "Recalled from {$stage}");
             $queue->update(['status' => 'called', 'called_at' => now(), 'handled_by' => $request->user()->id]);
             $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'recalled'));
 
             return response()->json([
                 'message' => "#{$queue->queue_number} recalled ({$stage})",
@@ -444,6 +451,7 @@ class QueueController extends Controller
             ]);
 
             $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'returned_to_queue'));
 
             return response()->json([
                 'message' => 'Patient returned to the queue.',
@@ -468,6 +476,7 @@ class QueueController extends Controller
             $this->queueService->logHistory($queue, 'absent', 'absent', $request->user()->id, 'No response after all recall attempts — marked No-Show');
             $queue->update(['status' => 'absent', 'absent_at' => now()]);
             $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'absent'));
 
             return response()->json([
                 'message' => "#{$queue->queue_number} marked as No-Show",
@@ -524,6 +533,7 @@ class QueueController extends Controller
                     'station_id'         => $intakeStationId ?? $queue->station_id,
                 ]);
                 $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+                QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'transferred_to_treatment'));
 
                 return response()->json([
                     'message'         => 'Patient transferred to treatment queue',
@@ -545,6 +555,7 @@ class QueueController extends Controller
                 'recall_stage'       => null,
             ]);
             $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'completed'));
 
             return response()->json([
                 'message'         => $isTriageTransfer ? 'Consultation completed cleanly (Treatment station disabled)' : 'Consultation completed',
@@ -589,10 +600,12 @@ class QueueController extends Controller
                     $apptDate = $appt->scheduled_date ?? $appt->appointment_date;
                     $isPast   = $apptDate && Carbon::parse($apptDate)->isBefore(Carbon::today());
                     $appt->update(['status' => $isPast ? 'missed' : 'scheduled', 'queue_number' => null]);
+                    AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appt->fresh(), $isPast ? 'missed' : 'scheduled'));
                 }
             }
 
             $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+            QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'cancelled'));
 
             return response()->json(['message' => "#{$queue->queue_number} cancelled"]);
         });
@@ -690,6 +703,7 @@ class QueueController extends Controller
 
         $this->queueService->logHistory($queue, 'priority_changed', $queue->status, $request->user()->id, "Priority changed: {$old} → {$request->priority}");
         $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+        QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'priority_changed'));
 
         return response()->json(['message' => "Priority updated to {$request->priority}", 'queue' => $queue->fresh()]);
     }
@@ -708,6 +722,7 @@ class QueueController extends Controller
         $this->queueService->logHistory($queue, 'trashed', $queue->status, $request->user()->id);
         $queue->update(['deleted_at' => now()]);
         $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+        QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'deleted'));
 
         return response()->json(['message' => "Queue #{$queue->queue_number} moved to trash"]);
     }
@@ -721,6 +736,7 @@ class QueueController extends Controller
         $this->queueService->logHistory($queue, 'restored', $queue->status, $request->user()->id);
         $queue->update(['deleted_at' => null]);
         $this->queueService->flushCache($queue->clinic_id, $queue->queue_date->toDateString());
+        QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'restored'));
 
         return response()->json(['message' => "Queue #{$queue->queue_number} restored", 'queue' => $queue->fresh()->load(['patient', 'biteIncident'])]);
     }
@@ -797,6 +813,7 @@ class QueueController extends Controller
             }
 
             $this->queueService->flushCache($clinicId, $queue->queue_date->toDateString());
+            QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'skipped'));
 
             $station = $this->resolveStation($request);
             $date    = Carbon::today()->toDateString();
@@ -839,6 +856,7 @@ class QueueController extends Controller
             $this->queueService->logHistory($nextQueue, 'called', 'called', $userId, 'Called after skip');
             $nextQueue->update(['status' => 'called', 'called_at' => now(), 'handled_by' => $userId, 'served_by' => $userId, 'serving_started_at' => now(), 'station_id' => $request->get('station_id') ?: $nextQueue->station_id]);
             $this->queueService->flushCache($clinicId, $date);
+            QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($nextQueue->fresh(), 'called'));
 
             $calledMsg = $isThirdMiss
                 ? "Patient did not respond 3 times. Please return to Registration for check-in. Now calling #{$nextQueue->queue_number}."

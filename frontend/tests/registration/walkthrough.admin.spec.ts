@@ -77,7 +77,7 @@ test.describe('Administrator Module-Based Interactive Walkthrough & UX Improveme
     // Verify progress indicator
     const progressIndicator = page.getByTestId('walkthrough-progress-indicator');
     await expect(progressIndicator).toBeVisible();
-    await expect(progressIndicator).toContainText('Administrator Dashboard Tour • 16 steps');
+    await expect(progressIndicator).toContainText('Administrator Dashboard Tour • 15 steps');
 
     // Verify close 'X' button
     const closeBtn = page.getByTestId('walkthrough-modal-close-btn');
@@ -91,10 +91,10 @@ test.describe('Administrator Module-Based Interactive Walkthrough & UX Improveme
     // Interactive tour starts ONLY on clicking Start Tour
     await startBtn.click();
 
-    // Verify tour launches into Step 1 of 16
+    // Verify tour launches into Step 1 of 15
     const tooltip = page.getByTestId('walkthrough-tooltip');
     await expect(tooltip).toBeVisible();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 15');
     await expect(page.getByTestId('walkthrough-module-badge')).toHaveText('Dashboard');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Dashboard Overview');
 
@@ -105,7 +105,7 @@ test.describe('Administrator Module-Based Interactive Walkthrough & UX Improveme
     await expect(page.getByTestId('walkthrough-btn-skip')).toBeVisible();
   });
 
-  test('2. Dashboard tour completes across all 16 steps with Finish modal', async ({
+  test('2. Dashboard tour completes across all 15 steps with Finish modal and viewport-safe tooltips', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1366, height: 632 });
@@ -123,42 +123,114 @@ test.describe('Administrator Module-Based Interactive Walkthrough & UX Improveme
     await expect(welcomeModal).toBeVisible();
     await page.getByTestId('walkthrough-start-btn').click();
 
-    // Step 1 of 16
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 16');
+    // Step 1 of 15
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Dashboard Overview');
 
-    // Step 2 of 16
+    // Step 2 of 15
     await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Administrator Sidebar Modules');
 
-    // Step 3 of 16
+    // Step 3 of 15
     await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 3 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 3 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Header Controls & Utilities');
 
-    // Step 4 of 16: Tabs
+    // Step 4 of 15: Tabs
     await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 4 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 4 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Overview, Cases & Vaccination Tabs');
 
-    // Step 5 of 16: Calendar
+    // Step 5 of 15: Calendar
     await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 5 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 5 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Clinic Calendar & Month Navigation');
 
-    // Step 6 of 16: All Summary Cards unified in ONE step
+    // Step 6 of 15: All Summary Cards unified in ONE step
     await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 6 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 6 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Clinic Statistics & Summary Cards');
 
-    // Fast-forward to final step 16
-    for (let i = 6; i < 16; i++) {
+    // Step 7 of 15: Filters
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 7 of 15');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Role, Status & Date Range Filters');
+
+    // Step 8 of 15: Cases Over Time Chart (Patients & Cases Quick Action Buttons step removed)
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 8 of 15');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Cases Over Time Chart');
+
+    // Advance to Step 13 (Cases tab) and Step 14 (Vaccinations tab)
+    for (let i = 8; i < 13; i++) {
       await page.getByTestId('walkthrough-btn-next').click();
     }
 
-    // Step 16 should be visible
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 16 of 16');
+    const assertTooltipViewportSafe = async () => {
+      const tooltipBox = await page.getByTestId('walkthrough-tooltip').boundingBox();
+      const spotlightBox = await page.getByTestId('walkthrough-spotlight').boundingBox();
+      expect(tooltipBox).not.toBeNull();
+      expect(spotlightBox).not.toBeNull();
+
+      // Fully inside 1366x632 viewport
+      expect(tooltipBox!.y).toBeGreaterThanOrEqual(0);
+      expect(tooltipBox!.y + tooltipBox!.height).toBeLessThanOrEqual(632);
+      expect(tooltipBox!.x).toBeGreaterThanOrEqual(0);
+      expect(tooltipBox!.x + tooltipBox!.width).toBeLessThanOrEqual(1366);
+
+      // Must not overlap the highlighted spotlight box
+      const overlaps =
+        tooltipBox!.x < spotlightBox!.x + spotlightBox!.width &&
+        tooltipBox!.x + tooltipBox!.width > spotlightBox!.x &&
+        tooltipBox!.y < spotlightBox!.y + spotlightBox!.height &&
+        tooltipBox!.y + tooltipBox!.height > spotlightBox!.y;
+      expect(overlaps).toBe(false);
+
+      // All navigation buttons must be visible inside viewport, inside tooltip bounds, and aligned on ONE horizontal row
+      const btnBoxes: { id: string; box: { x: number; y: number; width: number; height: number } }[] = [];
+      for (const testId of [
+        'walkthrough-btn-skip',
+        'walkthrough-btn-restart',
+        'walkthrough-btn-back',
+        'walkthrough-btn-next',
+      ]) {
+        const btnBox = await page.getByTestId(testId).boundingBox();
+        expect(btnBox).not.toBeNull();
+        expect(btnBox!.y).toBeGreaterThanOrEqual(0);
+        expect(btnBox!.y + btnBox!.height).toBeLessThanOrEqual(632);
+        expect(btnBox!.x).toBeGreaterThanOrEqual(tooltipBox!.x);
+        expect(btnBox!.x + btnBox!.width).toBeLessThanOrEqual(tooltipBox!.x + tooltipBox!.width + 1);
+        btnBoxes.push({ id: testId, box: btnBox! });
+      }
+      const baseCenterY = btnBoxes[0].box.y + btnBoxes[0].box.height / 2;
+      for (let i = 1; i < btnBoxes.length; i++) {
+        const centerY = btnBoxes[i].box.y + btnBoxes[i].box.height / 2;
+        expect(Math.abs(centerY - baseCenterY)).toBeLessThanOrEqual(3);
+        expect(btnBoxes[i].box.x).toBeGreaterThanOrEqual(btnBoxes[i - 1].box.x + btnBoxes[i - 1].box.width - 1);
+      }
+      const closeBtnBox = await page.locator('.walkthrough-close-btn').boundingBox();
+      expect(closeBtnBox).not.toBeNull();
+      expect(closeBtnBox!.y).toBeGreaterThanOrEqual(0);
+      expect(closeBtnBox!.y + closeBtnBox!.height).toBeLessThanOrEqual(632);
+    };
+
+    // Step 13 of 15: Recent Bite Incident Cases Tab & Table
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 13 of 15');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Recent Bite Incident Cases Tab & Table');
+    await page.waitForTimeout(250);
+    await assertTooltipViewportSafe();
+
+    // Step 14 of 15: Recent Vaccinations & Scheduled Doses Tab
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 14 of 15');
+    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Recent Vaccinations & Scheduled Doses Tab');
+    await page.waitForTimeout(250);
+    await assertTooltipViewportSafe();
+
+    // Step 15 of 15: Final step
+    await page.getByTestId('walkthrough-btn-next').click();
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 15 of 15');
 
     // Clicking Finish on final tooltip step triggers the completion modal
     await page.getByTestId('walkthrough-btn-finish').click();
@@ -188,15 +260,15 @@ test.describe('Administrator Module-Based Interactive Walkthrough & UX Improveme
     await page.getByTestId('walkthrough-start-btn').click();
 
     // Verify Step 1
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 15');
 
     // Advance to Step 2
     await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 15');
 
     // Test Back button restores Step 1
     await page.getByTestId('walkthrough-btn-back').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Dashboard Overview');
 
     // Test Skip Tour button exits tour

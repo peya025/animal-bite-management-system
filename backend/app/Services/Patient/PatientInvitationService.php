@@ -26,6 +26,26 @@ class PatientInvitationService
         return DB::transaction(function () use ($patientId, $staffUserId) {
             $patient = Patient::whereKey($patientId)->lockForUpdate()->firstOrFail();
 
+            if ($patient->registration_source === 'mobile' || $patient->registration_source === 'online') {
+                return [
+                    'status' => 422,
+                    'data' => [
+                        'message' => 'Only walk-in patients without an existing online account are eligible for portal invitations.',
+                        'code' => 'NOT_ELIGIBLE',
+                    ],
+                ];
+            }
+
+            if (empty(trim((string) $patient->contact_number)) && empty(trim((string) $patient->email))) {
+                return [
+                    'status' => 422,
+                    'data' => [
+                        'message' => 'Patient does not have a valid email address on record. Please update the patient email first.',
+                        'code' => 'NO_CONTACT',
+                    ],
+                ];
+            }
+
             if (! filter_var(trim((string) $patient->email), FILTER_VALIDATE_EMAIL)) {
                 return [
                     'status' => 422,
@@ -94,6 +114,21 @@ class PatientInvitationService
             }
 
             PatientInvitation::where('patient_id', $patientId)->where('id', '!=', $invitation->id)->where('status', 'pending')->update(['status' => 'expired']);
+
+            \App\Models\AuditLog::create([
+                'user_id' => $staffUserId,
+                'clinic_id' => $patient->clinic_id,
+                'action' => 'patient.invite_sent',
+                'model' => 'Patient',
+                'model_id' => $patient->patient_id,
+                'new_values' => [
+                    'invitation_id' => $invitation->id,
+                    'recipient_email' => $invitation->recipient_email,
+                    'phone' => $invitation->phone,
+                    'expires_at' => $expiresAt->toDateTimeString(),
+                ],
+                'description' => "Portal invitation sent to patient #{$patient->patient_id} by user #{$staffUserId}",
+            ]);
 
             return [
                 'status' => 201,
@@ -233,6 +268,18 @@ class PatientInvitationService
                 ];
             }
 
+            // Throttle: 1 per 5 minutes per patient
+            $throttleKey = 'patient_invite_resend:'.$invitation->patient_id;
+            if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($throttleKey, 1)) {
+                return [
+                    'status' => 429,
+                    'data' => [
+                        'message' => 'Please wait at least 5 minutes before resending another invitation to this patient.',
+                        'code' => 'THROTTLED',
+                    ],
+                ];
+            }
+
             $patient = $invitation->patient;
             if (! $patient || ! filter_var(trim((string) $patient->email), FILTER_VALIDATE_EMAIL)) {
                 return [
@@ -260,6 +307,21 @@ class PatientInvitationService
                 'recipient_email' => trim($patient->email),
                 'status' => 'pending',
                 'expires_at' => now()->addDays(7),
+            ]);
+
+            \Illuminate\Support\Facades\RateLimiter::hit($throttleKey, 300);
+
+            \App\Models\AuditLog::create([
+                'user_id' => auth()->id() ?? $invitation->invited_by,
+                'clinic_id' => $patient->clinic_id,
+                'action' => 'patient.invite_resent',
+                'model' => 'Patient',
+                'model_id' => $patient->patient_id,
+                'new_values' => [
+                    'invitation_id' => $invitation->id,
+                    'recipient_email' => $invitation->recipient_email,
+                ],
+                'description' => "Portal invitation resent to patient #{$patient->patient_id}",
             ]);
 
             return [

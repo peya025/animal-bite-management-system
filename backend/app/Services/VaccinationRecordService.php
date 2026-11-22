@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Events\AppointmentStatusChanged;
+use App\Events\QueueTicketUpdated;
+use App\Jobs\SendFcmPushNotification;
 use App\Models\Appointment;
 use App\Models\BiteIncident;
 use App\Models\Clinic;
@@ -552,6 +555,7 @@ class VaccinationRecordService
                         'recall_stage' => null,
                     ]);
                     Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayQueue->queue_date->toDateString()}");
+                    QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($todayQueue->fresh(), 'completed'));
                 }
             }
 
@@ -618,6 +622,29 @@ class VaccinationRecordService
             }
 
             Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
+
+            // Dispatch digital vaccination card update push notification to linked patient accounts
+            $patientObj = Patient::with(['accounts' => fn ($q) => $q->where('is_active', true)])->find($patientId);
+            if ($patientObj && $patientObj->accounts->isNotEmpty()) {
+                $fcmService = app(\App\Services\Messaging\FcmService::class);
+                foreach ($patientObj->accounts as $acc) {
+                    $accId = (int) ($acc->patient_account_id ?? $acc->id);
+                    if ($fcmService->isAccountAllowed($accId)) {
+                        SendFcmPushNotification::dispatch(
+                            patientAccountId: $accId,
+                            title: 'Vaccination Card Updated',
+                            body: 'Your digital vaccination card has been updated. Open the app to view your record.',
+                            data: [
+                                'category'   => 'digital_card',
+                                'route'      => '/menu',
+                                'patient_id' => (string) $patientId,
+                            ]
+                        );
+                    } else {
+                        Log::info("Digital vaccination card FCM skipped: Patient account #{$accId} is not in the automatic FCM allowlist.");
+                    }
+                }
+            }
 
             DB::commit();
 
@@ -799,8 +826,10 @@ class VaccinationRecordService
 
             app(\App\Services\NotificationService::class)->notifyAppointmentEvent($appt, 'scheduled', request()->user());
 
+            $firstAccId = null;
             $patient = Patient::with('accounts')->find($patientId);
             if ($patient && $patient->accounts->isNotEmpty()) {
+                $firstAccId = (int) ($patient->accounts->first()->patient_account_id ?? $patient->accounts->first()->id);
                 foreach ($patient->accounts as $account) {
                     $accId = $account->patient_account_id ?? $account->id;
                     $msg   = $resolution['drift_days'] !== 0
@@ -817,8 +846,25 @@ class VaccinationRecordService
                         'send_time'          => now(),
                     ]);
                     Cache::forget("mobile:notifications:account:{$accId}:page:1");
+
+                    if (app(\App\Services\Messaging\FcmService::class)->isAccountAllowed($accId)) {
+                        SendFcmPushNotification::dispatch(
+                            patientAccountId: (int) $accId,
+                            title: 'Vaccination Reminder',
+                            body: 'You have an upcoming appointment. Open the app to view your schedule.',
+                            data: [
+                                'category'       => 'vaccination_schedule',
+                                'route'          => '/calendar',
+                                'appointment_id' => (string) $appt->appointment_id,
+                            ]
+                        );
+                    } else {
+                        Log::info("Follow-up appointment FCM skipped: Patient account #{$accId} is not in the automatic FCM allowlist.");
+                    }
                 }
             }
+
+            AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appt, 'created', $firstAccId));
 
             Log::info("Created follow-up appointment for Patient #{$patientId}: {$followUp['period']} on {$resolvedDate->toDateString()} (Ideal: {$idealDate->toDateString()}, Drift: {$resolution['drift_days']})");
         }

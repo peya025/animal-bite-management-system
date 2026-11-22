@@ -7,6 +7,7 @@ import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_profile_form_args.dart';
 import '../services/api.dart';
+import '../services/fcm_device_registration_service.dart';
 import '../widgets/common/app_toast.dart';
 import '../widgets/menu/menu_navigation.dart';
 import '../widgets/menu/patient_action_button.dart';
@@ -26,6 +27,12 @@ class SettingsView extends StatefulWidget {
 
 class _SettingsViewState extends State<SettingsView> {
   bool _notificationsEnabled = true;
+  Map<String, bool> _notificationCategories = {
+    'appointment_updates': true,
+    'reminders': true,
+    'digital_card': true,
+    'announcements': true,
+  };
   PatientAccountProfile? _account;
   bool _loadingAccount = true;
   String? _accountError;
@@ -83,6 +90,25 @@ class _SettingsViewState extends State<SettingsView> {
       if (mounted) setState(() => _account = account);
     } catch (error) {
       if (mounted) setState(() => _accountError = error.toString());
+    }
+
+    try {
+      final prefs = await api.getNotificationPreferences() as Map<String, dynamic>;
+      if (mounted && prefs.isNotEmpty) {
+        setState(() {
+          if (prefs.containsKey('push_enabled')) {
+            _notificationsEnabled = prefs['push_enabled'] == true;
+          }
+          _notificationCategories = {
+            'appointment_updates': prefs['appointment_updates'] != false,
+            'reminders': prefs['reminders'] != false,
+            'digital_card': prefs['digital_card'] != false,
+            'announcements': prefs['announcements'] != false,
+          };
+        });
+      }
+    } catch (e) {
+      debugPrint('ℹ️ Could not load backend notification preferences: $e');
     } finally {
       if (mounted) setState(() => _loadingAccount = false);
     }
@@ -141,6 +167,139 @@ class _SettingsViewState extends State<SettingsView> {
       'child' => 'Child',
       _ => 'Dependent',
     };
+  }
+
+  Future<void> _showNotificationPreferencesDialog() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Notification Preferences',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Choose which notification categories you wish to receive on this device.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildCategorySwitchTile(
+                title: 'Appointment Updates',
+                subtitle: 'Confirmations, cancellations, and schedule changes',
+                categoryKey: 'appointment_updates',
+                setSheetState: setSheetState,
+              ),
+              const Divider(height: 1),
+              _buildCategorySwitchTile(
+                title: 'Vaccination Reminders',
+                subtitle: 'Upcoming doses and overdue recall notifications',
+                categoryKey: 'reminders',
+                setSheetState: setSheetState,
+              ),
+              const Divider(height: 1),
+              _buildCategorySwitchTile(
+                title: 'Digital Vaccination Card',
+                subtitle: 'Updates to doses and electronic card updates',
+                categoryKey: 'digital_card',
+                setSheetState: setSheetState,
+              ),
+              const Divider(height: 1),
+              _buildCategorySwitchTile(
+                title: 'Clinic Announcements',
+                subtitle: 'Clinic bulletins and public health advisories',
+                categoryKey: 'announcements',
+                setSheetState: setSheetState,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategorySwitchTile({
+    required String title,
+    required String subtitle,
+    required String categoryKey,
+    required StateSetter setSheetState,
+  }) {
+    final isEnabled = _notificationCategories[categoryKey] ?? true;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          CustomToggleSwitch(
+            value: isEnabled,
+            onChanged: (val) async {
+              setSheetState(() {
+                _notificationCategories[categoryKey] = val;
+              });
+              setState(() {
+                _notificationCategories[categoryKey] = val;
+              });
+              try {
+                await api.updateNotificationPreferences({categoryKey: val});
+              } catch (e) {
+                debugPrint('⚠️ Failed to sync category preference: $e');
+              }
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   void _navigate(int index) {
@@ -467,11 +626,20 @@ class _SettingsViewState extends State<SettingsView> {
                               iconBgColor: const Color(0xFFE1F5EE),
                               iconColor: const Color(0xFF1D9E75),
                               title: context.tr('settings_notifications'),
-                              subtitle: context.tr('settings_notifications_desc'),
+                              subtitle: _notificationsEnabled
+                                  ? 'Tap to customize categories • Enabled'
+                                  : 'Push notifications are turned off',
+                              onTap: _notificationsEnabled ? _showNotificationPreferencesDialog : null,
                               trailing: CustomToggleSwitch(
                                 value: _notificationsEnabled,
-                                onChanged: (val) {
+                                onChanged: (val) async {
                                   setState(() => _notificationsEnabled = val);
+                                  await FcmDeviceRegistrationService.instance.setNotificationsEnabled(val);
+                                  try {
+                                    await api.updateNotificationPreferences({'push_enabled': val});
+                                  } catch (e) {
+                                    debugPrint('⚠️ Failed to sync notification preferences with backend: $e');
+                                  }
                                 },
                               ),
                             ),

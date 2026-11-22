@@ -16,10 +16,10 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => array_values(array_filter([
-        env('FRONTEND_URL'),
-        env('FRONTEND_URL_ALT'),
-    ])),
+    'allowed_origins' => array_values(array_unique(array_filter(array_merge(
+        array_map('trim', explode(',', env('FRONTEND_URL', ''))),
+        array_map('trim', explode(',', env('FRONTEND_URL_ALT', '')))
+    )))),
 
     'allowed_origins_patterns' => [],
 

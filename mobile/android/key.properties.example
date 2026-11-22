@@ -1,0 +1,19 @@
+# Android Release Keystore Configuration Template
+# -----------------------------------------------------------------------------
+# Copy this file to `mobile/android/key.properties` and fill in your actual
+# keystore values before building a production release.
+#
+# IMPORTANT SECURITY WARNING:
+# NEVER commit `key.properties` or your `.jks` / `.keystore` files to Git!
+#
+# To generate a production release keystore:
+#   keytool -genkey -v -keystore mobile/android/upload-keystore.jks \
+#           -alias upload -keyalg RSA -keysize 2048 -validity 10000
+#
+# Obtain the SHA-1 and SHA-256 fingerprints to add to Firebase and Google Cloud Console:
+#   keytool -list -v -keystore mobile/android/upload-keystore.jks -alias upload
+# -----------------------------------------------------------------------------
+keyAlias=upload
+keyPassword=your-key-password
+storeFile=upload-keystore.jks
+storePassword=your-store-password

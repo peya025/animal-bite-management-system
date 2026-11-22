@@ -1,10 +1,13 @@
-import { lazy, Suspense, useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useId, useState, useEffect } from 'react';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import { Typography } from '@mui/material';
 import api from '../../../shared/services/api';
 import { ROUTES } from '../../../shared/config/routes';
 import DashboardLayout from '../../../components/Layout/DashboardLayout';
+import DashboardAnnouncements from '../../announcements/DashboardAnnouncements';
+import { useChartInView } from '../hooks/useChartInView';
+import '../styles/dashboardCharts.css';
 import {
   getPhilippineRegularHolidays,
   type CalendarHoliday,
@@ -19,8 +22,7 @@ import type { PsgcItem } from '../../patients/types';
 const PSGC_API = 'https://psgc.gitlab.io/api';
 const MIS_OR_CODE = '104300000';
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-const AnnouncementManager = lazy(() => import('../../announcements/AnnouncementsPage'));
-type DashboardTab = 'overview' | 'cases' | 'vaccinations' | 'announcements';
+type DashboardTab = 'overview' | 'cases' | 'vaccinations';
 
 function isAuthenticated(): boolean {
   const token = localStorage.getItem('authToken');
@@ -45,11 +47,8 @@ export function SimpleDashboardPage() {
   const [isLoading, setIsLoading] = useState<boolean>(() => !localStorage.getItem('userData'));
   const [setupCheckDone, setSetupCheckDone] = useState<boolean>(() => !!localStorage.getItem('userData'));
   const [searchParams, setSearchParams] = useSearchParams();
-  const canManageAnnouncements = !!user && user.is_active !== false &&
-    ['admin', 'developer', 'registration', 'triage', 'treatment', 'doctor', 'nurse', 'staff'].includes(user.role);
   const requestedTab = searchParams.get('tab');
-  const activeTab: DashboardTab = requestedTab === 'cases' || requestedTab === 'vaccinations' ||
-    (requestedTab === 'announcements' && canManageAnnouncements) ? requestedTab : 'overview';
+  const activeTab: DashboardTab = requestedTab === 'cases' || requestedTab === 'vaccinations' ? requestedTab : 'overview';
   const setActiveTab = (tab: DashboardTab) => setSearchParams(previous => {
     const next = new URLSearchParams(previous);
     if (tab === 'overview') next.delete('tab');
@@ -66,13 +65,10 @@ export function SimpleDashboardPage() {
   const [mapIncidentStats, setMapIncidentStats] = useState<Record<string, number>>({});
   const [stats, setStats] = useState<any>({
     totalPatients: 0,
-    activeCases: 0,
     pendingVaccinations: 0,
-    todayQueue: 0,
     completedCases: 0,
     followupPatients: 0,
     biteCases: 0,
-    newToday: 0,
     casesList: [],
     vaccinationsList: [],
   });
@@ -83,11 +79,10 @@ export function SimpleDashboardPage() {
 
     const fetchStats = async () => {
       try {
-        const [patientsRes, casesRes, vaccineRes, queueRes, mapRes] = await Promise.all([
+        const [patientsRes, casesRes, vaccineRes, mapRes] = await Promise.all([
           api.get('/patients?per_page=1'),
           api.get('/cases/statistics'),
           api.get('/vaccinations/statistics'),
-          api.get('/queue/statistics'),
           api.get('/cases/map-data').catch(() => ({ data: null })),
         ]);
 
@@ -102,13 +97,10 @@ export function SimpleDashboardPage() {
 
         setStats({
           totalPatients: patientsRes.data?.total || 0,
-          activeCases: casesRes.data?.active_cases || 0,
           pendingVaccinations: vaccineRes.data?.pending || 0,
-          todayQueue: queueRes.data?.waiting || 0,
           completedCases: casesRes.data?.completed_cases || 0,
           followupPatients: vaccineRes.data?.total_scheduled || 0,
           biteCases: casesRes.data?.total_cases || 0,
-          newToday: queueRes.data?.total || 0,
           casesList: recentCasesRes.data?.data || [],
           vaccinationsList: recentVaccsRes.data?.data || [],
         });
@@ -310,6 +302,10 @@ export function SimpleDashboardPage() {
     return null;
   }
 
+  if (requestedTab === 'announcements') {
+    return <Navigate to={user.role === 'admin' ? '/announcements' : ROUTES.DASHBOARD} replace />;
+  }
+
   const now = new Date();
 
   return (
@@ -369,62 +365,44 @@ export function SimpleDashboardPage() {
           >
             Vaccinations
           </button>
-          {canManageAnnouncements && <button
-            className={`sd-dash-tab ${activeTab === 'announcements' ? 'sd-dash-tab--active' : ''}`}
-            onClick={() => setActiveTab('announcements')}
-          >
-            Announcements
-          </button>}
         </div>
       </div>
 
-      {activeTab === 'announcements' && canManageAnnouncements && (
-        <section aria-label="Staff announcement management">
-          <Suspense fallback={<p role="status">Loading announcement controls…</p>}>
-            <AnnouncementManager />
-          </Suspense>
-        </section>
-      )}
-
       {activeTab === 'overview' && (
         <>
-          {/* ── TOP SECTION: Large Calendar Card (Left) + 8 Stat Cards (Right) ── */}
+          {/* ── TOP ARRANGEMENT: Calendar (Left) + Landscape Announcement Banner & Compact 2x2 KPIs (Right) ── */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(400px, 1.2fr) 1fr',
+              gridTemplateColumns: 'minmax(380px, 1.08fr) 1fr',
               gap: '16px',
               marginBottom: '16px',
               alignItems: 'stretch',
             }}
             className="sd-top-arrangement"
           >
-            {/* Bigger Calendar Card on the Left */}
             <SdCalendar />
 
-            {/* Rearranged 2×3 Core Overview KPIs on the Right */}
-            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ minWidth: 0, display: 'grid', gap: '12px', gridTemplateRows: '1fr auto' }}>
+              <DashboardAnnouncements
+                canManage={user?.role === 'admin'}
+                onManage={() => navigate('/setup/clinic-info?tab=announcements')}
+              />
+
               <div
-                className="sd-overview-kpi-grid"
-                data-walkthrough="dashboard-stat-cards" data-tour="dashboard-summary-cards"
+                className="sd-overview-kpi-grid sd-overview-kpi-grid--compact"
+                data-walkthrough="dashboard-stat-cards"
+                data-tour="dashboard-summary-cards"
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '12px',
-                  flex: 1,
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: '10px',
                 }}
               >
-                {/* Row 1: Patients & Queue */}
-                <SdCard color="purple" label="Total Patients" value={stats.totalPatients.toString()} sub="Registered" />
-                <SdCard color="teal" label="Today's Queue" value={stats.todayQueue.toString()} sub="Waiting" />
-
-                {/* Row 2: Bite Cases */}
-                <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" />
-                <SdCard color="blue" label="Active Cases" value={stats.activeCases.toString()} sub="Ongoing treatment" />
-
-                {/* Row 3: Outcomes & Doses */}
-                <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" />
-                <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
+                <SdCard color="purple" label="Total Patients" value={stats.totalPatients.toString()} sub="Registered" icon="patients" />
+                <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" icon="cases" />
+                <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" icon="completed" />
+                <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" icon="pending" />
               </div>
             </div>
           </div>
@@ -440,9 +418,14 @@ export function SimpleDashboardPage() {
           >
             {/* Filters Section at the Top */}
             <div style={{ marginBottom: '20px' }} data-walkthrough="dashboard-filters" data-tour="dashboard-filters">
-              <p className="sd-filter-title" style={{ marginBottom: '14px', fontSize: '13.5px', fontWeight: 750 }}>
-                Filters
-              </p>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+                <p className="sd-filter-title" style={{ margin: 0, fontSize: '14px', fontWeight: 750 }}>
+                  Analytics &amp; Trends
+                </p>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                  Filter charts below by role, status, or date range
+                </span>
+              </div>
               <div
                 style={{
                   display: 'grid',
@@ -536,7 +519,7 @@ export function SimpleDashboardPage() {
               >
                 <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Cases Over Time <span>(last 6 months)</span></p>
                 <div style={{ flex: 1, minHeight: 0 }}>
-                  <SdLineChart />
+                  <SdLineChart color="#0d9488" />
                 </div>
               </div>
 
@@ -551,7 +534,11 @@ export function SimpleDashboardPage() {
               >
                 <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Vaccination Trend <span>(last 6 months)</span></p>
                 <div style={{ flex: 1, minHeight: 0 }}>
-                  <SdLineChart color="#3b82f6" />
+                  <SdLineChart
+                    color="#10b981"
+                    unitLabel="doses"
+                    points={[32, 48, 44, 62, 58, 74, 68, 86, 79, 92, 88, 96]}
+                  />
                 </div>
               </div>
             </div>
@@ -570,7 +557,7 @@ export function SimpleDashboardPage() {
           >
             {/* Case Distribution */}
             <div
-              className="sd-chart-card"
+              className="sd-chart-card abtc-scroll-reveal"
               data-walkthrough="chart-case-distribution"
               style={{
                 borderRadius: '20px',
@@ -608,9 +595,9 @@ export function SimpleDashboardPage() {
                           fontWeight: isActive ? 600 : 500,
                           borderRadius: '999px',
                           border: 'none',
-                          background: isActive ? '#0f172a' : 'transparent',
+                          background: isActive ? '#065f46' : 'transparent',
                           color: isActive ? '#ffffff' : 'var(--text-secondary, #64748b)',
-                          boxShadow: isActive ? '0 1px 3px rgba(0, 0, 0, 0.15)' : 'none',
+                          boxShadow: isActive ? '0 2px 6px rgba(6, 95, 70, 0.25)' : 'none',
                           cursor: 'pointer',
                           textTransform: 'capitalize',
                           transition: 'all 0.18s ease',
@@ -630,26 +617,26 @@ export function SimpleDashboardPage() {
                   data={
                     caseDistPeriod === 'daily'
                       ? [
-                          { label: 'Category I',   pct: 20, color: '#a7d7b9' },
-                          { label: 'Category II',  pct: 50, color: '#56a978' },
-                          { label: 'Category III', pct: 30, color: '#1f7043' },
+                          { label: 'Category I',   pct: 20, color: '#a7e3c6' },
+                          { label: 'Category II',  pct: 50, color: '#34b584' },
+                          { label: 'Category III', pct: 30, color: '#0f766e' },
                         ]
                       : caseDistPeriod === 'weekly'
                       ? [
-                          { label: 'Category I',   pct: 30, color: '#a7d7b9' },
-                          { label: 'Category II',  pct: 45, color: '#56a978' },
-                          { label: 'Category III', pct: 25, color: '#1f7043' },
+                          { label: 'Category I',   pct: 30, color: '#a7e3c6' },
+                          { label: 'Category II',  pct: 45, color: '#34b584' },
+                          { label: 'Category III', pct: 25, color: '#0f766e' },
                         ]
                       : caseDistPeriod === 'yearly'
                       ? [
-                          { label: 'Category I',   pct: 38, color: '#a7d7b9' },
-                          { label: 'Category II',  pct: 42, color: '#56a978' },
-                          { label: 'Category III', pct: 20, color: '#1f7043' },
+                          { label: 'Category I',   pct: 38, color: '#a7e3c6' },
+                          { label: 'Category II',  pct: 42, color: '#34b584' },
+                          { label: 'Category III', pct: 20, color: '#0f766e' },
                         ]
                       : [
-                          { label: 'Category I',   pct: 35, color: '#a7d7b9' },
-                          { label: 'Category II',  pct: 40, color: '#56a978' },
-                          { label: 'Category III', pct: 25, color: '#1f7043' },
+                          { label: 'Category I',   pct: 35, color: '#a7e3c6' },
+                          { label: 'Category II',  pct: 40, color: '#34b584' },
+                          { label: 'Category III', pct: 25, color: '#0f766e' },
                         ]
                   }
                 />
@@ -658,7 +645,7 @@ export function SimpleDashboardPage() {
 
             {/* High & Low Risk Places Card with Registration PSGC API */}
             <div
-              className="sd-chart-card"
+              className="sd-chart-card abtc-scroll-reveal"
               data-walkthrough="chart-risk-places"
               style={{
                 borderRadius: '20px',
@@ -764,10 +751,10 @@ export function SimpleDashboardPage() {
                       riskLevel: b.risk,
                       color:
                         b.risk === 'High'
-                          ? '#ef4444' // Red for High Risk
+                          ? '#f2a2a2' // Muted Pastel Coral for High Risk
                           : b.risk === 'Moderate'
-                          ? '#eab308' // Yellow/Amber for Moderate Risk
-                          : '#10b981', // Green for Low Risk
+                          ? '#f3cc86' // Muted Pastel Warm Sand for Moderate Risk
+                          : '#8ed7b5', // Muted Pastel Sage Mint for Low Risk
                     }))}
                   />
                 )}
@@ -781,7 +768,6 @@ export function SimpleDashboardPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} data-walkthrough="cases-tab-view">
           <div className="sd-cards-grid" data-walkthrough="cases-tab-cards">
             <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" />
-            <SdCard color="blue" label="Active Cases" value={stats.activeCases.toString()} sub="Ongoing treatment" />
             <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" />
           </div>
 
@@ -842,7 +828,6 @@ export function SimpleDashboardPage() {
           <div className="sd-cards-grid" data-walkthrough="vaccinations-tab-cards">
             <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
             <SdCard color="purple" label="Total Scheduled" value={stats.followupPatients.toString()} sub="Doses tracked" />
-            <SdCard color="teal" label="Queue Count" value={stats.todayQueue.toString()} sub="Today waiting" />
           </div>
 
           <div className="sd-chart-card" data-walkthrough="table-recent-vaccinations" style={{ borderRadius: '20px', padding: '24px' }}>
@@ -903,24 +888,39 @@ function SdCalendar() {
   useEffect(() => {
     let active = true;
     api
-      .get('/clinics/schedule')
+      .get('/clinics/schedule-summary', { skipAccessDeniedModal: true } as any)
       .then((res) => {
         if (!active) return;
-        const closePh = res.data?.clinic?.close_on_ph_holidays ?? true;
+        const closePh = res.data?.close_on_ph_holidays ?? res.data?.clinic?.close_on_ph_holidays ?? true;
         setCloseOnPhHolidays(Boolean(closePh));
 
-        const exceptions = Array.isArray(res.data?.exceptions) ? res.data.exceptions : [];
+        const rawExceptions = res.data?.exceptions;
+        const exceptionEntries: Array<{ dateStr: string; is_open?: boolean; reason?: string }> = Array.isArray(rawExceptions)
+          ? rawExceptions
+              .filter((exc: any) => Boolean(exc?.exception_date))
+              .map((exc: any) => ({
+                dateStr: String(exc.exception_date).slice(0, 10),
+                is_open: exc.is_open,
+                reason: exc.reason,
+              }))
+          : rawExceptions && typeof rawExceptions === 'object'
+          ? Object.entries(rawExceptions).map(([dateKey, exc]: [string, any]) => ({
+              dateStr: String(dateKey).slice(0, 10),
+              is_open: exc?.is_open,
+              reason: exc?.reason,
+            }))
+          : [];
+
         const closedDates: CalendarHoliday[] = [];
         const openOverrides = new Set<string>();
 
-        exceptions.forEach((exc: any) => {
-          if (!exc.exception_date) return;
-          const dateStr = String(exc.exception_date).slice(0, 10);
+        exceptionEntries.forEach((exc) => {
+          if (!exc.dateStr) return;
           if (exc.is_open) {
-            openOverrides.add(dateStr);
+            openOverrides.add(exc.dateStr);
           } else {
             closedDates.push({
-              date: dateStr,
+              date: exc.dateStr,
               name: exc.reason?.trim() || 'Clinic Holiday / Closed',
               isClinicOverride: true,
             });
@@ -1316,84 +1316,467 @@ function SdCalendar() {
   );
 }
 
-function SdCard({ color, label, value, sub }: { color: string; label: string; value: string; sub: string }) {
+function SdCard({
+  color,
+  label,
+  value,
+  sub,
+  icon,
+}: {
+  color: string;
+  label: string;
+  value: string;
+  sub: string;
+  icon?: 'patients' | 'cases' | 'completed' | 'pending';
+}) {
   const autoId = `card-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
+  const renderIcon = () => {
+    if (!icon) return null;
+    if (icon === 'patients') {
+      return (
+        <span className="sd-card-icon sd-card-icon--patients" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        </span>
+      );
+    }
+    if (icon === 'cases') {
+      return (
+        <span className="sd-card-icon sd-card-icon--cases" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+        </span>
+      );
+    }
+    if (icon === 'completed') {
+      return (
+        <span className="sd-card-icon sd-card-icon--completed" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
+        </span>
+      );
+    }
+    return (
+      <span className="sd-card-icon sd-card-icon--pending" aria-hidden="true">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+      </span>
+    );
+  };
+
   return (
     <div className={`sd-card sd-card--${color}`} data-walkthrough={autoId} data-card-label={label}>
-      <p className="sd-card-label">{label}</p>
+      <div className="sd-card-head">
+        <p className="sd-card-label">{label}</p>
+        {renderIcon()}
+      </div>
       <p className="sd-card-value">{value}</p>
       <p className="sd-card-sub">{sub}</p>
     </div>
   );
 }
 
-function SdLineChart({ color = '#4f7ef7' }: { color?: string }) {
-  const points = [20, 45, 30, 60, 40, 75, 55, 80, 65, 90, 70, 85];
-  const w = 400, h = 140;
-  const pad = 20;
-  const maxV = Math.max(...points);
-  const xs = points.map((_, i) => pad + (i / (points.length - 1)) * (w - pad * 2));
-  const ys = points.map(v => pad + (1 - v / maxV) * (h - pad * 2));
-  const path = xs.map((x, i) => `${i === 0 ? 'M' : 'L'} ${x} ${ys[i]}`).join(' ');
-  const area = `${path} L ${xs[xs.length - 1]} ${h - pad} L ${xs[0]} ${h - pad} Z`;
+function SdLineChart({
+  color = '#3b82f6',
+  points = [20, 45, 30, 60, 40, 75, 55, 80, 65, 90, 70, 85],
+  unitLabel = 'cases',
+}: {
+  color?: string;
+  points?: number[];
+  unitLabel?: string;
+}) {
+  const uid = useId().replace(/:/g, '');
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const { ref: scrollRef, inView } = useChartInView<HTMLDivElement>({ threshold: 0.2 });
+
+  const w = 420;
+  const h = 165;
+  const padLeft = 28;
+  const padRight = 14;
+  const padTop = 22;
+  const padBottom = 24;
+  const innerW = w - padLeft - padRight;
+  const innerH = h - padTop - padBottom;
+  const bottomY = padTop + innerH;
+
+  const maxV = Math.max(...points, 10);
+  const roundedMax = Math.ceil(maxV / 20) * 20;
+
+  const coords = points.map((v, i) => ({
+    x: padLeft + (i / Math.max(1, points.length - 1)) * innerW,
+    y: padTop + (1 - v / roundedMax) * innerH,
+    value: v,
+  }));
+
+  // Smooth cubic-bezier spline
+  const path = coords.reduce((acc, pt, i, arr) => {
+    if (i === 0) return `M ${pt.x} ${pt.y}`;
+    const prev = arr[i - 1];
+    const cx = prev.x + (pt.x - prev.x) / 2;
+    return `${acc} C ${cx} ${prev.y}, ${cx} ${pt.y}, ${pt.x} ${pt.y}`;
+  }, '');
+
+  const area =
+    coords.length > 0
+      ? `${path} L ${coords[coords.length - 1].x} ${bottomY} L ${coords[0].x} ${bottomY} Z`
+      : '';
+
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const hovered = hoveredIdx !== null ? coords[hoveredIdx] : null;
+  const tooltipX = hovered ? Math.min(Math.max(hovered.x, padLeft + 42), w - padRight - 42) : 0;
+  const tooltipY = hovered ? Math.max(4, hovered.y - 40) : 0;
+  const hitW = innerW / Math.max(1, coords.length);
+
   return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      className="sd-line-chart"
+    <div
+      ref={scrollRef}
+      className="abtc-scroll-watch"
+      data-in-view={inView ? 'true' : 'false'}
       style={{ width: '100%', height: '100%' }}
-      preserveAspectRatio="none"
     >
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className="sd-line-chart"
+        role="img"
+        aria-label={`Trend chart (${unitLabel})`}
+        style={{ width: '100%', height: '100%', overflow: 'visible' }}
+      >
       <defs>
-        <linearGradient id={`grad-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+        <linearGradient id={`sdGrad-${uid}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={isDark ? '0.32' : '0.24'} />
+          <stop offset="80%" stopColor={color} stopOpacity="0.04" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
-      <path d={area} fill={`url(#grad-${color.replace('#', '')})`} />
-      <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {xs.map((x, i) => i % 2 === 0 && (
-        <text key={i} x={x} y={h - 4} textAnchor="middle" fontSize="9" fill="#9ca3af">
-          {months[i]}
-        </text>
-      ))}
-    </svg>
+
+      {/* Subtle Y gridlines */}
+      {[0, 0.5, 1].map((ratio, idx) => {
+        const y = padTop + innerH * (1 - ratio);
+        const tickVal = Math.round(roundedMax * ratio);
+        return (
+          <g key={idx}>
+            <line
+              x1={padLeft}
+              y1={y}
+              x2={w - padRight}
+              y2={y}
+              stroke={isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.22)'}
+              strokeDasharray={ratio === 0 ? undefined : '3 3'}
+              strokeWidth="1"
+            />
+            <text
+              x={padLeft - 6}
+              y={y + 3}
+              textAnchor="end"
+              fontSize="8.5"
+              fill="var(--text-secondary, #94a3b8)"
+              fontWeight="500"
+            >
+              {tickVal}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Animated Area Reveal */}
+      <path d={area} fill={`url(#sdGrad-${uid})`} className="abtc-svg-area-reveal" />
+
+      {/* Animated Line Draw-In */}
+      <path
+        d={path}
+        fill="none"
+        stroke={color}
+        strokeWidth="2.6"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        className="abtc-svg-line-draw"
+        style={{ '--line-length': 900 } as React.CSSProperties}
+      />
+
+      {/* Hover Vertical Crosshair */}
+      {hovered && (
+        <line
+          x1={hovered.x}
+          y1={padTop}
+          x2={hovered.x}
+          y2={bottomY}
+          stroke={color}
+          strokeOpacity="0.35"
+          strokeDasharray="3 3"
+          strokeWidth="1.2"
+        />
+      )}
+
+      {/* Interactive Points & Labels */}
+      {coords.map((pt, i) => {
+        const isActive = hoveredIdx === i;
+        return (
+          <g
+            key={i}
+            onMouseEnter={() => setHoveredIdx(i)}
+            onMouseLeave={() => setHoveredIdx(null)}
+            style={{ cursor: 'pointer' }}
+          >
+            <rect
+              x={pt.x - hitW / 2}
+              y={padTop}
+              width={hitW}
+              height={innerH + 18}
+              fill="transparent"
+            />
+            {isActive && (
+              <circle cx={pt.x} cy={pt.y} r="8" fill={color} fillOpacity="0.18" />
+            )}
+            <circle
+              cx={pt.x}
+              cy={pt.y}
+              r={isActive ? 4.5 : 2.6}
+              fill={isDark ? '#111827' : '#ffffff'}
+              stroke={color}
+              strokeWidth={isActive ? 2.5 : 1.8}
+              className="abtc-svg-point"
+              style={{ '--pt-delay': `${140 + i * 35}ms` } as React.CSSProperties}
+            />
+            {i % 2 === 0 && (
+              <text
+                x={pt.x}
+                y={h - 5}
+                textAnchor="middle"
+                fontSize="9.5"
+                fontWeight={isActive ? 700 : 500}
+                fill={isActive ? 'var(--text-h, #0f172a)' : 'var(--text-secondary, #9ca3af)'}
+              >
+                {months[i]}
+              </text>
+            )}
+          </g>
+        );
+      })}
+
+      {/* Floating Tooltip */}
+      {hovered && hoveredIdx !== null && (
+        <g transform={`translate(${tooltipX}, ${tooltipY})`} className="abtc-tooltip">
+          <rect
+            x="-42"
+            y="0"
+            width="84"
+            height="30"
+            rx="8"
+            fill={isDark ? '#0f172a' : '#1e293b'}
+            filter="drop-shadow(0 4px 10px rgba(15, 23, 42, 0.25))"
+          />
+          <text x="0" y="13" textAnchor="middle" fontSize="8.5" fill="#94a3b8" fontWeight="600">
+            {months[hoveredIdx]}
+          </text>
+          <text x="0" y="24" textAnchor="middle" fontSize="10" fill="#ffffff" fontWeight="700">
+            {hovered.value} {unitLabel}
+          </text>
+        </g>
+      )}
+      </svg>
+    </div>
   );
 }
 
 function SdDonutChart({ data }: { data: { label: string; pct: number; color: string }[] }) {
-  const r = 55, cx = 75, cy = 75, stroke = 24;
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const { ref: scrollRef, inView } = useChartInView<HTMLDivElement>({ threshold: 0.2 });
+
+  const r = 54;
+  const cx = 78;
+  const cy = 78;
+  const stroke = 23;
   const circ = 2 * Math.PI * r;
+  const gapPx = data.length > 1 ? 2.5 : 0;
+
   let offset = 0;
-  const slices = data.map(d => {
-    const len = (d.pct / 100) * circ;
+  const slices = data.map((d) => {
+    const rawLen = (d.pct / 100) * circ;
+    const len = Math.max(0, rawLen - gapPx);
     const s = { ...d, dasharray: `${len} ${circ - len}`, offset };
-    offset += len;
+    offset += rawLen;
     return s;
   });
+
+  const activeSlice = activeIdx !== null ? slices[activeIdx] : null;
+  const totalPct = data.reduce((a, d) => a + d.pct, 0);
+  const dataKey = data.map((d) => d.pct).join('-');
+
   return (
-    <div className="sd-donut-wrap" style={{ width: '100%', justifyContent: 'center', gap: '16px' }}>
-      <svg viewBox={`0 0 ${cx * 2} ${cy * 2}`} width="150" height="150">
-        {slices.map((s, i) => (
-          <circle key={i} cx={cx} cy={cy} r={r}
-            fill="none" stroke={s.color} strokeWidth={stroke}
-            strokeDasharray={s.dasharray}
-            strokeDashoffset={-s.offset}
-            transform="rotate(-90, 75, 75)"
+    <div
+      ref={scrollRef}
+      className="sd-donut-wrap abtc-scroll-watch"
+      data-in-view={inView ? 'true' : 'false'}
+      style={{ width: '100%', justifyContent: 'center', gap: '22px' }}
+    >
+      <div style={{ position: 'relative', width: cx * 2, height: cy * 2, flexShrink: 0 }}>
+        <svg
+          key={dataKey}
+          viewBox={`0 0 ${cx * 2} ${cy * 2}`}
+          width={cx * 2}
+          height={cy * 2}
+          role="img"
+          aria-label="Case distribution donut chart"
+          style={{ transform: 'rotate(-90deg)', overflow: 'visible' }}
+        >
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke={isDark ? 'rgba(255, 255, 255, 0.07)' : '#f1f5f9'}
+            strokeWidth={stroke}
           />
-        ))}
-        <text x={cx} y={cy + 5} textAnchor="middle" fontSize="15" fontWeight="700" fill="var(--text-h)">
-          {data.reduce((a, d) => a + d.pct, 0)}%
-        </text>
-      </svg>
-      <div className="sd-donut-legend">
-        {data.map((d, i) => (
-          <div key={i} className="sd-donut-legend-item" style={{ fontSize: '12px' }}>
-            <div className="sd-donut-legend-dot" style={{ background: d.color, width: '10px', height: '10px' }} />
-            <span>{d.label}</span>
-            <span className="sd-donut-legend-pct" style={{ fontWeight: 700 }}>{d.pct}%</span>
-          </div>
-        ))}
+          {slices.map((s, i) => {
+            const isActive = activeIdx === i;
+            const isDimmed = activeIdx !== null && !isActive;
+            return (
+              <circle
+                key={s.label}
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill="none"
+                stroke={s.color}
+                strokeWidth={isActive ? stroke + 5 : stroke}
+                strokeDasharray={s.dasharray}
+                strokeDashoffset={-s.offset}
+                opacity={isDimmed ? 0.35 : 1}
+                className="abtc-donut-segment"
+                style={
+                  {
+                    '--seg-dash': s.dasharray,
+                    '--seg-delay': `${i * 95}ms`,
+                    filter: isActive ? `drop-shadow(0 0 8px ${s.color}88)` : 'none',
+                  } as React.CSSProperties
+                }
+                onMouseEnter={() => setActiveIdx(i)}
+                onMouseLeave={() => setActiveIdx(null)}
+              />
+            );
+          })}
+        </svg>
+
+        {/* Center Dynamic Readout */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            textAlign: 'center',
+          }}
+        >
+          <span
+            style={{
+              fontSize: activeSlice ? '20px' : '18px',
+              fontWeight: 800,
+              color: activeSlice ? activeSlice.color : 'var(--text-h, #0f172a)',
+              lineHeight: 1.05,
+              transition: 'color 0.2s ease',
+            }}
+          >
+            {activeSlice ? `${activeSlice.pct}%` : `${totalPct}%`}
+          </span>
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              color: 'var(--text-secondary, #64748b)',
+              marginTop: '2px',
+            }}
+          >
+            {activeSlice ? activeSlice.label : 'Total'}
+          </span>
+        </div>
+      </div>
+
+      {/* Interactive Legend with Mini Bars */}
+      <div className="sd-donut-legend" style={{ minWidth: '155px', gap: '8px' }}>
+        {data.map((d, i) => {
+          const isActive = activeIdx === i;
+          return (
+            <div
+              key={`${dataKey}-${d.label}`}
+              role="button"
+              tabIndex={0}
+              data-active={isActive ? 'true' : 'false'}
+              className="abtc-interactive-row"
+              onMouseEnter={() => setActiveIdx(i)}
+              onMouseLeave={() => setActiveIdx(null)}
+              onFocus={() => setActiveIdx(i)}
+              onBlur={() => setActiveIdx(null)}
+              style={{
+                padding: '6px 10px',
+                borderRadius: '10px',
+                background: isActive
+                  ? isDark
+                    ? 'rgba(255, 255, 255, 0.07)'
+                    : `${d.color}14`
+                  : isDark
+                    ? 'rgba(255, 255, 255, 0.025)'
+                    : '#f8fafc',
+                border: `1px solid ${isActive ? `${d.color}66` : 'var(--card-border, #f1f5f9)'}`,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', fontSize: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  <span
+                    style={{
+                      width: '9px',
+                      height: '9px',
+                      borderRadius: '50%',
+                      background: d.color,
+                      boxShadow: isActive ? `0 0 8px ${d.color}` : 'none',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span style={{ fontWeight: 600, color: 'var(--text-h, #0f172a)' }}>{d.label}</span>
+                </div>
+                <span style={{ fontWeight: 800, color: d.color }}>{d.pct}%</span>
+              </div>
+              <div
+                style={{
+                  marginTop: '5px',
+                  height: '4px',
+                  borderRadius: '999px',
+                  background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.06)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  className="abtc-bar-fill"
+                  style={
+                    {
+                      height: '100%',
+                      width: `${d.pct}%`,
+                      borderRadius: '999px',
+                      background: d.color,
+                      '--bar-delay': `${100 + i * 80}ms`,
+                    } as React.CSSProperties
+                  }
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -1404,37 +1787,77 @@ function SdBarChart({
 }: {
   data: { label: string; value: number; color?: string; subLabel?: string; riskLevel?: 'High' | 'Moderate' | 'Low' }[];
 }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const { ref: scrollRef, inView } = useChartInView<HTMLDivElement>({ threshold: 0.2 });
+
   const maxValue = Math.max(...data.map((d) => d.value), 1);
+  // Key changes whenever municipality / barangay list changes so bars smoothly rise up again
+  const dataKey = data.map((d) => `${d.label}:${d.value}`).join('|');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'flex-end', paddingTop: '4px' }}>
-      {/* Chart Canvas with Clean L-Frame Axis matching the illustration */}
+    <div
+      ref={scrollRef}
+      className="abtc-scroll-watch"
+      data-in-view={inView ? 'true' : 'false'}
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'flex-end', paddingTop: '10px' }}
+    >
+      {/* Modern Chart Canvas with Rising Vertical Bars */}
       <div
+        key={dataKey}
         style={{
           display: 'flex',
           alignItems: 'flex-end',
           justifyContent: 'space-around',
-          height: '135px',
-          paddingBottom: '4px',
-          paddingLeft: '12px',
-          paddingRight: '6px',
-          borderLeft: '2.5px solid var(--text-secondary, #94a3b8)',
-          borderBottom: '2.5px solid var(--text-secondary, #94a3b8)',
-          gap: '10px',
+          height: '150px',
+          paddingBottom: '2px',
+          paddingLeft: '10px',
+          paddingRight: '10px',
+          borderBottom: `1.5px solid ${isDark ? 'rgba(148, 163, 184, 0.25)' : '#e2e8f0'}`,
+          gap: '12px',
           position: 'relative',
         }}
       >
-        {/* Subtle horizontal grid lines */}
-        <div style={{ position: 'absolute', top: '25%', left: '12px', right: 0, borderTop: '1px dashed rgba(148, 163, 184, 0.25)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: '60%', left: '12px', right: 0, borderTop: '1px dashed rgba(148, 163, 184, 0.25)', pointerEvents: 'none' }} />
+        {/* Subtle horizontal dashed grid lines */}
+        {[25, 50, 75].map((pct) => (
+          <div
+            key={pct}
+            style={{
+              position: 'absolute',
+              bottom: `${pct}%`,
+              left: 0,
+              right: 0,
+              borderTop: `1px dashed ${isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.25)'}`,
+              pointerEvents: 'none',
+            }}
+          />
+        ))}
 
         {data.map((item, idx) => {
           const heightPct = Math.max(Math.round((item.value / maxValue) * 100), 14);
-          const barColor = item.color || '#2563eb';
+          const barColor = item.color || '#93c5fd';
+          const textAccent =
+            item.riskLevel === 'High'
+              ? isDark ? '#fda4af' : '#e11d48'
+              : item.riskLevel === 'Moderate'
+              ? isDark ? '#fcd34d' : '#b45309'
+              : item.riskLevel === 'Low'
+              ? isDark ? '#86efac' : '#047857'
+              : barColor;
+          const isActive = hoveredIdx === idx;
+          const isDimmed = hoveredIdx !== null && !isActive;
 
           return (
             <div
-              key={idx}
+              key={`${item.label}-${idx}`}
+              role="button"
+              tabIndex={0}
+              onMouseEnter={() => setHoveredIdx(idx)}
+              onMouseLeave={() => setHoveredIdx(null)}
+              onFocus={() => setHoveredIdx(idx)}
+              onBlur={() => setHoveredIdx(null)}
+              aria-label={`${item.label}: ${item.value} cases${item.riskLevel ? `, ${item.riskLevel} risk` : ''}`}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -1443,103 +1866,180 @@ function SdBarChart({
                 maxWidth: '64px',
                 height: '100%',
                 justifyContent: 'flex-end',
-                gap: '4px',
-                zIndex: 1,
+                position: 'relative',
+                zIndex: isActive ? 5 : 1,
+                cursor: 'pointer',
+                outline: 'none',
               }}
             >
-              {/* Value on top of bar */}
-              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-h)' }}>
+              {/* Floating Tooltip on Hover */}
+              {isActive && (
+                <div
+                  className="abtc-tooltip"
+                  style={{
+                    position: 'absolute',
+                    bottom: `calc(${heightPct}% + 22px)`,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: isDark ? '#0f172a' : '#1e293b',
+                    color: '#ffffff',
+                    padding: '5px 9px',
+                    borderRadius: '8px',
+                    fontSize: '10.5px',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 8px 18px rgba(15, 23, 42, 0.25)',
+                    border: '1px solid rgba(148, 163, 184, 0.25)',
+                    zIndex: 10,
+                  }}
+                >
+                  {item.label}: <strong style={{ color: barColor }}>{item.value}</strong> cases
+                </div>
+              )}
+
+              {/* Value Label above the bar */}
+              <span
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  color: isActive ? textAccent : 'var(--text-h, #0f172a)',
+                  marginBottom: '5px',
+                  transition: 'color 0.2s ease, transform 0.2s ease',
+                  transform: isActive ? 'translateY(-2px)' : 'none',
+                }}
+              >
                 {item.value}
               </span>
 
-              {/* Solid Vertical Column Bar matching the drawing */}
+              {/* Animated Rising Vertical Pastel Bar (goes UP from baseline!) */}
               <div
                 style={{
                   width: '100%',
-                  height: `${heightPct}%`,
-                  backgroundColor: barColor,
-                  borderRadius: '3px 3px 0 0',
-                  transition: 'height 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: `0 4px 10px ${barColor}35`,
+                  height: `calc(${heightPct}% - 20px)`,
+                  minHeight: '14px',
+                  display: 'flex',
+                  alignItems: 'flex-end',
                 }}
-              />
+              >
+                <div
+                  className="abtc-bar-rise"
+                  style={
+                    {
+                      width: '100%',
+                      height: '100%',
+                      background: `linear-gradient(180deg, ${barColor} 0%, ${barColor}b8 100%)`,
+                      borderRadius: '10px 10px 4px 4px',
+                      border: `1px solid ${barColor}`,
+                      boxShadow: isActive
+                        ? `0 8px 20px -4px ${barColor}aa`
+                        : `0 4px 10px -4px ${barColor}55`,
+                      opacity: isDimmed ? 0.45 : 1,
+                      position: 'relative',
+                      overflow: 'hidden',
+                      '--bar-delay': `${idx * 90}ms`,
+                    } as React.CSSProperties
+                  }
+                >
+                  {/* Soft glossy top accent edge */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: '3px',
+                      background: 'rgba(255, 255, 255, 0.5)',
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           );
         })}
       </div>
 
       {/* X-Axis Place & Risk Labels */}
-      <div style={{ display: 'flex', justifyContent: 'space-around', paddingTop: '8px', paddingLeft: '12px', gap: '10px' }}>
-        {data.map((item, idx) => (
-          <div
-            key={idx}
-            style={{
-              flex: 1,
-              maxWidth: '64px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              textAlign: 'center',
-              gap: '2px',
-            }}
-          >
-            {/* Place Name */}
-            <span
+      <div style={{ display: 'flex', justifyContent: 'space-around', paddingTop: '9px', paddingLeft: '10px', paddingRight: '10px', gap: '12px' }}>
+        {data.map((item, idx) => {
+          const isActive = hoveredIdx === idx;
+          return (
+            <div
+              key={`${item.label}-lbl-${idx}`}
               style={{
-                fontSize: '11px',
-                fontWeight: 650,
-                color: 'var(--text-h)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                width: '100%',
+                flex: 1,
+                maxWidth: '64px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                gap: '3px',
               }}
-              title={item.label}
             >
-              {item.label}
-            </span>
-
-            {/* Risk Badge (High / Low / Moderate) */}
-            {item.riskLevel && (
               <span
                 style={{
-                  fontSize: '9px',
-                  fontWeight: 700,
-                  padding: '1px 5px',
-                  borderRadius: '4px',
-                  lineHeight: 1.2,
-                  background:
-                    item.riskLevel === 'High'
-                      ? 'rgba(239, 68, 68, 0.12)'
+                  fontSize: '11px',
+                  fontWeight: isActive ? 800 : 650,
+                  color: isActive
+                    ? item.riskLevel === 'High'
+                      ? (isDark ? '#fda4af' : '#e11d48')
                       : item.riskLevel === 'Moderate'
-                      ? 'rgba(245, 158, 11, 0.12)'
-                      : 'rgba(16, 185, 129, 0.12)',
-                  color:
-                    item.riskLevel === 'High'
-                      ? '#dc2626'
-                      : item.riskLevel === 'Moderate'
-                      ? '#d97706'
-                      : '#059669',
-                  border: `1px solid ${
-                    item.riskLevel === 'High'
-                      ? 'rgba(239, 68, 68, 0.25)'
-                      : item.riskLevel === 'Moderate'
-                      ? 'rgba(245, 158, 11, 0.25)'
-                      : 'rgba(16, 185, 129, 0.25)'
-                  }`,
+                      ? (isDark ? '#fcd34d' : '#b45309')
+                      : item.riskLevel === 'Low'
+                      ? (isDark ? '#86efac' : '#047857')
+                      : 'var(--text-h)'
+                    : 'var(--text-h)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  width: '100%',
+                  transition: 'color 0.2s ease',
                 }}
+                title={item.label}
               >
-                {item.riskLevel}
+                {item.label}
               </span>
-            )}
 
-            {item.subLabel && !item.riskLevel && (
-              <span style={{ fontSize: '10px', color: 'var(--text-secondary)', lineHeight: 1 }}>
-                {item.subLabel}
-              </span>
-            )}
-          </div>
-        ))}
+              {item.riskLevel && (
+                <span
+                  style={{
+                    fontSize: '9px',
+                    fontWeight: 700,
+                    padding: '1.5px 6px',
+                    borderRadius: '999px',
+                    lineHeight: 1.2,
+                    background:
+                      item.riskLevel === 'High'
+                        ? isDark ? 'rgba(253, 164, 175, 0.16)' : '#fff1f2'
+                        : item.riskLevel === 'Moderate'
+                        ? isDark ? 'rgba(252, 211, 77, 0.16)' : '#fffbeb'
+                        : isDark ? 'rgba(134, 239, 172, 0.16)' : '#f0fdf4',
+                    color:
+                      item.riskLevel === 'High'
+                        ? isDark ? '#fda4af' : '#be123c'
+                        : item.riskLevel === 'Moderate'
+                        ? isDark ? '#fcd34d' : '#b45309'
+                        : isDark ? '#86efac' : '#15803d',
+                    border: `1px solid ${
+                      item.riskLevel === 'High'
+                        ? 'rgba(253, 164, 175, 0.55)'
+                        : item.riskLevel === 'Moderate'
+                        ? 'rgba(252, 211, 77, 0.6)'
+                        : 'rgba(134, 239, 172, 0.6)'
+                    }`,
+                  }}
+                >
+                  {item.riskLevel}
+                </span>
+              )}
+
+              {item.subLabel && !item.riskLevel && (
+                <span style={{ fontSize: '10px', color: 'var(--text-secondary)', lineHeight: 1 }}>
+                  {item.subLabel}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

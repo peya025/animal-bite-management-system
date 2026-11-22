@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use App\Events\AppointmentStatusChanged;
+use App\Listeners\SendAppointmentFcmNotification;
 use App\Models\Patient;
 use App\Models\PatientAccount;
 use App\Models\Queue;
@@ -18,7 +20,8 @@ use App\Policies\PatientAccountPolicy;
 use App\Policies\PatientPolicy;
 use App\Policies\QueuePolicy;
 use App\Policies\TreatmentRecordPolicy;
-use App\Policies\VaccineInventoryPolicy;
+
+use Illuminate\Support\Facades\Event;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -64,6 +67,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Queue::class, QueuePolicy::class);
         Gate::policy(TreatmentRecord::class, TreatmentRecordPolicy::class);
         Gate::policy(VaccineInventory::class, VaccineInventoryPolicy::class);
+
+        // Event Listeners
+        Event::listen(AppointmentStatusChanged::class, SendAppointmentFcmNotification::class);
 
         // Define rate limiters tailored to endpoint risk profiles
         \Illuminate\Support\Facades\RateLimiter::for('login', function (\Illuminate\Http\Request $request) {

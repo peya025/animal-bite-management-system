@@ -228,7 +228,7 @@ class TriageDoctorAndReExposureTest extends TestCase
             ->assertJsonPath('bite_incident.mode_of_exposure', null)
             ->assertJsonPath('bite_incident.exposure_category', 'III');
 
-        // Registration owns animal information; stale nurse payloads must not replace it.
+        // Form 3 updates nurse-verified animal info while preserving doctor's exposure category
         $incident->update(['animal_type' => 'dog']);
         $nurse = $this->createStaff($clinic, 'treatment');
         Sanctum::actingAs($nurse);
@@ -255,7 +255,7 @@ class TriageDoctorAndReExposureTest extends TestCase
             'exposure_category' => 'III',
             'mode_of_exposure' => 'scratch_abrasion',
             'body_part_exposed' => 'right foot',
-            'animal_type' => 'dog',
+            'animal_type' => 'cat',
         ]);
         $this->assertDatabaseHas('bite_incidents', [
             'bite_id' => $incident->bite_id,
@@ -265,7 +265,7 @@ class TriageDoctorAndReExposureTest extends TestCase
             'body_part_exposed' => 'right foot',
             'site_number' => 'Right ankle',
             'bite_place' => 'Matangad, Gitagum',
-            'animal_type' => 'dog',
+            'animal_type' => 'cat',
         ]);
     }
 
@@ -285,6 +285,7 @@ class TriageDoctorAndReExposureTest extends TestCase
             'mode_of_transaction' => 'referral',
             'reg_date_of_consultation' => Carbon::today()->toDateString(),
             'reg_referred_by' => 'Barangay Health Station',
+            'reg_attending_provider' => 'Dr. Santos',
         ])->assertCreated();
 
         $patientId = $registration->json('patient.patient_id');
@@ -346,6 +347,7 @@ class TriageDoctorAndReExposureTest extends TestCase
             'reg_date_of_consultation' => Carbon::today()->toDateString(),
             'reg_referred_by' => 'Barangay Health Station',
             'reg_weight' => '60',
+            'reg_attending_provider' => 'Dr. Santos',
         ])->assertCreated();
 
         $patientId = $registration->json('patient.patient_id');

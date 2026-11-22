@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Events\AppointmentStatusChanged;
+use App\Models\Appointment;
 use App\Models\Queue;
 use App\Models\VaccinationSchedule;
 use Carbon\Carbon;
@@ -211,6 +213,25 @@ class VaccinationScheduleService
             'status'               => 'rescheduled',
             'administration_notes' => $reason,
         ]);
+
+        // Keep matching appointment in sync and dispatch event
+        $appointment = Appointment::where('clinic_id', $clinicId)
+            ->where('patient_id', $schedule->patient_id)
+            ->where('dose_number', $schedule->dose_number)
+            ->whereIn('status', ['scheduled', 'confirmed'])
+            ->first();
+
+        if ($appointment) {
+            $appointment->update([
+                'appointment_date'           => $newDate,
+                'scheduled_date'             => $newDate,
+                'schedule_adjustment_reason' => $reason,
+            ]);
+            AppointmentStatusChanged::dispatch(
+                AppointmentStatusChanged::fromModel($appointment->fresh(), 'rescheduled')
+            );
+        }
+
         $this->clearCaches($clinicId);
         return $schedule;
     }

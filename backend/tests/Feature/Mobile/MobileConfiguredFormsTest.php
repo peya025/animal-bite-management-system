@@ -187,4 +187,80 @@ class MobileConfiguredFormsTest extends TestCase
         $this->assertSame('12-345678901-2', $this->patient->memberships()->first()->membership_id_no);
         $this->assertSame('12-345678901-2', $this->patient->details()->first()->philhealth_no);
     }
+
+    public function test_hidden_parent_prevents_required_child_booking_deadlock(): void
+    {
+        $this->patient->details()->update([
+            'civil_status' => 'married',
+            'spouse_name' => null,
+            'philhealth_member' => 'yes',
+            'philhealth_no' => null,
+        ]);
+        $this->configure([
+            'civil_status' => 'hidden',
+            'spouse_name' => 'required',
+            'philhealth_member' => 'hidden',
+            'philhealth_no' => 'required',
+        ]);
+
+        $this->postJson('/api/mobile/appointments', $this->booking())->assertCreated();
+    }
+
+    public function test_hidden_wound_location_strips_body_part_group_and_laterality(): void
+    {
+        $this->configure(['wound_location' => 'hidden']);
+        $payload = $this->booking([
+            'body_part_group' => 'head_neck',
+            'wound_location' => 'Forehead',
+            'laterality' => 'left',
+        ]);
+
+        $response = $this->postJson('/api/mobile/appointments', $payload)->assertCreated();
+        $intake = BiteIncidentIntake::where('appointment_id', $response->json('appointment_id'))->firstOrFail();
+        $this->assertNull($intake->wound_location);
+        $this->assertNull($intake->body_part_exposed);
+        $this->assertNull($intake->laterality);
+    }
+
+    public function test_stale_config_revision_returns_conflict_with_latest_configuration(): void
+    {
+        $this->configure(['blood_type' => 'optional'], ['revision' => 4]);
+
+        $this->patchJson('/api/mobile/patients/'.$this->patient->patient_id, [
+            'config_revision' => 3,
+            'relationship' => 'self',
+            'first_name' => 'Updated',
+            'last_name' => 'Patient',
+            'gender' => 'male',
+        ])->assertStatus(409)
+            ->assertJsonPath('code', 'form_configuration_changed')
+            ->assertJsonPath('current_revision', 4)
+            ->assertJsonPath('configuration.revision', 4);
+
+        $this->patchJson('/api/mobile/patients/'.$this->patient->patient_id, [
+            'config_revision' => 4,
+            'relationship' => 'self',
+            'first_name' => 'Updated',
+            'last_name' => 'Patient',
+            'gender' => 'male',
+        ])->assertOk();
+
+        $staleBooking = $this->booking();
+        $staleBooking['config_revision'] = 2;
+        $this->postJson('/api/mobile/appointments', $staleBooking)
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'form_configuration_changed')
+            ->assertJsonPath('current_revision', 4);
+
+        $validBooking = $this->booking();
+        $validBooking['config_revision'] = 4;
+        $created = $this->postJson('/api/mobile/appointments', $validBooking)->assertCreated();
+
+        $this->putJson('/api/mobile/appointments/'.$created->json('appointment_id').'/intake', [
+            'config_revision' => 1,
+            'intake' => ['bite_place' => 'Stale update'],
+        ])->assertStatus(409)
+            ->assertJsonPath('code', 'form_configuration_changed')
+            ->assertJsonPath('current_revision', 4);
+    }
 }

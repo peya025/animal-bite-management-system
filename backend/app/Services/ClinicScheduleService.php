@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\AppointmentStatusChanged;
 use App\Models\Appointment;
 use App\Models\Clinic;
 use App\Models\ClinicSchedule;
@@ -440,6 +441,8 @@ class ClinicScheduleService
                     'schedule_adjustment_reason' => $resolution['adjustment_reason'],
                     'notes' => $noteText,
                 ]);
+
+                AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appt->fresh(), 'rescheduled'));
 
                 $updatedAppointments[] = $appt;
             }

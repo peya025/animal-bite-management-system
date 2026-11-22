@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\VaccineStockUpdated;
 use App\Models\AuditLog;
 use App\Models\InventoryTransaction;
 use App\Models\VaccineInventory;
@@ -80,6 +81,8 @@ class VaccineInventoryService
 
                 app(NotificationService::class)->notifyStockReceived($inventory, $user, (int) $data['quantity']);
 
+                VaccineStockUpdated::dispatch(VaccineStockUpdated::fromModel($inventory, 'received'));
+
                 if ($preset) {
                     $inventory->setRelation('vaccinePreset', $preset);
                     $inventory->vaccine_category = $preset->category;
@@ -124,7 +127,10 @@ class VaccineInventoryService
                     'description' => "Inventory updated for batch {$inventory->batch_number}",
                 ]);
 
-                return $inventory->fresh();
+                $freshInventory = $inventory->fresh();
+                VaccineStockUpdated::dispatch(VaccineStockUpdated::fromModel($freshInventory, 'updated'));
+
+                return $freshInventory;
             });
         } catch (\Illuminate\Database\QueryException $e) {
             $this->rethrowDuplicateBatch($e, $data['batch_number'] ?? '');
@@ -161,6 +167,8 @@ class VaccineInventoryService
                 'new_values'  => ['archived_reason' => $reason, 'deleted_at' => now()->toIso8601String()],
                 'description' => "Inventory batch {$inventory->batch_number} archived: {$reason}",
             ]);
+
+            VaccineStockUpdated::dispatch(VaccineStockUpdated::fromModel($inventory, 'archived'));
         });
     }
 
@@ -222,7 +230,10 @@ class VaccineInventoryService
                 app(NotificationService::class)->syncInventoryAlerts($inventory->clinic_id);
             }
 
-            return $inventory->fresh();
+            $freshInventory = $inventory->fresh();
+            VaccineStockUpdated::dispatch(VaccineStockUpdated::fromModel($freshInventory, $type));
+
+            return $freshInventory;
         });
     }
 
@@ -341,7 +352,10 @@ class VaccineInventoryService
                 'description' => "Vial {$vial->vial_code} opened manually for batch {$inventory->batch_number}",
             ]);
 
-            return $inventory->fresh();
+            $freshInventory = $inventory->fresh();
+            VaccineStockUpdated::dispatch(VaccineStockUpdated::fromModel($freshInventory, 'vial_opened'));
+
+            return $freshInventory;
         });
     }
 
@@ -417,7 +431,10 @@ class VaccineInventoryService
                 'description' => "Open vial discarded for batch {$inventory->batch_number}: {$reason}",
             ]);
 
-            return $inventory->fresh();
+            $freshInventory = $inventory->fresh();
+            VaccineStockUpdated::dispatch(VaccineStockUpdated::fromModel($freshInventory, 'vial_discarded'));
+
+            return $freshInventory;
         });
     }
 

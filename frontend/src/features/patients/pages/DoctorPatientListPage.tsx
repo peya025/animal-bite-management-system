@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
 import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
+import { useAuth } from '../../../shared/contexts/AuthContext';
+import { useEcho } from '../../../shared/hooks/useEcho';
 import {
   Alert, Box, CircularProgress, Paper, Snackbar,
   Typography, Chip, IconButton, Tooltip, Select, MenuItem, FormControl, GlobalStyles,
@@ -34,6 +36,9 @@ interface Patient {
 
 export default function DoctorPatientListPage() {
   const navigate = useNavigate();
+  const { user, clinic } = useAuth();
+  const { echo, isConnected } = useEcho();
+  const clinicId = clinic?.id ?? user?.clinic_id ?? null;
   const { isTriageModuleEnabled } = useClinicModuleConfig();
   const triageEnabled = isTriageModuleEnabled();
   const [tab, setTab] = useState<'today' | 'this_week' | 'all'>('today');
@@ -106,6 +111,67 @@ export default function DoctorPatientListPage() {
     }, 500);
     return () => clearTimeout(timer);
   }, [search]);
+
+  // Fallback polling loop (30s)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!document.hidden) void loadPatients();
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [tab, page, rowsPerPage, search]);
+
+  // Real-time WebSocket live updates for appointments and queue changes
+  const liveReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasConnectedRef = useRef<boolean>(false);
+
+  const scheduleLoadPatients = useCallback(() => {
+    if (liveReloadTimerRef.current) {
+      clearTimeout(liveReloadTimerRef.current);
+    }
+    liveReloadTimerRef.current = setTimeout(() => {
+      void loadPatients();
+      liveReloadTimerRef.current = null;
+    }, 250);
+  }, [tab, page, rowsPerPage, search]);
+
+  // Reconnection recovery
+  useEffect(() => {
+    if (isConnected && !wasConnectedRef.current) {
+      void loadPatients();
+    }
+    wasConnectedRef.current = isConnected;
+  }, [isConnected]);
+
+  useEffect(() => {
+    if (!echo || !clinicId) return;
+
+    const channelName = `clinic.${clinicId}.queue`;
+    let channel: any;
+
+    const handleLiveEvent = () => {
+      scheduleLoadPatients();
+    };
+
+    try {
+      channel = echo.private(channelName);
+      channel.listen('.appointment.changed', handleLiveEvent);
+      channel.listen('.queue.updated', handleLiveEvent);
+    } catch (err) {
+      console.warn('[Echo] DoctorPatientListPage subscription warning:', err);
+    }
+
+    return () => {
+      if (liveReloadTimerRef.current) {
+        clearTimeout(liveReloadTimerRef.current);
+      }
+      if (channel) {
+        try {
+          channel.stopListening('.appointment.changed', handleLiveEvent);
+          channel.stopListening('.queue.updated', handleLiveEvent);
+        } catch {}
+      }
+    };
+  }, [echo, clinicId, scheduleLoadPatients]);
 
   const getLastConsultation = (patient: Patient) => {
     const record = patient.latest_consultation_record || patient.treatment_records?.[0];

@@ -13,6 +13,8 @@ import '../models/patient_profile.dart';
 import 'form_configuration_repository.dart';
 import 'mock_data.dart';
 import 'psgc_service.dart';
+import 'fcm_device_registration_service.dart';
+import 'push_notification_service.dart';
 
 class MockMobileApi {
   MockMobileApi._();
@@ -67,6 +69,7 @@ class MockMobileApi {
     await Future.delayed(const Duration(seconds: 1));
     _account = {..._account, 'name': name, 'email': email, 'phone': phone};
     _isAuthenticated = true;
+    FcmDeviceRegistrationService.instance.syncDeviceToken().catchError((_) => false);
   }
 
   Future<String> requestPasswordReset({required String email}) async {
@@ -87,6 +90,7 @@ class MockMobileApi {
       );
     }
     _isAuthenticated = true;
+    FcmDeviceRegistrationService.instance.syncDeviceToken().catchError((_) => false);
   }
 
   Future<void> login({
@@ -101,9 +105,14 @@ class MockMobileApi {
     }
 
     _isAuthenticated = true;
+    FcmDeviceRegistrationService.instance.syncDeviceToken().catchError((_) => false);
   }
 
   Future<void> logout() async {
+    PushNotificationService.instance.clearNotificationState();
+    try {
+      await FcmDeviceRegistrationService.instance.unregisterDeviceToken();
+    } catch (_) {}
     await Future.delayed(const Duration(milliseconds: 300));
     _isAuthenticated = false;
     FormConfigurationRepository.clearCache();
@@ -269,7 +278,10 @@ class MockMobileApi {
     'patient_description': 'optional',
   };
 
-  Future<PatientProfile> createPatient(Map<String, dynamic> profile) async {
+  Future<PatientProfile> createPatient(
+    Map<String, dynamic> profile, {
+    int? configRevision,
+  }) async {
     debugOnCreatePatient?.call(Map<String, dynamic>.from(profile));
     await Future.delayed(const Duration(seconds: 1));
 
@@ -296,6 +308,7 @@ class MockMobileApi {
   Future<PatientProfile> updatePatient({
     required int patientId,
     required Map<String, dynamic> profile,
+    int? configRevision,
   }) async {
     debugOnUpdatePatient?.call(patientId, Map<String, dynamic>.from(profile));
     await Future.delayed(const Duration(seconds: 1));
@@ -349,6 +362,7 @@ class MockMobileApi {
     required dynamic booking,
     dynamic intake,
     Map<String, dynamic>? intakePayload,
+    int? configRevision,
   }) async {
     debugOnBook?.call(patient, booking, intakePayload ?? intake);
     await Future.delayed(const Duration(seconds: 1));
@@ -570,6 +584,7 @@ class MockMobileApi {
   Future<Map<String, dynamic>> updateAppointmentIntake({
     required int appointmentId,
     required Map<String, dynamic> intake,
+    int? configRevision,
   }) async {
     debugOnUpdateIntake?.call(appointmentId, Map<String, dynamic>.from(intake));
     await Future.delayed(const Duration(milliseconds: 300));
@@ -789,6 +804,68 @@ class MockMobileApi {
         'facility_name': 'Tagoloan Animal Bite Treatment Center',
       },
     };
+  }
+
+  final List<Map<String, dynamic>> _mockDeviceTokens = [];
+
+  Future<Map<String, dynamic>> registerDeviceToken({
+    required String fcmToken,
+    String? deviceId,
+    String? deviceType,
+    String? deviceName,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    _mockDeviceTokens.removeWhere(
+      (t) => t['fcm_token'] == fcmToken || (deviceId != null && t['device_id'] == deviceId),
+    );
+    final entry = {
+      'id': _mockDeviceTokens.length + 1,
+      'fcm_token': fcmToken,
+      'device_id': deviceId,
+      'device_type': deviceType ?? 'android',
+      'device_name': deviceName,
+      'masked_token': fcmToken.length > 10
+          ? '${fcmToken.substring(0, 6)}...${fcmToken.substring(fcmToken.length - 4)}'
+          : '***',
+      'last_used_at': DateTime.now().toIso8601String(),
+    };
+    _mockDeviceTokens.add(entry);
+    return {'status': 'success', 'device': entry};
+  }
+
+  Future<void> deleteDeviceToken({
+    String? fcmToken,
+    String? deviceId,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    if (fcmToken != null) {
+      _mockDeviceTokens.removeWhere((t) => t['fcm_token'] == fcmToken);
+    } else if (deviceId != null) {
+      _mockDeviceTokens.removeWhere((t) => t['device_id'] == deviceId);
+    }
+  }
+
+  final Map<String, dynamic> _mockNotificationPreferences = {
+    'push_enabled': true,
+    'appointment_updates': true,
+    'reminders': true,
+    'digital_card': true,
+    'announcements': true,
+  };
+
+  /// Mock get notification preferences
+  Future<Map<String, dynamic>> getNotificationPreferences() async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    return Map<String, dynamic>.from(_mockNotificationPreferences);
+  }
+
+  /// Mock update notification preferences
+  Future<Map<String, dynamic>> updateNotificationPreferences(
+    Map<String, dynamic> preferences,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    _mockNotificationPreferences.addAll(preferences);
+    return Map<String, dynamic>.from(_mockNotificationPreferences);
   }
 
   String _resolveString(

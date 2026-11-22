@@ -1216,9 +1216,8 @@ input[type='month']:hover::-webkit-calendar-picker-indicator {
   filter: invert(1) sepia(1) saturate(4) hue-rotate(100deg) brightness(1.2);
 }
 
-/* Dashboard Summary Cards - Shadow Removal & 3-Column Grid Enforcement */
+/* Dashboard Summary Cards */
 .sd-cards-grid {
-  grid-template-columns: repeat(3, 1fr) !important;
   gap: 14px !important;
 }
 .sd-card {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 import {
   Alert,
@@ -44,6 +44,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
 import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import { highlightRecordElement } from '../../../shared/utils/notificationNavigation';
+import { useAuth } from '../../../shared/contexts/AuthContext';
+import { useEcho } from '../../../shared/hooks/useEcho';
 
 import api from '../../../shared/services/api';
 
@@ -70,6 +72,9 @@ interface Patient {
 
 export default function NursePatientListPage() {
   const navigate = useNavigate();
+  const { user, clinic } = useAuth();
+  const { echo, isConnected } = useEcho();
+  const clinicId = clinic?.id ?? user?.clinic_id ?? null;
   const { isTreatmentModuleEnabled } = useClinicModuleConfig();
   const treatmentEnabled = isTreatmentModuleEnabled();
 
@@ -232,6 +237,59 @@ export default function NursePatientListPage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [tab, page, rowsPerPage, doseFilter]);
+
+  // Real-time WebSocket live updates for appointments and queue changes
+  const liveReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasConnectedRef = useRef<boolean>(false);
+
+  const scheduleLoadPatients = useCallback(() => {
+    if (liveReloadTimerRef.current) {
+      clearTimeout(liveReloadTimerRef.current);
+    }
+    liveReloadTimerRef.current = setTimeout(() => {
+      void loadPatients();
+      liveReloadTimerRef.current = null;
+    }, 250);
+  }, []);
+
+  // Reconnection recovery
+  useEffect(() => {
+    if (isConnected && !wasConnectedRef.current) {
+      void loadPatients();
+    }
+    wasConnectedRef.current = isConnected;
+  }, [isConnected]);
+
+  useEffect(() => {
+    if (!echo || !clinicId) return;
+
+    const channelName = `clinic.${clinicId}.queue`;
+    let channel: any;
+
+    const handleLiveEvent = () => {
+      scheduleLoadPatients();
+    };
+
+    try {
+      channel = echo.private(channelName);
+      channel.listen('.appointment.changed', handleLiveEvent);
+      channel.listen('.queue.updated', handleLiveEvent);
+    } catch (err) {
+      console.warn('[Echo] NursePatientListPage subscription warning:', err);
+    }
+
+    return () => {
+      if (liveReloadTimerRef.current) {
+        clearTimeout(liveReloadTimerRef.current);
+      }
+      if (channel) {
+        try {
+          channel.stopListening('.appointment.changed', handleLiveEvent);
+          channel.stopListening('.queue.updated', handleLiveEvent);
+        } catch {}
+      }
+    };
+  }, [echo, clinicId, scheduleLoadPatients]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

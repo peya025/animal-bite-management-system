@@ -13,11 +13,29 @@ Artisan::command('sample:nurse-unattended {action=seed : seed or remove}', funct
     return $this->call(ManageNurseUnattendedSample::class, ['action' => $action]);
 })->purpose('Seed or remove sample unattended patient for testing Check In to Nurse');
 
-// Daily Automated Rabies PEP Reminders & Missed Dose Recalls at 8:00 AM
-Schedule::command('appointments:auto-recall')->dailyAt('08:00')->withoutOverlapping();
-Schedule::command('messaging:dispatch')->everyMinute()->withoutOverlapping();
+// Daily Automated Rabies PEP Reminders & Missed Dose Recalls at 8:00 AM Manila Time
+Schedule::command('appointments:auto-recall')
+    ->dailyAt('08:00')
+    ->timezone(config('app.timezone', 'Asia/Manila'))
+    ->withoutOverlapping(30)
+    ->onOneServer();
 
-// Daily Queue Auto-Expiry Sweep after midnight (00:05)
-Schedule::command('queue:auto-expire')->dailyAt('00:05');
+// Outbound Message Queue Recovery & Delivery Receipt Reconciliation every minute
+Schedule::command('messaging:dispatch')
+    ->everyMinute()
+    ->withoutOverlapping(5)
+    ->onOneServer();
+
+// Daily Queue Auto-Expiry Sweep after midnight (00:05 Manila Time)
+Schedule::command('queue:auto-expire')
+    ->dailyAt('00:05')
+    ->timezone(config('app.timezone', 'Asia/Manila'))
+    ->withoutOverlapping(15)
+    ->onOneServer();
+
 // Daily Pruning of Expired Sanctum Personal Access Tokens (older than 24 hours)
-Schedule::command('sanctum:prune-expired --hours=24')->daily();
+Schedule::command('sanctum:prune-expired --hours=24')
+    ->daily()
+    ->timezone(config('app.timezone', 'Asia/Manila'))
+    ->withoutOverlapping(30)
+    ->onOneServer();

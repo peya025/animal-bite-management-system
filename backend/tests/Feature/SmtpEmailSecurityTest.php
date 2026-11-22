@@ -12,6 +12,7 @@ use App\Models\PatientInvitation;
 use App\Models\StaffInvitation;
 use App\Models\User;
 use App\Services\Messaging\AppointmentEmailEvents;
+use App\Services\Messaging\EmailTransportInterface;
 use App\Services\Messaging\InvitationDelivery;
 use App\Services\Messaging\OutboundDelivery;
 use App\Services\Messaging\SmtpEmailService;
@@ -129,7 +130,9 @@ class SmtpEmailSecurityTest extends TestCase
         $service = app(PatientInvitationService::class);
         $service->send($patient->patient_id, $admin->id);
         $original = PatientInvitation::firstOrFail();
-        $this->assertSame(503, $service->send($patient->patient_id, $admin->id)['status']);
+        // A second send() while a pending invitation exists must be rejected
+        // with 422 (duplicate guard), not create a second record.
+        $this->assertSame(422, $service->send($patient->patient_id, $admin->id)['status']);
         $this->assertSame('pending', $original->fresh()->status);
         $this->assertSame(1, OutboundMessage::where('status', 'accepted')->count());
         $this->travel(61)->seconds();
@@ -287,10 +290,11 @@ class SmtpEmailSecurityTest extends TestCase
         $message = OutboundMessage::firstOrFail();
         $this->assertStringContainsString(today()->addDay()->format('M j, Y'), $message->body);
         $this->assertStringContainsString('10:30 AM', $message->body);
-        $this->partialMock(SmtpEmailService::class, fn ($mock) => $mock->shouldReceive('send')->times(3)->andReturn(
+        $smtpMock = $this->partialMock(SmtpEmailService::class, fn ($mock) => $mock->shouldReceive('send')->times(3)->andReturn(
             new \App\Services\Messaging\Sms\SmsResult('retry', error: 'smtp_temporary_rejection'),
             new \App\Services\Messaging\Sms\SmsResult('retry', error: 'smtp_temporary_rejection'),
             new \App\Services\Messaging\Sms\SmsResult('accepted', messageId: 'test-id')));
+        $this->instance(\App\Services\Messaging\EmailTransportInterface::class, $smtpMock);
         for ($i = 0; $i < 3; $i++) {
             app(\App\Services\Messaging\OutboundDelivery::class)->deliver($message->id);
             $this->travel(10)->minutes();

@@ -5,8 +5,8 @@ namespace App\Services\Mobile;
 use App\Mail\ClinicEmail;
 use App\Models\PatientAccount;
 use App\Services\Messaging\AccountSecurityEmail;
+use App\Services\Messaging\EmailTransportInterface;
 use App\Services\Messaging\InvitationDelivery;
-use App\Services\Messaging\SmtpEmailService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -27,7 +27,7 @@ class PatientPasswordRecovery
                 $mail = new ClinicEmail('Reset Your Patient Portal Password', ['Use this link to create a new password. It expires in 30 minutes.', 'If you did not request this change, ignore this message.'],
                     rtrim(config('app.url'), '/').'/patient-portal/reset-password#'.$token, 'Reset password', $token);
                 $sent = app(InvitationDelivery::class)->send($clinicId, $account->email, 'password_reset',
-                    fn () => app(SmtpEmailService::class)->send($account->email, $mail));
+                    fn () => app(EmailTransportInterface::class)->send($account->email, $mail));
                 if ($sent) {
                     DB::table('patient_password_reset_tokens')->updateOrInsert(['patient_account_id' => $account->id],
                         ['token_hash' => hash('sha256', $token), 'expires_at' => now()->addMinutes(30)]);

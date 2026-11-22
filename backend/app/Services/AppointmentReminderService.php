@@ -67,7 +67,7 @@ class AppointmentReminderService
                 default => (string) $account?->id,
             };
             $provider = match ($selected) {
-                'sms' => config('messaging.sms_provider'), 'email' => config('mail.default'), default => 'database'
+                'sms' => config('messaging.sms_provider'), 'email' => DeliveryPolicy::emailProvider(), default => 'database'
             };
             $error = null;
             if ($selected === 'sms') {

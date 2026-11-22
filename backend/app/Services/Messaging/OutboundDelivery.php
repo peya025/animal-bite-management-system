@@ -25,6 +25,12 @@ class OutboundDelivery
             return;
         }
         $message = OutboundMessage::findOrFail($id);
+        if ($message->channel === 'email') {
+            $effectiveProvider = DeliveryPolicy::emailProvider($message->provider);
+            if ($effectiveProvider !== $message->provider) {
+                $message->update(['provider' => $effectiveProvider]);
+            }
+        }
         try {
             $error = app(DeliveryPolicy::class)->error($message->channel, $message->recipient, $message->provider);
             if ($error) {
@@ -81,7 +87,7 @@ class OutboundDelivery
             if ($message->channel === 'sms') {
                 $result = app(SmsManager::class)->provider($message->provider)->send($message->recipient, $message->body, $message->idempotency_key);
             } elseif ($message->channel === 'email') {
-                $result = app(SmtpEmailService::class)->send($message->recipient, new ClinicEmail($message->subject, [$message->body]), $message->provider);
+                $result = app(EmailTransportInterface::class)->send($message->recipient, new ClinicEmail($message->subject, [$message->body]), $message->provider);
             } else {
                 // Recheck verified account linkage; never choose an arbitrary account.
                 $account = $appointment->patient->accounts->first(fn ($a) => $a->id == $message->recipient && $a->is_active && $a->pivot->status === 'verified');

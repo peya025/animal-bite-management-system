@@ -7,7 +7,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Mail;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
-class SmtpEmailService
+class SmtpEmailService implements EmailTransportInterface
 {
     public function configurationError(?string $mailer = null): ?string
     {

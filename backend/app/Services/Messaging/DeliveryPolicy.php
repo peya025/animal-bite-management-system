@@ -6,11 +6,18 @@ use App\Services\Messaging\Sms\SmsManager;
 
 class DeliveryPolicy
 {
+    public static function emailProvider(?string $configuredProvider = null): string
+    {
+        if (app(EmailTransportInterface::class) instanceof BrevoEmailService) {
+            return 'brevo';
+        }
+
+        return $configuredProvider ?: (string) config('mail.default');
+    }
+
     public function mailerReady(?string $mailer = null): bool
     {
-        $mailer ??= config('mail.default');
-
-        return app(SmtpEmailService::class)->configurationError($mailer) === null;
+        return app(EmailTransportInterface::class)->configurationError($mailer) === null;
     }
 
     public function error(string $channel, string $recipient, ?string $provider = null): ?string
@@ -29,7 +36,7 @@ class DeliveryPolicy
                 return 'invalid_email';
             }
 
-            return app(SmtpEmailService::class)->configurationError($provider);
+            return app(EmailTransportInterface::class)->configurationError($provider);
         }
         try {
             SmsManager::normalize($recipient);

@@ -271,7 +271,8 @@ class PatientInvitationCharacterizationTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson([
-                'message' => 'Invitation email sent successfully to pedro@patient.test.',
+                'message' => 'Invitation email accepted for delivery to pedro@patient.test.',
+                'delivery_status' => 'accepted',
             ]);
 
         $this->assertNotEquals('old-token-12345678901234567890123456789012345678901234567890123456', $invitation->fresh()->token);

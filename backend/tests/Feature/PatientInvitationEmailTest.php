@@ -77,8 +77,10 @@ class PatientInvitationEmailTest extends TestCase
         $patient = $this->patient();
         config(['mail.default' => 'log']);
 
-        $this->assertSame(503, $this->send($patient)->getStatusCode());
-        $this->assertSame('expired', PatientInvitation::firstOrFail()->status);
+        $response = $this->send($patient);
+        $this->assertSame(503, $response->getStatusCode());
+        // Token must remain valid after a delivery failure so staff can retry.
+        $this->assertSame('pending', PatientInvitation::firstOrFail()->status);
     }
 
     public function test_failed_resend_preserves_previous_token(): void
@@ -93,18 +95,22 @@ class PatientInvitationEmailTest extends TestCase
         $response = app(PatientInvitationController::class)->resend($invitation->id);
         $this->assertSame(503, $response->getStatusCode());
         $this->assertSame($invitation->token, $invitation->fresh()->token);
+        // Status must remain pending so the original token is still activatable.
+        $this->assertSame('pending', $invitation->fresh()->status);
     }
 
     public function test_bulk_counts_failed_delivery_as_skipped(): void
     {
         $patient = $this->patient();
         config(['mail.default' => 'smtp']);
-        $this->partialMock(SmtpEmailService::class, fn ($mock) => $mock->shouldReceive('send')->once()->andReturn(new SmsResult('failed', error: 'smtp_rejected')));
+        $mock = $this->partialMock(SmtpEmailService::class, fn ($mock) => $mock->shouldReceive('send')->once()->andReturn(new SmsResult('failed', error: 'smtp_rejected')));
+        $this->instance(\App\Services\Messaging\EmailTransportInterface::class, $mock);
         $response = app(PatientInvitationController::class)->bulkStore(
             new Request(['patient_ids' => [$patient->patient_id]])
         );
         $this->assertSame(0, $response->getData(true)['sent_count']);
         $this->assertSame(1, $response->getData(true)['skipped_count']);
-        $this->assertSame('expired', PatientInvitation::firstOrFail()->status);
+        // Token must remain valid after delivery failure — do not expire.
+        $this->assertSame('pending', PatientInvitation::firstOrFail()->status);
     }
 }

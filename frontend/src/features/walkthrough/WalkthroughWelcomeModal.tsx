@@ -32,9 +32,9 @@ export const WalkthroughWelcomeModal: React.FC<WalkthroughWelcomeModalProps> = (
 
   const displayBadgeText = roleName
     ? roleName.toLowerCase().includes('tour')
-      ? `${roleName} • ${totalSteps || 16} steps`
-      : `${roleName} Dashboard Tour • ${totalSteps || 16} steps`
-    : `Dashboard Tour • ${totalSteps || 16} steps`;
+      ? `${roleName} • ${totalSteps || 15} steps`
+      : `${roleName} Dashboard Tour • ${totalSteps || 15} steps`
+    : `Dashboard Tour • ${totalSteps || 15} steps`;
 
   return (
     <div

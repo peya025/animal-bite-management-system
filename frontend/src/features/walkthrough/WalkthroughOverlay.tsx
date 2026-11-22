@@ -24,6 +24,7 @@ interface SpotlightRect {
 interface TooltipCoords {
   top: number;
   left: number;
+  width?: number;
 }
 
 function isElementVisible(el: HTMLElement): boolean {
@@ -222,18 +223,21 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
       const cardEl = cardRef.current;
       const cardRect = cardEl ? cardEl.getBoundingClientRect() : null;
       const isCentered = isFirstStep || step.placement === 'center';
-      const defaultCardW = isCentered ? Math.min(380, vw - 32) : Math.min(360, vw - 32);
-      const cardW = cardRect && cardRect.width > 0 ? cardRect.width : defaultCardW;
-      const cardH = cardRect && cardRect.height > 0 ? cardRect.height : 182;
+      const defaultCardW = isCentered ? Math.min(380, vw - 32) : Math.min(332, vw - 32);
+      const cardH = cardRect && cardRect.height > 0 ? cardRect.height : 220;
       const MARGIN = 16;
       const SAFE_GAP = 16;
 
       if (!el || !document.body.contains(el) || !isElementVisible(el)) {
         setTargetRect((prev) => (prev === null ? null : null));
         const centeredTop = Math.max(MARGIN, Math.round((vh - cardH) / 2));
-        const centeredLeft = Math.max(MARGIN, Math.round((vw - cardW) / 2));
+        const centeredLeft = Math.max(MARGIN, Math.round((vw - defaultCardW) / 2));
         setTooltipCoords((prev) => {
-          if (Math.abs(prev.top - centeredTop) < 1 && Math.abs(prev.left - centeredLeft) < 1) {
+          if (
+            Math.abs(prev.top - centeredTop) < 1 &&
+            Math.abs(prev.left - centeredLeft) < 1 &&
+            prev.width === undefined
+          ) {
             return prev;
           }
           return { top: centeredTop, left: centeredLeft };
@@ -265,14 +269,16 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
       const sWidth = sRight - sLeft;
 
       // Keep tooltip below fixed top app header when inside the main content area
-      const minTooltipTop = isInsidePageContent ? Math.max(pageContent ? pageContent.getBoundingClientRect().top : 68, 70) : MARGIN;
+      const minTooltipTop = isInsidePageContent
+        ? Math.max(pageContent ? pageContent.getBoundingClientRect().top : 68, 70)
+        : MARGIN;
 
       // Determine horizontal alignment for top/bottom placements
       const preferredHorizontalLeft =
         sWidth > 520
-          ? sLeft + Math.min(48, Math.max(0, (sWidth - cardW) * 0.2))
-          : sLeft + sWidth / 2 - cardW / 2;
-      const clampedHorizontalLeft = Math.max(MARGIN, Math.min(vw - cardW - MARGIN, preferredHorizontalLeft));
+          ? sLeft + Math.min(48, Math.max(0, (sWidth - defaultCardW) * 0.2))
+          : sLeft + sWidth / 2 - defaultCardW / 2;
+      const clampedHorizontalLeft = Math.max(MARGIN, Math.min(vw - defaultCardW - MARGIN, preferredHorizontalLeft));
 
       const preferredVerticalTop =
         sHeight > 360
@@ -280,86 +286,131 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
           : sTop + sHeight / 2 - cardH / 2;
       const clampedVerticalTop = Math.max(minTooltipTop, Math.min(vh - cardH - MARGIN, preferredVerticalTop));
 
-      // Helper to strictly ensure the modal never overlaps the highlighted spotlight bounding box (12-20px spacing)
-      const overlapsSpotlight = (top: number, left: number): boolean => {
+      // Helper to check if modal overlaps the highlighted spotlight bounding box
+      const overlapsSpotlight = (top: number, left: number, width: number, gap = SAFE_GAP): boolean => {
         const mTop = top;
         const mBottom = top + cardH;
         const mLeft = left;
-        const mRight = left + cardW;
+        const mRight = left + width;
         return !(
-          mRight <= sLeft - SAFE_GAP ||
-          mLeft >= sRight + SAFE_GAP ||
-          mBottom <= sTop - SAFE_GAP ||
-          mTop >= sBottom + SAFE_GAP
+          mRight <= sLeft - gap ||
+          mLeft >= sRight + gap ||
+          mBottom <= sTop - gap ||
+          mTop >= sBottom + gap
         );
       };
 
       let chosen: TooltipCoords | null = null;
+      let effectiveCardW = defaultCardW;
+      let effectiveMargin = MARGIN;
 
-      if (isFirstStep || step.placement === 'center') {
+      if (isCentered) {
         // Center the walkthrough modal directly in the viewport
         const top = Math.max(MARGIN, Math.round((vh - cardH) / 2));
-        const left = Math.max(MARGIN, Math.round((vw - cardW) / 2));
+        const left = Math.max(MARGIN, Math.round((vw - defaultCardW) / 2));
         chosen = { top, left };
       } else {
         const spaceAbove = sTop - minTooltipTop;
+        const spaceAboveFull = sTop - MARGIN;
         const spaceBelow = vh - sBottom - MARGIN;
         const spaceRight = vw - sRight - MARGIN;
         const spaceLeft = sLeft - MARGIN;
 
-        const fitsRight = spaceRight >= cardW + SAFE_GAP;
-        const fitsLeft = spaceLeft >= cardW + SAFE_GAP;
+        const fitsRight = spaceRight >= defaultCardW + SAFE_GAP && vh - 2 * MARGIN >= cardH;
+        const fitsLeft = spaceLeft >= defaultCardW + SAFE_GAP && vh - 2 * MARGIN >= cardH;
         const fitsBelow = spaceBelow >= cardH + SAFE_GAP;
         const fitsAbove = spaceAbove >= cardH + SAFE_GAP;
+        const fitsAboveFull = spaceAboveFull >= cardH + SAFE_GAP;
 
-        // Dynamic placement selection prioritizing requested direction, with automatic fallback / flip
-        let chosenPlacement: 'bottom' | 'top' | 'right' | 'left' = 'bottom';
+        // Compact beside placement when full-width top/bottom/left/right cannot fit without clipping
+        const COMPACT_MARGIN = 8;
+        const COMPACT_GAP = 10;
+        const MIN_COMPACT_W = 248;
+        const compactLeftAvail = sLeft - COMPACT_MARGIN - COMPACT_GAP;
+        const compactRightAvail = vw - sRight - COMPACT_MARGIN - COMPACT_GAP;
+        const fitsCompactLeft = compactLeftAvail >= MIN_COMPACT_W && vh - 2 * COMPACT_MARGIN >= cardH;
+        const fitsCompactRight = compactRightAvail >= MIN_COMPACT_W && vh - 2 * COMPACT_MARGIN >= cardH;
+
+        type PlacementChoice = 'bottom' | 'top' | 'top-full' | 'right' | 'left' | 'compact-left' | 'compact-right';
+        let chosenPlacement: PlacementChoice | null = null;
 
         if (step.placement === 'right') {
           if (fitsRight) chosenPlacement = 'right';
           else if (fitsLeft) chosenPlacement = 'left';
           else if (fitsBelow) chosenPlacement = 'bottom';
           else if (fitsAbove) chosenPlacement = 'top';
-          else chosenPlacement = spaceBelow >= spaceAbove ? 'bottom' : 'top';
+          else if (fitsAboveFull) chosenPlacement = 'top-full';
         } else if (step.placement === 'left') {
           if (fitsLeft) chosenPlacement = 'left';
           else if (fitsRight) chosenPlacement = 'right';
           else if (fitsBelow) chosenPlacement = 'bottom';
           else if (fitsAbove) chosenPlacement = 'top';
-          else chosenPlacement = spaceBelow >= spaceAbove ? 'bottom' : 'top';
+          else if (fitsAboveFull) chosenPlacement = 'top-full';
         } else if (step.placement === 'top') {
           if (fitsAbove) chosenPlacement = 'top';
           else if (fitsBelow) chosenPlacement = 'bottom';
           else if (fitsRight) chosenPlacement = 'right';
           else if (fitsLeft) chosenPlacement = 'left';
-          else chosenPlacement = spaceAbove >= spaceBelow ? 'top' : 'bottom';
+          else if (fitsAboveFull) chosenPlacement = 'top-full';
         } else {
           // Default or 'bottom'
           if (fitsBelow) chosenPlacement = 'bottom';
           else if (fitsAbove) chosenPlacement = 'top';
           else if (fitsRight) chosenPlacement = 'right';
           else if (fitsLeft) chosenPlacement = 'left';
-          else chosenPlacement = spaceBelow >= spaceAbove ? 'bottom' : 'top';
+          else if (fitsAboveFull) chosenPlacement = 'top-full';
         }
 
-        if (chosenPlacement === 'bottom') {
+        // If no full-width placement fits cleanly inside the viewport, use beside compact placement if available
+        if (!chosenPlacement) {
+          if (fitsCompactLeft || fitsCompactRight) {
+            chosenPlacement =
+              fitsCompactRight && (!fitsCompactLeft || compactRightAvail >= compactLeftAvail)
+                ? 'compact-right'
+                : 'compact-left';
+          } else {
+            chosenPlacement = spaceBelow >= spaceAboveFull ? 'bottom' : 'top';
+          }
+        }
+
+        if (chosenPlacement === 'compact-left') {
+          const compactW = Math.min(defaultCardW, Math.floor(compactLeftAvail));
+          effectiveCardW = compactW;
+          effectiveMargin = COMPACT_MARGIN;
+          const top = Math.max(
+            COMPACT_MARGIN,
+            Math.min(vh - cardH - COMPACT_MARGIN, Math.round(sTop + (sHeight - cardH) / 2))
+          );
+          const left = Math.max(COMPACT_MARGIN, sLeft - compactW - COMPACT_GAP);
+          chosen = { top, left, width: compactW };
+        } else if (chosenPlacement === 'compact-right') {
+          const compactW = Math.min(defaultCardW, Math.floor(compactRightAvail));
+          effectiveCardW = compactW;
+          effectiveMargin = COMPACT_MARGIN;
+          const top = Math.max(
+            COMPACT_MARGIN,
+            Math.min(vh - cardH - COMPACT_MARGIN, Math.round(sTop + (sHeight - cardH) / 2))
+          );
+          const left = Math.min(vw - compactW - COMPACT_MARGIN, sRight + COMPACT_GAP);
+          chosen = { top, left, width: compactW };
+        } else if (chosenPlacement === 'bottom') {
           const top = sBottom + SAFE_GAP;
           chosen = { top, left: clampedHorizontalLeft };
 
-          // If modal extends below the viewport bottom, scroll pageContent down so it fits
+          // If modal extends below the viewport bottom, scroll pageContent down if possible
           if (pageContent && top + cardH > vh - MARGIN) {
-            const overflow = (top + cardH) - (vh - MARGIN);
+            const overflow = top + cardH - (vh - MARGIN);
             const maxScroll = Math.max(0, pageContent.scrollHeight - pageContent.clientHeight);
             if (overflow > 4 && pageContent.scrollTop < maxScroll) {
               pageContent.scrollTop = Math.min(maxScroll, pageContent.scrollTop + overflow + 16);
             }
           }
-        } else if (chosenPlacement === 'top') {
+        } else if (chosenPlacement === 'top' || chosenPlacement === 'top-full') {
           const top = sTop - cardH - SAFE_GAP;
           chosen = { top, left: clampedHorizontalLeft };
 
-          // If modal extends above minTooltipTop, scroll pageContent up so it fits
-          if (pageContent && top < minTooltipTop && pageContent.scrollTop > 0) {
+          // If modal extends above minTooltipTop, scroll pageContent up if possible
+          if (chosenPlacement === 'top' && pageContent && top < minTooltipTop && pageContent.scrollTop > 0) {
             const underflow = minTooltipTop - top;
             if (underflow > 4) {
               pageContent.scrollTop = Math.max(0, pageContent.scrollTop - underflow - 16);
@@ -368,16 +419,28 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
         } else if (chosenPlacement === 'right') {
           chosen = { top: clampedVerticalTop, left: sRight + SAFE_GAP };
         } else {
-          chosen = { top: clampedVerticalTop, left: sLeft - cardW - SAFE_GAP };
+          chosen = { top: clampedVerticalTop, left: sLeft - defaultCardW - SAFE_GAP };
         }
-      }
 
-      // Final strict non-overlap enforcement: under NO circumstance can chosen overlap the spotlight
-      if (chosen && !isCenteredModal && overlapsSpotlight(chosen.top, chosen.left)) {
-        if (step.placement === 'top' || (sTop - minTooltipTop >= vh - sBottom - MARGIN)) {
-          chosen.top = sTop - cardH - SAFE_GAP;
-        } else {
-          chosen.top = sBottom + SAFE_GAP;
+        // Strict viewport clamping so tooltip & navigation buttons NEVER overflow off-screen
+        if (chosen) {
+          chosen.left = Math.max(effectiveMargin, Math.min(vw - effectiveCardW - effectiveMargin, chosen.left));
+          chosen.top = Math.max(effectiveMargin, Math.min(vh - cardH - effectiveMargin, chosen.top));
+
+          // Non-overlap check: only shift if the non-overlapping position also fits inside the viewport
+          const usedGap = chosen.width ? COMPACT_GAP : SAFE_GAP;
+          if (overlapsSpotlight(chosen.top, chosen.left, effectiveCardW, usedGap)) {
+            const aboveTop = sTop - cardH - SAFE_GAP;
+            const belowTop = sBottom + SAFE_GAP;
+            if (aboveTop >= effectiveMargin && !overlapsSpotlight(aboveTop, chosen.left, effectiveCardW, SAFE_GAP)) {
+              chosen.top = aboveTop;
+            } else if (
+              belowTop + cardH <= vh - effectiveMargin &&
+              !overlapsSpotlight(belowTop, chosen.left, effectiveCardW, SAFE_GAP)
+            ) {
+              chosen.top = belowTop;
+            }
+          }
         }
       }
 
@@ -394,18 +457,18 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
         return { top: sTop, left: sLeft, width: sWidth, height: sHeight };
       });
 
-      if (chosen && !isCenteredModal) {
-        chosen.left = Math.max(MARGIN, Math.min(vw - cardW - MARGIN, chosen.left));
-      }
-
       setTooltipCoords((prev) => {
-        if (Math.abs(prev.top - chosen!.top) < 1 && Math.abs(prev.left - chosen!.left) < 1) {
+        if (
+          Math.abs(prev.top - chosen!.top) < 1 &&
+          Math.abs(prev.left - chosen!.left) < 1 &&
+          prev.width === chosen!.width
+        ) {
           return prev;
         }
         return chosen!;
       });
     },
-    [step.placement]
+    [isFirstStep, step.id, step.placement]
   );
 
   // Resolve target element and scroll into view when step or route changes
@@ -531,6 +594,7 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
     window.visualViewport?.addEventListener('scroll', syncPosition);
 
     let resizeObserver: ResizeObserver | null = null;
+    let observedTarget: HTMLElement | null = null;
     if (typeof ResizeObserver !== 'undefined') {
       resizeObserver = new ResizeObserver(() => {
         syncPosition();
@@ -538,11 +602,23 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
       resizeObserver.observe(document.body);
       const pageContent = document.querySelector('.page-content');
       if (pageContent) resizeObserver.observe(pageContent);
-      if (activeElementRef.current) resizeObserver.observe(activeElementRef.current);
+      if (activeElementRef.current) {
+        observedTarget = activeElementRef.current;
+        resizeObserver.observe(observedTarget);
+      }
       if (cardRef.current) resizeObserver.observe(cardRef.current);
     }
 
-    const intervalId = setInterval(syncPosition, 120);
+    const syncWithTargetObserve = () => {
+      syncPosition();
+      if (resizeObserver && activeElementRef.current && activeElementRef.current !== observedTarget) {
+        if (observedTarget) resizeObserver.unobserve(observedTarget);
+        observedTarget = activeElementRef.current;
+        resizeObserver.observe(observedTarget);
+      }
+    };
+
+    const intervalId = setInterval(syncWithTargetObserve, 120);
 
     return () => {
       window.removeEventListener('scroll', syncPosition, { capture: true });
@@ -646,48 +722,43 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
 
       <div
         ref={cardRef}
-        className={`walkthrough-tooltip-card ${isCenteredModal ? 'walkthrough-tooltip-card--center' : ''}`}
+        className={`walkthrough-tooltip-card ${isCenteredModal ? 'walkthrough-tooltip-card--center' : ''} ${
+          tooltipCoords.width && tooltipCoords.width < 310 ? 'walkthrough-tooltip-card--compact' : ''
+        }`}
         data-testid="walkthrough-tooltip"
         style={{
           top: `${tooltipCoords.top}px`,
           left: `${tooltipCoords.left}px`,
+          ...(tooltipCoords.width ? { width: `${tooltipCoords.width}px` } : {}),
         }}
       >
         <div className="walkthrough-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <span className="walkthrough-step-badge" data-testid="walkthrough-module-badge">
-              {step.module || moduleName}
+          <span className="walkthrough-step-badge" data-testid="walkthrough-module-badge">
+            {step.module || moduleName}
+          </span>
+          <div className="walkthrough-header-meta">
+            <span className="walkthrough-step-count" data-testid="walkthrough-step-counter">
+              Step {currentStepIndex + 1} of {totalSteps}
             </span>
-            {step.section && (
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  color: '#047857',
-                  background: 'rgba(16, 185, 129, 0.12)',
-                  padding: '2px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid rgba(16, 185, 129, 0.25)',
-                }}
-              >
-                {step.section}
-              </span>
-            )}
+            <button
+              type="button"
+              className="walkthrough-close-btn"
+              onClick={onSkip}
+              title="Close tour"
+              aria-label="Close tour"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
           </div>
-          <span className="walkthrough-step-count" data-testid="walkthrough-step-counter">Step {currentStepIndex + 1} of {totalSteps}</span>
-          <button
-            type="button"
-            className="walkthrough-close-btn"
-            onClick={onSkip}
-            title="Close tour"
-            aria-label="Close tour"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
         </div>
+        {step.section && (
+          <div className="walkthrough-section-row">
+            <span className="walkthrough-section-badge">{step.section}</span>
+          </div>
+        )}
         <div className="walkthrough-progress" role="progressbar" aria-label="Guide progress" aria-valuenow={currentStepIndex + 1} aria-valuemin={0} aria-valuemax={totalSteps}>
           {Array.from({ length: totalSteps }, (_, index) => <span key={index} className={index <= currentStepIndex ? 'done' : ''} />)}
         </div>

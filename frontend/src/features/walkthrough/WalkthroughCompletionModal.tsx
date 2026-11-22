@@ -2,14 +2,24 @@ import React from 'react';
 
 interface WalkthroughCompletionModalProps {
   open: boolean;
+  moduleName?: string;
   onFinish: () => void;
 }
 
 export const WalkthroughCompletionModal: React.FC<WalkthroughCompletionModalProps> = ({
   open,
+  moduleName,
   onFinish,
 }) => {
   if (!open) return null;
+
+  const isDashboard = !moduleName || moduleName === 'Dashboard';
+  const headingText = isDashboard
+    ? "You've Explored Your Dashboard!"
+    : `You've Explored ${moduleName}!`;
+  const bodyText = isDashboard
+    ? "You're all set to use the Dashboard. You can reopen this guide anytime."
+    : `You're all set to use ${moduleName}. You can reopen this guide anytime.`;
 
   return (
     <div
@@ -24,6 +34,7 @@ export const WalkthroughCompletionModal: React.FC<WalkthroughCompletionModalProp
         <div
           className="walkthrough-welcome-icon-wrap"
           style={{
+            margin: '0 auto 14px',
             background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
             border: '2px solid #10b981',
             color: '#059669',
@@ -56,11 +67,11 @@ export const WalkthroughCompletionModal: React.FC<WalkthroughCompletionModalProp
         </div>
 
         <h2 id="walkthrough-completion-heading" className="walkthrough-welcome-title" style={{ fontSize: '21px' }}>
-          You've Explored Your Dashboard!
+          {headingText}
         </h2>
 
         <p className="walkthrough-welcome-text" style={{ fontSize: '13.5px', lineHeight: 1.6, color: 'var(--text-secondary, #475569)' }}>
-          You've completed your dashboard guide! You now know how to view important information and use the main dashboard features available for your role. You can open this guide again anytime.
+          {bodyText}
         </p>
 
         <div className="walkthrough-welcome-actions">

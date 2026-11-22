@@ -44,7 +44,7 @@ async function setupRegistrationSession(page: Page, seen = false) {
 }
 
 test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlight Verification', () => {
-  test('1. Dashboard Tour contains 16 essential steps with unified sidebar modules, summary cards, and completion modal', async ({
+  test('1. Dashboard Tour contains 15 essential steps with unified sidebar modules, summary cards, and completion modal', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1366, height: 632 });
@@ -68,7 +68,7 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
     // Verify progress indicator
     const progressIndicator = page.getByTestId('walkthrough-progress-indicator');
     await expect(progressIndicator).toBeVisible();
-    await expect(progressIndicator).toContainText('Registration Staff Dashboard Tour • 16 steps');
+    await expect(progressIndicator).toContainText('Registration Staff Dashboard Tour • 15 steps');
 
     await expect(page.getByTestId('walkthrough-dismiss-btn')).toHaveText('Skip Tour');
     await expect(page.getByTestId('walkthrough-start-btn')).toHaveText('Start Tour');
@@ -78,7 +78,7 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
     await expect(tooltip).toBeVisible();
 
     // Step 1: Dashboard Overview (Centered modal, blurred background)
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Welcome to Registration Dashboard');
     await page.waitForTimeout(150);
 
@@ -87,34 +87,34 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
 
     // Step 2: Unified Sidebar Modules for Registration Staff
     await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Registration Staff Sidebar Modules');
 
     // Step 3: Notification, Theme & Help Controls
     await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 3 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 3 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Notification, Theme & Help Controls');
 
     // Step 4: Dashboard View Tabs
     await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 4 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 4 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Dashboard View Tabs');
 
     // Step 5: Calendar
     await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 5 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 5 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Clinic Calendar & Daily Schedules');
 
     // Step 6: All Summary Cards unified in ONE step
     await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 6 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 6 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Patient & Queue Summary Cards');
 
-    // Fast-forward to Step 16
-    for (let i = 6; i < 16; i++) {
+    // Fast-forward to Step 15
+    for (let i = 6; i < 15; i++) {
       await page.getByTestId('walkthrough-btn-next').click();
     }
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 16 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 15 of 15');
 
     // Final Finish click triggers completion modal
     await page.getByTestId('walkthrough-btn-finish').click();
@@ -253,12 +253,12 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
     await page.getByTestId('menu-start-dashboard-tour').click();
     await page.getByTestId('walkthrough-start-btn').click();
 
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 15');
     await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 15');
 
     await page.getByTestId('walkthrough-btn-back').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Welcome to Registration Dashboard');
 
     await page.getByTestId('walkthrough-btn-skip').click();
@@ -307,20 +307,20 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
     await page.getByTestId('menu-start-dashboard-tour').click();
     await page.getByTestId('walkthrough-start-btn').click();
 
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Welcome to Triage Doctor Dashboard');
     await expect(page.getByTestId('walkthrough-module-badge')).toHaveText('Dashboard');
 
     // Advance to Step 2: Unified Sidebar Modules
     await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Triage Doctor Sidebar Modules');
 
     // Advance to Step 6: Summary cards
     for (let i = 2; i < 6; i++) {
       await page.getByTestId('walkthrough-btn-next').click();
     }
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 6 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 6 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Clinical Bite Cases & Queue Summary');
   });
 
@@ -365,20 +365,20 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
     await page.getByTestId('menu-start-dashboard-tour').click();
     await page.getByTestId('walkthrough-start-btn').click();
 
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Welcome to Treatment Nurse Dashboard');
     await expect(page.getByTestId('walkthrough-module-badge')).toHaveText('Dashboard');
 
     // Advance to Step 2: Unified Sidebar Modules
     await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Treatment Nurse Sidebar Modules');
 
     // Advance to Step 6: Summary cards
     for (let i = 2; i < 6; i++) {
       await page.getByTestId('walkthrough-btn-next').click();
     }
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 6 of 16');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 6 of 15');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Treatment & Vaccination Summary Cards');
   });
 

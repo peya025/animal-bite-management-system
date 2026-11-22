@@ -278,7 +278,10 @@ class MockMobileApi {
     'patient_description': 'optional',
   };
 
-  Future<PatientProfile> createPatient(Map<String, dynamic> profile) async {
+  Future<PatientProfile> createPatient(
+    Map<String, dynamic> profile, {
+    int? configRevision,
+  }) async {
     debugOnCreatePatient?.call(Map<String, dynamic>.from(profile));
     await Future.delayed(const Duration(seconds: 1));
 
@@ -305,6 +308,7 @@ class MockMobileApi {
   Future<PatientProfile> updatePatient({
     required int patientId,
     required Map<String, dynamic> profile,
+    int? configRevision,
   }) async {
     debugOnUpdatePatient?.call(patientId, Map<String, dynamic>.from(profile));
     await Future.delayed(const Duration(seconds: 1));
@@ -358,6 +362,7 @@ class MockMobileApi {
     required dynamic booking,
     dynamic intake,
     Map<String, dynamic>? intakePayload,
+    int? configRevision,
   }) async {
     debugOnBook?.call(patient, booking, intakePayload ?? intake);
     await Future.delayed(const Duration(seconds: 1));
@@ -579,6 +584,7 @@ class MockMobileApi {
   Future<Map<String, dynamic>> updateAppointmentIntake({
     required int appointmentId,
     required Map<String, dynamic> intake,
+    int? configRevision,
   }) async {
     debugOnUpdateIntake?.call(appointmentId, Map<String, dynamic>.from(intake));
     await Future.delayed(const Duration(milliseconds: 300));

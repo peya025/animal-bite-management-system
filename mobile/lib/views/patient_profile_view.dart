@@ -335,12 +335,29 @@ class _PatientProfileViewState extends State<PatientProfileView> {
                             StatusChip(status: patient.status),
                           ],
                         ),
-                        if (patient.memberships.isNotEmpty) ...[
+                        if ((policy == null ||
+                                policy.isProfileSectionEnabled(
+                                  'gov_programs_section_enabled',
+                                )) &&
+                            patient.memberships.any(
+                              (m) =>
+                                  policy == null ||
+                                  policy.editableMembershipTypes().contains(
+                                    m.membershipType,
+                                  ),
+                            )) ...[
                           const SizedBox(height: 14),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
                             children: patient.memberships
+                                .where(
+                                  (m) =>
+                                      policy == null ||
+                                      policy.editableMembershipTypes().contains(
+                                        m.membershipType,
+                                      ),
+                                )
                                 .map(
                                   (membership) => Container(
                                     padding: const EdgeInsets.symmetric(
@@ -535,18 +552,34 @@ class _PatientProfileViewState extends State<PatientProfileView> {
                             label: 'DSWD NHTS',
                             value: _yesNo(details?.dswdNhts),
                           ),
-                        if (patient.memberships.isEmpty)
+                        if (patient.memberships
+                            .where(
+                              (m) =>
+                                  policy == null ||
+                                  policy.editableMembershipTypes().contains(
+                                    m.membershipType,
+                                  ),
+                            )
+                            .isEmpty)
                           const _InfoRow(
                             label: 'Structured memberships',
                             value: 'No structured memberships saved yet',
                           )
                         else
-                          ...patient.memberships.map(
-                            (membership) => _InfoRow(
-                              label: _membershipTitle(membership),
-                              value: _membershipDetails(membership),
-                            ),
-                          ),
+                          ...patient.memberships
+                              .where(
+                                (m) =>
+                                    policy == null ||
+                                    policy.editableMembershipTypes().contains(
+                                      m.membershipType,
+                                    ),
+                              )
+                              .map(
+                                (membership) => _InfoRow(
+                                  label: _membershipTitle(membership),
+                                  value: _membershipDetails(membership),
+                                ),
+                              ),
                       ],
                     ),
                   ],

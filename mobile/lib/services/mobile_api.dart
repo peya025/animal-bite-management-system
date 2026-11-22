@@ -26,12 +26,19 @@ class ApiException implements Exception {
   const ApiException(
     this.message, {
     this.statusCode,
+    this.code,
     this.fieldErrors = const <String, List<String>>{},
+    this.updatedConfiguration,
   });
 
   final String message;
   final int? statusCode;
+  final String? code;
   final Map<String, List<String>> fieldErrors;
+  final FormConfiguration? updatedConfiguration;
+
+  bool get isConfigConflict =>
+      statusCode == 409 && code == 'form_configuration_changed';
 
   bool get hasProfileErrors =>
       fieldErrors.keys.any((key) => key.startsWith('profile.'));
@@ -321,11 +328,18 @@ class MobileApi {
     return FormConfiguration.fromJson(data);
   }
 
-  Future<PatientProfile> createPatient(Map<String, dynamic> profile) async {
+  Future<PatientProfile> createPatient(
+    Map<String, dynamic> profile, {
+    int? configRevision,
+  }) async {
     final data = await _send(
       'POST',
       '/patients',
-      body: {'clinic_id': clinicId, ...profile},
+      body: {
+        'clinic_id': clinicId,
+        if (configRevision != null) 'config_revision': configRevision,
+        ...profile,
+      },
     );
     return PatientProfile.fromJson(data as Map<String, dynamic>);
   }
@@ -333,8 +347,16 @@ class MobileApi {
   Future<PatientProfile> updatePatient({
     required int patientId,
     required Map<String, dynamic> profile,
+    int? configRevision,
   }) async {
-    final data = await _send('PATCH', '/patients/$patientId', body: profile);
+    final data = await _send(
+      'PATCH',
+      '/patients/$patientId',
+      body: {
+        if (configRevision != null) 'config_revision': configRevision,
+        ...profile,
+      },
+    );
     return PatientProfile.fromJson(data as Map<String, dynamic>);
   }
 
@@ -347,6 +369,7 @@ class MobileApi {
     required BookingDraft booking,
     BiteIntakeDraft? intake,
     Map<String, dynamic>? intakePayload,
+    int? configRevision,
   }) async {
     final resolvedIntake = intakePayload ?? intake?.toJson();
     await _send(
@@ -359,6 +382,7 @@ class MobileApi {
         'time_slot': booking.timeSlot.name,
         if (booking.notes != null && booking.notes!.trim().isNotEmpty)
           'notes': booking.notes!.trim(),
+        if (configRevision != null) 'config_revision': configRevision,
         'intake': ?resolvedIntake,
       },
     );
@@ -477,11 +501,15 @@ class MobileApi {
   Future<Map<String, dynamic>> updateAppointmentIntake({
     required int appointmentId,
     required Map<String, dynamic> intake,
+    int? configRevision,
   }) async {
     final data = await _send(
       'PUT',
       '/appointments/$appointmentId/intake',
-      body: {'intake': intake},
+      body: {
+        if (configRevision != null) 'config_revision': configRevision,
+        'intake': intake,
+      },
     );
     return data is Map<String, dynamic> ? data : {};
   }
@@ -634,6 +662,14 @@ class MobileApi {
     }
 
     if (decoded is Map<String, dynamic>) {
+      final errorCode = decoded['code']?.toString();
+      FormConfiguration? updatedConfig;
+      final rawConfig = decoded['configuration'];
+      if (rawConfig is Map<String, dynamic>) {
+        try {
+          updatedConfig = FormConfiguration.fromJson(rawConfig);
+        } catch (_) {}
+      }
       final rawErrors = decoded['errors'];
       final parsedErrors = <String, List<String>>{};
       if (rawErrors is Map<String, dynamic>) {
@@ -652,14 +688,18 @@ class MobileApi {
           throw ApiException(
             firstList.first,
             statusCode: response.statusCode,
+            code: errorCode,
             fieldErrors: parsedErrors,
+            updatedConfiguration: updatedConfig,
           );
         }
       }
       throw ApiException(
         decoded['message']?.toString() ?? 'Request failed.',
         statusCode: response.statusCode,
+        code: errorCode,
         fieldErrors: parsedErrors,
+        updatedConfiguration: updatedConfig,
       );
     }
 

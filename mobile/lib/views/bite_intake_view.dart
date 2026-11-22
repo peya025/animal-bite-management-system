@@ -432,12 +432,17 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
               onMunicipalityChanged: (code) {
                 _controller.updateState(() {
                   _controller.selectedMunicipalityCode = code;
-                  _controller.selectedMunicipalityName = _controller
-                      .municipalities
-                      .firstWhere((m) => m.code == code)
-                      .name;
+                  _controller.selectedMunicipalityName = code == null
+                      ? null
+                      : _controller.municipalities
+                          .where((m) => m.code == code)
+                          .firstOrNull
+                          ?.name;
                   _controller.selectedBarangayCode = null;
                   _controller.selectedBarangayName = null;
+                  if (code == null) {
+                    _controller.barangays = [];
+                  }
                 });
                 if (code != null) {
                   _controller.loadBarangays(code);
@@ -446,9 +451,12 @@ class _BiteIntakeViewState extends State<BiteIntakeView> {
               onBarangayChanged: (code) {
                 _controller.updateState(() {
                   _controller.selectedBarangayCode = code;
-                  _controller.selectedBarangayName = _controller.barangays
-                      .firstWhere((b) => b.code == code)
-                      .name;
+                  _controller.selectedBarangayName = code == null
+                      ? null
+                      : _controller.barangays
+                          .where((b) => b.code == code)
+                          .firstOrNull
+                          ?.name;
                 });
               },
               siteWashed: _controller.siteWashed,

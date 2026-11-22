@@ -17,11 +17,31 @@ class MobileFormPolicy
         $this->rules = $service->normalizeFieldRules($this->config->field_rules);
     }
 
+    public function revision(): int
+    {
+        return (int) ($this->config->revision ?: 1);
+    }
+
+    public function clinicId(): int
+    {
+        return (int) $this->config->clinic_id;
+    }
+
     public function visible(string $field): bool
     {
         $section = FormFieldCatalog::sectionFor($field);
-        return ($section === null || (bool) ($this->config->{$section} ?? true))
-            && ($this->rules[$field] ?? 'optional') !== 'hidden';
+        if (($section !== null && ! (bool) ($this->config->{$section} ?? true))
+            || ($this->rules[$field] ?? 'optional') === 'hidden') {
+            return false;
+        }
+        if ($field === 'spouse_name' && ! $this->visible('civil_status')) {
+            return false;
+        }
+        if (in_array($field, ['philhealth_status', 'philhealth_no', 'philhealth_category'], true)
+            && ! $this->visible('philhealth_member')) {
+            return false;
+        }
+        return true;
     }
 
     public function required(string $field, array $input = []): bool
@@ -102,6 +122,12 @@ class MobileFormPolicy
             if ($field === 'animal_type') {
                 unset($input['animal_species_other'], $input['animal_type_others']);
             }
+            if ($field === 'wound_location') {
+                unset($input['body_part_group'], $input['body_part_exposed'], $input['laterality']);
+            }
+            if ($field === 'exposure_type') {
+                unset($input['exposure_mode'], $input['mode_of_exposure']);
+            }
         }
         return $input;
     }
@@ -116,12 +142,18 @@ class MobileFormPolicy
             $key = 'intake.'.$field;
             if (! $this->visible($field)) {
                 $rules[$key] = ['prohibited'];
+                if ($field === 'wound_location') {
+                    $rules['intake.body_part_exposed'] = ['prohibited'];
+                    $rules['intake.laterality'] = ['prohibited'];
+                }
             } elseif ($this->required($field)) {
                 $rules[$key] = array_values(array_filter($rules[$key], fn ($rule) => $rule !== 'nullable' && $rule !== 'required'));
                 if ($field === 'wound_location') {
                     // The mobile intake supplies a body-part group and treats exact detail as optional.
                     array_unshift($rules[$key], 'nullable');
-                    if (! $update) {
+                    if ($update) {
+                        array_unshift($rules[$key], 'sometimes', 'required_without:intake.body_part_exposed');
+                    } else {
                         array_unshift($rules[$key], 'required_without:intake.body_part_exposed');
                     }
                 } else {

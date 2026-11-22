@@ -87,9 +87,9 @@ export const ENCLOSING_SECTION_BY_FIELD: Record<
   exposure_category: 'triage_section_enabled',
   bite_site: 'triage_section_enabled',
   animal_observation_status: 'triage_section_enabled',
+  treatment_given: 'triage_section_enabled',
 
   // Section 3: Treatment & Vaccination
-  treatment_given: 'treatment_section_enabled',
   protocol_type: 'treatment_section_enabled',
   route: 'treatment_section_enabled',
   injection_site: 'treatment_section_enabled',
@@ -377,9 +377,10 @@ export function isEffectiveFieldRequired(
 }
 
 /**
- * True only when the Address section and its primary components
- * (municipality + barangay) are visible, so synthesizing a composite
- * `address` string does not overwrite partial/hidden fields.
+ * True only when the Address section and all 4 address components
+ * (municipality, barangay, purok, province) are visible, matching
+ * backend MobileFormPolicy and mobile ConfiguredFieldPolicy so
+ * synthesizing a composite `address` string does not overwrite partial/hidden fields.
  */
 export function isFullAddressDerivable(
   config: ClinicModuleConfig | null | undefined
@@ -387,6 +388,8 @@ export function isFullAddressDerivable(
   return (
     isEffectiveSectionEnabled(config, 'address_section_enabled') &&
     isEffectiveFieldVisible(config, 'address_municipality') &&
-    isEffectiveFieldVisible(config, 'address_barangay')
+    isEffectiveFieldVisible(config, 'address_barangay') &&
+    isEffectiveFieldVisible(config, 'address_purok') &&
+    isEffectiveFieldVisible(config, 'province')
   );
 }

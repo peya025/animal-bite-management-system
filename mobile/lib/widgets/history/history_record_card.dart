@@ -934,11 +934,27 @@ class _EditBiteIntakeSheetState extends State<_EditBiteIntakeSheet> {
       await api.updateAppointmentIntake(
         appointmentId: apptId,
         intake: payload,
+        configRevision: refreshed.revision,
       );
 
       if (!mounted) return;
       AppToast.success(context, 'Bite intake updated successfully');
       Navigator.of(context).pop(true);
+    } on ApiException catch (e) {
+      if (mounted) {
+        if (e.isConfigConflict) {
+          setState(() {
+            if (e.updatedConfiguration != null) {
+              _config = e.updatedConfiguration;
+            }
+            _isSaving = false;
+            _validationError = e.message;
+          });
+          return;
+        }
+        setState(() => _isSaving = false);
+        AppToast.error(context, e.message);
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);

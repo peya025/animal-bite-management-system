@@ -17,6 +17,8 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import ForwardToInboxIcon from '@mui/icons-material/ForwardToInbox';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import VaccinesIcon from '@mui/icons-material/Vaccines';
+import AddIcon from '@mui/icons-material/Add';
 import type { Patient } from '../types';
 
 export interface PatientRowActionsData {
@@ -24,6 +26,7 @@ export interface PatientRowActionsData {
   check_in_blocked_reason: string | null;
   invite: 'send' | 'resend' | null;
   invite_disabled_reason: string | null;
+  has_email?: boolean;
   view: boolean;
   invitation_id?: number | null;
 }
@@ -31,18 +34,28 @@ export interface PatientRowActionsData {
 export interface PatientRowActionsProps {
   patient: Patient;
   actions?: PatientRowActionsData;
+  secondaryClinical?: 'nurse_queue' | 'new_exposure' | null;
+  canClinical?: boolean;
+  canInvite?: boolean;
   onCheckIn: (patient: Patient) => void;
   onReassess: (patient: Patient) => void;
+  onNurseCheckIn?: (patient: Patient) => void;
+  onNewExposure?: (patient: Patient) => void;
   onInvite: (patient: Patient, mode: 'send' | 'resend') => void;
   onView: (patient: Patient) => void;
-  loadingAction?: 'checkin' | 'reassess' | 'invite' | null;
+  loadingAction?: 'checkin' | 'reassess' | 'nurse_queue' | 'invite' | null;
 }
 
 export const PatientRowActions: React.FC<PatientRowActionsProps> = ({
   patient,
   actions,
+  secondaryClinical = null,
+  canClinical = true,
+  canInvite = true,
   onCheckIn,
   onReassess,
+  onNurseCheckIn,
+  onNewExposure,
   onInvite,
   onView,
   loadingAction,
@@ -75,11 +88,12 @@ export const PatientRowActions: React.FC<PatientRowActionsProps> = ({
 
   const isCheckInLoading = loadingAction === 'checkin';
   const isReassessLoading = loadingAction === 'reassess';
+  const isNurseLoading = loadingAction === 'nurse_queue';
   const isInviteLoading = loadingAction === 'invite';
 
   // ─── Slot 1: Clinical Action (130px) ──────────────────────────
   const renderSlot1 = () => {
-    if (effectiveActions.primary === 'checkin') {
+    if (canClinical && effectiveActions.primary === 'checkin') {
       return (
         <Button
           variant="contained"
@@ -122,7 +136,7 @@ export const PatientRowActions: React.FC<PatientRowActionsProps> = ({
       );
     }
 
-    if (effectiveActions.primary === 'reassess') {
+    if (canClinical && effectiveActions.primary === 'reassess') {
       return (
         <Button
           variant="contained"
@@ -165,12 +179,89 @@ export const PatientRowActions: React.FC<PatientRowActionsProps> = ({
       );
     }
 
+    if (secondaryClinical === 'nurse_queue' && onNurseCheckIn) {
+      return (
+        <Button
+          variant="contained"
+          size="small"
+          disabled={isNurseLoading}
+          onClick={(e) => {
+            e.stopPropagation();
+            onNurseCheckIn(patient);
+          }}
+          startIcon={
+            isNurseLoading ? (
+              <CircularProgress size={14} color="inherit" />
+            ) : (
+              <VaccinesIcon sx={{ fontSize: 16 }} />
+            )
+          }
+          sx={{
+            width: '130px',
+            height: '34px',
+            borderRadius: '9px',
+            fontSize: '12px',
+            fontWeight: 600,
+            backgroundColor: '#2563eb',
+            color: '#ffffff',
+            textTransform: 'none',
+            boxShadow: 'none',
+            whiteSpace: 'nowrap',
+            '&:hover': {
+              backgroundColor: '#1d4ed8',
+              boxShadow: 'none',
+            },
+            '&.Mui-disabled': {
+              backgroundColor: '#2563eb',
+              opacity: 0.65,
+              color: '#ffffff',
+            },
+          }}
+        >
+          {isNurseLoading ? 'Queuing…' : 'Nurse Queue'}
+        </Button>
+      );
+    }
+
+    if (secondaryClinical === 'new_exposure' && onNewExposure) {
+      return (
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation();
+            onNewExposure(patient);
+          }}
+          startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+          sx={{
+            width: '130px',
+            height: '34px',
+            borderRadius: '9px',
+            fontSize: '12px',
+            fontWeight: 600,
+            borderColor: '#6366f1',
+            color: '#4f46e5',
+            backgroundColor: '#ffffff',
+            textTransform: 'none',
+            boxShadow: 'none',
+            whiteSpace: 'nowrap',
+            '&:hover': {
+              backgroundColor: '#eef2ff',
+              borderColor: '#4f46e5',
+            },
+          }}
+        >
+          Exposure
+        </Button>
+      );
+    }
+
     return <Box sx={{ width: '130px', height: '34px' }} />;
   };
 
   // ─── Slot 2: Portal Onboarding (128px or overflow) ───────────
   const renderSlot2 = () => {
-    if (!effectiveActions.invite) {
+    if (!canInvite || !effectiveActions.invite) {
       return <Box sx={{ width: isCompact ? '34px' : '128px', height: '34px' }} />;
     }
 

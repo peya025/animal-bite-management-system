@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\StaffNotificationBroadcast;
 use App\Models\Appointment;
 use App\Models\BiteIncident;
 use App\Models\Clinic;
@@ -53,6 +54,8 @@ class NotificationService
         // Evaluate if this new stock resolved any out-of-stock or low-stock alerts
         $this->syncInventoryAlerts($inventory->clinic_id);
 
+        $this->broadcastNotification($notification);
+
         return $notification;
     }
 
@@ -64,7 +67,7 @@ class NotificationService
         $name = $preset->vaccine_name;
         $category = $preset->category ?? 'Anti-Rabies Vaccines (ARV)';
 
-        return Notification::create([
+        $notification = Notification::create([
             'clinic_id'   => $preset->clinic_id,
             'user_id'     => null,
             'role'        => null,
@@ -84,6 +87,10 @@ class NotificationService
             'status'      => 'sent',
             'send_time'   => now(),
         ]);
+
+        $this->broadcastNotification($notification);
+
+        return $notification;
     }
 
     /**
@@ -103,7 +110,7 @@ class NotificationService
         $title = $eventType === 'registered' ? "Queue Registration: {$stationName}" : "Queue Check-In: {$stationName}";
         $message = "Patient checked in: {$patientName} (Queue #{$queue->queue_number}, {$stationName}).";
 
-        return Notification::create([
+        $notification = Notification::create([
             'clinic_id'   => $queue->clinic_id,
             'patient_id'  => $queue->patient_id,
             'user_id'     => null,
@@ -128,6 +135,10 @@ class NotificationService
             'status'      => 'sent',
             'send_time'   => now(),
         ]);
+
+        $this->broadcastNotification($notification);
+
+        return $notification;
     }
 
     /**
@@ -140,7 +151,7 @@ class NotificationService
         $dose = $appointment->dose_number ? "Dose {$appointment->dose_number}" : 'PEP vaccination';
         $dateStr = Carbon::parse($appointment->appointment_date ?? $appointment->scheduled_date)->format('M d, Y');
 
-        return Notification::create([
+        $notification = Notification::create([
             'clinic_id'      => $appointment->clinic_id,
             'patient_id'     => $appointment->patient_id,
             'appointment_id' => $appointment->appointment_id,
@@ -163,6 +174,10 @@ class NotificationService
             'status'         => 'sent',
             'send_time'      => now(),
         ]);
+
+        $this->broadcastNotification($notification);
+
+        return $notification;
     }
 
     /**
@@ -224,7 +239,7 @@ class NotificationService
                     ->first();
 
                 if (!$existing) {
-                    Notification::create([
+                    $notif = Notification::create([
                         'clinic_id'   => $clinicId,
                         'category'    => 'inventory',
                         'type'        => 'inventory_out_of_stock',
@@ -242,6 +257,7 @@ class NotificationService
                             'severity'         => 'danger',
                         ],
                     ]);
+                    $this->broadcastNotification($notif);
                 }
             } elseif ($usableQty <= $lowThreshold) {
                 // Resolve out of stock alert if any
@@ -257,7 +273,7 @@ class NotificationService
                     ->first();
 
                 if (!$existing) {
-                    Notification::create([
+                    $notif = Notification::create([
                         'clinic_id'   => $clinicId,
                         'category'    => 'inventory',
                         'type'        => 'inventory_low_stock',
@@ -276,6 +292,7 @@ class NotificationService
                             'severity'         => 'warning',
                         ],
                     ]);
+                    $this->broadcastNotification($notif);
                 }
             } else {
                 // Stock is adequate: resolve any active alerts for this vaccine
@@ -322,7 +339,7 @@ class NotificationService
                     ->first();
 
                 if (!$existing) {
-                    Notification::create([
+                    $notif = Notification::create([
                         'clinic_id'   => $clinicId,
                         'category'    => 'expiry',
                         'type'        => 'batch_expired',
@@ -343,6 +360,7 @@ class NotificationService
                             'severity'        => 'danger',
                         ],
                     ]);
+                    $this->broadcastNotification($notif);
                 }
             } elseif ($expDate->lte($soonDate)) {
                 // Batch is expiring soon
@@ -354,7 +372,7 @@ class NotificationService
                     ->first();
 
                 if (!$existing) {
-                    Notification::create([
+                    $notif = Notification::create([
                         'clinic_id'   => $clinicId,
                         'category'    => 'expiry',
                         'type'        => 'batch_near_expiry',
@@ -375,6 +393,7 @@ class NotificationService
                             'severity'        => 'warning',
                         ],
                     ]);
+                    $this->broadcastNotification($notif);
                 }
             } else {
                 // Batch expires comfortably in the future
@@ -453,7 +472,7 @@ class NotificationService
                 ->first();
 
             if (!$existing) {
-                Notification::create([
+                $notif = Notification::create([
                     'clinic_id'      => $clinicId,
                     'patient_id'     => $appt->patient_id,
                     'appointment_id' => $appt->appointment_id,
@@ -476,6 +495,7 @@ class NotificationService
                         'severity'       => 'warning',
                     ],
                 ]);
+                $this->broadcastNotification($notif);
             }
         }
 
@@ -546,7 +566,7 @@ class NotificationService
                     ->first();
 
                 if (!$existing) {
-                    Notification::create([
+                    $notif = Notification::create([
                         'clinic_id'   => $clinicId,
                         'category'    => 'high_risk',
                         'type'        => 'high_risk_area',
@@ -571,6 +591,7 @@ class NotificationService
                             'severity'       => 'danger',
                         ],
                     ]);
+                    $this->broadcastNotification($notif);
                 }
             }
         }
@@ -754,5 +775,15 @@ class NotificationService
         return (clone $visibleQuery)
             ->whereNotIn('notification_id', $readIds)
             ->count();
+    }
+
+    /**
+     * Broadcast newly created notification to authorized clinic staff.
+     */
+    protected function broadcastNotification(Notification $notification): void
+    {
+        if ($notification->clinic_id && (int) $notification->clinic_id > 0) {
+            StaffNotificationBroadcast::dispatch(StaffNotificationBroadcast::fromModel($notification));
+        }
     }
 }

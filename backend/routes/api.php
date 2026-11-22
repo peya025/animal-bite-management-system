@@ -29,6 +29,7 @@ use App\Http\Controllers\Mobile\MobileLocationController;
 use App\Http\Controllers\Mobile\MobileNotificationController;
 use App\Http\Controllers\Mobile\MobileVaccinationCardController;
 use App\Http\Controllers\Mobile\PatientAccountAuthController;
+use App\Http\Controllers\Mobile\PatientDeviceTokenController;
 use App\Http\Controllers\Mobile\PatientProfileController;
 use App\Http\Controllers\Operations\AppointmentController;
 use App\Http\Controllers\Operations\QueueController;
@@ -173,8 +174,15 @@ Route::prefix('mobile')->group(function () {
         Route::get('/notifications', [MobileNotificationController::class, 'index']);
         Route::patch('/notifications/read-all', [MobileNotificationController::class, 'markAllAsRead']);
         Route::patch('/notifications/{notification}/read', [MobileNotificationController::class, 'markAsRead']);
+
+        // FCM Device Token Registration & Management
+        Route::post('/device-token', [PatientDeviceTokenController::class, 'register']);
+        Route::delete('/device-token', [PatientDeviceTokenController::class, 'destroy']);
+        Route::get('/notification-preferences', [PatientDeviceTokenController::class, 'preferences']);
+        Route::put('/notification-preferences', [PatientDeviceTokenController::class, 'updatePreferences']);
     });
 });
+
 
 // Mobile Patient Invitation Activation (public, token-based)
 Route::post('/patient-invitations/activate', [PatientInvitationController::class, 'activate'])->middleware('throttle:invite-activation');

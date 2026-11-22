@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Events\AppointmentStatusChanged;
+use App\Events\QueueTicketUpdated;
 use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\Queue;
@@ -226,12 +228,15 @@ class AppointmentService
 
             if ($appointment) {
                 $appointment->update(['queue_number' => $nextQueueNumber]);
+                AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment->fresh(), 'queue_assigned'));
             }
 
             Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
 
             app(\App\Services\NotificationService::class)
                 ->notifyQueueEvent($queue->load('patient'), 'checked_in', $user);
+
+            QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'checked_in'));
 
             return response()->json([
                 'message'      => "{$patient->first_name} {$patient->last_name} checked in successfully to {$stationName} (Queue #{$nextQueueNumber})",

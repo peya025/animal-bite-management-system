@@ -17,19 +17,28 @@ import '../models/appointment_summary.dart';
 import '../models/app_notification.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_account_profile.dart';
+import 'fcm_device_registration_service.dart';
 import 'form_configuration_repository.dart';
 import 'psgc_service.dart';
+import 'push_notification_service.dart';
 
 class ApiException implements Exception {
   const ApiException(
     this.message, {
     this.statusCode,
+    this.code,
     this.fieldErrors = const <String, List<String>>{},
+    this.updatedConfiguration,
   });
 
   final String message;
   final int? statusCode;
+  final String? code;
   final Map<String, List<String>> fieldErrors;
+  final FormConfiguration? updatedConfiguration;
+
+  bool get isConfigConflict =>
+      statusCode == 409 && code == 'form_configuration_changed';
 
   bool get hasProfileErrors =>
       fieldErrors.keys.any((key) => key.startsWith('profile.'));
@@ -99,6 +108,7 @@ class MobileApi {
     } else {
       await _storage.delete(key: _tokenKey);
     }
+    unawaited(FcmDeviceRegistrationService.instance.syncDeviceToken());
   }
 
   Future<void> register({
@@ -195,6 +205,12 @@ class MobileApi {
   }
 
   Future<void> logout() async {
+    PushNotificationService.instance.clearNotificationState();
+    try {
+      await FcmDeviceRegistrationService.instance.unregisterDeviceToken();
+    } catch (_) {
+      // Safe fallback: network failure during logout must not prevent local session termination
+    }
     if (_token != null) await _send('POST', '/logout');
     _token = null;
     FormConfigurationRepository.clearCache();
@@ -312,11 +328,18 @@ class MobileApi {
     return FormConfiguration.fromJson(data);
   }
 
-  Future<PatientProfile> createPatient(Map<String, dynamic> profile) async {
+  Future<PatientProfile> createPatient(
+    Map<String, dynamic> profile, {
+    int? configRevision,
+  }) async {
     final data = await _send(
       'POST',
       '/patients',
-      body: {'clinic_id': clinicId, ...profile},
+      body: {
+        'clinic_id': clinicId,
+        if (configRevision != null) 'config_revision': configRevision,
+        ...profile,
+      },
     );
     return PatientProfile.fromJson(data as Map<String, dynamic>);
   }
@@ -324,8 +347,16 @@ class MobileApi {
   Future<PatientProfile> updatePatient({
     required int patientId,
     required Map<String, dynamic> profile,
+    int? configRevision,
   }) async {
-    final data = await _send('PATCH', '/patients/$patientId', body: profile);
+    final data = await _send(
+      'PATCH',
+      '/patients/$patientId',
+      body: {
+        if (configRevision != null) 'config_revision': configRevision,
+        ...profile,
+      },
+    );
     return PatientProfile.fromJson(data as Map<String, dynamic>);
   }
 
@@ -338,6 +369,7 @@ class MobileApi {
     required BookingDraft booking,
     BiteIntakeDraft? intake,
     Map<String, dynamic>? intakePayload,
+    int? configRevision,
   }) async {
     final resolvedIntake = intakePayload ?? intake?.toJson();
     await _send(
@@ -350,6 +382,7 @@ class MobileApi {
         'time_slot': booking.timeSlot.name,
         if (booking.notes != null && booking.notes!.trim().isNotEmpty)
           'notes': booking.notes!.trim(),
+        if (configRevision != null) 'config_revision': configRevision,
         'intake': ?resolvedIntake,
       },
     );
@@ -395,6 +428,70 @@ class MobileApi {
     await _send('PATCH', '/notifications/read-all');
   }
 
+  /// Register or refresh an FCM device registration token with the backend.
+  Future<Map<String, dynamic>> registerDeviceToken({
+    required String fcmToken,
+    String? deviceId,
+    String? deviceType,
+    String? deviceName,
+  }) async {
+    final data = await _send(
+      'POST',
+      '/device-token',
+      body: {
+        'fcm_token': fcmToken,
+        // ignore: use_null_aware_elements
+        if (deviceId != null) 'device_id': deviceId,
+        // ignore: use_null_aware_elements
+        if (deviceType != null) 'device_type': deviceType,
+        // ignore: use_null_aware_elements
+        if (deviceName != null) 'device_name': deviceName,
+      },
+    );
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  /// Invalidate an FCM device registration token with the backend upon logout.
+  Future<void> deleteDeviceToken({
+    String? fcmToken,
+    String? deviceId,
+  }) async {
+    await _send(
+      'DELETE',
+      '/device-token',
+      body: {
+        // ignore: use_null_aware_elements
+        if (fcmToken != null) 'fcm_token': fcmToken,
+        // ignore: use_null_aware_elements
+        if (deviceId != null) 'device_id': deviceId,
+      },
+    );
+  }
+
+  /// Get backend notification preferences for the authenticated patient account.
+  Future<Map<String, dynamic>> getNotificationPreferences() async {
+    final data = await _send('GET', '/notification-preferences');
+    if (data is Map<String, dynamic> && data['preferences'] is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(data['preferences'] as Map);
+    }
+    return <String, dynamic>{};
+  }
+
+  /// Update backend notification preferences for the authenticated patient account.
+  Future<Map<String, dynamic>> updateNotificationPreferences(
+    Map<String, dynamic> preferences,
+  ) async {
+    final data = await _send(
+      'PUT',
+      '/notification-preferences',
+      body: preferences,
+    );
+    if (data is Map<String, dynamic> && data['preferences'] is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(data['preferences'] as Map);
+    }
+    return <String, dynamic>{};
+  }
+
   Future<Map<String, dynamic>> history({int? patientId}) async {
     final query = patientId != null ? '?patient_id=$patientId' : '';
     final data = await _send('GET', '/history$query') as Map<String, dynamic>;
@@ -404,11 +501,15 @@ class MobileApi {
   Future<Map<String, dynamic>> updateAppointmentIntake({
     required int appointmentId,
     required Map<String, dynamic> intake,
+    int? configRevision,
   }) async {
     final data = await _send(
       'PUT',
       '/appointments/$appointmentId/intake',
-      body: {'intake': intake},
+      body: {
+        if (configRevision != null) 'config_revision': configRevision,
+        'intake': intake,
+      },
     );
     return data is Map<String, dynamic> ? data : {};
   }
@@ -561,6 +662,14 @@ class MobileApi {
     }
 
     if (decoded is Map<String, dynamic>) {
+      final errorCode = decoded['code']?.toString();
+      FormConfiguration? updatedConfig;
+      final rawConfig = decoded['configuration'];
+      if (rawConfig is Map<String, dynamic>) {
+        try {
+          updatedConfig = FormConfiguration.fromJson(rawConfig);
+        } catch (_) {}
+      }
       final rawErrors = decoded['errors'];
       final parsedErrors = <String, List<String>>{};
       if (rawErrors is Map<String, dynamic>) {
@@ -579,14 +688,18 @@ class MobileApi {
           throw ApiException(
             firstList.first,
             statusCode: response.statusCode,
+            code: errorCode,
             fieldErrors: parsedErrors,
+            updatedConfiguration: updatedConfig,
           );
         }
       }
       throw ApiException(
         decoded['message']?.toString() ?? 'Request failed.',
         statusCode: response.statusCode,
+        code: errorCode,
         fieldErrors: parsedErrors,
+        updatedConfiguration: updatedConfig,
       );
     }
 

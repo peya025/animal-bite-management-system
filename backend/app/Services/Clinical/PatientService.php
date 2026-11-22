@@ -2,6 +2,8 @@
 
 namespace App\Services\Clinical;
 
+use App\Events\AppointmentStatusChanged;
+use App\Events\QueueTicketUpdated;
 use App\Exceptions\DuplicatePatientException;
 use App\Http\Controllers\Operations\QueueController;
 use App\Models\Appointment;
@@ -788,6 +790,16 @@ class PatientService
                 'status' => 422,
                 'data' => [
                     'message' => 'This patient does not have pending administration requiring reassessment.',
+                    'code' => 'NOT_ELIGIBLE_FOR_REASSESSMENT',
+                ],
+            ];
+        }
+
+        if ($isReassessment && !$isPendingTreatmentReassessment) {
+            return [
+                'status' => 422,
+                'data' => [
+                    'message' => 'This patient does not have pending administration requiring reassessment.',
                     'code' => 'NO_REASSESSMENT_REQUIRED',
                 ],
             ];
@@ -1063,12 +1075,50 @@ class PatientService
                         ->latest('treatment_id')
                         ->first();
 
+                    $checkInDate = !empty($payload['consultation_date']) ? $payload['consultation_date'] : $todayDate;
+                    $checkInTime = !empty($payload['consultation_time']) ? $payload['consultation_time'] : Carbon::now('Asia/Manila')->format('H:i');
+
+                    $checkInUpdates = [
+                        'consultation_date' => $checkInDate,
+                        'treatment_date' => $checkInDate,
+                        'consultation_time' => $checkInTime,
+                    ];
+
+                    $hasProvidedVitalsOrReferral = false;
+                    foreach (['blood_pressure', 'temperature', 'height', 'weight'] as $vitalField) {
+                        if (isset($payload[$vitalField]) && trim((string) $payload[$vitalField]) !== '') {
+                            $checkInUpdates[$vitalField] = trim((string) $payload[$vitalField]);
+                            $hasProvidedVitalsOrReferral = true;
+                        }
+                    }
+                    if (in_array($payload['mode_of_transaction'] ?? '', ['walk-in', 'visited', 'referral'], true)) {
+                        $checkInUpdates['mode_of_transaction'] = $payload['mode_of_transaction'];
+                        $hasProvidedVitalsOrReferral = true;
+                    }
+                    if (array_key_exists('referred_by', $payload)) {
+                        $referredByVal = trim((string) ($payload['referred_by'] ?? ''));
+                        $checkInUpdates['referred_by'] = $referredByVal !== '' ? $referredByVal : null;
+                        if ($referredByVal !== '') {
+                            $hasProvidedVitalsOrReferral = true;
+                        }
+                    }
+                    if (!empty($payload['attending_provider'])) {
+                        $checkInUpdates['attending_provider'] = trim((string) $payload['attending_provider']);
+                    }
+
                     if ($treatmentRecord) {
-                        $treatmentRecord->update([
-                            'consultation_date' => $todayDate,
-                            'treatment_date' => $todayDate,
-                            'consultation_time' => Carbon::now('Asia/Manila')->format('H:i'),
-                        ]);
+                        $treatmentRecord->update($checkInUpdates);
+                    } elseif ($hasProvidedVitalsOrReferral) {
+                        TreatmentRecord::create(array_merge([
+                            'clinic_id' => $clinicId,
+                            'patient_id' => $patient->patient_id,
+                            'bite_id' => $biteIncident?->bite_id,
+                            'status' => 'scheduled',
+                            'scheduled_date' => $checkInDate,
+                            'mode_of_transaction' => 'walk-in',
+                            'attending_provider' => $user->name,
+                            'scheduled_by' => $user->id,
+                        ], $checkInUpdates));
                     }
                 }
 
@@ -1141,6 +1191,11 @@ class PatientService
                 Cache::forget("web:queue:clinic:{$clinicId}:date:{$todayDate}");
 
                 $this->notificationService->notifyQueueEvent($queue->load('patient'), 'checked_in', $user);
+
+                QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'checked_in'));
+                if ($appointment) {
+                    AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment->fresh(), 'confirmed'));
+                }
 
                 $encounter = app(\App\Services\RegistrationFeeService::class)->getOrCreateEncounter(
                     $clinicId,
@@ -1465,6 +1520,11 @@ class PatientService
                 $this->clearPatientListCache($clinicId);
 
                 $this->notificationService->notifyQueueEvent($queue->load('patient'), 'checked_in', $user);
+
+                QueueTicketUpdated::dispatch(QueueTicketUpdated::fromModel($queue->fresh(), 'checked_in'));
+                if ($appointment) {
+                    AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment->fresh(), 'confirmed'));
+                }
 
                 return [
                     'status' => 200,

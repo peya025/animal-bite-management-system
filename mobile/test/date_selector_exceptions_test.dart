@@ -26,7 +26,6 @@ void main() {
     await tester.tap(find.text('17'));
     await tester.pumpAndSettle();
 
-    print('SELECTED AFTER TAPPING 17: $selected');
     expect(selected.day, 16, reason: 'Disabled day should NOT be selectable!');
 
     // Verify holiday day 17 text is red Color(0xFFDC2626)

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
 import '../models/app_notification.dart';
 import '../services/api.dart';
+import '../services/push_notification_service.dart';
 import '../widgets/common/app_page_header.dart';
 import '../widgets/common/app_toast.dart';
 import '../widgets/menu/menu_navigation.dart';
@@ -30,11 +32,25 @@ class _NotificationsViewState extends State<NotificationsView> {
   bool _loading = true;
   bool _markingAll = false;
   String? _error;
+  StreamSubscription<Map<String, dynamic>>? _pushSubscription;
 
   @override
   void initState() {
     super.initState();
     _load();
+    // Refresh notifications in real-time when push notifications arrive in foreground
+    _pushSubscription =
+        PushNotificationService.instance.onNotificationReceived.listen((_) {
+      if (mounted) {
+        _load(silent: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pushSubscription?.cancel();
+    super.dispose();
   }
 
   int get _unreadCount =>
@@ -51,11 +67,13 @@ class _NotificationsViewState extends State<NotificationsView> {
     return items;
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final notifsFuture = api.notifications();
       final patientsFuture = api.patients();
@@ -65,12 +83,13 @@ class _NotificationsViewState extends State<NotificationsView> {
         setState(() {
           _notifications = notifications;
           _patients = rawPatients.where((p) => p.isActive).toList();
+          if (silent) _error = null;
         });
       }
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted && !silent) setState(() => _error = error.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 

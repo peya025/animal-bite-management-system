@@ -2,6 +2,7 @@ import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
+import { useEcho } from '../../../shared/hooks/useEcho';
 import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import { Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, Snackbar, Alert } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
@@ -96,8 +97,11 @@ export default function PatientList() {
   const [checkingInPatientId,      setCheckingInPatientId]      = useState<number | null>(null);
   const [checkingInNursePatientId, setCheckingInNursePatientId] = useState<number | null>(null);
 
-  // Returning Patient Reassessment Check-In state
-  const [reassessmentCheckInPatient, setReassessmentCheckInPatient] = useState<Patient | null>(null);
+  // Returning Patient Vitals & Referral Check-In / Reassessment state
+  const [reassessmentCheckInPatient, setReassessmentCheckInPatient] = useState<{
+    patient: Patient;
+    mode: 'reassess' | 'checkin';
+  } | null>(null);
 
   // Online Mobile Booking Intake Check-In state
   const [onlineCheckInTarget, setOnlineCheckInTarget] = useState<{
@@ -105,6 +109,8 @@ export default function PatientList() {
     intake: any;
   } | null>(null);
 
+  const { clinic: authClinic, user: authUser } = useAuth();
+  const { echo, isConnected } = useEcho();
   const [invitingPatientId, setInvitingPatientId] = useState<number | null>(null);
   const [reassessConfirmPatient, setReassessConfirmPatient] = useState<Patient | null>(null);
   const [toast, setToast] = useState<{
@@ -122,24 +128,24 @@ export default function PatientList() {
   }, []);
 
   const getSourceTagInfo = useCallback((patient: Patient) => {
-    const isOnline = isOnlinePatient(patient);
+    const isOnlineOrigin = patient.registration_source === 'mobile' || patient.registration_source === 'online';
     const accounts: any[] = (patient as any).accounts || [];
     const hasVerifiedAccount = accounts.some((a: any) => a.pivot?.status === 'verified');
 
-    if (!isOnline && hasVerifiedAccount) {
+    if (!isOnlineOrigin && hasVerifiedAccount) {
       return { type: 'app-linked', label: 'Walk-in · App linked' };
     }
-    if (!isOnline) {
+    if (!isOnlineOrigin) {
       return { type: 'walkin', label: 'Walk-in' };
     }
     return { type: 'online', label: 'Online' };
   }, []);
 
-  const { clinic: authClinic } = useAuth();
   const userData   = localStorage.getItem('userData');
   const clinicData = localStorage.getItem('clinicData');
   const storedClinic = clinicData ? JSON.parse(clinicData) : null;
   const clinic       = authClinic || storedClinic;
+  const clinicId     = clinic?.id ?? authUser?.clinic_id ?? null;
 
   const userRole   = user?.role || (userData ? (JSON.parse(userData)?.role ?? '') : '');
   const printedBy  = user?.name || (userData ? (JSON.parse(userData)?.name ?? 'Unknown') : 'Unknown');
@@ -349,7 +355,7 @@ export default function PatientList() {
     const appointment = ((p as any).appointments || [])
       .find((item: any) => item.appointment_id === intake.appointment_id);
     const scheduledDate = String(appointment?.scheduled_date || appointment?.appointment_date || '').slice(0, 10);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getManilaDateString();
 
     return Boolean(scheduledDate && scheduledDate <= today);
   };
@@ -470,8 +476,8 @@ export default function PatientList() {
     }
   };
 
-  const handleOpenReassessmentCheckIn = (patient: Patient) => {
-    setReassessmentCheckInPatient(patient);
+  const handleOpenReassessmentCheckIn = (patient: Patient, mode: 'reassess' | 'checkin' = 'reassess') => {
+    setReassessmentCheckInPatient({ patient, mode });
   };
 
   const handleNurseCheckIn = async (patient: Patient) => {
@@ -760,6 +766,59 @@ export default function PatientList() {
       window.removeEventListener('focus', handleVisibilityOrFocus);
     };
   }, [fetchPatients]);
+
+  // Real-time WebSocket live updates for patient queue and online appointments
+  const liveReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasConnectedRef = useRef<boolean>(false);
+
+  const scheduleFetchPatients = useCallback(() => {
+    if (liveReloadTimerRef.current) {
+      clearTimeout(liveReloadTimerRef.current);
+    }
+    liveReloadTimerRef.current = setTimeout(() => {
+      void fetchPatients();
+      liveReloadTimerRef.current = null;
+    }, 250);
+  }, [fetchPatients]);
+
+  // Reconnection recovery: catch up on missed appointments and queue updates
+  useEffect(() => {
+    if (isConnected && !wasConnectedRef.current) {
+      void fetchPatients();
+    }
+    wasConnectedRef.current = isConnected;
+  }, [isConnected, fetchPatients]);
+
+  useEffect(() => {
+    if (!echo || !clinicId) return;
+
+    const channelName = `clinic.${clinicId}.queue`;
+    let channel: any;
+
+    const handleLiveEvent = () => {
+      scheduleFetchPatients();
+    };
+
+    try {
+      channel = echo.private(channelName);
+      channel.listen('.appointment.changed', handleLiveEvent);
+      channel.listen('.queue.updated', handleLiveEvent);
+    } catch (err) {
+      console.warn('[Echo] PatientListPage subscription warning:', err);
+    }
+
+    return () => {
+      if (liveReloadTimerRef.current) {
+        clearTimeout(liveReloadTimerRef.current);
+      }
+      if (channel) {
+        try {
+          channel.stopListening('.appointment.changed', handleLiveEvent);
+          channel.stopListening('.queue.updated', handleLiveEvent);
+        } catch {}
+      }
+    };
+  }, [echo, clinicId, scheduleFetchPatients]);
 
   // Visible walk-in patients on current page
   const visibleWalkins = useMemo(() => {
@@ -1627,9 +1686,42 @@ export default function PatientList() {
                           <PatientRowActions
                             patient={p}
                             actions={p.actions}
-                            onCheckIn={handleTriageCheckIn}
+                            secondaryClinical={
+                              canCheckInToNurse
+                                ? 'nurse_queue'
+                                : canRegisterNewExposure
+                                ? 'new_exposure'
+                                : null
+                            }
+                            canClinical={Boolean(
+                              isAuthorizedRegistrationRole &&
+                              registrationStationEnabled &&
+                              triageStationEnabled
+                            )}
+                            canInvite={canSendPortalInvite}
+                            onCheckIn={(patient) => {
+                              if (mobileIntakeIsDue && mobileIntakeForCheckIn) {
+                                handleOpenMobileIntakeCheckIn(patient, mobileIntakeForCheckIn);
+                              } else {
+                                handleOpenReassessmentCheckIn(patient, 'checkin');
+                              }
+                            }}
                             onReassess={(patient) => setReassessConfirmPatient(patient)}
-                            onInvite={handleDirectInvite}
+                            onNurseCheckIn={handleNurseCheckIn}
+                            onNewExposure={(patient) => {
+                              setSelectedViewPatient(patient);
+                              setOpenReExposureOnView(true);
+                              setShowViewModal(true);
+                            }}
+                            onInvite={(patient, mode) => {
+                              const hasEmail = Boolean(patient.email && patient.email.trim());
+                              if (!hasEmail) {
+                                setSelectedInvitePatient(patient);
+                                setShowInviteModal(true);
+                              } else {
+                                handleDirectInvite(patient, mode);
+                              }
+                            }}
                             onView={(patient) => {
                               setSelectedViewPatient(patient);
                               setOpenReExposureOnView(false);
@@ -1638,6 +1730,8 @@ export default function PatientList() {
                             loadingAction={
                               checkingInPatientId === (p.patient_id || p.id)
                                 ? 'checkin'
+                                : checkingInNursePatientId === (p.patient_id || p.id)
+                                ? 'nurse_queue'
                                 : invitingPatientId === (p.patient_id || p.id)
                                 ? 'invite'
                                 : null
@@ -1897,15 +1991,21 @@ export default function PatientList() {
         />
       )}
 
-      {/* ── Returning Patient Reassessment Check-In Modal (Updated Vitals Required) ── */}
+      {/* ── Returning Patient Vitals & Referral Check-In / Reassessment Modal ── */}
       {reassessmentCheckInPatient && (
         <ReturningPatientCheckInModal
           open={Boolean(reassessmentCheckInPatient)}
-          patient={reassessmentCheckInPatient}
+          mode={reassessmentCheckInPatient.mode}
+          patient={reassessmentCheckInPatient.patient}
           onClose={() => setReassessmentCheckInPatient(null)}
           onSuccess={(modalData) => {
             setReassessmentCheckInPatient(null);
-            setCheckInModalData(modalData);
+            if (modalData.alreadyInQueue) {
+              showToast('Patient is already in the queue.', 'info');
+            } else {
+              setCheckInModalData(modalData);
+              showToast('Patient checked in successfully!', 'success');
+            }
             fetchPatients();
           }}
         />

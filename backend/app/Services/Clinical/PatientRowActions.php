@@ -47,7 +47,20 @@ class PatientRowActions
         // An intake or appointment waiting to be checked in, or returning patient awaiting triage
         $hasPendingArrival = false;
 
-        if (!$hasActiveQueueToday) {
+        $treatmentStatus = strtolower((string) ($statusSummary['treatment_status'] ?? $patient->treatment_status ?? ''));
+        $caseStatus = strtolower((string) ($statusSummary['case_status'] ?? $patient->case_status ?? ''));
+        $isTransferredOrNoTreatment = $treatmentStatus === 'transferred_referred'
+            || $caseStatus === 'transferred_out'
+            || $treatmentStatus === 'completed_without_injection'
+            || !empty($patient->is_category1_no_treatment);
+
+        $accounts = $patient->relationLoaded('accounts')
+            ? $patient->accounts
+            : $patient->accounts()->get();
+
+        $isOnline = in_array($patient->registration_source, ['mobile', 'online'], true);
+
+        if (!$hasActiveQueueToday && !$isTransferredOrNoTreatment) {
             // Check pending bite intake due on or before today
             $biteIntakes = $patient->relationLoaded('biteIntakes')
                 ? $patient->biteIntakes
@@ -57,95 +70,105 @@ class PatientRowActions
                 ? $patient->appointments
                 : $patient->appointments()->get();
 
-            $hasDueIntake = $biteIntakes->contains(function ($intake) use ($appointments, $todayStr) {
-                if ($intake->status !== 'pending') {
-                    return false;
-                }
-                $appt = $appointments->firstWhere('appointment_id', $intake->appointment_id);
-                if (!$appt) {
-                    return false;
-                }
-                $scheduledDate = $appt->scheduled_date ?? $appt->appointment_date;
-                if (!$scheduledDate) {
-                    return false;
-                }
-                return Carbon::parse($scheduledDate)->toDateString() <= $todayStr;
-            });
-
-            // Check scheduled appointment for today
-            $hasDueAppointment = $appointments->contains(function ($appt) use ($todayStr) {
-                if (!in_array($appt->status, ['scheduled', 'missed'], true)) {
-                    return false;
-                }
-                $scheduledDate = $appt->scheduled_date ?? $appt->appointment_date;
-                if (!$scheduledDate) {
-                    return false;
-                }
-                return Carbon::parse($scheduledDate)->toDateString() === $todayStr;
-            });
-
-            // Check returning patient awaiting triage check-in
-            $isReturningAwaitingTriage = false;
-            $regDate = $patient->created_at ? Carbon::parse($patient->created_at)->toDateString() : null;
-            $isRegisteredBeforeToday = $regDate && $regDate < $todayStr;
-
-            $hasPastConsultationAppt = $appointments->contains(function ($appt) use ($todayStr) {
-                if ($appt->appointment_type && $appt->appointment_type !== 'consultation') {
-                    return false;
-                }
-                if ($appt->dose_number !== null && (int)$appt->dose_number > 0) {
-                    return false;
-                }
-                if (!in_array($appt->status, ['scheduled', 'missed'], true)) {
-                    return false;
-                }
-                $scheduledDate = $appt->scheduled_date ?? $appt->appointment_date;
-                return $scheduledDate && Carbon::parse($scheduledDate)->toDateString() < $todayStr;
-            });
-
-            $latestRecord = $patient->relationLoaded('latestTreatmentRecord')
-                ? $patient->latestTreatmentRecord
-                : $patient->latestTreatmentRecord()->first();
-            $hasDosesAdministered = $latestRecord && $latestRecord->dose_number !== null;
-
-            $latestConsultation = $patient->relationLoaded('latestConsultationRecord')
-                ? $patient->latestConsultationRecord
-                : $patient->latestConsultationRecord()->first();
-            $hasCompletedConsultation = $latestConsultation && (
-                $latestConsultation->status === 'completed'
-                || !empty($latestConsultation->nature_of_visit)
-                || !empty($latestConsultation->diagnosis)
-            );
-
             $biteIncidents = $patient->relationLoaded('biteIncidents')
                 ? $patient->biteIncidents
                 : $patient->biteIncidents()->get();
-            $hasConfirmedEpisode = $biteIncidents->contains(function ($bi) {
-                return !empty($bi->confirmed_at)
-                    || in_array($bi->status, ['active', 'completed'], true)
-                    || in_array($bi->episode_type, ['primary', 're_exposure'], true);
-            });
 
-            // Check if patient specifically requires check-in today (after 3 missed calls)
-            $latestQueueToday = $todayQueues->sortByDesc('queue_id')->first();
-            $requiresCheckinToday = $latestQueueToday && (
-                $latestQueueToday->status === 'requires_checkin'
-                || ($latestQueueToday->status === 'no_response' && (int)$latestQueueToday->call_count >= 3)
-            );
+            $isPreRegisteredOnly = ($isOnline || $accounts->isNotEmpty())
+                && $appointments->isEmpty()
+                && $biteIntakes->isEmpty()
+                && $biteIncidents->isEmpty();
 
-            if ($requiresCheckinToday) {
-                $isReturningAwaitingTriage = true;
-            } elseif (
-                ($isRegisteredBeforeToday || $hasPastConsultationAppt)
-                && !$hasDosesAdministered
-                && !$hasCompletedConsultation
-                && !$hasConfirmedEpisode
-                && !$patient->is_category1_no_treatment
-            ) {
-                $isReturningAwaitingTriage = true;
+            if (!$isPreRegisteredOnly) {
+                $hasDueIntake = $biteIntakes->contains(function ($intake) use ($appointments, $todayStr) {
+                    if ($intake->status !== 'pending') {
+                        return false;
+                    }
+                    $appt = $appointments->firstWhere('appointment_id', $intake->appointment_id);
+                    if (!$appt) {
+                        return false;
+                    }
+                    $scheduledDate = $appt->scheduled_date ?? $appt->appointment_date;
+                    if (!$scheduledDate) {
+                        return false;
+                    }
+                    return Carbon::parse($scheduledDate)->toDateString() <= $todayStr;
+                });
+
+                // Check scheduled appointment for today
+                $hasDueAppointment = $appointments->contains(function ($appt) use ($todayStr) {
+                    if (!in_array($appt->status, ['scheduled', 'missed'], true)) {
+                        return false;
+                    }
+                    $scheduledDate = $appt->scheduled_date ?? $appt->appointment_date;
+                    if (!$scheduledDate) {
+                        return false;
+                    }
+                    return Carbon::parse($scheduledDate)->toDateString() === $todayStr;
+                });
+
+                // Check returning patient awaiting triage check-in
+                $isReturningAwaitingTriage = false;
+                $regDate = $patient->created_at ? Carbon::parse($patient->created_at)->toDateString() : null;
+                $isRegisteredBeforeToday = $regDate && $regDate < $todayStr;
+
+                $hasPastConsultationAppt = $appointments->contains(function ($appt) use ($todayStr) {
+                    if ($appt->appointment_type && $appt->appointment_type !== 'consultation') {
+                        return false;
+                    }
+                    if ($appt->dose_number !== null && (int)$appt->dose_number > 0) {
+                        return false;
+                    }
+                    if (!in_array($appt->status, ['scheduled', 'missed'], true)) {
+                        return false;
+                    }
+                    $scheduledDate = $appt->scheduled_date ?? $appt->appointment_date;
+                    return $scheduledDate && Carbon::parse($scheduledDate)->toDateString() < $todayStr;
+                });
+
+                $latestRecord = $patient->relationLoaded('latestTreatmentRecord')
+                    ? $patient->latestTreatmentRecord
+                    : $patient->latestTreatmentRecord()->first();
+                $hasDosesAdministered = $latestRecord && $latestRecord->dose_number !== null;
+
+                $latestConsultation = $patient->relationLoaded('latestConsultationRecord')
+                    ? $patient->latestConsultationRecord
+                    : $patient->latestConsultationRecord()->first();
+                $hasCompletedConsultation = $latestConsultation && (
+                    $latestConsultation->status === 'completed'
+                    || !empty($latestConsultation->nature_of_visit)
+                    || !empty($latestConsultation->diagnosis)
+                );
+
+                $hasConfirmedEpisode = $biteIncidents->contains(function ($bi) {
+                    return !empty($bi->confirmed_at)
+                        || in_array($bi->status, ['active', 'completed'], true)
+                        || in_array($bi->episode_type, ['primary', 're_exposure'], true);
+                });
+
+                // Check if patient specifically requires check-in today (after 3 missed calls)
+                $latestQueueToday = $todayQueues->sortByDesc('queue_id')->first();
+                $completedQueueToday = $latestQueueToday && $latestQueueToday->status === 'completed';
+                $requiresCheckinToday = $latestQueueToday && (
+                    $latestQueueToday->status === 'requires_checkin'
+                    || ($latestQueueToday->status === 'no_response' && (int)$latestQueueToday->call_count >= 3)
+                );
+
+                if ($requiresCheckinToday) {
+                    $isReturningAwaitingTriage = true;
+                } elseif (
+                    !$completedQueueToday
+                    && ($isRegisteredBeforeToday || $hasPastConsultationAppt)
+                    && !$hasDosesAdministered
+                    && !$hasCompletedConsultation
+                    && !$hasConfirmedEpisode
+                    && !$patient->is_category1_no_treatment
+                ) {
+                    $isReturningAwaitingTriage = true;
+                }
+
+                $hasPendingArrival = $hasDueIntake || $hasDueAppointment || $isReturningAwaitingTriage;
             }
-
-            $hasPendingArrival = $hasDueIntake || $hasDueAppointment || $isReturningAwaitingTriage;
         }
 
         // 3. Precedence
@@ -159,12 +182,8 @@ class PatientRowActions
                  ? 'REASSESSMENT_REQUIRED' : null;
 
         // 4. Source & Mobile Account Linkage
-        $isOnline = ($patient->registration_source === 'mobile' || $patient->registration_source === 'online');
-        $isWalkIn = ($patient->registration_source === 'walk_in') && !$isOnline;
-
-        $accounts = $patient->relationLoaded('accounts')
-            ? $patient->accounts
-            : $patient->accounts()->get();
+        // Walk-in patients are registered with registration_source = 'staff' (or 'walk_in' / null), never 'mobile'/'online'.
+        $isWalkIn = !$isOnline;
 
         $hasVerifiedMobileAccount = $accounts->contains(function ($account) {
             return ($account->pivot->status ?? null) === 'verified';
@@ -200,7 +219,8 @@ class PatientRowActions
         }
 
         // Contact info check
-        $hasContact = !empty(trim((string) $patient->contact_number)) || !empty(trim((string) $patient->email));
+        $hasEmail = !empty(trim((string) $patient->email));
+        $hasContact = !empty(trim((string) $patient->contact_number)) || $hasEmail;
         $inviteDisabledReason = ($eligible && !$hasContact) ? 'NO_CONTACT' : null;
 
         return [
@@ -208,6 +228,7 @@ class PatientRowActions
             'check_in_blocked_reason' => $checkInBlockedReason,
             'invite' => $invite,
             'invite_disabled_reason' => $inviteDisabledReason,
+            'has_email' => $hasEmail,
             'view' => true,
             'invitation_id' => $latestInvite?->id,
         ];

@@ -2,6 +2,7 @@
 
 namespace App\Services\Messaging;
 
+use App\Jobs\SendFcmPushNotification;
 use App\Mail\ClinicEmail;
 use App\Models\Appointment;
 use App\Models\AppointmentReminder;
@@ -101,6 +102,56 @@ class OutboundDelivery
                 });
                 Cache::forget("mobile:notifications:account:{$account->id}:page:1");
 
+                // Enqueue automated FCM push notification to the patient account if allowlisted
+                $isAdvance = ($message->purpose === 'advance');
+                $pushTitle = 'Vaccination Reminder';
+                $pushBody  = $isAdvance
+                    ? 'You have an upcoming appointment. Open the app to view your schedule.'
+                    : 'You have an overdue appointment. Open the app to view your schedule.';
+
+                if (app(\App\Services\Messaging\FcmService::class)->isAccountAllowed($account)) {
+                    if (! $account->allowsNotificationCategory('appointment_reminder')) {
+                        \Illuminate\Support\Facades\Log::info("Scheduled reminder FCM skipped: Category 'appointment_reminder' disabled by user preferences for account #{$account->id}.");
+
+                        return;
+                    }
+
+                    $isTest = (bool) ($message->context['is_test'] ?? false);
+                    $isSync = (bool) ($message->context['sync'] ?? false);
+                    $dryRun = (bool) ($message->context['dry_run'] ?? false);
+
+                    $pushData = [
+                        'category'       => 'appointment_reminder',
+                        'route'          => '/calendar',
+                        'appointment_id' => (string) $message->appointment_id,
+                    ];
+                    if ($isTest) {
+                        $pushData['is_test'] = 'true';
+                    }
+
+                    if ($isSync) {
+                        SendFcmPushNotification::dispatchSync(
+                            patientAccountId: (int) $account->id,
+                            title: $pushTitle,
+                            body: $pushBody,
+                            data: $pushData,
+                            validateOnly: $dryRun,
+                            isControlledTest: $isTest
+                        );
+                    } else {
+                        SendFcmPushNotification::dispatch(
+                            patientAccountId: (int) $account->id,
+                            title: $pushTitle,
+                            body: $pushBody,
+                            data: $pushData,
+                            validateOnly: $dryRun,
+                            isControlledTest: $isTest
+                        );
+                    }
+                } else {
+                    \Illuminate\Support\Facades\Log::info("Scheduled reminder FCM skipped: Patient account #{$account->id} is not in the automatic FCM allowlist.");
+                }
+
                 return;
             }
             $this->finish($message, $result);
@@ -135,7 +186,7 @@ class OutboundDelivery
                     'error_details' => $result->error,
                 ]);
             }
-            if ($message->purpose !== 'appointment_update' && in_array($status, ['accepted', 'delivered'])) {
+            if ($message->purpose !== 'appointment_update' && in_array($status, ['accepted', 'delivered']) && ! ($message->context['is_test'] ?? false)) {
                 Appointment::whereKey($message->appointment_id)->update([
                     'reminder_sent_count' => DB::raw('COALESCE(reminder_sent_count, 0) + 1'),
                     'last_reminded_at' => now(),

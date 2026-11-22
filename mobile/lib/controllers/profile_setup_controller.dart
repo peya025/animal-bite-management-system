@@ -830,9 +830,14 @@ class ProfileSetupController extends ChangeNotifier {
           ? await api.updatePatient(
                   patientId: existingPatient!.id,
                   profile: payload,
+                  configRevision: refreshed.revision,
                 )
                 as PatientProfile
-          : await api.createPatient(payload) as PatientProfile;
+          : await api.createPatient(
+                  payload,
+                  configRevision: refreshed.revision,
+                )
+                as PatientProfile;
 
       if (_disposed) {
         return (outcome: ProfileSaveOutcome.error, patient: null);
@@ -840,6 +845,31 @@ class ProfileSetupController extends ChangeNotifier {
       isSaving = false;
       _notify();
       return (outcome: ProfileSaveOutcome.saved, patient: saved);
+    } on ApiException catch (err) {
+      if (_disposed) {
+        return (outcome: ProfileSaveOutcome.error, patient: null);
+      }
+      if (err.isConfigConflict) {
+        if (err.updatedConfiguration != null) {
+          _applyConfig(err.updatedConfiguration!);
+          final updatedPolicy = ConfiguredFieldPolicy(err.updatedConfiguration!);
+          final missingStep = _firstMissingRequiredStep(updatedPolicy);
+          if (missingStep != null) {
+            currentStepId = missingStep;
+          }
+        }
+        autoValidateMode = AutovalidateMode.onUserInteraction;
+        isSaving = false;
+        error = err.message;
+        _notify();
+        scrollToTop();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          formKey.currentState?.validateGranularly();
+        });
+        return (outcome: ProfileSaveOutcome.policyChanged, patient: null);
+      }
+      setError(err.message);
+      return (outcome: ProfileSaveOutcome.error, patient: null);
     } catch (err) {
       if (!_disposed) {
         setError(err.toString());

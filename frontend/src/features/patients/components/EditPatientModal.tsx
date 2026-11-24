@@ -91,7 +91,10 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
       value = formatPWDNumber(value);
     }
     setEnrolment(prev => {
-      const next = { ...prev, [key]: value };
+      let next = { ...prev, [key]: value };
+      if (key === 'sex' && value === 'male' && next.queue_priority_group === 'pregnant') {
+        next = { ...next, queue_priority_group: 'normal', queue_priority_level: 'normal' };
+      }
       draft.saveDraft(next);
       return next;
     });
@@ -99,7 +102,10 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
 
   const handleDirectChange = (key: keyof EnrolmentFormData, value: unknown) => {
     setEnrolment(prev => {
-      const next = { ...prev, [key]: value };
+      let next = { ...prev, [key]: value };
+      if (key === 'sex' && value === 'male' && next.queue_priority_group === 'pregnant') {
+        next = { ...next, queue_priority_group: 'normal', queue_priority_level: 'normal' };
+      }
       draft.saveDraft(next);
       return next;
     });

@@ -1,6 +1,7 @@
 import OnlineReferralPhoto from '../../OnlineReferralPhoto';
 import React, { useState, useEffect, useContext } from 'react';
 import { FormField } from './FormField';
+import { SearchableSelect } from '../../../../../components/forms/SearchableSelect';
 import { RegistrationErrors } from '../registrationAccessibility';
 import type { EnrolmentFormData } from '../../../types';
 import { useClinicModuleConfig } from '../../../../../hooks/useClinicModuleConfig';
@@ -227,8 +228,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
       });
   }, [municipalityCode]);
 
-  const handleMunicipalityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const code = e.target.value;
+  const handleMunicipalityChange = (code: string) => {
     setMunicipalityCode(code);
     setBarangayName('');
     if (code === 'other') {
@@ -238,12 +238,22 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
     }
   };
 
-  const handleBarangayChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const name = e.target.value;
+  const handleBarangayChange = (name: string) => {
     setBarangayName(name);
     if (!name) return;
     onDirectChange('reg_referred_by', suggestReferralFacility(name));
   };
+
+  const referralMunicipalityOptions = [
+    ...MISAMIS_ORIENTAL_MUNICIPALITIES.map(m => ({ value: m.code, label: m.name })),
+    { value: 'other', label: 'Other / Outside MisOr' },
+  ];
+  const referralBarangayOptions = barangays.map(b => ({ value: b.name, label: b.name }));
+  const referralBarangayPlaceholder = loadingBrgy
+    ? 'Loading…'
+    : !municipalityCode
+    ? '— Select Municipality First —'
+    : '— Select Barangay —';
 
   const handleModeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange('mode_of_transaction')(e);
@@ -312,46 +322,27 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               >
                 {/* 1. City / Municipality */}
                 <FormField label="1. City / Municipality">
-                  <select
-                    className="fm-select"
+                  <SearchableSelect
                     name="reg_referred_by_municipality"
                     value={municipalityCode}
+                    options={referralMunicipalityOptions}
+                    placeholder="— Select Municipality —"
+                    searchPlaceholder="Search municipality..."
                     onChange={handleMunicipalityChange}
-                    style={{ width: '100%', boxSizing: 'border-box' }}
-                  >
-                    <option value="">— Select Municipality —</option>
-                    {MISAMIS_ORIENTAL_MUNICIPALITIES.map(m => (
-                      <option key={m.code} value={m.code}>
-                        {m.name}
-                      </option>
-                    ))}
-                    <option value="other">Other / Outside MisOr</option>
-                  </select>
+                  />
                 </FormField>
 
                 {/* 2. Barangay */}
                 <FormField label="2. Barangay">
-                  <select
-                    className="fm-select"
+                  <SearchableSelect
                     name="reg_referred_by_barangay"
                     value={barangayName}
+                    options={referralBarangayOptions}
+                    placeholder={referralBarangayPlaceholder}
+                    searchPlaceholder="Search barangay..."
                     onChange={handleBarangayChange}
                     disabled={municipalityCode === 'other' || !municipalityCode}
-                    style={{ width: '100%', boxSizing: 'border-box' }}
-                  >
-                    <option value="">
-                      {loadingBrgy
-                        ? 'Loading…'
-                        : !municipalityCode
-                        ? '— Select Municipality First —'
-                        : '— Select Barangay —'}
-                    </option>
-                    {barangays.map(b => (
-                      <option key={b.code} value={b.name}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </FormField>
               </div>
 
@@ -390,68 +381,29 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                 style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px 16px', marginTop: 6 }}
               >
                 {/* 1. City / Municipality */}
-                <div>
-                  <span
-                    style={{
-                      display: 'block',
-                      fontSize: 12,
-                      fontWeight: 500,
-                      color: 'var(--text-secondary, #6b7280)',
-                      marginBottom: 6,
-                    }}
-                  >
-                    1. City / Municipality
-                  </span>
-                  <select
-                    className="fm-select"
+                <FormField label="1. City / Municipality">
+                  <SearchableSelect
                     name="reg_referred_by_municipality"
                     value={municipalityCode}
+                    options={referralMunicipalityOptions}
+                    placeholder="— Select Municipality —"
+                    searchPlaceholder="Search municipality..."
                     onChange={handleMunicipalityChange}
-                  >
-                    <option value="">— Select Municipality —</option>
-                    {MISAMIS_ORIENTAL_MUNICIPALITIES.map(m => (
-                      <option key={m.code} value={m.code}>
-                        {m.name}
-                      </option>
-                    ))}
-                    <option value="other">Other / Outside MisOr</option>
-                  </select>
-                </div>
+                  />
+                </FormField>
 
                 {/* 2. Barangay */}
-                <div>
-                  <span
-                    style={{
-                      display: 'block',
-                      fontSize: 12,
-                      fontWeight: 500,
-                      color: 'var(--text-secondary, #6b7280)',
-                      marginBottom: 6,
-                    }}
-                  >
-                    2. Barangay
-                  </span>
-                  <select
-                    className="fm-select"
+                <FormField label="2. Barangay">
+                  <SearchableSelect
                     name="reg_referred_by_barangay"
                     value={barangayName}
+                    options={referralBarangayOptions}
+                    placeholder={referralBarangayPlaceholder}
+                    searchPlaceholder="Search barangay..."
                     onChange={handleBarangayChange}
                     disabled={municipalityCode === 'other' || !municipalityCode}
-                  >
-                    <option value="">
-                      {loadingBrgy
-                        ? 'Loading…'
-                        : !municipalityCode
-                        ? '— Select Municipality First —'
-                        : '— Select Barangay —'}
-                    </option>
-                    {barangays.map(b => (
-                      <option key={b.code} value={b.name}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  />
+                </FormField>
 
                 {/* 3. Health Center / Facility Name */}
                 <div style={{ gridColumn: '1 / -1' }}>

@@ -14,6 +14,11 @@ interface FormFieldProps {
 
 type ControlProps = React.HTMLProps<HTMLInputElement> & { children?: React.ReactNode };
 
+function isFormControlElement(child: React.ReactElement<ControlProps>): boolean {
+  if (['input', 'select', 'textarea'].includes(String(child.type))) return true;
+  return Boolean((child.type as { isFormControl?: boolean })?.isFormControl);
+}
+
 export function FormField({ id, label, required, error, errorText, hint, className = '', children }: FormFieldProps) {
   const uid = useId();
   const errors = useContext(ConsultationErrors);
@@ -22,7 +27,7 @@ export function FormField({ id, label, required, error, errorText, hint, classNa
   function collect(nodes: React.ReactNode) {
     React.Children.forEach(nodes, child => {
       if (!React.isValidElement<ControlProps>(child)) return;
-      if (['input', 'select', 'textarea'].includes(String(child.type))) controls.push(child);
+      if (isFormControlElement(child)) controls.push(child);
       else collect(child.props.children);
     });
   }
@@ -43,7 +48,7 @@ export function FormField({ id, label, required, error, errorText, hint, classNa
   function decorate(nodes: React.ReactNode): React.ReactNode {
     return React.Children.map(nodes, child => {
       if (!React.isValidElement<ControlProps>(child)) return child;
-      if (['input', 'select', 'textarea'].includes(String(child.type))) {
+      if (isFormControlElement(child)) {
         return React.cloneElement(child, {
           id: child === first ? controlId : child.props.id,
           'aria-invalid': invalid || undefined,

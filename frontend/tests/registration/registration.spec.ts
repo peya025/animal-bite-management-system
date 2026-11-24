@@ -1,4 +1,15 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
+
+async function selectComboboxOption(page: Page, trigger: Locator, optionLabel: string) {
+  await trigger.click();
+  const menu = page.locator('[data-combobox-menu="true"]');
+  await expect(menu).toBeVisible();
+  const search = menu.locator('input.ss-search-input');
+  await expect(search).toBeFocused();
+  await search.fill(optionLabel);
+  await menu.getByRole('option', { name: optionLabel, exact: true }).click();
+  await expect(menu).toHaveCount(0);
+}
 
 test.beforeEach(async ({ page }) => {
   page.on('console', msg => console.log('PAGE LOG:', msg.text()));
@@ -82,19 +93,19 @@ test('referral fields appear only for Referral and are cleared when switching mo
   const consultationY = (await page.getByRole('heading', { name: /III\. Consultation Details/ }).boundingBox())!.y;
   expect(referralY).toBeGreaterThan(modeY);
   expect(referralY).toBeLessThan(consultationY);
-  const municipality = page.locator('select[name="reg_referred_by_municipality"]');
-  const barangay = page.locator('select[name="reg_referred_by_barangay"]');
+  const municipality = page.locator('button[name="reg_referred_by_municipality"]');
+  const barangay = page.locator('button[name="reg_referred_by_barangay"]');
   await expect(barangay).toBeDisabled();
-  await municipality.selectOption('104324000');
+  await selectComboboxOption(page, municipality, 'Tagoloan');
   await expect(barangay).toBeEnabled();
-  await barangay.selectOption('Poblacion');
+  await selectComboboxOption(page, barangay, 'Poblacion');
   await expect(facility).toHaveValue('Barangay Poblacion Health Station (BHS)');
   await facility.fill('Manual Referral Facility');
   await page.getByRole('radio', { name: 'Visited' }).check();
   await expect(facility).toHaveCount(0);
   await page.getByRole('radio', { name: 'Referral' }).check();
   await expect(facility).toHaveValue('');
-  await expect(municipality).toHaveValue('');
+  await expect(municipality).toHaveAttribute('data-value', '');
   await page.getByRole('radio', { name: 'Walk in' }).check();
 
   await referralTestRequiredFields(page);
@@ -115,8 +126,8 @@ test('Referral saves the selected or manually entered facility', async ({ page }
 
   await referralTestRequiredFields(page);
   await page.getByRole('radio', { name: 'Referral' }).check();
-  await page.locator('select[name="reg_referred_by_municipality"]').selectOption('104324000');
-  await page.locator('select[name="reg_referred_by_barangay"]').selectOption('Poblacion');
+  await selectComboboxOption(page, page.locator('button[name="reg_referred_by_municipality"]'), 'Tagoloan');
+  await selectComboboxOption(page, page.locator('button[name="reg_referred_by_barangay"]'), 'Poblacion');
   const facility = page.locator('input[name="reg_referred_by"]');
   await expect(facility).toHaveValue('Barangay Poblacion Health Station (BHS)');
   await facility.fill('Manual Referral Facility');
@@ -139,7 +150,9 @@ test('Enter follows row order; Tab, Shift+Tab and native controls retain behavio
   await expect(page.getByLabel('Suffix', { exact: true })).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(page.getByLabel('Middle Name', { exact: true })).toBeFocused();
-  await page.getByLabel('Suffix', { exact: true }).press('Enter');
+  await page.getByLabel('Middle Name', { exact: true }).press('Enter');
+  await expect(page.getByLabel('Suffix', { exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(page.getByLabel('Female', { exact: true })).toBeFocused();
   await page.keyboard.press('ArrowRight');
   await expect(page.getByLabel('Male', { exact: true })).toBeChecked();
@@ -149,7 +162,7 @@ test('Enter follows row order; Tab, Shift+Tab and native controls retain behavio
     const form = document.querySelector('form')!;
     const multiline = document.createElement('textarea');
     form.append(multiline);
-    const targets = [form.querySelector('select')!, form.querySelector('input[type="radio"]')!, form.querySelector('input[type="date"]')!, multiline];
+    const targets = [form.querySelector('input[type="radio"]')!, form.querySelector('input[type="date"]')!, multiline];
     const result = targets.map(target => {
       const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
       target.dispatchEvent(event);
@@ -161,7 +174,7 @@ test('Enter follows row order; Tab, Shift+Tab and native controls retain behavio
     result.push(composing.defaultPrevented);
     return result;
   });
-  expect(prevented).toEqual([false, false, false, false, false]);
+  expect(prevented).toEqual([false, false, false, false]);
   await expect(page.getByText('Test record saved')).toHaveCount(0);
 });
 
@@ -189,9 +202,9 @@ test('address dependencies, manual entry and read-only preview', async ({ page }
   await expect(barangay).toBeDisabled();
   await expect(page.getByLabel('Purok / Zone / Street', { exact: true })).toBeDisabled();
   await expect(municipality).toBeEnabled();
-  await municipality.selectOption('104324000');
+  await selectComboboxOption(page, municipality, 'Tagoloan');
   await expect(barangay).toBeEnabled();
-  await barangay.selectOption('104324006');
+  await selectComboboxOption(page, barangay, 'Poblacion');
   await page.getByLabel('Purok / Zone / Street', { exact: true }).fill('Zone 1');
   await expect(page.getByLabel('Full Address preview')).toContainText('Zone 1, Poblacion, Tagoloan, Misamis Oriental');
   await page.getByRole('button', { name: 'Switch to Manual Typing' }).click();
@@ -224,7 +237,7 @@ test('final text field submits once and preserves registration and queue payload
   await page.route('**/api/queue', route => { queues++; return route.fulfill({ json: {} }); });
   await requiredFields(page);
   await page.getByLabel('Yes', { exact: true }).check();
-  await page.getByLabel('Membership', { exact: true }).selectOption('others');
+  await selectComboboxOption(page, page.getByLabel('Membership', { exact: true }), 'Others (Specify)');
   await page.getByLabel('Specify Membership Name', { exact: true }).fill('Farmers Association');
   const idField = page.getByLabel('Membership ID / Certificate No.', { exact: true });
   await idField.fill('ABC-123');
@@ -295,6 +308,150 @@ test('input hover is visible and keyboard focus remains distinct', async ({ page
   await page.getByLabel('Last Name').press('Enter');
   await expect(field).toBeFocused();
   await expect(field).toHaveCSS('outline-style', 'solid');
+});
+
+test('searchable comboboxes support live search, keyboard navigation, checkmark, empty state, and outside click', async ({ page }) => {
+  // No native <select> elements remain in Patient Registration
+  await expect(page.locator('form.registration-form select')).toHaveCount(0);
+
+  const suffixTrigger = page.getByRole('combobox', { name: 'Suffix', exact: true });
+  await expect(suffixTrigger).toHaveText('None');
+
+  // Open via click: search bar is auto-focused and selected option has a checkmark
+  await suffixTrigger.click();
+  const menu = page.locator('[data-combobox-menu="true"]');
+  await expect(menu).toBeVisible();
+  const searchInput = menu.locator('input.ss-search-input');
+  await expect(searchInput).toBeFocused();
+  // Ensure search icon and input text box never overlap
+  const iconBox = await menu.locator('.ss-search-icon').boundingBox();
+  const inputBox = await searchInput.boundingBox();
+  expect(iconBox && inputBox && iconBox.x + iconBox.width <= inputBox.x).toBe(true);
+  const selectedOpt = menu.getByRole('option', { name: 'None', exact: true });
+  await expect(selectedOpt).toHaveAttribute('aria-selected', 'true');
+  await expect(selectedOpt.locator('.ss-option-check')).toBeVisible();
+
+  // Case-insensitive filtering & "No results found" state
+  await searchInput.fill('zzz-no-match');
+  await expect(menu.getByText('No results found')).toBeVisible();
+
+  // Pressing Enter when no results match does NOT submit the form
+  await searchInput.press('Enter');
+  await expect(page.getByText('Test record saved')).toHaveCount(0);
+
+  // Filter case-insensitively and select via ArrowDown + Enter without submitting form
+  await searchInput.fill('jr');
+  await expect(menu.getByRole('option', { name: 'Jr.', exact: true })).toBeVisible();
+  await searchInput.press('Enter');
+  await expect(menu).toHaveCount(0);
+  await expect(suffixTrigger).toHaveText('Jr.');
+  await expect(suffixTrigger).toBeFocused();
+  await expect(page.getByText('Test record saved')).toHaveCount(0);
+
+  // Reopening resets search query and displays checkmark beside Jr.
+  await suffixTrigger.press('ArrowDown');
+  await expect(menu).toBeVisible();
+  await expect(searchInput).toBeFocused();
+  await expect(searchInput).toHaveValue('');
+  const jrOption = menu.getByRole('option', { name: 'Jr.', exact: true });
+  await expect(jrOption).toHaveAttribute('aria-selected', 'true');
+  await expect(jrOption.locator('.ss-option-check')).toBeVisible();
+
+  // ArrowDown / ArrowUp navigation and Enter selection
+  await searchInput.press('ArrowDown'); // Sr.
+  await searchInput.press('ArrowDown'); // II
+  await searchInput.press('ArrowUp');   // Sr.
+  await searchInput.press('Enter');
+  await expect(menu).toHaveCount(0);
+  await expect(suffixTrigger).toHaveText('Sr.');
+
+  // Escape closes ONLY the dropdown (retaining selected value), NOT the modal
+  await suffixTrigger.click();
+  await expect(menu).toBeVisible();
+  await searchInput.fill('IV');
+  await searchInput.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: 'Patient Registration', exact: true })).toBeVisible();
+  await expect(suffixTrigger).toHaveText('Sr.');
+  await expect(suffixTrigger).toBeFocused();
+
+  // Clicking outside closes the dropdown and retains value
+  await suffixTrigger.click();
+  await expect(menu).toBeVisible();
+  await page.getByLabel('First Name').click();
+  await expect(menu).toHaveCount(0);
+  await expect(suffixTrigger).toHaveText('Sr.');
+
+  // Tab and Shift+Tab while dropdown is open close menu and move to adjacent form fields
+  await suffixTrigger.click();
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(menu).toHaveCount(0);
+  await expect(page.getByLabel('Female', { exact: true })).toBeFocused();
+
+  await suffixTrigger.click();
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('Shift+Tab');
+  await expect(menu).toHaveCount(0);
+  await expect(page.getByLabel('Middle Name', { exact: true })).toBeFocused();
+
+  // Disabled options in Government Programs cannot be selected and are skipped by Arrow keys
+  await page.getByLabel('Yes', { exact: true }).check();
+  const membership1 = page.locator('button[name="membership-0"]');
+  await selectComboboxOption(page, membership1, 'PhilHealth');
+  await page.getByRole('button', { name: /\+ Add Another Membership/ }).click();
+  const membership2 = page.locator('button[name="membership-1"]');
+  await membership2.click();
+  const disabledPhilHealth = page.locator('[data-combobox-menu="true"] [role="option"][aria-disabled="true"]');
+  await expect(disabledPhilHealth).toContainText('PhilHealth (Already added)');
+  await disabledPhilHealth.click({ force: true });
+  // Still open and unselected because option is disabled
+  await expect(page.locator('[data-combobox-menu="true"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(membership2).toHaveAttribute('data-value', '');
+});
+
+test('combobox validation error focuses invalid combobox and clears upon selection', async ({ page }) => {
+  await page.locator('input[name="last_name"]').fill('Dela Cruz');
+  await page.locator('input[name="first_name"]').fill('Juan');
+  await page.getByRole('radio', { name: 'Male', exact: true }).check();
+  await page.locator('input[name="date_of_birth"]').fill('1990-06-12');
+  await page.getByRole('button', { name: 'Save Patient Record' }).click();
+
+  const municipality = page.getByRole('combobox', { name: 'City / Municipality' });
+  await expect(municipality).toBeFocused();
+  await expect(municipality).toHaveAttribute('aria-invalid', 'true');
+
+  await selectComboboxOption(page, municipality, 'Tagoloan');
+  await expect(municipality).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(municipality).toHaveText('Tagoloan');
+});
+
+test('selecting Male removes Pregnant from Priority Category and resets it to Normal', async ({ page }) => {
+  const priorityTrigger = page.getByRole('combobox', { name: 'Priority Category' });
+  const menu = page.locator('[data-combobox-menu="true"]');
+
+  // When Female is selected, Pregnant is available and selectable
+  await page.getByRole('radio', { name: 'Female', exact: true }).check();
+  await selectComboboxOption(page, priorityTrigger, 'Pregnant');
+  await expect(priorityTrigger).toHaveText('Pregnant');
+
+  // Switching to Male resets Pregnant back to Normal and removes Pregnant from options
+  await page.getByRole('radio', { name: 'Male', exact: true }).check();
+  await expect(priorityTrigger).toHaveText('Normal');
+  await priorityTrigger.click();
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('option', { name: 'Pregnant', exact: true })).toHaveCount(0);
+  await expect(menu.getByRole('option', { name: 'Normal', exact: true })).toBeVisible();
+  await expect(menu.getByRole('option', { name: 'Senior Citizen', exact: true })).toBeVisible();
+  await expect(menu.getByRole('option', { name: 'PWD', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // Switching back to Female restores Pregnant in options
+  await page.getByRole('radio', { name: 'Female', exact: true }).check();
+  await priorityTrigger.click();
+  await expect(menu.getByRole('option', { name: 'Pregnant', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
 });
 
 

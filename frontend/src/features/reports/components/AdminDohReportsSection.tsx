@@ -155,7 +155,7 @@ export default function AdminDohReportsSection() {
 
   return (
     <Box component="section" aria-label="DOH submissions" sx={{ mb: 4 }}>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1.5, mb: 2 }}>
+      <Box data-walkthrough="admin-doh-cards" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1.5, mb: 2 }}>
         {reportOrder.map(type => {
           const report = reports[type];
           const active = selectedReport === type;

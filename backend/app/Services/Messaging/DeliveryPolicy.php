@@ -39,7 +39,10 @@ class DeliveryPolicy
             return app(EmailTransportInterface::class)->configurationError($provider);
         }
         try {
-            SmsManager::normalize($recipient);
+            $normalizedRecipient = SmsManager::normalize($recipient);
+            if (config('messaging.sms_test_mode', true) && ! $this->isSmsRecipientAllowlisted($normalizedRecipient)) {
+                return 'recipient_not_allowlisted';
+            }
             $adapter = app(SmsManager::class)->provider($provider);
             if (! $adapter->configured()) {
                 return 'provider_not_configured';
@@ -52,6 +55,32 @@ class DeliveryPolicy
         }
 
         return null;
+    }
+
+    private function isSmsRecipientAllowlisted(string $normalizedRecipient): bool
+    {
+        $configured = config('messaging.sms_test_recipients', []);
+        if (is_string($configured)) {
+            $configured = array_filter(array_map('trim', explode(',', $configured)));
+        }
+        if (! is_array($configured)) {
+            return false;
+        }
+
+        foreach ($configured as $entry) {
+            if (! is_string($entry) || trim($entry) === '') {
+                continue;
+            }
+            try {
+                if (SmsManager::normalize($entry) === $normalizedRecipient) {
+                    return true;
+                }
+            } catch (\InvalidArgumentException) {
+                // Ignore malformed allowlist entries rather than failing open.
+            }
+        }
+
+        return false;
     }
 
     public function availability(): array

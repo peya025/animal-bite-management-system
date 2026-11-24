@@ -584,6 +584,8 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
               )}
 
               <Button
+                data-walkthrough="vax-inv-btn-forecast"
+                data-tour="vax-inv-btn-forecast"
                 variant="outlined"
                 startIcon={<ForecastIcon sx={{ fontSize: 17 }} />}
                 onClick={() => {

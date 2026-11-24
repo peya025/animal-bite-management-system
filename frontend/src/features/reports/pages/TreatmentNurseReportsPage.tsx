@@ -2340,6 +2340,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
             </Typography>
           </Box>
 
+          <Box data-walkthrough={isDoctor ? 'doctor-reports-summary-cards' : 'nurse-reports-summary-cards'}>
           {loading && !stats ? (
             <Box
               sx={{
@@ -2456,6 +2457,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
                 dataWalkthrough={isDoctor ? 'doctor-reports-category-3' : 'nurse-reports-category-3'}
               />
             </Box>
+          </Box>
           </Box>
 
           {/* Card Drilldown / Inspection Table */}
@@ -2834,6 +2836,7 @@ export default function TreatmentNurseReportsPage({ initialTab }: TreatmentNurse
         <>
           {/* Stock Metrics Overview */}
           <Box
+            data-walkthrough="nurse-reports-inventory-kpis"
             sx={{
               display: 'grid',
               gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(5, 1fr)' },

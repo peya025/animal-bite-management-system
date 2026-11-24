@@ -726,6 +726,7 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
           tooltipCoords.width && tooltipCoords.width < 310 ? 'walkthrough-tooltip-card--compact' : ''
         }`}
         data-testid="walkthrough-tooltip"
+        data-walkthrough-module={step.module || moduleName}
         style={{
           top: `${tooltipCoords.top}px`,
           left: `${tooltipCoords.left}px`,

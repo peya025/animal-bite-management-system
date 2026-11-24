@@ -49,8 +49,14 @@ export default function AddPatientModal({
       : undefined;
 
     const isSavedReferral = (saved.mode_of_transaction || '').toLowerCase() === 'referral';
+    const normalizedPriorityGroup =
+      saved.sex === 'male' && saved.queue_priority_group === 'pregnant'
+        ? 'normal'
+        : saved.queue_priority_group;
     return {
       ...saved,
+      queue_priority_group: normalizedPriorityGroup,
+      queue_priority_level: normalizedPriorityGroup === 'normal' ? 'normal' : 'priority',
       reg_date_of_consultation: saved.reg_date_of_consultation || fresh.reg_date_of_consultation,
       reg_consultation_time: saved.reg_consultation_time || fresh.reg_consultation_time,
       reg_attending_provider: isSavedReferral ? (saved.reg_attending_provider || '') : '',
@@ -160,14 +166,28 @@ export default function AddPatientModal({
     }
   };
 
+  // Clear address validation errors as soon as municipality or barangay is selected/entered
+  useEffect(() => {
+    const hasMun = Boolean(loc.useManual ? loc.manualMun : loc.municipality);
+    const hasBrgy = Boolean(loc.useManual ? loc.manualBrgy : loc.barangay);
+    setFieldErrors(prev => {
+      if (!prev.municipality && !prev.barangay && !prev.address) return prev;
+      const next = { ...prev };
+      if (hasMun) delete next.municipality;
+      if (hasBrgy) delete next.barangay;
+      if (hasMun && hasBrgy) delete next.address;
+      return next;
+    });
+  }, [loc.useManual, loc.municipality, loc.barangay, loc.manualMun, loc.manualBrgy]);
+
   const handleDialogKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape' && !event.nativeEvent.isComposing) {
+    if (event.key === 'Escape' && !event.defaultPrevented && !event.nativeEvent.isComposing) {
       event.preventDefault();
       closeDialog();
     }
-    if (event.key !== 'Tab') return;
+    if (event.key !== 'Tab' || event.defaultPrevented) return;
     const items = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button, input, select, textarea, [tabindex="0"]') || [])
-      .filter(el => !el.matches(':disabled') && el.tabIndex >= 0 && el.getClientRects().length > 0);
+      .filter(el => !el.matches(':disabled') && el.tabIndex >= 0 && !el.closest('[data-combobox-menu]') && el.getClientRects().length > 0);
     const first = items[0];
     const last = items[items.length - 1];
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
@@ -218,6 +238,13 @@ export default function AddPatientModal({
       value = formatPWDNumber(value);
     }
     let next = { ...enrolment, [key]: value };
+    if (key === 'sex' && value === 'male' && next.queue_priority_group === 'pregnant') {
+      next = {
+        ...next,
+        queue_priority_group: 'normal',
+        queue_priority_level: 'normal',
+      };
+    }
     if (key === 'mode_of_transaction' && String(value).toLowerCase() !== 'referral') {
       next = {
         ...next,
@@ -572,9 +599,14 @@ export default function AddPatientModal({
         }
       }
 
+      const effectivePriorityGroup: EnrolmentFormData['queue_priority_group'] =
+        enrolment.sex === 'male' && enrolment.queue_priority_group === 'pregnant'
+          ? 'normal'
+          : enrolment.queue_priority_group;
       const submissionEnrolment: EnrolmentFormData = {
         ...enrolment,
-        queue_priority_level: enrolment.queue_priority_group === 'normal' ? 'normal' : 'priority',
+        queue_priority_group: effectivePriorityGroup,
+        queue_priority_level: effectivePriorityGroup === 'normal' ? 'normal' : 'priority',
         registration_fee: cleanedFee,
       };
       const createdResult = await createPatientRecord(submissionEnrolment, {

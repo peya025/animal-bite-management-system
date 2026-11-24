@@ -420,7 +420,7 @@ class VaccinationRecordController extends Controller
                 }
             }
 
-            return $this->vaccinationRecordService->saveVaccinationRecords(
+            $response = $this->vaccinationRecordService->saveVaccinationRecords(
                 actingUser:    $actingUser,
                 clinicId:      $actingUser->clinic_id,
                 patientId:     (int) $request->patient_id,
@@ -429,6 +429,13 @@ class VaccinationRecordController extends Controller
                 doses:         $request->doses,
                 signaturePath: $signaturePath,
             );
+
+            if ($response->getStatusCode() < 400) {
+                app(\App\Services\NotificationService::class)
+                    ->triggerClinicalSafetySync((int) $actingUser->clinic_id, true);
+            }
+
+            return $response;
         } catch (ValidationException $e) {
             \Illuminate\Support\Facades\Log::error('VACCINATION_CONTROLLER_422', [
                 'errors' => $e->errors(),

@@ -5,12 +5,14 @@ import { buildLegacyMembershipFields, toRecord } from '../../utils/memberships';
 
 export const RegistrationErrors = createContext<Record<string, string>>({});
 
-type FieldControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+type FieldControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement;
 
 export function entryControls(root: HTMLElement): FieldControl[] {
-  const controls = Array.from(root.querySelectorAll<FieldControl>('input, select, textarea'))
+  const controls = Array.from(root.querySelectorAll<FieldControl>('input, select, textarea, button[role="combobox"]'))
     .filter(control => !control.disabled && control.tabIndex >= 0
-      && !('readOnly' in control && control.readOnly) && control.getClientRects().length > 0);
+      && !('readOnly' in control && control.readOnly)
+      && !control.closest('[data-combobox-menu]')
+      && control.getClientRects().length > 0);
   return controls.filter(control => {
     if (!(control instanceof HTMLInputElement) || control.type !== 'radio') return true;
     const group = controls.filter(item => item instanceof HTMLInputElement
@@ -27,7 +29,7 @@ export function advanceOnEnter(event: KeyboardEvent<HTMLElement>, submit: () => 
   if (!(target instanceof HTMLInputElement)
     || !['text', 'email', 'tel', 'number', 'search', 'url', 'password'].includes(target.type)
     || target.readOnly || target.disabled || target.list
-    || target.closest('[role="combobox"], [aria-haspopup="listbox"], [aria-expanded]')) return;
+    || target.closest('[role="combobox"], [aria-haspopup="listbox"], [aria-expanded], [data-combobox-menu]')) return;
   event.preventDefault();
   if (event.repeat) return;
   const controls = entryControls(event.currentTarget);
@@ -38,7 +40,7 @@ export function advanceOnEnter(event: KeyboardEvent<HTMLElement>, submit: () => 
 }
 
 export function focusFirstError(root: HTMLElement, fallback?: HTMLElement | null) {
-  const invalid = Array.from(root.querySelectorAll<HTMLElement>('input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"]'))
+  const invalid = Array.from(root.querySelectorAll<HTMLElement>('input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"], button[role="combobox"][aria-invalid="true"]'))
     .find(control => !control.matches(':disabled') && control.getClientRects().length > 0);
   const target = invalid || fallback;
   target?.focus({ preventScroll: true });

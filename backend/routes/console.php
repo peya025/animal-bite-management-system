@@ -13,6 +13,13 @@ Artisan::command('sample:nurse-unattended {action=seed : seed or remove}', funct
     return $this->call(ManageNurseUnattendedSample::class, ['action' => $action]);
 })->purpose('Seed or remove sample unattended patient for testing Check In to Nurse');
 
+// Daily Morning Clinic Readiness & Risk Alert Sync at 7:30 AM Manila Time (before clinic opening)
+Schedule::command('clinic:sync-alerts')
+    ->dailyAt('07:30')
+    ->timezone(config('app.timezone', 'Asia/Manila'))
+    ->withoutOverlapping(15)
+    ->onOneServer();
+
 // Daily Automated Rabies PEP Reminders & Missed Dose Recalls at 8:00 AM Manila Time
 Schedule::command('appointments:auto-recall')
     ->dailyAt('08:00')

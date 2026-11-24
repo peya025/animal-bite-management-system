@@ -255,7 +255,7 @@ class MeetingReportService
             $row['display_total_cases'] = $isSuppressed ? '<' . $threshold : (string) ($row['total_cases'] ?? 0);
             if ($isSuppressed) {
                 foreach ([
-                    'total', 'total_cases', 'previous_total', 'change',
+                    'total', 'total_cases', 'previous_total', 'change', 'cases_last_7d', 'surge_ratio',
                     'cat_1', 'cat_2', 'cat_3', 'mild', 'moderate', 'severe', 'unassessed',
                     'male', 'female', 'unknown_sex', 'age_below_15', 'age_15_above', 'age_unknown',
                     'stray', 'dogs', 'cats', 'other_animals', 'unknown_animals', 'children_count',

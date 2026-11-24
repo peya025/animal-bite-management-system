@@ -194,11 +194,33 @@ class EpisodeFollowupService
                 $deliveryNote = "DOH SMS reminder logged for {$normalizedRecipient} ({$reason}).";
             }
         } else {
+            // Direct SMS dispatch for verified guardian numbers or overdue episodes without a linked scheduled appointment
             $policyError = $this->deliveryPolicy->error('sms', $normalizedRecipient, config('messaging.sms_provider'));
-            if ($policyError === null && ! $appointment) {
-                $deliveryNote = "DOH SMS reminder logged for {$normalizedRecipient} (no active scheduled appointment record linked to dispatch carrier queue).";
+            if ($policyError === null) {
+                try {
+                    $adapter = app(SmsManager::class)->provider();
+                    $reference = sprintf('followup-ep-%d-%d', $incident->bite_id, now()->timestamp);
+                    $smsResult = $adapter->send($normalizedRecipient, $smsBody, $reference);
+                    $isSimulated = (bool) ($adapter->capabilities()['simulated'] ?? false);
+
+                    if ($smsResult->accepted) {
+                        $deliveryStatus = $isSimulated ? 'simulated' : ($smsResult->status ?: 'sent');
+                        $logStatus = $isSimulated ? 'sms_simulated' : 'sms_sent';
+                        $deliveryNote = $isSimulated
+                            ? "DOH SMS reminder simulated for {$normalizedRecipient} (simulated SMS provider active)."
+                            : "DOH SMS reminder sent to {$normalizedRecipient}.";
+                    } else {
+                        $deliveryStatus = 'failed';
+                        $logStatus = 'sms_failed';
+                        $deliveryNote = "DOH SMS dispatch failed for {$normalizedRecipient}" . ($smsResult->error ? " ({$smsResult->error})." : '.');
+                    }
+                } catch (\Throwable $e) {
+                    $deliveryStatus = 'logged_only';
+                    $logStatus = 'sms_logged';
+                    $deliveryNote = "DOH SMS reminder logged for {$normalizedRecipient} (carrier dispatch error).";
+                }
             } else {
-                $reason = $this->humanizeSmsSkipReason($policyError ?? 'no_scheduled_appointment');
+                $reason = $this->humanizeSmsSkipReason($policyError);
                 $deliveryNote = "DOH SMS reminder logged for {$normalizedRecipient} ({$reason}).";
             }
         }

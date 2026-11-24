@@ -341,4 +341,144 @@ class Phase8AdvancedPlanningAndSupplyScenariosTest extends TestCase
         $simRes->assertOk();
         $this->assertSame(30, $simRes->json('supply_scenarios.buffer_days_configured'));
     }
+
+    public function test_followup_vial_schedule_enforces_per_day_open_vial_ceil_waiting_d0_and_fifo_expiry_cutoff(): void
+    {
+        // Reference date is 2026-11-30 (set in setUp).
+        // Seed 2 ARV batches with doses_per_vial = 2:
+        // - Batch A: 3 vials expiring 2026-12-02 (expires BEFORE Dec 3 -> cannot cover Dec 3!)
+        // - Batch B: 2 vials expiring 2027-06-30 (usable after Dec 2)
+        // Total starting ARV stock = 5 vials.
+        // Also seed 1 TT batch (50 vials) -> must be excluded from ARV count!
+        VaccineInventory::create([
+            'clinic_id' => $this->clinic->id,
+            'vaccine_type' => 'Verorab',
+            'batch_number' => 'VRB-EXP-SOON',
+            'current_quantity' => 3,
+            'doses_per_vial' => 2,
+            'expiration_date' => '2026-12-02',
+            'status' => 'active',
+        ]);
+        VaccineInventory::create([
+            'clinic_id' => $this->clinic->id,
+            'vaccine_type' => 'Verorab',
+            'batch_number' => 'VRB-LONG',
+            'current_quantity' => 2,
+            'doses_per_vial' => 2,
+            'expiration_date' => '2027-06-30',
+            'status' => 'active',
+        ]);
+        VaccineInventory::create([
+            'clinic_id' => $this->clinic->id,
+            'vaccine_type' => 'TT',
+            'batch_number' => 'TT-EXCLUDED',
+            'current_quantity' => 50,
+            'doses_per_vial' => 1,
+            'expiration_date' => '2027-06-30',
+            'status' => 'active',
+        ]);
+
+        // 1. Seed 1 Form 1 waiting patient registered today (2026-11-30) -> feeds Today's waiting D0 demand
+        $waitingPatient = $this->createPatient('Waiting', 'FormOne');
+        BiteIncident::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $waitingPatient->patient_id,
+            'case_number' => 'TAG-2026-9001',
+            'episode_type' => 'primary',
+            'bite_date' => '2026-11-30',
+            'bite_date_is_provisional' => false,
+            'bite_place' => 'Poblacion',
+            'severity' => 'pending',
+            'animal_type' => 'dog',
+            'status' => 'active',
+            'created_by' => $this->admin->id,
+        ]);
+
+        // 2. Seed 1 Category III pending RIG episode (no RIG stock -> RIG shortfall!)
+        $cat3Patient = $this->createPatient('Rig', 'Pending');
+        $cat3Episode = BiteIncident::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $cat3Patient->patient_id,
+            'case_number' => 'TAG-2026-9002',
+            'episode_type' => 'primary',
+            'bite_date' => '2026-11-30',
+            'bite_date_is_provisional' => false,
+            'bite_place' => 'Poblacion',
+            'severity' => 'severe',
+            'animal_type' => 'dog',
+            'status' => 'active',
+            'confirmed_at' => '2026-11-30 10:00:00',
+            'confirmed_by' => $this->doctor->id,
+            'created_by' => $this->admin->id,
+        ]);
+        TreatmentPlan::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $cat3Patient->patient_id,
+            'bite_id' => $cat3Episode->bite_id,
+            'plan_type' => 'full_pep',
+            'ordered_dose_days' => [0, 3, 7],
+            'decided_at' => '2026-11-30 10:00:00',
+            'decided_by' => $this->doctor->id,
+        ]);
+
+        // 3. Seed scheduled follow-ups across 3 days (doses_per_vial = 2):
+        // - Dec 1: 5 follow-ups -> ceil(5/2) = 3 vials (brand unknown -> Unspecified ARV pool!)
+        // - Dec 2: 1 follow-up  -> ceil(1/2) = 1 vial (high wastage risk: 1 leftover dose)
+        // - Dec 3: 4 follow-ups -> ceil(4/2) = 2 vials (total committed vials = 3 + 1 + 2 = 6, NOT ceil(10/2) = 5!)
+        $schedulePlan = [
+            '2026-12-01' => 5,
+            '2026-12-02' => 1,
+            '2026-12-03' => 4,
+        ];
+        foreach ($schedulePlan as $dateStr => $count) {
+            for ($i = 0; $i < $count; $i++) {
+                $p = $this->createPatient("Appt{$dateStr}", "Num{$i}");
+                Appointment::create([
+                    'clinic_id' => $this->clinic->id,
+                    'patient_id' => $p->patient_id,
+                    'dose_number' => 3,
+                    'scheduled_date' => $dateStr,
+                    'appointment_date' => $dateStr,
+                    'status' => 'scheduled',
+                    'created_by' => $this->admin->id,
+                ]);
+            }
+        }
+
+        $res = $this->getJson('/api/inventory/supply-forecast?horizon=14')->assertOk();
+
+        // TT batch (50 vials) must NOT be counted in ARV usable stock (only 3 + 2 = 5 Verorab vials)
+        $res->assertJsonPath('usable_stock.arv_vials', 5);
+        $res->assertJsonPath('effective_doses_per_vial', 2);
+
+        // Same-day waiting queue captured (1 Form 1 awaiting today + 1 Form 2 prescribed unstarted = 2 est. D0 doses)
+        $res->assertJsonPath('same_day_waiting_demand.form1_awaiting_today', 1);
+        $res->assertJsonPath('same_day_waiting_demand.form2_prescribed_unstarted', 1);
+        $res->assertJsonPath('same_day_waiting_demand.estimated_waiting_d0_doses', 2);
+
+        // Per-day open-vial ceil check: Dec 1 (5 -> 3), Dec 2 (1 -> 1), Dec 3 (4 -> 2) => 6 committed vials
+        $days = collect($res->json('daily_schedule'))->keyBy('date');
+        $this->assertSame(3, $days['2026-12-01']['vials_committed_only']);
+        $this->assertSame(1, $days['2026-12-02']['vials_committed_only']);
+        $this->assertTrue($days['2026-12-02']['high_wastage_risk']);
+        $this->assertSame(2, $days['2026-12-03']['vials_committed_only']);
+        $res->assertJsonPath('vial_readiness.next_7d_vials_committed_only', 6);
+
+        // Unspecified ARV brand fallback pool retained all 10 unbranded appointments
+        $brandPool = collect($res->json('brand_summary'))->firstWhere('brand', 'Unspecified / Any Active ARV');
+        $this->assertNotNull($brandPool);
+        $this->assertSame(10, $brandPool['scheduled_doses_7d']);
+
+        // Stockout detected (5 vials total, Today needs 1 + Dec 1 needs 3 + Dec 2 needs 1 = 5 -> Dec 3 shortfall!)
+        $res->assertJsonPath('vial_readiness.status', 'shortfall');
+        $res->assertJsonPath('vial_readiness.projected_stockout_date', '2026-12-03');
+        $res->assertJsonPath('vial_readiness.rig_status', 'shortfall');
+        $res->assertJsonPath('rig_readiness.immediate_pending_cases', 1);
+
+        // /api/cases/location-summary surfaces compact vial_readiness inside clinical_alerts
+        $summaryRes = $this->getJson('/api/cases/location-summary')->assertOk();
+        $summaryRes->assertJsonPath('clinical_alerts.vial_readiness.status', 'shortfall');
+        $summaryRes->assertJsonPath('clinical_alerts.vial_readiness.usable_arv_vials', 5);
+        $summaryRes->assertJsonPath('clinical_alerts.has_critical_alerts', true);
+    }
 }

@@ -21,22 +21,23 @@ export const RegistrationDialog = styled('div')({
   '&& .fm-field--error': { padding: '0 !important', border: '0 !important', background: 'transparent !important', boxShadow: 'none !important' },
   '&& .fm-label': { display: 'block', fontSize: 13, lineHeight: 1.5, fontWeight: 600, color: 'var(--text-h, #374151)', marginBottom: 2 },
   '&& .fm-label span': { color: 'var(--registration-error-color)', marginLeft: 2 },
-  '&& .fm-input, && .fm-select': { width: '100%', boxSizing: 'border-box', minHeight: 46, height: 46, borderColor: 'var(--text-secondary, #6b7280) !important', padding: '10px 12px', fontSize: 14, lineHeight: 1.5, minWidth: 0 },
+  '&& .fm-input, && .fm-select, && .ss-trigger:not(.ss-trigger--compact)': { width: '100%', boxSizing: 'border-box', minHeight: 46, height: 46, borderColor: 'var(--text-secondary, #6b7280) !important', padding: '10px 12px', fontSize: 14, lineHeight: 1.5, minWidth: 0 },
+  '&& .ss-trigger--compact': { minHeight: '34px !important', height: '34px !important', padding: '4px 10px', fontSize: 12 },
   '&& .fm-textarea': { minHeight: 96, fontSize: 14 },
-  '&& .fm-input:hover:not(:disabled), && .fm-select:hover:not(:disabled), && .fm-textarea:hover:not(:disabled)': { borderColor: '#10b981 !important' },
-  '&& .fm-input:disabled, && .fm-select:disabled': { background: 'var(--bg-secondary, #f1f5f9)', color: 'var(--text-secondary, #64748b)', opacity: 1, cursor: 'not-allowed' },
-  '&& .fm-field--error :is(.fm-input, .fm-select, .fm-textarea), && :is(.fm-input, .fm-select, .fm-textarea)[aria-invalid="true"], && .fm-field--error input, && .fm-field--error select, && .fm-field--error textarea': {
+  '&& .fm-input:hover:not(:disabled), && .fm-select:hover:not(:disabled), && .fm-textarea:hover:not(:disabled), && .ss-trigger:hover:not(:disabled)': { borderColor: '#10b981 !important' },
+  '&& .fm-input:disabled, && .fm-select:disabled, && .ss-trigger:disabled': { background: 'var(--bg-secondary, #f1f5f9)', color: 'var(--text-secondary, #64748b)', opacity: 1, cursor: 'not-allowed' },
+  '&& .fm-field--error :is(.fm-input, .fm-select, .fm-textarea, .ss-trigger), && :is(.fm-input, .fm-select, .fm-textarea, .ss-trigger)[aria-invalid="true"], && .fm-field--error input, && .fm-field--error select, && .fm-field--error textarea': {
     borderColor: '#ef4444 !important',
   },
-  '&& .fm-field--error :is(.fm-input, .fm-select, .fm-textarea):hover, && :is(.fm-input, .fm-select, .fm-textarea)[aria-invalid="true"]:hover, && .fm-field--error input:hover, && .fm-field--error select:hover, && .fm-field--error textarea:hover': {
+  '&& .fm-field--error :is(.fm-input, .fm-select, .fm-textarea, .ss-trigger):hover, && :is(.fm-input, .fm-select, .fm-textarea, .ss-trigger)[aria-invalid="true"]:hover, && .fm-field--error input:hover, && .fm-field--error select:hover, && .fm-field--error textarea:hover': {
     borderColor: '#dc2626 !important',
   },
-  '&& .fm-field--error :is(.fm-input, .fm-select, .fm-textarea):focus, && .fm-field--error :is(.fm-input, .fm-select, .fm-textarea):focus-visible, && :is(.fm-input, .fm-select, .fm-textarea)[aria-invalid="true"]:focus, && :is(.fm-input, .fm-select, .fm-textarea)[aria-invalid="true"]:focus-visible, && .fm-field--error input:focus, && .fm-field--error select:focus, && .fm-field--error textarea:focus': {
+  '&& .fm-field--error :is(.fm-input, .fm-select, .fm-textarea, .ss-trigger):focus, && .fm-field--error :is(.fm-input, .fm-select, .fm-textarea, .ss-trigger):focus-visible, && :is(.fm-input, .fm-select, .fm-textarea, .ss-trigger)[aria-invalid="true"]:focus, && :is(.fm-input, .fm-select, .fm-textarea, .ss-trigger)[aria-invalid="true"]:focus-visible, && .fm-field--error input:focus, && .fm-field--error select:focus, && .fm-field--error textarea:focus': {
     outline: 'none !important',
     borderColor: '#ef4444 !important',
     boxShadow: '0 0 0 4px rgba(239, 68, 68, 0.18) !important',
   },
-  '&& :is(.fm-input, .fm-select, .fm-textarea):focus, && :is(input, select, textarea):focus, && :is(input, select, textarea):focus-visible': { outline: '2px solid transparent !important', outlineStyle: 'solid !important', borderColor: '#10b981 !important', boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.1) !important' },
+  '&& :is(.fm-input, .fm-select, .fm-textarea, .ss-trigger):focus, && :is(.fm-input, .fm-select, .fm-textarea, .ss-trigger):focus-visible, && :is(input, select, textarea):focus, && :is(input, select, textarea):focus-visible': { outline: '2px solid transparent !important', outlineStyle: 'solid !important', borderColor: '#10b981 !important', boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.1) !important' },
   '&& .fm-radio-group': { minHeight: 46, alignItems: 'center', paddingTop: '0 !important', gap: '8px 20px' },
   '&& .fm-radio': { minHeight: 44, padding: '0 8px', borderRadius: 6 },
   '&& .fm-radio:hover': { background: 'var(--bg-hover, #f1f5f9)' },
@@ -107,8 +108,8 @@ export const RegistrationDialog = styled('div')({
   '&& .registration-manual-toggle:hover': { background: 'var(--bg-hover, #f1f5f9)' },
   '&& .apm-address-preview': { display: 'block', marginTop: 20, padding: 16, lineHeight: 1.6, overflowWrap: 'anywhere', color: 'var(--nav-item-active-color, #065f46)' },
   '&& .apm-address-preview strong': { display: 'block', marginBottom: 4, fontSize: 12 },
-  '&& button': { minHeight: 44 },
-  '&& button:active:not(:disabled)': { transform: 'translateY(1px)' },
+  '&& button:not(.ss-trigger--compact)': { minHeight: 44 },
+  '&& button:not(.ss-trigger):active:not(:disabled)': { transform: 'translateY(1px)' },
   '&& button:disabled': { cursor: 'not-allowed', opacity: 0.6 },
   '&& .fm-btn': { minHeight: 46, whiteSpace: 'normal' },
   '&& .fm-btn--submit': { background: '#047857', color: '#fff' },

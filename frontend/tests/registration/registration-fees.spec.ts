@@ -132,7 +132,8 @@ test.describe('Registration Fees and Payment UI', () => {
     await expect(page.getByText('RIG Fee is required.', { exact: true })).toBeVisible();
 
     // Change RIG disposition to Pending Assessment
-    await page.locator('select[id$="-rig-disp"]').selectOption('pending_assessment');
+    await page.locator('button[id$="-rig-disp"]').click();
+    await page.locator('[data-combobox-menu="true"]').getByRole('option', { name: 'Pending Assessment', exact: true }).click();
     const reasonInput = page.locator('input[id$="-rig-reason"]');
     await expect(reasonInput).toBeVisible();
     await reasonInput.fill('Doctor will decide dose based on weight');
@@ -194,7 +195,8 @@ test.describe('Registration Fees and Payment UI', () => {
 
     // Enter partial payment: 500.00
     await payAmtInput.fill('500.00');
-    await page.locator('select[id$="-pay-method"]').selectOption('cash');
+    await page.locator('button[id$="-pay-method"]').click();
+    await page.locator('[data-combobox-menu="true"]').getByRole('option', { name: 'Cash', exact: true }).click();
     await page.locator('input[id$="-pay-ref"]').fill('CASH-REC-001');
 
     // Real-time balance preview: 1,225.00 - 500.00 = 725.00

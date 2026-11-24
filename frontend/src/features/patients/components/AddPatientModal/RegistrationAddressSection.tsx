@@ -1,4 +1,5 @@
 import { FormField } from './sections/FormField';
+import { SearchableSelect } from '../../../../components/forms/SearchableSelect';
 import type { AddressLocationState } from '../../hooks/useAddressLocation';
 import { useClinicModuleConfig } from '../../../../hooks/useClinicModuleConfig';
 
@@ -48,11 +49,15 @@ export function RegistrationAddressSection({ loc, errors }: { loc: AddressLocati
               <input className="fm-input" name="municipality" value={loc.manualMun}
                 onChange={e => loc.setManualMun(e.target.value)} placeholder="e.g. Tagoloan" />
             ) : (
-              <select className="fm-select" name="municipality" value={loc.municipality}
-                onChange={e => loc.setMunicipality(e.target.value)} disabled={loc.loadingMun}>
-                <option value="">{loc.loadingMun ? 'Loading…' : '— Select —'}</option>
-                {loc.municipalities.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}
-              </select>
+              <SearchableSelect
+                name="municipality"
+                value={loc.municipality}
+                options={loc.municipalities.map(item => ({ value: item.code, label: item.name }))}
+                placeholder={loc.loadingMun ? 'Loading…' : '— Select —'}
+                searchPlaceholder="Search city / municipality..."
+                onChange={val => loc.setMunicipality(val)}
+                disabled={loc.loadingMun}
+              />
             )}
           </FormField>
         )}
@@ -63,11 +68,15 @@ export function RegistrationAddressSection({ loc, errors }: { loc: AddressLocati
               <input className="fm-input" name="barangay" value={loc.manualBrgy}
                 onChange={e => loc.setManualBrgy(e.target.value)} placeholder="e.g. Poblacion" />
             ) : (
-              <select className="fm-select" name="barangay" value={loc.barangay}
-                onChange={e => loc.setBarangay(e.target.value)} disabled={!loc.municipality || loc.loadingBrgy}>
-                <option value="">{loc.loadingBrgy ? 'Loading…' : '— Select —'}</option>
-                {loc.barangays.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}
-              </select>
+              <SearchableSelect
+                name="barangay"
+                value={loc.barangay}
+                options={loc.barangays.map(item => ({ value: item.code, label: item.name }))}
+                placeholder={loc.loadingBrgy ? 'Loading…' : '— Select —'}
+                searchPlaceholder="Search barangay..."
+                onChange={val => loc.setBarangay(val)}
+                disabled={!loc.municipality || loc.loadingBrgy}
+              />
             )}
           </FormField>
         )}

@@ -29,6 +29,8 @@ import {
   VisibilityOutlined,
 } from '@mui/icons-material';
 import { useState, useMemo, useEffect } from 'react';
+import api from '../../../services/api';
+import { useAuth } from '../../../shared/contexts/AuthContext';
 import { BITE_CASE_STATUS_LABELS, formatAnimalConditionLabel, formatAnimalOwnershipLabel } from '../utils/biteCaseUtils';
 import { BITE_SUMMARY_AGE_GROUPS } from '../types/biteCasesSummary.types';
 import type { CaseSummary, PrivacyMode } from '../types/biteCasesSummary.types';
@@ -41,6 +43,8 @@ interface BiteCasesEpisodesTabProps {
   privacyMode: PrivacyMode;
   onSwitchToInternalMode: () => void;
   onExportCasesCsv: () => void;
+  onCaseUpdated?: () => void;
+  onNotify?: (msg: string) => void;
 }
 
 export function BiteCasesEpisodesTab({
@@ -50,10 +54,41 @@ export function BiteCasesEpisodesTab({
   privacyMode,
   onSwitchToInternalMode,
   onExportCasesCsv,
+  onCaseUpdated,
+  onNotify,
 }: BiteCasesEpisodesTabProps) {
+  const { user } = useAuth();
+  const canLogObservation = ['admin', 'developer', 'triage', 'doctor', 'treatment', 'nurse'].includes(user?.role ?? '');
   const [selectedCase, setSelectedCase] = useState<CaseSummary | null>(null);
+  const [savingObs, setSavingObs] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+
+  const handleLogAnimalObservation = async (status: 'healthy' | 'sick' | 'died' | 'unknown') => {
+    if (!selectedCase) return;
+    setSavingObs(true);
+    try {
+      await api.patch(`/cases/${selectedCase.bite_id}/animal-observation`, {
+        animal_observation_status: status,
+      });
+      setSelectedCase((prev) =>
+        prev
+          ? {
+              ...prev,
+              animal_condition: status,
+              animal_observation_date: new Date().toISOString().slice(0, 10),
+              animal_observation_due: false,
+            }
+          : null
+      );
+      onNotify?.(`Updated 14-day animal observation for ${selectedCase.case_number} to "${status}".`);
+      onCaseUpdated?.();
+    } catch {
+      onNotify?.('Unable to update animal observation status.');
+    } finally {
+      setSavingObs(false);
+    }
+  };
 
   useEffect(() => {
     setPage(0);
@@ -203,6 +238,40 @@ export function BiteCasesEpisodesTab({
                         <Typography sx={{ fontSize: 11, color: 'var(--bc-text-secondary)' }}>
                           {formatAnimalOwnershipLabel(c.animal_ownership ?? c.animal_status)} · {formatAnimalConditionLabel(c.animal_condition)}
                         </Typography>
+                        {c.animal_observation_badge && (
+                          <Chip
+                            size="small"
+                            label={c.animal_observation_badge}
+                            sx={{
+                              mt: 0.4,
+                              height: 19,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              bgcolor:
+                                c.animal_observation_policy === 'high_risk_full_pep'
+                                  ? 'var(--bc-danger-bg)'
+                                  : c.animal_observation_policy === 'day14_check_due'
+                                    ? 'var(--bc-amber-bg)'
+                                    : c.animal_observation_policy === 'md_discontinuation_review'
+                                      ? 'var(--bc-success-bg)'
+                                      : 'var(--bc-surface-3)',
+                              color:
+                                c.animal_observation_policy === 'high_risk_full_pep'
+                                  ? 'var(--bc-red-strong)'
+                                  : c.animal_observation_policy === 'day14_check_due'
+                                    ? 'var(--bc-amber-strong)'
+                                    : c.animal_observation_policy === 'md_discontinuation_review'
+                                      ? 'var(--bc-green-strong)'
+                                      : 'var(--bc-text-secondary)',
+                              border:
+                                c.animal_observation_policy === 'high_risk_full_pep'
+                                  ? '1px solid var(--bc-danger-border)'
+                                  : c.animal_observation_policy === 'day14_check_due'
+                                    ? '1px solid var(--bc-amber-border)'
+                                    : 'none',
+                            }}
+                          />
+                        )}
                       </TableCell>
                       <TableCell sx={{ minWidth: 140 }}>
                         <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: 'var(--bc-text)' }}>
@@ -226,11 +295,56 @@ export function BiteCasesEpisodesTab({
                         )}
                       </TableCell>
                       <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-                        <Typography sx={{ fontSize: 12, fontWeight: 600 }}>
-                          {c.rig_given && c.rig_given !== 'None' ? `Given: ${c.rig_given}` : 'Given: None'}
-                        </Typography>
-                        {c.rig_indicated && c.rig_indicated !== 'None' && (
-                          <Typography sx={{ fontSize: 11, color: 'var(--bc-text-secondary)' }}>
+                        {c.rig_pending ? (
+                          <Chip
+                            size="small"
+                            label={
+                              c.rig_pending_hours !== null && c.rig_pending_hours !== undefined && c.rig_pending_hours <= 48
+                                ? `RIG PENDING (${c.rig_pending_hours}h)`
+                                : 'RIG PENDING'
+                            }
+                            sx={{
+                              fontSize: 10.5,
+                              fontWeight: 800,
+                              height: 22,
+                              bgcolor: 'var(--bc-danger-bg)',
+                              color: 'var(--bc-red-strong)',
+                              border: '1px solid var(--bc-danger-border)',
+                            }}
+                          />
+                        ) : c.rig_given && c.rig_given !== 'None' ? (
+                          <Chip
+                            size="small"
+                            label={`RIG: ${c.rig_given}`}
+                            sx={{
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                              height: 22,
+                              bgcolor: 'var(--bc-success-bg)',
+                              color: 'var(--bc-green-strong)',
+                              border: '1px solid var(--bc-success-border)',
+                            }}
+                          />
+                        ) : c.category === 'III' && c.encounter_disposition === 'transferred_referred' ? (
+                          <Chip
+                            size="small"
+                            label="RIG REFERRED"
+                            sx={{
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                              height: 22,
+                              bgcolor: 'var(--bc-amber-bg)',
+                              color: 'var(--bc-amber-strong)',
+                              border: '1px solid var(--bc-amber-border)',
+                            }}
+                          />
+                        ) : (
+                          <Typography sx={{ fontSize: 12, color: 'var(--bc-text-secondary)' }}>
+                            None
+                          </Typography>
+                        )}
+                        {c.rig_indicated && c.rig_indicated !== 'None' && !c.rig_pending && (
+                          <Typography sx={{ fontSize: 10.5, color: 'var(--bc-text-secondary)', mt: 0.25 }}>
                             Indicated: {c.rig_indicated}
                           </Typography>
                         )}
@@ -399,6 +513,100 @@ export function BiteCasesEpisodesTab({
                   <DohStatLine label="External Care" value={selectedCase.external_treatment_display || 'Not applicable'} />
                 </Paper>
               </Box>
+
+              {selectedCase.rig_pending && (
+                <>
+                  <Divider sx={{ my: 1.5 }} />
+                  <Alert severity="error" sx={{ fontSize: 12.5 }}>
+                    <strong>RIG Pending (Category III / Indicated):</strong> No verified ERIG/HRIG administration recorded yet
+                    {selectedCase.rig_pending_hours !== null && selectedCase.rig_pending_hours !== undefined
+                      ? ` (${selectedCase.rig_pending_hours} hour(s) elapsed${selectedCase.rig_pending_hours <= 48 ? ' — within critical 48h window' : ''}).`
+                      : '.'}
+                  </Alert>
+                </>
+              )}
+
+              {/* 14-Day Animal Observation Tracker & DOH Decision Support */}
+              <Divider sx={{ my: 1.5 }} />
+              <Paper elevation={0} sx={{ p: 1.35, border: BC_BORDER, borderRadius: '8px', bgcolor: 'var(--bc-surface-2)' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 0.75 }}>
+                  <Box>
+                    <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: 'var(--bc-text)' }}>
+                      14-Day Biting Animal Observation Tracking
+                    </Typography>
+                    <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)' }}>
+                      {selectedCase.animal_observation_badge || 'Standard monitoring'}
+                      {selectedCase.animal_observation_date ? ` · Last checked: ${selectedCase.animal_observation_date}` : ''}
+                    </Typography>
+                  </Box>
+                  {canLogObservation && (
+                    <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                      {(['healthy', 'sick', 'died', 'unknown'] as const).map((st) => {
+                        const isCurrent = (selectedCase.animal_condition || '').toLowerCase() === st;
+                        return (
+                          <Button
+                            key={st}
+                            size="small"
+                            disabled={savingObs}
+                            variant={isCurrent ? 'contained' : 'outlined'}
+                            disableElevation
+                            onClick={() => void handleLogAnimalObservation(st)}
+                            sx={{
+                              textTransform: 'capitalize',
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              minWidth: 64,
+                              py: 0.35,
+                              borderRadius: '6px',
+                              ...(st === 'died'
+                                ? {
+                                    borderColor: '#dc2626',
+                                    color: isCurrent ? '#fff' : '#dc2626',
+                                    bgcolor: isCurrent ? '#dc2626' : 'transparent',
+                                  }
+                                : st === 'sick'
+                                  ? {
+                                      borderColor: '#d97706',
+                                      color: isCurrent ? '#fff' : '#d97706',
+                                      bgcolor: isCurrent ? '#d97706' : 'transparent',
+                                    }
+                                  : st === 'healthy'
+                                    ? {
+                                        borderColor: '#059669',
+                                        color: isCurrent ? '#fff' : '#059669',
+                                        bgcolor: isCurrent ? '#059669' : 'transparent',
+                                      }
+                                    : {
+                                        borderColor: '#94a3b8',
+                                        color: isCurrent ? '#fff' : '#475569',
+                                        bgcolor: isCurrent ? '#475569' : 'transparent',
+                                      }),
+                            }}
+                          >
+                            {st}
+                          </Button>
+                        );
+                      })}
+                    </Box>
+                  )}
+                </Box>
+
+                {selectedCase.animal_observation_policy === 'md_discontinuation_review' && (
+                  <Alert severity="success" sx={{ mt: 0.75, fontSize: 12 }}>
+                    <strong>DOH Day-14 Clinical Note (Owned/Domestic Animal Healthy):</strong> Implicated domestic animal verified healthy at Day 14+. Attending physician may review PEP discontinuation / conversion to PrEP per DOH NRPCP guidelines.
+                  </Alert>
+                )}
+                {selectedCase.animal_observation_policy === 'full_pep_required' && (
+                  <Alert severity="info" sx={{ mt: 0.75, fontSize: 12 }}>
+                    <strong>Stray / Unobservable Animal:</strong> Complete the full prescribed PEP course. Do <strong>not</strong> discontinue early based on animal observation.
+                  </Alert>
+                )}
+                {selectedCase.animal_observation_policy === 'high_risk_full_pep' && (
+                  <Alert severity="error" sx={{ mt: 0.75, fontSize: 12 }}>
+                    <strong>High-Risk Animal (Died / Sick):</strong> Verify mandatory full PEP completion and Category III RIG administration; coordinate veterinary reporting with MAO/PVO.
+                  </Alert>
+                )}
+              </Paper>
 
               {selectedCase.is_overdue && (
                 <>

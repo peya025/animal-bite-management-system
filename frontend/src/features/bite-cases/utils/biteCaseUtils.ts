@@ -186,8 +186,8 @@ export function exportLocationsToCsv(locations: LocationSummary[], filename = 'b
     'Municipality',
     'Geography Scope',
     'Level',
-    'Risk Score',
-    'Risk Level',
+    '7-Day Alert Level',
+    'Cases (Last 7 Days)',
     'Total Cases',
     'Male',
     'Female',
@@ -235,8 +235,8 @@ export function exportLocationsToCsv(locations: LocationSummary[], filename = 'b
       escapeCsvField(loc.municipality || ''),
       escapeCsvField(loc.geography_scope || ''),
       escapeCsvField(loc.location_level || ''),
-      loc.risk_score,
-      loc.risk_level,
+      escapeCsvField(loc.surge_level || 'none'),
+      suppressed ? '<5' : (loc.cases_last_7d ?? ''),
       suppressed ? (loc.display_total_cases || '<5') : loc.total_cases,
       suppressed ? '<5' : (loc.male ?? 0),
       suppressed ? '<5' : (loc.female ?? 0),
@@ -315,7 +315,9 @@ function matchMap(value: string, map: Record<string, string>): string {
 
 export const BITE_CASE_STATUS_LABELS: Record<string, string> = {
   awaiting_assessment: 'Awaiting Assessment (Form 1)',
+  unassessed_over_48h: 'Form 1: Unassessed > 48 Hours',
   awaiting_treatment: 'Awaiting Treatment (Form 2)',
+  rig_pending: 'RIG Pending (Category III / Indicated)',
   no_administration_recorded: 'PEP Prescribed – No Admin Recorded',
   treatment_recorded: 'Nurse Treatment Recorded (Form 3)',
   unresolved_review: 'Unresolved Review (Stage 1 & 2)',
@@ -445,39 +447,6 @@ function downloadCsvFile(content: string, filename: string) {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  }
-}
-
-export type ColumnKey = 'cat_3' | 'cat_2' | 'cat_1' | 'animal' | 'trend' | 'risk_score';
-
-export const DEFAULT_VISIBLE_COLUMNS: Record<ColumnKey, boolean> = {
-  cat_3: false,
-  cat_2: false,
-  cat_1: false,
-  animal: false,
-  trend: false,
-  risk_score: false,
-};
-
-const STORAGE_KEY = 'bite_cases_location_columns';
-
-export function getStoredColumnVisibility(): Record<ColumnKey, boolean> {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      return { ...DEFAULT_VISIBLE_COLUMNS, ...JSON.parse(saved) };
-    }
-  } catch (error) {
-    console.error('Failed to load column visibility:', error);
-  }
-  return DEFAULT_VISIBLE_COLUMNS;
-}
-
-export function saveColumnVisibility(columns: Record<ColumnKey, boolean>) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(columns));
-  } catch (error) {
-    console.error('Failed to save column visibility:', error);
   }
 }
 

@@ -13,7 +13,9 @@ use App\Models\TreatmentRecord;
 use App\Models\User;
 use App\Models\VaccineInventory;
 use App\Models\VaccineTypePreset;
+use App\Services\Reporting\ClinicalRiskAlertService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -181,7 +183,8 @@ class NotificationService
     }
 
     /**
-     * Synchronize condition-based alerts for a clinic (low stock, near-expiry, overdue PEP, high-risk areas).
+     * Synchronize condition-based alerts for a clinic (low stock, near-expiry, overdue PEP,
+     * high-risk areas, RIG pending, high-risk biting animals, and 7-day follow-up vial shortfalls).
      * Prevents duplicates and marks resolved alerts when conditions are rectified.
      */
     public function syncActiveAlerts(int $clinicId): void
@@ -190,6 +193,215 @@ class NotificationService
         $this->syncExpiryAlerts($clinicId);
         $this->syncOverdueVaccinationAlerts($clinicId);
         $this->syncHighRiskAreaAlerts($clinicId);
+        $this->syncClinicalSafetyAlerts($clinicId);
+        $this->syncFollowupVialReadinessAlerts($clinicId);
+    }
+
+    /**
+     * Event-driven lightweight trigger invoked after Form 2, Form 3, animal observation,
+     * or inventory writes so critical clinical alerts appear and resolve in real time.
+     */
+    public function triggerClinicalSafetySync(int $clinicId, bool $includeInventory = false): void
+    {
+        try {
+            Cache::forget("clinical-alerts:header:clinic:{$clinicId}");
+            $this->syncClinicalSafetyAlerts($clinicId);
+            if ($includeInventory) {
+                $this->syncFollowupVialReadinessAlerts($clinicId);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Clinical safety alert trigger failed', [
+                'clinic_id' => $clinicId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Sync event-driven and daily RIG Pending (Category III / indicated) and
+     * High-Risk Biting Animal (died / sick) alerts with auto-resolution.
+     */
+    public function syncClinicalSafetyAlerts(int $clinicId): void
+    {
+        $cutoff = \Carbon\CarbonImmutable::now()->endOfDay();
+        $recentStart = $cutoff->subDays(30)->toDateString();
+
+        $episodes = BiteIncident::where('clinic_id', $clinicId)
+            ->whereNotIn('status', ['void', 'voided', 'duplicate', 'cancelled'])
+            ->where(function ($q) use ($recentStart) {
+                $q->whereDate('created_at', '>=', $recentStart)
+                    ->orWhereDate('bite_date', '>=', $recentStart);
+            })
+            ->with(['patient:patient_id,first_name,last_name', 'intake', 'treatmentPlan', 'treatmentRecords', 'appointments'])
+            ->get();
+
+        $stateResolver = new \App\Services\Reporting\EpisodeReportingStateResolver(
+            new \App\Services\Reporting\TreatmentOutcomeResolver()
+        );
+        $alertService = app(ClinicalRiskAlertService::class);
+
+        $activeRigKeys = [];
+        $activeAnimalKeys = [];
+
+        foreach ($episodes as $episode) {
+            $state = $stateResolver->resolve($episode, $cutoff);
+            $patientName = trim((string) (($episode->patient?->first_name ?? '') . ' ' . ($episode->patient?->last_name ?? ''))) ?: 'Patient';
+            $caseLabel = $episode->case_number ?: "Episode #{$episode->bite_id}";
+
+            // 1. RIG Pending (Category III / clinician-ordered RIG with 0 verified RIG recorded)
+            if ($alertService->isRigPending($state)) {
+                $rigKey = "rig_pending:clinic_{$clinicId}:bite_{$episode->bite_id}";
+                $activeRigKeys[] = $rigKey;
+
+                $existing = Notification::where('clinic_id', $clinicId)
+                    ->where('alert_key', $rigKey)
+                    ->where('is_active', true)
+                    ->first();
+
+                if (!$existing) {
+                    $hours = $alertService->rigPendingHours($episode, $state, $cutoff);
+                    $windowNote = ($hours !== null && $hours <= 48)
+                        ? " ({$hours}h elapsed — within 48h window)"
+                        : '';
+                    $notif = Notification::create([
+                        'clinic_id'  => $clinicId,
+                        'patient_id' => $episode->patient_id,
+                        'category'   => 'clinical_safety',
+                        'type'       => 'rig_pending',
+                        'title'      => 'RIG Pending — Category III',
+                        'message'    => "RIG Pending: {$patientName} ({$caseLabel}) has Category III / RIG indicated with no verified ERIG/HRIG administration{$windowNote}.",
+                        'action_url' => '/bite-cases?tab=cases&status=rig_pending',
+                        'alert_key'  => $rigKey,
+                        'is_active'  => true,
+                        'status'     => 'sent',
+                        'send_time'  => now(),
+                        'data'       => [
+                            'bite_id'      => $episode->bite_id,
+                            'patient_id'   => $episode->patient_id,
+                            'case_number'  => $episode->case_number,
+                            'patient_name' => $patientName,
+                            'hours_elapsed'=> $hours,
+                            'severity'     => 'danger',
+                        ],
+                    ]);
+                    $this->broadcastNotification($notif);
+                }
+            }
+
+            // 2. Biting Animal Died / Sick on open/active episode
+            $animalCond = strtolower(trim((string) ($episode->animal_observation_status ?? '')));
+            $isOpenEpisode = !in_array($state['resolved_status'] ?? '', ['completed', 'completed_no_pep', 'transferred'], true);
+            if ($isOpenEpisode && in_array($animalCond, ['died', 'dead', 'sick'], true)) {
+                $normalizedCond = $animalCond === 'dead' ? 'died' : $animalCond;
+                $animalKey = "animal_risk:clinic_{$clinicId}:bite_{$episode->bite_id}";
+                $activeAnimalKeys[] = $animalKey;
+
+                $existing = Notification::where('clinic_id', $clinicId)
+                    ->where('alert_key', $animalKey)
+                    ->where('is_active', true)
+                    ->first();
+
+                if (!$existing) {
+                    $label = $normalizedCond === 'died' ? 'Died' : 'Sick';
+                    $notif = Notification::create([
+                        'clinic_id'  => $clinicId,
+                        'patient_id' => $episode->patient_id,
+                        'category'   => 'clinical_safety',
+                        'type'       => 'animal_risk',
+                        'title'      => "Biting Animal Reported {$label}",
+                        'message'    => "High-Risk Animal ({$label}): {$patientName} ({$caseLabel}) — verify mandatory full PEP and RIG completion.",
+                        'action_url' => "/bite-cases?tab=cases&animal_condition={$normalizedCond}",
+                        'alert_key'  => $animalKey,
+                        'is_active'  => true,
+                        'status'     => 'sent',
+                        'send_time'  => now(),
+                        'data'       => [
+                            'bite_id'          => $episode->bite_id,
+                            'patient_id'       => $episode->patient_id,
+                            'case_number'      => $episode->case_number,
+                            'patient_name'     => $patientName,
+                            'animal_condition' => $normalizedCond,
+                            'severity'         => $normalizedCond === 'died' ? 'danger' : 'warning',
+                        ],
+                    ]);
+                    $this->broadcastNotification($notif);
+                }
+            }
+        }
+
+        // Auto-resolve cleared RIG Pending alerts
+        Notification::where('clinic_id', $clinicId)
+            ->where('category', 'clinical_safety')
+            ->where('type', 'rig_pending')
+            ->where('is_active', true)
+            ->where('alert_key', 'like', "rig_pending:clinic_{$clinicId}:%")
+            ->get()
+            ->each(function ($notif) use ($activeRigKeys) {
+                if (!in_array($notif->alert_key, $activeRigKeys, true)) {
+                    $notif->update(['is_active' => false, 'resolved_at' => now()]);
+                }
+            });
+
+        // Auto-resolve cleared High-Risk Animal alerts
+        Notification::where('clinic_id', $clinicId)
+            ->where('category', 'clinical_safety')
+            ->where('type', 'animal_risk')
+            ->where('is_active', true)
+            ->where('alert_key', 'like', "animal_risk:clinic_{$clinicId}:%")
+            ->get()
+            ->each(function ($notif) use ($activeAnimalKeys) {
+                if (!in_array($notif->alert_key, $activeAnimalKeys, true)) {
+                    $notif->update(['is_active' => false, 'resolved_at' => now()]);
+                }
+            });
+    }
+
+    /**
+     * Sync consolidated 7-day follow-up vial shortfall alert (ARV or RIG).
+     * Auto-resolves immediately once stock replenishment covers the 7-day schedule.
+     */
+    public function syncFollowupVialReadinessAlerts(int $clinicId): void
+    {
+        $schedule = app(\App\Services\Reporting\SupplyPlanningService::class)
+            ->buildFollowupVialSchedule($clinicId, 14);
+        $vr = $schedule['vial_readiness'] ?? [];
+        $alertKey = "vial_shortfall_7d:clinic_{$clinicId}";
+
+        if (($vr['status'] ?? 'ok') === 'shortfall') {
+            $existing = Notification::where('clinic_id', $clinicId)
+                ->where('alert_key', $alertKey)
+                ->where('is_active', true)
+                ->first();
+
+            if (!$existing) {
+                $notif = Notification::create([
+                    'clinic_id'  => $clinicId,
+                    'category'   => 'inventory',
+                    'type'       => 'vial_shortfall_7d',
+                    'title'      => '7-Day Follow-Up Vial Shortfall',
+                    'message'    => (string) ($vr['headline'] ?? 'Usable vaccine stock is insufficient for the next 7 days of scheduled follow-ups.'),
+                    'action_url' => '/inventory?tab=forecast',
+                    'alert_key'  => $alertKey,
+                    'is_active'  => true,
+                    'status'     => 'sent',
+                    'send_time'  => now(),
+                    'data'       => [
+                        'usable_arv_vials'        => $vr['usable_arv_vials'] ?? 0,
+                        'usable_rig_vials'        => $vr['usable_rig_vials'] ?? 0,
+                        'next_7d_vials_realistic' => $vr['next_7d_vials_realistic'] ?? 0,
+                        'projected_stockout_date' => $vr['projected_stockout_date'] ?? null,
+                        'rig_status'              => $vr['rig_status'] ?? 'ok',
+                        'severity'                => 'danger',
+                    ],
+                ]);
+                $this->broadcastNotification($notif);
+            }
+        } else {
+            Notification::where('clinic_id', $clinicId)
+                ->where('alert_key', $alertKey)
+                ->where('is_active', true)
+                ->update(['is_active' => false, 'resolved_at' => now()]);
+        }
     }
 
     /**
@@ -516,91 +728,78 @@ class NotificationService
     }
 
     /**
-     * Sync high-risk area alerts based on Bite Incident Place of Exposure and severity score.
-     * Matches Bite Map and Descriptive Analytics:
-     * - Source: BiteIncident
-     * - Location field: bite_place (Place of Exposure)
-     * - Reporting period: current calendar month
-     * - Formula: Risk Score = (Cat III * 1.5 + Cat II * 1.0) / Total * 100
-     * - Threshold: Risk Score >= 65% is High Risk
+     * Sync high-risk barangay alerts using normalized 7-day rolling cluster & surge detection
+     * via ClinicalRiskAlertService (replaces legacy single-case severity ratio formula).
+     *
+     * Rules:
+     * - Excludes void/duplicate incidents, provisional exposure dates, and Unknown / Place not recorded.
+     * - Cluster (critical): >= 3 verified exposures OR >= 2 finalized Category III exposures in 7 days.
+     * - Surge (warning): >= 2 verified exposures in 7 days AND >= 2.0x prior 30-day weekly average.
      */
     public function syncHighRiskAreaAlerts(int $clinicId): void
     {
-        $now = Carbon::now();
-        $startOfMonth = $now->copy()->startOfMonth()->toDateString();
-        $endOfMonth = $now->copy()->endOfMonth()->toDateString();
-        $periodLabel = $now->format('F Y');
-        $monthKey = $now->format('Y-m');
-
-        // Query bite cases for current month
-        $cases = BiteIncident::where('clinic_id', $clinicId)
-            ->whereBetween('bite_date', [$startOfMonth, $endOfMonth])
-            ->whereNotNull('bite_place')
-            ->where('bite_place', '!=', '')
-            ->get();
-
+        $alertService = app(ClinicalRiskAlertService::class);
+        $result = $alertService->detectBarangaySurges($clinicId);
         $activeHighRiskKeys = [];
 
-        // Group by Place of Exposure (bite_place)
-        $grouped = $cases->groupBy(fn ($case) => trim((string) $case->bite_place) ?: 'Unknown');
+        foreach ($result['alerts'] as $item) {
+            $barangay = $item['barangay'];
+            $level = $item['level'];
+            $alertKey = "high_risk_area:clinic_{$clinicId}:" . Str::slug($barangay);
+            $activeHighRiskKeys[] = $alertKey;
 
-        foreach ($grouped as $location => $locationCases) {
-            $total = $locationCases->count();
-            if ($total === 0) continue;
+            $existing = Notification::where('clinic_id', $clinicId)
+                ->where('alert_key', $alertKey)
+                ->where('is_active', true)
+                ->first();
 
-            $cat1 = $locationCases->filter(fn ($c) => $c->bite_category === 'I')->count();
-            $cat2 = $locationCases->filter(fn ($c) => $c->bite_category === 'II')->count();
-            $cat3 = $locationCases->filter(fn ($c) => $c->bite_category === 'III')->count();
+            $title = $level === 'cluster'
+                ? 'Barangay Bite Cluster Alert'
+                : 'Barangay Bite Surge Alert';
+            $message = "Elevated Bite Activity in {$barangay}: {$item['reason']}";
+            $actionUrl = '/bite-cases?search=' . urlencode($barangay) . '&range=week';
 
-            // Severity-weighted risk score
-            $riskScore = (int) round((($cat3 * 1.5) + $cat2) / $total * 100);
-
-            $alertKey = "high_risk_area:clinic_{$clinicId}:" . Str::slug($location) . ":{$monthKey}";
-
-            if ($riskScore >= 65) {
-                $activeHighRiskKeys[] = $alertKey;
-
-                $existing = Notification::where('clinic_id', $clinicId)
-                    ->where('alert_key', $alertKey)
-                    ->where('is_active', true)
-                    ->first();
-
-                if (!$existing) {
-                    $notif = Notification::create([
-                        'clinic_id'   => $clinicId,
-                        'category'    => 'high_risk',
-                        'type'        => 'high_risk_area',
-                        'title'       => 'High-Risk Exposure Area Alert',
-                        'message'     => "High-Risk Exposure Area Alert: {$location} is classified as High Risk ({$total} incident(s), {$riskScore}% severity score in {$periodLabel}).",
-                        'action_url'  => '/bite-map?location=' . urlencode($location) . '&period=month&category=severe',
-                        'alert_key'   => $alertKey,
-                        'is_active'   => true,
-                        'status'      => 'sent',
-                        'send_time'   => now(),
-                        'data'        => [
-                            'location'       => $location,
-                            'location_level' => 'Barangay / Place of Exposure',
-                            'total_cases'    => $total,
-                            'cat_3'          => $cat3,
-                            'cat_2'          => $cat2,
-                            'cat_1'          => $cat1,
-                            'risk_score'     => $riskScore,
-                            'period'         => $periodLabel,
-                            'reason'         => "Severity score of {$riskScore}% reached or exceeded the 65% threshold based on reported Category II/III exposures.",
-                            'disclaimer'     => 'Surveillance metric measuring severe bite exposure burden; does not represent confirmed rabies infection or predict future cases.',
-                            'severity'       => 'danger',
-                        ],
-                    ]);
-                    $this->broadcastNotification($notif);
-                }
+            if (!$existing) {
+                $notif = Notification::create([
+                    'clinic_id'   => $clinicId,
+                    'category'    => 'high_risk',
+                    'type'        => 'high_risk_area',
+                    'title'       => $title,
+                    'message'     => $message,
+                    'action_url'  => $actionUrl,
+                    'alert_key'   => $alertKey,
+                    'is_active'   => true,
+                    'status'      => 'sent',
+                    'send_time'   => now(),
+                    'data'        => [
+                        'location'               => $barangay,
+                        'municipality'           => $item['municipality'],
+                        'location_level'         => 'Barangay',
+                        'alert_level'            => $level,
+                        'total_cases'            => $item['total_7d'],
+                        'total_7d'               => $item['total_7d'],
+                        'cat_3'                  => $item['cat_3_7d'],
+                        'cat_2'                  => $item['cat_2_7d'],
+                        'cat_1'                  => $item['cat_1_7d'],
+                        'awaiting_assessment_7d' => $item['awaiting_assessment_7d'],
+                        'baseline_weekly_avg'    => $item['baseline_weekly_avg'],
+                        'surge_ratio'            => $item['surge_ratio'],
+                        'window_7d_start'        => $result['window_7d_start'],
+                        'window_7d_end'          => $result['window_7d_end'],
+                        'reason'                 => $item['reason'],
+                        'disclaimer'             => $item['disclaimer'],
+                        'severity'               => $level === 'cluster' ? 'danger' : 'warning',
+                    ],
+                ]);
+                $this->broadcastNotification($notif);
             }
         }
 
-        // If an area dropped below 65% due to record corrections or new entries, resolve its alert
+        // Resolve any previously active high-risk area alerts that dropped below the 7-day threshold
         Notification::where('clinic_id', $clinicId)
             ->where('category', 'high_risk')
             ->where('is_active', true)
-            ->where('alert_key', 'like', "high_risk_area:clinic_{$clinicId}:%:{$monthKey}")
+            ->where('alert_key', 'like', "high_risk_area:clinic_{$clinicId}:%")
             ->get()
             ->each(function ($notif) use ($activeHighRiskKeys) {
                 if (!in_array($notif->alert_key, $activeHighRiskKeys, true)) {
@@ -648,7 +847,7 @@ class NotificationService
             })
             ->where(function ($q) use ($userRole) {
                 if ($userRole === 'registration') {
-                    $q->whereNotIn('category', ['inventory', 'expiry']);
+                    $q->whereNotIn('category', ['inventory', 'expiry', 'high_risk', 'clinical_safety']);
                 }
                 $q->where(function ($sub) use ($userRole) {
                     $sub->whereNull('role')
@@ -690,8 +889,11 @@ class NotificationService
         $clinicId = $user->clinic_id;
         $userRole = $user->role;
 
-        // Auto-sync active alerts for this clinic on fetch
-        $this->syncActiveAlerts($clinicId);
+        // Throttled alert sync on bell fetch (at most once every 5 minutes per clinic outside unit tests;
+        // primary daily sync runs via `clinic:sync-alerts` scheduler).
+        if (app()->runningUnitTests() || Cache::add("notifications:sync-lock:clinic:{$clinicId}", true, now()->addMinutes(5))) {
+            $this->syncActiveAlerts($clinicId);
+        }
 
         $notifications = Notification::where('clinic_id', $clinicId)
             ->where(function ($q) use ($user) {
@@ -699,7 +901,7 @@ class NotificationService
             })
             ->where(function ($q) use ($userRole) {
                 if ($userRole === 'registration') {
-                    $q->whereNotIn('category', ['inventory', 'expiry']);
+                    $q->whereNotIn('category', ['inventory', 'expiry', 'high_risk', 'clinical_safety']);
                 }
                 $q->where(function ($sub) use ($userRole) {
                     $sub->whereNull('role')
@@ -722,9 +924,10 @@ class NotificationService
                 'expiry'      => 'warning',
                 'queue'       => 'patients',
                 'appointment' => 'calendar',
-                'overdue'     => 'calendar',
-                'high_risk'   => 'warning',
-                default       => 'activity',
+                'overdue'         => 'calendar',
+                'high_risk'       => 'warning',
+                'clinical_safety' => 'warning',
+                default           => 'activity',
             };
 
             return [
@@ -761,7 +964,7 @@ class NotificationService
             })
             ->where(function ($q) use ($userRole) {
                 if ($userRole === 'registration') {
-                    $q->whereNotIn('category', ['inventory', 'expiry']);
+                    $q->whereNotIn('category', ['inventory', 'expiry', 'high_risk', 'clinical_safety']);
                 }
                 $q->where(function ($sub) use ($userRole) {
                     $sub->whereNull('role')

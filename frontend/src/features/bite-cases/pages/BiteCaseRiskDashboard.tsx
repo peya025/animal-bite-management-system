@@ -7,13 +7,8 @@ import {
   Checkbox,
   Chip,
   Collapse,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   FormControlLabel,
-  IconButton,
   InputAdornment,
   LinearProgress,
   Menu,
@@ -22,44 +17,28 @@ import {
   Select,
   Skeleton,
   Snackbar,
-  Switch,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import {
   Clear,
-  CloseOutlined,
-  FileDownloadOutlined,
   FilterListOutlined,
   KeyboardArrowDownOutlined,
-  LockOutlined,
-  MapOutlined,
-  MedicalServicesOutlined,
-  PrintOutlined,
   SearchOutlined,
-  SlideshowOutlined,
-  VaccinesOutlined,
-  VerifiedOutlined,
-  WarningAmberOutlined,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { ROUTES } from '../../../shared/config/routes';
-import { AccessibleProgress } from '../components/AccessibleComponents';
 import { BiteCasesEpisodesTab } from '../components/BiteCasesEpisodesTab';
 import { BiteCasesOverviewTab } from '../components/BiteCasesOverviewTab';
-import { BiteCasesPlanningTab } from '../components/BiteCasesPlanningTab';
 import { BiteCasesPresentationDialog } from '../components/BiteCasesPresentationDialog';
-import { BC_BORDER, DohStatLine } from '../components/BiteCasesSharedUi';
+import { BC_BORDER } from '../components/BiteCasesSharedUi';
 import { BiteCasesTreatmentTab } from '../components/BiteCasesTreatmentTab';
 import {
   BITE_SUMMARY_AGE_GROUPS,
   computeDateRange,
-  computePriorityBreakdown,
   formatDaysAgo,
   formatPct,
   normalizeSeverityParam,
-  priorityConfig,
 } from '../types/biteCasesSummary.types';
 import type {
   CaseSummary,
@@ -68,43 +47,30 @@ import type {
   DashboardData,
   DohSummary,
   Filters,
-  LocationSortKey,
   LocationSummary,
-  OptionalBarangayColumn,
   PatientFollowupLog,
-  PriorityBreakdown,
-  PriorityLevel,
   PrivacyMode,
   ReportActionItem,
-  ReportSnapshotHeader,
   StageMatrixRow,
   ViewTab,
 } from '../types/biteCasesSummary.types';
 import {
   exportAggregateSummaryToCsv,
   exportCasesToCsv,
-  exportLocationsToCsv,
 } from '../utils/biteCaseUtils';
 import '../styles/biteCasesAccessibility.css';
 
 // Re-export shared domain types & helpers for external consumers.
-export {
-  computePriorityBreakdown,
-  formatDaysAgo,
-  priorityConfig,
-};
+export { formatDaysAgo };
 export type {
   CaseSummary,
   CohortCategoryRow,
   ComparisonMetric,
   DohSummary,
   LocationSummary,
-  PriorityBreakdown,
-  PriorityLevel,
   StageMatrixRow,
 };
 
-const OPTIONAL_COLS_KEY = 'bite_cases_doh_barangay_cols';
 const ALLOWED_RANGES = ['7d', '14d', '30d', '90d', 'week', 'month', 'quarter', 'last_completed_quarter', 'all', 'custom'];
 
 function HeadlineKpiCard({
@@ -252,120 +218,40 @@ function HeadlineKpiCard({
   );
 }
 
-function ExplainabilityModal({
-  open,
-  onClose,
-  location,
-  maxCases,
-}: {
-  open: boolean;
-  onClose: () => void;
-  location: LocationSummary | null;
-  maxCases: number;
-}) {
-  const breakdown = useMemo(
-    () => (location ? computePriorityBreakdown(location, maxCases) : null),
-    [location, maxCases]
-  );
-
-  if (!location || !breakdown) return null;
-  const cfg = priorityConfig[breakdown.priorityLevel];
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--bc-text)' }}>
-            {location.normalized_barangay || location.location}
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'var(--bc-text-secondary)' }}>
-            {location.municipality || 'Tagoloan'} • {location.geography_scope?.replaceAll('_', ' ') || location.location_level}
-          </Typography>
-        </Box>
-        <IconButton onClick={onClose} aria-label="Close location breakdown">
-          <CloseOutlined aria-hidden="true" />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent dividers>
-        <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: cfg.background, border: `1px solid ${cfg.border}`, mb: 2 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 13, color: cfg.color, mb: 0.4 }}>
-            {cfg.label} • Reference Index: {breakdown.compositeScore}/100
-          </Typography>
-          <Typography sx={{ fontSize: 12.5, color: 'var(--bc-text)' }}>{breakdown.explanation}</Typography>
-        </Box>
-
-        <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', mb: 1 }}>
-          Supporting Factor Breakdown
-        </Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.25, mb: 2 }}>
-          <Box sx={{ p: 1, borderRadius: '8px', border: BC_BORDER }}>
-            <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)' }}>Exposure Volume (35%)</Typography>
-            <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.4 }}>{breakdown.caseBurdenScore}/100</Typography>
-            <AccessibleProgress value={breakdown.caseBurdenScore} color="var(--bc-focus-ring)" width={160} label="Exposure volume factor" />
-          </Box>
-          <Box sx={{ p: 1, borderRadius: '8px', border: BC_BORDER }}>
-            <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)' }}>Cat III Share (35%)</Typography>
-            <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.4 }}>{breakdown.severityScore}/100</Typography>
-            <AccessibleProgress value={breakdown.severityScore} color="var(--bc-red)" width={160} label="Severity factor" />
-          </Box>
-          <Box sx={{ p: 1, borderRadius: '8px', border: BC_BORDER }}>
-            <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)' }}>Overdue PEP (20%)</Typography>
-            <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.4 }}>{breakdown.overdueScore}/100</Typography>
-            <AccessibleProgress value={breakdown.overdueScore} color="var(--bc-amber)" width={160} label="Overdue PEP factor" />
-          </Box>
-          <Box sx={{ p: 1, borderRadius: '8px', border: BC_BORDER }}>
-            <Typography sx={{ fontSize: 11.5, color: 'var(--bc-text-secondary)' }}>Period Change (10%)</Typography>
-            <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.4 }}>{breakdown.trendScore}/100</Typography>
-            <AccessibleProgress value={breakdown.trendScore} color="var(--bc-green)" width={160} label="Period change factor" />
-          </Box>
-        </Box>
-
-        <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'var(--bc-text-secondary)', textTransform: 'uppercase', mb: 0.5 }}>
-          DOH Submission Breakdown (This Location)
-        </Typography>
-        <DohStatLine label="Recorded Exposures (Prior)" value={`${location.total_cases}${location.previous_total !== undefined ? ` (Prior: ${location.previous_total})` : ''}`} />
-        <DohStatLine label="Sex (Male / Female / Unknown)" value={`${location.male ?? 0} / ${location.female ?? 0} / ${location.unknown_sex ?? 0}`} />
-        <DohStatLine label="Age (<15 yrs / >=15 yrs / Unknown)" value={`${location.age_below_15 ?? 0} / ${location.age_15_above ?? 0} / ${location.age_unknown ?? 0}`} />
-        <DohStatLine label="Categories (I / II / III / Unassessed)" value={`${location.cat_1} / ${location.cat_2} / ${location.cat_3} / ${location.unassessed ?? 0}`} />
-        <DohStatLine label="PEP Prescribed / Given PEP / No Admin Recorded" value={`${location.pep_prescribed ?? 0} / ${location.given_pep ?? 0} / ${location.no_administration_recorded ?? 0}`} />
-        <DohStatLine label="Completed Mature Courses / No PEP / Transferred" value={`${location.completed ?? 0} / ${location.no_pep_required ?? 0} / ${location.transferred ?? 0}`} />
-        <DohStatLine label="RIG Administered (Total / ERIG / HRIG)" value={`${location.given_rig ?? 0} (${location.erig ?? 0} ERIG, ${location.hrig ?? 0} HRIG)`} />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} variant="contained" disableElevation sx={{ textTransform: 'none' }}>
-          Close
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
 export default function BiteCaseRiskDashboard() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const locationParam = searchParams.get('location');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const searchParam = searchParams.get('search') || searchParams.get('location') || '';
   const rangeParam = searchParams.get('range');
   const severityParam = searchParams.get('severity');
+  const statusParam = searchParams.get('status') || '';
+  const animalParam = searchParams.get('animal') || '';
+  const animalStatusParam = searchParams.get('animal_status') || '';
+  const animalConditionParam = searchParams.get('animal_condition') || '';
+  const channelParam = searchParams.get('channel') || '';
+  const ageGroupParam = searchParams.get('age_group') || '';
 
-  const [tab, setTab] = useState<ViewTab>('summary');
+  const [tab, setTab] = useState<ViewTab>(
+    tabParam === 'treatment' || tabParam === 'cases' ? tabParam : 'summary'
+  );
   const [privacyMode, setPrivacyMode] = useState<PrivacyMode>('internal_aggregate');
   const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null);
   const tabRefs = useRef<Record<ViewTab, HTMLButtonElement | null>>({
     summary: null,
     treatment: null,
-    risk: null,
     cases: null,
   });
 
   const [filters, setFilters] = useState<Filters>({
-    search: '',
+    search: searchParam,
     severity: normalizeSeverityParam(severityParam),
-    status: '',
-    animal: '',
-    animalStatus: '',
-    animalCondition: '',
-    channel: '',
-    ageGroup: '',
+    status: statusParam,
+    animal: animalParam,
+    animalStatus: animalStatusParam,
+    animalCondition: animalConditionParam,
+    channel: channelParam,
+    ageGroup: ageGroupParam,
     range: rangeParam && ALLOWED_RANGES.includes(rangeParam) ? rangeParam : 'all',
     customFrom: '',
     customTo: '',
@@ -385,55 +271,28 @@ export default function BiteCaseRiskDashboard() {
     }
   }, [severityParam]);
 
+  useEffect(() => {
+    if (searchParam) {
+      setFilters((f) => ({ ...f, search: searchParam }));
+    }
+  }, [searchParam]);
+
+  useEffect(() => {
+    if (statusParam) {
+      setFilters((f) => ({ ...f, status: statusParam }));
+    }
+  }, [statusParam]);
+
   const [data, setData] = useState<DashboardData | null>(null);
   const [baselineData, setBaselineData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedLocationForBreakdown, setSelectedLocationForBreakdown] = useState<LocationSummary | null>(null);
   const [snackbarMsg, setSnackbarMsg] = useState('');
   const [presentationOpen, setPresentationOpen] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
-
-  // Phase 6: Snapshots & Action Register state
-  const [snapshots, setSnapshots] = useState<ReportSnapshotHeader[]>([]);
-  const [activeSnapshotId, setActiveSnapshotId] = useState<number | null>(null);
-  const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [actions, setActions] = useState<ReportActionItem[]>([]);
-  const [actionBusy, setActionBusy] = useState(false);
-
-  const [sortKey, setSortKey] = useState<LocationSortKey>('priority');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-
-  const [optionalColumns, setOptionalColumns] = useState<Record<OptionalBarangayColumn, boolean>>(() => {
-    try {
-      const saved = localStorage.getItem(OPTIONAL_COLS_KEY);
-      if (saved) {
-        return {
-          demographics: true,
-          rig_details: true,
-          animals: false,
-          trend: false,
-          risk_score: false,
-          ...JSON.parse(saved),
-        };
-      }
-    } catch {
-      // ignore storage errors
-    }
-    return { demographics: true, rig_details: true, animals: false, trend: false, risk_score: false };
-  });
-
-  const toggleOptionalColumn = (col: OptionalBarangayColumn) => {
-    setOptionalColumns((prev) => {
-      const next = { ...prev, [col]: !prev[col] };
-      try {
-        localStorage.setItem(OPTIONAL_COLS_KEY, JSON.stringify(next));
-      } catch {
-        // ignore storage errors
-      }
-      return next;
-    });
-  };
+  const [actionsLoaded, setActionsLoaded] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const selectTab = (nextTab: ViewTab) => {
     setTab(nextTab);
@@ -456,16 +315,22 @@ export default function BiteCaseRiskDashboard() {
   };
 
   useEffect(() => {
-    if (!locationParam || loading || !data?.locations) return;
-    const lower = locationParam.toLowerCase();
-    const matched = data.locations.find(
-      (l) =>
-        l.location.toLowerCase() === lower ||
-        (l.normalized_barangay && l.normalized_barangay.toLowerCase() === lower) ||
-        l.location.toLowerCase().includes(lower)
-    );
-    if (matched) setSelectedLocationForBreakdown(matched);
-  }, [locationParam, loading, data]);
+    const next = new URLSearchParams();
+    if (tab !== 'summary') next.set('tab', tab);
+    if (filters.search) next.set('search', filters.search);
+    if (filters.range && filters.range !== 'all') next.set('range', filters.range);
+    if (filters.severity) next.set('severity', filters.severity);
+    if (filters.status) next.set('status', filters.status);
+    if (filters.animal) next.set('animal', filters.animal);
+    if (filters.animalStatus) next.set('animal_status', filters.animalStatus);
+    if (filters.animalCondition) next.set('animal_condition', filters.animalCondition);
+    if (filters.channel) next.set('channel', filters.channel);
+    if (filters.ageGroup) next.set('age_group', filters.ageGroup);
+
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [tab, filters, searchParams, setSearchParams]);
 
   const activeDateRange = useMemo(
     () => computeDateRange(filters.range, filters.customFrom, filters.customTo),
@@ -495,27 +360,11 @@ export default function BiteCaseRiskDashboard() {
     const timer = window.setTimeout(async () => {
       setLoading(true);
       try {
-        if (activeSnapshotId) {
-          const snapRes = await api.get<{
-            snapshot: ReportSnapshotHeader;
-            summary_payload: DashboardData;
-            actions?: ReportActionItem[];
-          }>(`/reports/bite-summary/snapshots/${activeSnapshotId}`);
-          if (!active) return;
-          setData({
-            ...snapRes.data.summary_payload,
-            snapshot: snapRes.data.snapshot,
-          });
-          if (snapRes.data.actions) {
-            setActions(snapRes.data.actions);
-          }
-        } else {
-          const response = await api.get<DashboardData>('/cases/location-summary', { params: query });
-          if (!active) return;
-          setData(response.data);
-          if (!filters.search && !filters.severity && !filters.status && !filters.animal && !filters.animalStatus && !filters.animalCondition && !filters.channel && !filters.ageGroup) {
-            setBaselineData(response.data);
-          }
+        const response = await api.get<DashboardData>('/cases/location-summary', { params: query });
+        if (!active) return;
+        setData(response.data);
+        if (!filters.search && !filters.severity && !filters.status && !filters.animal && !filters.animalStatus && !filters.animalCondition && !filters.channel && !filters.ageGroup) {
+          setBaselineData(response.data);
         }
         setError('');
       } catch {
@@ -529,137 +378,31 @@ export default function BiteCaseRiskDashboard() {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [query, activeSnapshotId]);
+  }, [query, refreshNonce]);
 
+  // Lazy-load action register items only when Conference Presentation Mode is opened.
   useEffect(() => {
+    if (!presentationOpen || actionsLoaded) return;
     let active = true;
     (async () => {
       try {
-        const [snapRes, actRes] = await Promise.all([
-          api.get<{ data: ReportSnapshotHeader[] }>('/reports/bite-summary/snapshots'),
-          api.get<{ data: ReportActionItem[] }>('/reports/bite-summary/actions'),
-        ]);
+        const actRes = await api.get<{ data: ReportActionItem[] }>('/reports/bite-summary/actions');
         if (!active) return;
-        setSnapshots(snapRes.data.data || []);
         setActions(actRes.data.data || []);
+        setActionsLoaded(true);
       } catch {
-        // Non-blocking if snapshots/actions endpoints are not yet populated
+        // Non-blocking if action register is empty or unavailable for this role
       }
     })();
     return () => {
       active = false;
     };
-  }, []);
-
-  const handleSaveSnapshot = async (
-    status: 'draft' | 'finalized',
-    parentSnapshotId?: number | null,
-    notes?: string
-  ) => {
-    setSnapshotBusy(true);
-    try {
-      const res = await api.post<{
-        snapshot: ReportSnapshotHeader;
-        summary_payload: DashboardData;
-      }>('/reports/bite-summary/snapshots', {
-        ...query,
-        status,
-        ...(parentSnapshotId ? { parent_snapshot_id: parentSnapshotId } : {}),
-        ...(notes ? { notes } : {}),
-      });
-      const created = res.data.snapshot;
-      setSnapshots((prev) => [created, ...prev]);
-      setActiveSnapshotId(created.snapshot_id);
-      setData({ ...res.data.summary_payload, snapshot: created });
-      setSnackbarMsg(
-        status === 'finalized'
-          ? `Finalized immutable snapshot ${created.snapshot_code}.`
-          : `Saved snapshot ${created.snapshot_code} (v${created.version}).`
-      );
-    } catch {
-      setSnackbarMsg('Unable to save report snapshot.');
-    } finally {
-      setSnapshotBusy(false);
-    }
-  };
-
-  const handleFinalizeSnapshot = async (snapshotId: number) => {
-    setSnapshotBusy(true);
-    try {
-      const res = await api.post<{ snapshot: ReportSnapshotHeader }>(
-        `/reports/bite-summary/snapshots/${snapshotId}/finalize`
-      );
-      const updated = res.data.snapshot;
-      setSnapshots((prev) =>
-        prev.map((s) => (s.snapshot_id === updated.snapshot_id ? updated : s))
-      );
-      setData((prev) => (prev ? { ...prev, snapshot: updated } : prev));
-      setSnackbarMsg(`Snapshot ${updated.snapshot_code} is now finalized and immutable.`);
-    } catch {
-      setSnackbarMsg('Unable to finalize snapshot.');
-    } finally {
-      setSnapshotBusy(false);
-    }
-  };
-
-  const handleCreateAction = async (payload: {
-    finding_key?: string;
-    observed_pattern: string;
-    supporting_metric?: string;
-    proposed_action: string;
-    owner_name?: string;
-    due_date?: string;
-    target_measure?: string;
-    baseline_value?: string;
-    resources_notes?: string;
-  }) => {
-    setActionBusy(true);
-    try {
-      const res = await api.post<{ action: ReportActionItem }>('/reports/bite-summary/actions', {
-        ...payload,
-        ...(activeSnapshotId ? { snapshot_id: activeSnapshotId } : {}),
-      });
-      setActions((prev) => [res.data.action, ...prev]);
-      setSnackbarMsg('Added action item to the Action Register.');
-    } catch {
-      setSnackbarMsg('Unable to save action item.');
-    } finally {
-      setActionBusy(false);
-    }
-  };
-
-  const handleUpdateActionStatus = async (
-    actionId: number,
-    status: ReportActionItem['status'],
-    reviewOutcome?: string
-  ) => {
-    setActionBusy(true);
-    try {
-      const res = await api.put<{ action: ReportActionItem }>(
-        `/reports/bite-summary/actions/${actionId}`,
-        {
-          status,
-          ...(reviewOutcome ? { review_outcome: reviewOutcome } : {}),
-        }
-      );
-      setActions((prev) =>
-        prev.map((a) => (a.action_id === actionId ? res.data.action : a))
-      );
-      setSnackbarMsg(`Updated action status to ${status.replace('_', ' ')}.`);
-    } catch {
-      setSnackbarMsg('Unable to update action status.');
-    } finally {
-      setActionBusy(false);
-    }
-  };
+  }, [presentationOpen, actionsLoaded]);
 
   const handlePrintMeetingPack = async () => {
     try {
       const res = await api.get<string>('/print/reports/bite-summary', {
-        params: {
-          ...query,
-          ...(activeSnapshotId ? { snapshot_id: activeSnapshotId } : {}),
-        },
+        params: query,
         responseType: 'text' as unknown as 'json',
       });
       const printWin = window.open('', '_blank');
@@ -672,6 +415,24 @@ export default function BiteCaseRiskDashboard() {
       }
     } catch {
       setSnackbarMsg('Unable to generate A4 Meeting Pack print view.');
+    }
+  };
+
+  const handlePrintDailyTurnover = async () => {
+    try {
+      const res = await api.get<string>('/print/reports/daily-turnover', {
+        responseType: 'text' as unknown as 'json',
+      });
+      const printWin = window.open('', '_blank');
+      if (printWin) {
+        printWin.document.open();
+        printWin.document.write(String(res.data));
+        printWin.document.close();
+      } else {
+        setSnackbarMsg('Please allow pop-ups to open the Daily Shift Turnover Slip.');
+      }
+    } catch {
+      setSnackbarMsg('Unable to generate Daily Shift Turnover Slip.');
     }
   };
 
@@ -710,44 +471,6 @@ export default function BiteCaseRiskDashboard() {
   const locations = data?.locations ?? [];
   const cases = data?.cases ?? [];
   const doh = data?.doh_summary;
-  const maxCasesAcrossLocations = useMemo(
-    () => Math.max(1, ...locations.map((l) => l.total_cases)),
-    [locations]
-  );
-
-  const sortedLocations = useMemo(() => {
-    const copy = [...locations];
-    copy.sort((a, b) => {
-      const mul = sortOrder === 'asc' ? 1 : -1;
-      if (sortKey === 'location') {
-        return mul * (a.normalized_barangay || a.location).localeCompare(b.normalized_barangay || b.location);
-      }
-      if (sortKey === 'cases') return mul * (a.total_cases - b.total_cases);
-      if (sortKey === 'cat_3') return mul * (a.cat_3 - b.cat_3);
-      if (sortKey === 'pep') return mul * ((a.given_pep ?? 0) - (b.given_pep ?? 0));
-      if (sortKey === 'overdue') {
-        return mul * ((a.overdue_episodes ?? a.overdue_doses) - (b.overdue_episodes ?? b.overdue_doses));
-      }
-      if (sortKey === 'last_incident') {
-        const da = a.last_incident_days_ago ?? 99999;
-        const db = b.last_incident_days_ago ?? 99999;
-        return mul * (da - db);
-      }
-      const sa = computePriorityBreakdown(a, maxCasesAcrossLocations).compositeScore;
-      const sb = computePriorityBreakdown(b, maxCasesAcrossLocations).compositeScore;
-      return mul * (sa - sb);
-    });
-    return copy;
-  }, [locations, sortKey, sortOrder, maxCasesAcrossLocations]);
-
-  const handleSort = (key: LocationSortKey) => {
-    if (sortKey === key) {
-      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortOrder(key === 'location' ? 'asc' : 'desc');
-    }
-  };
 
   const drillDownToStage = (stageKey: string) => {
     const statusMap: Record<string, string> = {
@@ -770,6 +493,7 @@ export default function BiteCaseRiskDashboard() {
     channel?: string;
     age_group?: string;
     search?: string;
+    range?: string;
   }) => {
     setFilters((f) => ({
       ...f,
@@ -781,8 +505,19 @@ export default function BiteCaseRiskDashboard() {
       ...(next.channel !== undefined ? { channel: next.channel } : {}),
       ...(next.age_group !== undefined ? { ageGroup: next.age_group } : {}),
       ...(next.search !== undefined ? { search: next.search } : {}),
+      ...(next.range !== undefined && ALLOWED_RANGES.includes(next.range) ? { range: next.range } : {}),
     }));
     selectTab('cases');
+  };
+
+  const handleJumpToOverdue = () => {
+    selectTab('treatment');
+    window.setTimeout(() => {
+      document.getElementById('bc-overdue-followup-section')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 80);
   };
 
   const hasSecondaryFilters = Boolean(
@@ -1005,6 +740,14 @@ export default function BiteCaseRiskDashboard() {
             >
               Print A4 Meeting Pack
             </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setExportAnchorEl(null);
+                handlePrintDailyTurnover();
+              }}
+            >
+              Print Daily Shift Turnover Slip
+            </MenuItem>
           </Menu>
 
           <Button
@@ -1069,9 +812,9 @@ export default function BiteCaseRiskDashboard() {
               title="Category III Exposures"
               titleColor="#991b1b"
               borderColor="#fee2e2"
-              value={doh?.categories.III ?? 0}
+              value={activeDoh?.categories.III ?? 0}
               valueColor="#b91c1c"
-              subtext={`${formatPct(doh?.categories.III ?? 0, finalizedCount)} of assessed`}
+              subtext={`${formatPct(activeDoh?.categories.III ?? 0, finalizedCount)} of assessed`}
               badgeText={`${givenRigCount} verified RIG given`}
               badgeBg="#fffbeb"
               badgeColor="#92400e"
@@ -1097,7 +840,7 @@ export default function BiteCaseRiskDashboard() {
               progressValue={completedMatureTotal}
               progressTotal={maturedCoursesTotal}
               progressColor="#0f766e"
-              subtext={`${formatPct(completedMatureTotal, maturedCoursesTotal)} · ${doh?.completion_and_outcomes.immature_courses ?? 0} ongoing treatment`}
+              subtext={`${formatPct(completedMatureTotal, maturedCoursesTotal)} · ${activeDoh?.completion_and_outcomes.immature_courses ?? 0} ongoing treatment`}
             />
           </Box>
         )}
@@ -1217,7 +960,6 @@ export default function BiteCaseRiskDashboard() {
                 startIcon={<Clear aria-hidden="true" />}
                 onClick={() => {
                   clearFilters();
-                  setActiveSnapshotId(null);
                 }}
                 sx={{ textTransform: 'none', fontWeight: 600, height: 34 }}
               >
@@ -1267,7 +1009,9 @@ export default function BiteCaseRiskDashboard() {
                 sx={{ height: 34, fontSize: 12.5 }}
               >
                 <MenuItem value="">All Stages &amp; Statuses</MenuItem>
+                <MenuItem value="rig_pending">RIG Pending (Category III / Indicated)</MenuItem>
                 <MenuItem value="awaiting_assessment">Form 1: Awaiting Assessment</MenuItem>
+                <MenuItem value="unassessed_over_48h">Form 1: Unassessed &gt; 48 Hours</MenuItem>
                 <MenuItem value="no_administration_recorded">Form 2: PEP Prescribed – No Admin</MenuItem>
                 <MenuItem value="unresolved_review">Unresolved Review (Stage 1 &amp; 2)</MenuItem>
                 <MenuItem value="unresolved_review_over_30_days">Unresolved Review (&gt;30 Days)</MenuItem>
@@ -1512,6 +1256,7 @@ export default function BiteCaseRiskDashboard() {
             <BiteCasesOverviewTab
               doh={doh}
               locations={locations}
+              clinicalAlerts={data?.clinical_alerts}
               insights={data?.insights}
               limitations={data?.limitations}
               totalRecorded={totalRecorded}
@@ -1520,11 +1265,10 @@ export default function BiteCaseRiskDashboard() {
               pepPrescribedCount={pepPrescribedCount}
               givenPepCount={givenPepCount}
               noAdminCount={noAdminCount}
-              givenRigCount={givenRigCount}
-              completedMatureTotal={completedMatureTotal}
-              overdueEpisodesCount={overdueEpisodesCount}
               onDrillDownToStage={drillDownToStage}
               onDrillDownFilter={handleDrillDownFilter}
+              onJumpToOverdue={handleJumpToOverdue}
+              onNotify={(msg) => setSnackbarMsg(msg)}
               onExportEpisodesCsv={() => {
                 exportCasesToCsv(cases, 'bite-cases-all-episodes.csv', privacyMode);
                 if (privacyMode === 'internal_aggregate' && cases.length > 0) {
@@ -1572,6 +1316,8 @@ export default function BiteCaseRiskDashboard() {
               hasData={Boolean(data)}
               privacyMode={privacyMode}
               onSwitchToInternalMode={() => setPrivacyMode('internal_aggregate')}
+              onCaseUpdated={() => setRefreshNonce((n) => n + 1)}
+              onNotify={(msg) => setSnackbarMsg(msg)}
               onExportCasesCsv={() => {
                 exportCasesToCsv(cases, 'bite-cases-episodes.csv', privacyMode);
                 if (privacyMode === 'internal_aggregate' && cases.length > 0) {
@@ -1582,14 +1328,6 @@ export default function BiteCaseRiskDashboard() {
           </div>
         )}
       </Box>
-
-      {/* Location Breakdown Modal */}
-      <ExplainabilityModal
-        open={Boolean(selectedLocationForBreakdown)}
-        onClose={() => setSelectedLocationForBreakdown(null)}
-        location={selectedLocationForBreakdown}
-        maxCases={maxCasesAcrossLocations}
-      />
 
       {/* 6-Screen Conference Presentation Mode Dialog (BCS-06.2) */}
       {data && (

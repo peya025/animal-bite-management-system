@@ -3,12 +3,14 @@ import type { KeyboardEvent } from 'react';
 
 export const ConsultationErrors = createContext<Record<string, string>>({});
 
-type FieldControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+type FieldControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement;
 
 export function entryControls(root: HTMLElement): FieldControl[] {
-  const controls = Array.from(root.querySelectorAll<FieldControl>('input, select, textarea'))
+  const controls = Array.from(root.querySelectorAll<FieldControl>('input, select, textarea, button[role="combobox"]'))
     .filter(control => !control.disabled && control.tabIndex >= 0
-      && !('readOnly' in control && control.readOnly) && control.getClientRects().length > 0);
+      && !('readOnly' in control && control.readOnly)
+      && !control.closest('[data-combobox-menu]')
+      && control.getClientRects().length > 0);
   return controls.filter(control => {
     if (!(control instanceof HTMLInputElement) || control.type !== 'radio') return true;
     const group = controls.filter(item => item instanceof HTMLInputElement
@@ -26,7 +28,7 @@ export function advanceOnEnter(event: KeyboardEvent<HTMLElement>, submit: () => 
   if (!(target instanceof HTMLInputElement)
     || !['text', 'email', 'tel', 'number', 'search', 'url', 'password', 'date', 'time'].includes(target.type)
     || target.readOnly || target.disabled || target.list
-    || target.closest('[role="combobox"], [aria-haspopup="listbox"], [aria-expanded]')) return;
+    || target.closest('[role="combobox"], [aria-haspopup="listbox"], [aria-expanded], [data-combobox-menu]')) return;
   event.preventDefault();
   if (event.repeat) return;
   const controls = entryControls(event.currentTarget);
@@ -79,7 +81,7 @@ export function focusFirstError(root: HTMLElement = document.body, firstErrorKey
   if (!targetField) {
     const invalidControl = Array.from(
       root.querySelectorAll<HTMLElement>(
-        '.fm-field--error, input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"]'
+        '.fm-field--error, input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"], button[role="combobox"][aria-invalid="true"]'
       )
     ).find((control) => !control.matches(':disabled') && control.getClientRects().length > 0);
     targetField = invalidControl || fallback || null;
@@ -122,7 +124,7 @@ export function focusFirstError(root: HTMLElement = document.body, firstErrorKey
   // Automatically place the cursor / focus on the first input inside the field
   const focusable =
     fieldContainer.querySelector<HTMLElement>(
-      'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])'
+      'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button[role="combobox"]:not([disabled])'
     ) || targetField;
 
   if (focusable && typeof focusable.focus === 'function') {

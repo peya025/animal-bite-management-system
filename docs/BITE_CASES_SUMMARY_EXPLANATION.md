@@ -1,216 +1,84 @@
-# Bite Cases Summary - Risk Calculation & Demo Guide
+# Bite Cases Summary — Clinical Risk Alerts, Surveillance & Supply Guide
 
-## 📊 Purpose of Bite Cases Summary (Easy to Memorize)
-
-**"The Bite Cases Summary helps clinic staff identify HIGH-RISK areas and patients who need URGENT attention using a transparent, evidence-based scoring system."**
-
-### Key Benefits:
-1. **Prioritize Resources** - Focus on locations with most severe cases
-2. **Prevent Outbreaks** - Identify trends before they become emergencies  
-3. **Track Compliance** - Find patients who missed their vaccine doses
-4. **Evidence-Based Decisions** - Use data, not guesswork, to allocate staff and vaccines
+**Rule Versions:** `ClinicalRiskAlertService` (`bcs-clinical-alerts-v1`) · `SupplyPlanningService` (`bcs-phase8-supply-v2`)  
+**Updated:** 2026-11-23  
+**Scope:** `/bite-cases` (Operational Triage), Top-Header Clinical Alert Pill, `/inventory?tab=forecast`, `/reports`, and Mobile Home Page (`Community Bite Watch`).
 
 ---
 
-## 🧮 Risk Calculation Method
+## 1. Purpose & Architectural Separation
 
-### **Priority Score Formula (0-100 scale)**
+The **Bite Cases Summary** (`/bite-cases`) is the clinic's **daily operational nerve center**. It replaces opaque composite risk formulas (the retired CSOT 35/35/20/10 index and the legacy `((Cat3×1.5 + Cat2)/Total) >= 65%` single-case ratio) with **evidence-based DOH NRPCP clinical safety rules**:
 
-The system calculates a **Composite Priority Score** using 4 weighted factors:
-
-```
-Composite Score = (Case Burden × 35%) + (Severity × 35%) + (Overdue × 20%) + (Trend × 10%)
-```
-
-### **4 Components Explained:**
-
-#### 1. **Case Burden Score (35% weight)** - Volume of Cases
-- **What it measures:** Total bite cases in this location compared to the busiest location
-- **Formula:** `(Location Cases ÷ Max Cases Across All Locations) × 100`
-- **Example:** 
-  - Poblacion has 15 cases
-  - Busiest location has 20 cases
-  - Score = (15 ÷ 20) × 100 = **75 points**
-
-#### 2. **Exposure Severity Score (35% weight)** - Category III Rate
-- **What it measures:** Percentage of severe Category III exposures requiring RIG
-- **Formula:** `(Category III Cases ÷ Total Cases) × 100`
-- **Example:**
-  - Total cases: 15
-  - Category III: 9
-  - Score = (9 ÷ 15) × 100 = **60 points**
-
-#### 3. **Overdue PEP Score (20% weight)** - Missed Vaccine Doses
-- **What it measures:** Percentage of patients who missed scheduled vaccine doses
-- **Formula:** `(Overdue Patients ÷ Total Cases) × 100`
-- **Example:**
-  - Total cases: 15
-  - Overdue patients: 3
-  - Score = (3 ÷ 15) × 100 = **20 points**
-
-#### 4. **Trend Score (10% weight)** - Period-over-Period Change
-- **What it measures:** Whether cases are increasing, decreasing, or stable
-- **Formula:**
-  - **Stable/Neutral** = 50 points (baseline)
-  - **Increasing** = 50 + (change × 15), max 100
-  - **Decreasing** = 50 - (change × 15), min 0
-  - **New location** = 60 points
-- **Example:**
-  - Cases increased by +2 from last period
-  - Score = 50 + (2 × 15) = **80 points**
+- **`/bite-cases` (Operational Triage):** Real-time patient-safety alerts (RIG Pending, Overdue PEP Follow-Ups, Dead/Sick Biting Animals, 7-Day Barangay Surges, 7-Day Vial Readiness, 14-Day Animal Observation Tracking, and Daily Shift Turnover Slip).
+- **`/inventory?tab=forecast` (Cold-Chain Supply Planner):** Per-day open-vial (`ceil`) follow-up vial projections, same-day waiting-room D0 demand, brand pools, and FIFO batch expiry cutoffs.
+- **`/reports` (Administrative & Regulatory):** Official DOH Monthly, Quarterly Cohort, Exposure Registry, and A4 Committee Meeting Packs.
 
 ---
 
-## 🎯 Priority Level Classification
+## 2. Clinical Risk Alert Rules (Zero Alert Fatigue)
 
-After calculating the composite score, locations are classified:
+Every alert must be **actionable today**, provide a **1-click triage path**, and **auto-resolve** once fixed:
 
-| Composite Score | Priority Level | Action Required |
-|----------------|----------------|-----------------|
-| **70-100** | 🔴 **High Priority** | Immediate review, ensure adequate vaccines, follow up overdue patients |
-| **40-69** | 🟡 **Medium Priority** | Continue standard monitoring and routine follow-up |
-| **0-39** | 🟢 **Low Priority** | Routine monitoring only |
-| **<3 cases** | ⚪ **Limited Data** | Insufficient data, monitor but don't over-prioritize single incidents |
+| Alert | Severity | Trigger Rule | Resolution Path |
+| :--- | :--- | :--- | :--- |
+| **1. RIG Pending (Category III / Indicated)** | Red (Critical) | Finalized Category III with active PEP or clinician-ordered RIG and **0 verified ERIG/HRIG records** (urgent badge when `≤ 48h` elapsed). | Auto-clears when Form 3 records RIG administration or external referral. |
+| **2. Overdue PEP Follow-Ups** | Red (`≥ 3d`) / Amber (`1–2d`) | Scheduled/required follow-up dose `≥ 1 day` past due as of cutoff. | Auto-clears on Form 3 dose recording, reschedule, or discontinuation. Includes unified `Automated Recall` + nurse SMS/call logs. |
+| **3. Biting Animal Died / Sick** | Red (`died`) / Amber (`sick`) | Active episode with `animal_observation_status = died` or `sick`. | Auto-clears when full PEP + RIG is completed or episode is closed/transferred. |
+| **4. 7-Day Follow-Up Vial Shortfall** | Red (`shortfall`) / Amber (`tight` / `expiring`) | Usable unexpired ARV vials `<` next 7 days of per-day open-vial demand (committed follow-ups + waiting-room D0 + operating-day walk-ins), or usable RIG `<` pending Category III cases. | Auto-clears immediately on stock replenishment / adjustment. |
+| **5. 7-Day Barangay Cluster / Surge** | Red (`cluster`) / Amber (`surge`) | **Cluster:** `≥ 3` verified exposures OR `≥ 2` finalized Cat III in the same normalized barangay within 7 days. **Surge:** `≥ 2` verified exposures in 7d AND `≥ 2.0×` prior 30-day weekly average. | Auto-clears when the 7-day rolling window drops below threshold. |
+| **6. Workflow & Data Completeness** | Amber (Warning) | Form 1 unassessed `> 48h`, finalized Form 2 missing WHO Category I–III, or `≥ 20%` (`≥ 3`) recent exposures missing place of incident. | Auto-clears when charts are finalized or locations are encoded. |
 
-### **Real Calculation Example:**
+---
 
-**Location: Poblacion**
-- Total cases: 15 (Max across all locations: 20)
-- Category III: 9, Category II: 4, Category I: 2
-- Overdue patients: 3
-- Trend: Up by +2 cases
+## 3. Global Visibility Without Clutter (Top-Header Pill & Live Toasts)
 
-**Step-by-step calculation:**
-1. Case Burden = (15 ÷ 20) × 100 = **75**
-2. Severity = (9 ÷ 15) × 100 = **60**
-3. Overdue = (3 ÷ 15) × 100 = **20**
-4. Trend = 50 + (2 × 15) = **80**
+- **Top-Header Clinical Alert Pill** (`ClinicalAlertHeaderPill.tsx` in `DashboardLayout`):
+  - Appears on every page **except** `/bite-cases` (where the full `ClinicalRiskAlertsStrip` is already mounted) and hides completely when there are zero relevant alerts.
+  - Strictly **role-filtered** (Doctor: RIG Pending, Animal Died/Sick, Unassessed >48h, Day-14 Due; Nurse: RIG Pending, Overdue ≥3d, 7d Vial Shortfall, Animal Died/Sick, Day-14 Due; Admin: 7d Vial Shortfall, Barangay Clusters, RIG Pending; Registration: hidden).
+  - Supports **1-hour collapse/snooze** into a quiet indicator dot that **automatically re-expands** if a new critical alert arrives.
+- **Event-Driven Real-Time Safety Triggers + Morning Readiness Sync:**
+  - Form 2 saves, Form 3 administrations, animal observation updates, and inventory stock changes immediately run targeted safety syncs and broadcast critical alerts (`rig_pending`, `animal_risk`, `vial_shortfall_7d`) over Laravel Reverb/Echo for non-blocking live toasts.
+  - `php artisan clinic:sync-alerts` runs daily at **07:30 AM Asia/Manila** before clinic opening, and `appointments:auto-recall` runs at **08:00 AM** while writing idempotent `Automated Recall` entries into `patient_followup_logs`.
 
-**Final Score:**
-```
-(75 × 0.35) + (60 × 0.35) + (20 × 0.20) + (80 × 0.10)
-= 26.25 + 21 + 4 + 8
-= 59.25 ≈ 59 points
+---
+
+## 4. Unknown, Unassessed & Incomplete Case Safeguards
+
+- **Place of Incident = `Unknown` / `Place not recorded`:** Strictly **excluded** from barangay cluster/surge detection and mobile advisories; **never** falls back to the patient's home address. Instead surfaces a quiet staff-only Data Completeness warning when missing locations exceed threshold.
+- **Provisional / Unknown Exposure Date:** Strictly excluded from 7-day rolling surge windows and exposure-date cohorts.
+- **Unassessed Category (`Form 1 Only`):** Never auto-assigned to Category I/II/III. Included transparently in 7-day total barangay volume (excluded from Cat III-only cluster rules), escalated if waiting `> 48h`, and included in today's same-day D0 vial readiness estimate.
+- **Unknown Vaccine Brand on Scheduled Follow-Ups:** Retained in an **"Unspecified / Any Active ARV"** pool so total daily vial counts never undercount demand.
+
+---
+
+## 5. Follow-Up-Driven Supply & Open-Vial Math (`SupplyPlanningService`)
+
+Because reconstituted intradermal (ID) rabies vaccine vials must be discarded within **6–8 hours** (cannot carry half a vial to the next clinic day), vial demand is computed **per clinic day**:
+
+```text
+For each clinic day d in [Today .. Today + Horizon]:
+  Total_Expected_Doses(d) = Committed_Followups(d) + Expected_Walkin_D0(d)
+  Vials_Needed(d)         = sum_by_brand( ceil(Brand_Doses(d) / Brand_Doses_Per_Vial) )
+                            + ceil( max(0, Unspecified_And_Walkin(d) - Open_Vial_Spare(d)) / Effective_Doses_Per_Vial )
 ```
 
-**Result:** 🟡 **Medium Priority** - Continue standard monitoring and follow up overdue patients
+- **Same-Day Waiting Queue (Day 0):** Incorporates 100% of active Form 2 prescribed-unstarted patients plus today's Form 1 unassessed registrations weighted by the 30-day historical PEP initiation rate.
+- **FIFO Batch Expiry Cutoffs:** Deducts daily vials from unexpired batches in FIFO order (`expiration_date ASC`); any batch whose `expiration_date < d` is excluded starting on day `d` and flagged under **FIFO Expiring-Before-Use Batches**.
+- **RIG Readiness:** Compares usable unexpired RIG stock against immediate pending Category III / RIG-indicated episodes plus 7-day projected Category III presentations.
 
 ---
 
-## 📚 Sources & Scientific Basis
+## 6. 14-Day Biting Animal Observation Tracking
 
-### **When Panel Asks: "What are your sources?"**
-
-**Answer confidently:**
-
-*"Our risk calculation is based on established public health surveillance principles and WHO rabies prevention guidelines. The scoring system uses four evidence-based factors:"*
-
-1. **WHO Rabies Prevention Guidelines (2018)**
-   - Category III exposures are the most severe and require immediate intervention
-   - PEP completion is critical to prevent rabies mortality
-   - Reference: [WHO Expert Consultation on Rabies, Third Report](https://www.who.int/publications/i/item/WHO-TRS-1012)
-
-2. **Public Health Surveillance Best Practices**
-   - Case volume monitoring to identify outbreak clusters
-   - Trend analysis for early detection of epidemiological changes
-   - Geographic risk mapping for resource allocation
-   - Source: CDC Field Epidemiology Manual
-
-3. **DOH Philippines - Rabies Program**
-   - National rabies elimination strategy emphasizes follow-up compliance
-   - Risk-based surveillance for targeting interventions
-   - Reference: DOH Administrative Order on Rabies Prevention and Control
-
-4. **Composite Risk Scoring Methodology**
-   - Multi-factor weighted scoring is standard in epidemiological surveillance
-   - Allows transparent, reproducible prioritization decisions
-   - Used by CDC, WHO, and other public health agencies
-
-### **Key Points to Emphasize:**
-
-✅ **Transparent** - Every score component is clearly defined and calculated  
-✅ **Evidence-Based** - Uses WHO Category system and PEP compliance metrics  
-✅ **Actionable** - Directly identifies where staff should focus efforts  
-✅ **Adaptable** - Weights can be adjusted based on local context  
+- **Owned / Domestic Pets:** Tracks `Day X/14 Observing`, flags **Day-14 Observation Check Due** during Days 14–21 if condition is still unknown, and displays a **DOH Day-14 Clinical Note** for attending physician discontinuation review **only** when verified healthy at Day 14+.
+- **Stray / Wild / Unobservable Animals:** Explicitly tagged **`Stray / Unobservable — Full PEP Required`** (never prompts early discontinuation).
+- Staff can log `Healthy`, `Sick`, `Died`, or `Unknown` directly from the Episode Inspection Modal (`PATCH /api/cases/{id}/animal-observation`), recording `animal_observation_date` and `animal_last_checked_at`.
 
 ---
 
-## 🎤 Demo Script (2-3 minutes)
+## 7. Public-Health Communication & Operational Printouts
 
-### **Opening (15 seconds)**
-*"Let me show you our Bite Cases Risk Dashboard - this tool helps us identify which areas and patients need urgent attention."*
-
-### **Overview (30 seconds)**
-*"At the top, you see our key metrics: total cases, active treatments, high-risk zones, and overdue patients. These update in real-time as we register new cases."*
-
-### **Priority Scoring (45 seconds)**
-*"Each location gets a priority score from 0 to 100 based on four factors:"*
-
-1. *"Case volume - how many bites compared to other areas"*
-2. *"Severity - percentage of Category III cases needing RIG"*
-3. *"Overdue patients - those who missed vaccine doses"*
-4. *"Trend - whether cases are increasing or decreasing"*
-
-*"The system calculates: Case Burden 35%, Severity 35%, Overdue 20%, Trend 10%"*
-
-### **Action Items (30 seconds)**
-*"High priority locations show in red - these need immediate staff attention. Click any location to see:"*
-- *"Exact breakdown of the score"*
-- *"List of overdue patients requiring follow-up calls"*
-- *"Clinical summary with recommended actions"*
-
-### **Practical Use (30 seconds)**
-*"For example, Poblacion shows 59 points - Medium Priority. We have 3 overdue patients here. I can click to see their names and case numbers, then call them directly to schedule their next dose."*
-
-### **Closing (15 seconds)**
-*"This system ensures we're making evidence-based decisions about where to deploy vaccines, staff, and awareness campaigns - not just guessing."*
-
----
-
-## 🧠 Memory Aid (Memorize This!)
-
-**4-Factor Formula (CSOT):**
-- **C**ase burden (35%)
-- **S**everity Cat III (35%)
-- **O**verdue PEP (20%)
-- **T**rend (10%)
-
-**3 Priority Levels:**
-- **70+** = 🔴 High (act now)
-- **40-69** = 🟡 Medium (monitor)
-- **0-39** = 🟢 Low (routine)
-
-**Key Message:**
-*"We use transparent, WHO-aligned scoring to prioritize resources and prevent rabies deaths through timely PEP completion."*
-
----
-
-## 📖 Additional Technical Notes
-
-### **Why These Weights?**
-
-- **Case Burden (35%)** - High weight because absolute volume drives resource needs
-- **Severity (35%)** - Equal weight because Cat III cases are life-threatening
-- **Overdue (20%)** - Lower but significant - these are active failures needing correction
-- **Trend (10%)** - Lowest weight - forward-looking but less urgent than current cases
-
-### **Statistical Validity:**
-
-✅ **Bounded Scale** - All scores 0-100 for comparability  
-✅ **Composite Method** - Prevents single-factor distortion  
-✅ **Limited Data Filter** - Locations with <3 cases flagged to prevent overreaction  
-✅ **Transparent** - Staff can see exactly why each location scores as it does  
-
----
-
-## 📌 Quick Reference Card
-
-| Metric | Formula | Interpretation |
-|--------|---------|----------------|
-| **Case Burden** | Location cases ÷ Max cases × 100 | Higher = more volume |
-| **Severity** | Cat III ÷ Total × 100 | Higher = more severe |
-| **Overdue** | Overdue pts ÷ Total × 100 | Higher = more missed doses |
-| **Trend** | 50 + (change × 15) | >50 = increasing |
-| **Composite** | Sum of (each × weight) | 0-100 priority score |
-
-**Remember:** The goal is to save lives by ensuring complete PEP delivery and preventing rabies deaths through data-driven resource allocation.
+1. **Web-to-Mobile Advisory Bridge (Human-in-the-Loop):** Surging barangay cards include a 1-click **Publish Advisory to Mobile** modal (pre-filled Cebuano/English guidance, `is_urgent: true`, `target_barangay`, 7-day auto-expiry, FCM push). The mobile home page (`MenuView`) pairs this with a cached, zero-PII **Community Bite Watch** card (`GET /api/public/community-bite-overview`) enforcing `<5` small-cell suppression.
+2. **1-Click Barangay / MAO Advisory Memo (`GET /api/print/reports/barangay-advisory-memo`):** Aggregate-only A4 memorandum addressed to the Punong Barangay and Municipal Agriculture Office with RA 10173 privacy notice and facility-based surveillance disclaimer.
+3. **1-Page Daily Shift Turnover Slip (`GET /api/print/reports/daily-turnover`):** Internal handover sheet summarizing today's Form 1/2/3 volumes, unadministered RIG & dead/sick animal endorsement lists, vials opened vs discarded today, and tomorrow's scheduled follow-ups + ARV vials to prepare.

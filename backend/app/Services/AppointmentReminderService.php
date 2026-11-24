@@ -338,6 +338,9 @@ class AppointmentReminderService
                             $res = $this->sendRecallAlert($appointment, $channel, isTest: $isTest, dryRun: $dryRun, sync: $sync);
                             if ($res['success']) {
                                 $counts['missed_recalls_sent']++;
+                                if (! $isTest && ! $dryRun) {
+                                    $this->recordAutomatedFollowupLog($appointment, $date, $res);
+                                }
                             }
                             $counts['details'][] = $res;
                         }
@@ -350,5 +353,68 @@ class AppointmentReminderService
         }
 
         return $counts + ['timestamp' => now()->toIso8601String(), 'total_dispatched' => $counts['advance_reminders_sent'] + $counts['missed_recalls_sent']];
+    }
+
+    /**
+     * Phase 3: Write an idempotent daily entry in patient_followup_logs when automated
+     * missed-dose recall succeeds so nurses see auto-recall history inside /bite-cases.
+     */
+    private function recordAutomatedFollowupLog(
+        Appointment $appointment,
+        \Carbon\CarbonInterface $scheduledDate,
+        array $dispatchResult
+    ): void {
+        if (! $appointment->bite_id) {
+            return;
+        }
+
+        $channels = $dispatchResult['channels_dispatched'] ?? [];
+        if (empty($channels)) {
+            return;
+        }
+
+        $alreadyLoggedToday = \App\Models\PatientFollowupLog::where('clinic_id', $appointment->clinic_id)
+            ->where('bite_id', $appointment->bite_id)
+            ->where('appointment_id', $appointment->appointment_id)
+            ->where('created_by_name', 'Automated Recall')
+            ->whereDate('created_at', today()->toDateString())
+            ->exists();
+
+        if ($alreadyLoggedToday) {
+            return;
+        }
+
+        $primaryChannel = in_array('sms', $channels, true)
+            ? 'sms'
+            : (in_array('email', $channels, true) ? 'email' : 'in_app');
+
+        $primaryStatus = (string) ($dispatchResult['channel_results'][$primaryChannel]['status'] ?? 'dispatched');
+        $logStatus = match (true) {
+            $primaryChannel === 'sms' && $primaryStatus === 'simulated' => 'sms_simulated',
+            $primaryChannel === 'sms' && in_array($primaryStatus, ['queued', 'processing', 'accepted'], true) => 'sms_queued',
+            $primaryChannel === 'sms' && $primaryStatus === 'delivered' => 'sms_delivered',
+            $primaryChannel === 'sms' => 'sms_sent',
+            default => 'auto_recalled',
+        };
+
+        $contactType = $primaryChannel === 'sms' ? 'sms' : 'other';
+        $doseLabel = $appointment->dose_number !== null ? "Day {$appointment->dose_number}" : 'Follow-up';
+        $daysOverdue = max(1, (int) $scheduledDate->copy()->startOfDay()->diffInDays(today()));
+        $channelList = implode(', ', array_map(fn ($c) => strtoupper(str_replace('_', ' ', (string) $c)), $channels));
+
+        \App\Models\PatientFollowupLog::create([
+            'clinic_id' => $appointment->clinic_id,
+            'bite_id' => $appointment->bite_id,
+            'patient_id' => $appointment->patient_id,
+            'appointment_id' => $appointment->appointment_id,
+            'dose_label' => $doseLabel,
+            'days_overdue' => $daysOverdue,
+            'contact_type' => $contactType,
+            'status' => $logStatus,
+            'recipient_number' => $primaryChannel === 'sms' ? ($appointment->patient?->contact_number ?: null) : null,
+            'notes' => "Automated recall dispatched via {$channelList} on " . today()->format('M j, Y') . '.',
+            'created_by' => null,
+            'created_by_name' => 'Automated Recall',
+        ]);
     }
 }

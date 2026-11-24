@@ -1,10 +1,28 @@
 import React, { useId } from 'react';
 import { useClinicModuleConfig } from '../../../../../hooks/useClinicModuleConfig';
+import { SearchableSelect } from '../../../../../components/forms/SearchableSelect';
 import type {
   RegistrationFeePayload,
   RegistrationFeeItemInput,
   FeeDisposition,
 } from '../../../types';
+
+const FEE_DISPOSITION_OPTIONS = [
+  { value: 'recorded', label: 'Recorded Amount' },
+  { value: 'pending_assessment', label: 'Pending Assessment' },
+  { value: 'not_applicable', label: 'Not Applicable' },
+];
+
+const ADDITIONAL_FEE_DISPOSITION_OPTIONS = [
+  { value: 'recorded', label: 'Amount' },
+  { value: 'pending_assessment', label: 'Pending' },
+  { value: 'not_applicable', label: 'N/A' },
+];
+
+const PAYMENT_METHOD_OPTIONS = [
+  { value: 'cash', label: 'Cash' },
+  { value: 'other', label: 'Other (GCash, Check, Bank Transfer)' },
+];
 
 export interface RegistrationFeesSectionProps {
   data?: RegistrationFeePayload;
@@ -184,16 +202,15 @@ export function RegistrationFeesSection({
               <label htmlFor={`${uid}-rig-amount`} style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-h, #1e293b)' }}>
                 RIG Fee (PHP) {rigRule === 'required' && <span style={{ color: '#ef4444' }}>*</span>}
               </label>
-              <select
+              <SearchableSelect
                 id={`${uid}-rig-disp`}
                 value={rigFee.disposition}
-                onChange={(e) => handleRigChange({ disposition: e.target.value as FeeDisposition })}
-                style={{ fontSize: 12, padding: '3px 8px', borderRadius: 4, border: '1px solid #cbd5e1' }}
-              >
-                <option value="recorded">Recorded Amount</option>
-                <option value="pending_assessment">Pending Assessment</option>
-                <option value="not_applicable">Not Applicable</option>
-              </select>
+                options={FEE_DISPOSITION_OPTIONS}
+                onChange={(val) => handleRigChange({ disposition: val as FeeDisposition })}
+                size="compact"
+                aria-label="RIG Fee disposition"
+                searchPlaceholder="Search status..."
+              />
             </div>
 
             {rigFee.disposition === 'recorded' ? (
@@ -253,16 +270,15 @@ export function RegistrationFeesSection({
               <label htmlFor={`${uid}-ar-amount`} style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-h, #1e293b)' }}>
                 Anti-Rabies Vaccine Fee (PHP) {arRule === 'required' && <span style={{ color: '#ef4444' }}>*</span>}
               </label>
-              <select
+              <SearchableSelect
                 id={`${uid}-ar-disp`}
                 value={arFee.disposition}
-                onChange={(e) => handleArChange({ disposition: e.target.value as FeeDisposition })}
-                style={{ fontSize: 12, padding: '3px 8px', borderRadius: 4, border: '1px solid #cbd5e1' }}
-              >
-                <option value="recorded">Recorded Amount</option>
-                <option value="pending_assessment">Pending Assessment</option>
-                <option value="not_applicable">Not Applicable</option>
-              </select>
+                options={FEE_DISPOSITION_OPTIONS}
+                onChange={(val) => handleArChange({ disposition: val as FeeDisposition })}
+                size="compact"
+                aria-label="Anti-Rabies Vaccine Fee disposition"
+                searchPlaceholder="Search status..."
+              />
             </div>
 
             {arFee.disposition === 'recorded' ? (
@@ -371,15 +387,14 @@ export function RegistrationFeesSection({
                     style={{ flex: '1 1 180px', minWidth: 140 }}
                   />
 
-                  <select
+                  <SearchableSelect
                     value={item.disposition}
-                    onChange={(e) => handleUpdateAdditionalRow(index, { disposition: e.target.value as FeeDisposition })}
-                    style={{ fontSize: 12, padding: '7px 8px', borderRadius: 4, border: '1px solid #cbd5e1' }}
-                  >
-                    <option value="recorded">Amount</option>
-                    <option value="pending_assessment">Pending</option>
-                    <option value="not_applicable">N/A</option>
-                  </select>
+                    options={ADDITIONAL_FEE_DISPOSITION_OPTIONS}
+                    onChange={(val) => handleUpdateAdditionalRow(index, { disposition: val as FeeDisposition })}
+                    size="compact"
+                    aria-label={`Additional fee item #${index + 1} disposition`}
+                    searchPlaceholder="Search status..."
+                  />
 
                   {item.disposition === 'recorded' ? (
                     <div style={{ position: 'relative', width: 120 }}>
@@ -602,15 +617,13 @@ export function RegistrationFeesSection({
                 <label htmlFor={`${uid}-pay-method`} style={{ fontSize: 12, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 4 }}>
                   Payment Method <span style={{ color: '#ef4444' }}>*</span>
                 </label>
-                <select
+                <SearchableSelect
                   id={`${uid}-pay-method`}
                   value={payment.payment_method}
-                  onChange={(e) => handlePaymentChange({ payment_method: e.target.value as 'cash' | 'other' })}
-                  className="fm-input"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="other">Other (GCash, Check, Bank Transfer)</option>
-                </select>
+                  options={PAYMENT_METHOD_OPTIONS}
+                  onChange={(val) => handlePaymentChange({ payment_method: val as 'cash' | 'other' })}
+                  searchPlaceholder="Search payment method..."
+                />
 
                 {payment.payment_method === 'other' && (
                   <div style={{ marginTop: 8 }}>

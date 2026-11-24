@@ -8,6 +8,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../app/api_config.dart';
 import '../models/announcement.dart';
+import '../models/community_bite_overview.dart';
 
 import '../models/booking_draft.dart';
 import '../models/bite_intake_draft.dart';
@@ -94,6 +95,23 @@ class MobileApi {
     return data
         .map((item) => Announcement.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Aggregate-only 7-day Community Bite Watch overview (zero patient PII).
+  Future<CommunityBiteOverview> fetchCommunityBiteOverview() async {
+    final rootUrl = _baseUrl.replaceFirst(RegExp(r'/mobile$'), '');
+    final response = await http
+        .get(
+          Uri.parse('$rootUrl/public/community-bite-overview'),
+          headers: {'Accept': 'application/json'},
+        )
+        .timeout(_requestTimeout);
+    if (response.statusCode != 200) {
+      throw const ApiException('Community bite overview is temporarily unavailable.');
+    }
+    return CommunityBiteOverview.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 
   Future<void> initialize() async {

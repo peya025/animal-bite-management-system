@@ -362,11 +362,13 @@ export const walkthroughStyles = `
   font-weight: 400;
 }
 
-.walkthrough-tooltip-card[data-walkthrough-module="Bite Cases Summary"] .walkthrough-title {
+.walkthrough-tooltip-card[data-walkthrough-module="Bite Cases Summary"] .walkthrough-title,
+.walkthrough-tooltip-card[data-walkthrough-module="Bite Map"] .walkthrough-title {
   font-size: 14.5px;
 }
 
-.walkthrough-tooltip-card[data-walkthrough-module="Bite Cases Summary"] .walkthrough-content {
+.walkthrough-tooltip-card[data-walkthrough-module="Bite Cases Summary"] .walkthrough-content,
+.walkthrough-tooltip-card[data-walkthrough-module="Bite Map"] .walkthrough-content {
   font-size: 12px;
   line-height: 1.45;
 }

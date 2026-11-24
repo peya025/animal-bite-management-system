@@ -19,8 +19,8 @@ The production architecture consists of four dedicated Railway services and one 
    - **Public Networking:** Enabled with dedicated public domain (e.g. `reverb-production-xxxx.up.railway.app`).
    - **Port & TLS Architecture:** The container binds internally to `0.0.0.0:${PORT:-8080}`. Railway's edge reverse proxy automatically terminates TLS, allowing clients to connect securely over `wss://` on standard port `443`.
 
-3. **Queue Worker Service (Background Jobs & Broadcast Dispatcher)**
-   - **Role:** Processes asynchronous jobs including queued broadcasting events (`AppointmentStatusChanged`, `StaffNotificationBroadcast`, `VaccineStockUpdated`) and outbound push jobs (`SendFcmPushNotification`).
+3. **Queue Worker Service (Messaging & Background Jobs)**
+   - **Role:** Processes `notifications,default`, including `DeliverOutboundMessage` and `SendFcmPushNotification`. New queued broadcast events use the separate `broadcasts` queue described below; this service remains unchanged.
    - **Start Command:** `sh railway/run-worker.sh`
    - **Command Details:** `exec php artisan queue:work "${QUEUE_CONNECTION:-database}" --queue=notifications,default --sleep=3 --tries=3 --timeout=60 --max-time=3600`
    - **Public Networking:** Disabled (private worker). Shares the database, application encryption key, and Reverb configuration.
@@ -45,7 +45,7 @@ The production architecture consists of four dedicated Railway services and one 
                                                                ▲
                                                                │ Broadcasts (HTTP POST)
                                                                │
-                                                        [Railway Queue Worker]
+                                                        [Dedicated Broadcast Worker (proposed)]
                                                                │
                                                         [Railway MySQL Database]
 ```
@@ -311,8 +311,8 @@ Once all services are provisioned on Railway and Vercel:
 - **Resolution:** Verify user's clinic assignment in database. Check that Sanctum token is attached in `Authorization: Bearer <token>` header.
 
 ### Issue 4: Queued Broadcasts Not Delivering
-- **Cause:** Queue Worker is not running or not listening to the `notifications` queue.
-- **Resolution:** Verify Railway Queue Worker service is active with command `sh railway/run-worker.sh` and logs show `Processing jobs from the [notifications, default] queues`.
+- **Cause:** The dedicated broadcast worker is not running or not listening to `broadcasts` on the producer's queue connection.
+- **Resolution:** After separately approved activation, verify the broadcast-only service command and `broadcasts` processing logs. The existing `run-worker.sh` consumes `notifications,default` and does not process new queued broadcasts. Verify Reverb publishing configuration and actual WebSocket frames; polling can mask delivery failures.
 
 ### Emergency Rollback
 If WebSockets need to be temporarily disabled in production:
@@ -324,16 +324,40 @@ If WebSockets need to be temporarily disabled in production:
 ## Queue Worker Reliability & Production Hardening
 
 ### 1. Queue Topology & Process Allocation
-- **Monitored Queues:** `notifications` (high priority) followed by `default` (standard priority).
-- **Worker Command:**
+- **Existing messaging worker queues:** `notifications` (high priority) followed by `default` (standard priority).
+- **Existing messaging worker command (unchanged):**
   ```bash
   exec php artisan queue:work "${CONNECTION:-database}" --queue=notifications,default --sleep=3 --tries=3 --timeout=60 --max-time=3600
   ```
 - **Job-to-Queue Mapping:**
   - `SendFcmPushNotification`: Enqueued on `notifications` (`config('messaging.queue')`).
   - `DeliverOutboundMessage`: Enqueued on `notifications` (`config('messaging.queue')`).
-  - Broadcast Events (`AppointmentStatusChanged`, `StaffNotificationBroadcast`, `VaccineStockUpdated`): Placed on `notifications` (`public string $broadcastQueue = 'notifications'`).
+  - Broadcast Events (`AppointmentStatusChanged`, `StaffNotificationBroadcast`, `VaccineStockUpdated`): Placed on `broadcasts` (`public string $broadcastQueue = 'broadcasts'`), using the default queue connection.
   - Instant Broadcast Events (`QueueTicketUpdated`): Implements `ShouldBroadcastNow`, dispatched synchronously directly to Reverb without queuing delay.
+
+### Dedicated broadcast worker: Phase 1 routing only
+
+Phase 1 changes routing only; it does not deploy or activate a worker. The four services above retain their existing activation state. A separate fifth service is proposed for queued broadcasts.
+
+From `backend`, after confirming the producer's effective queue connection is `database`:
+
+```bash
+php artisan queue:work database --queue=broadcasts --sleep=1 --tries=3 --backoff=3 --timeout=60 --max-time=3600
+```
+
+If the producer uses another supported persistent connection, use that verified connection explicitly. Do not change global `QUEUE_CONNECTION`, `DB_QUEUE`, or messaging configuration for this rollout. No database migration is required to use the named database queue. Supervise only this new service and restart it after its hourly exit; verify `retry_after` exceeds the 60-second timeout (database default: 90 seconds).
+
+`DeliverOutboundMessage` (email/SMS) and `SendFcmPushNotification` retain `config('messaging.queue') = notifications` and `messaging.queue_connection`. The appointment FCM listener still enqueues separately when the application event is dispatched; processing its broadcast wrapper does not rerun that listener. Keep FCM disabled and preserve all delivery flags, existing workers, and scheduler behavior. Do not repurpose `run-worker.sh` for the broadcast-only service.
+
+**Safe deployment gates (separate approval required):**
+
+1. Pass local routing, event, authorization, and domain integration tests. Validate in staging with fake outbound providers and test patient/inventory records.
+2. Verify producer/worker code versions, effective queue connection and database/table, and `BROADCAST_CONNECTION=reverb`. Verify matching Reverb credentials, reachable publish endpoint, browser WSS configuration, and private-channel authorization. A job succeeding with the null broadcaster is not proof of delivery.
+3. Inspect `broadcasts` job metadata before activation: only the three expected `Illuminate\Broadcasting\BroadcastEvent` types should be present. Queue selection is not a job-class allowlist. Existing `notifications` jobs do not move automatically. Leave historical jobs and `quarantine_*` queues untouched; preserve quarantine commit `1664f153` and its protections.
+4. Deploy the routing change, then activate only the separately approved broadcast service. Do not run the broad messaging worker, scheduler, migrations, or shared `queue:restart` as part of this activation.
+5. In separate staging browsers, exercise ABTC check-in, calling, serving, no-response/recall, treatment transfer, and completion. Verify immediate queue/display updates and audio. Confirm/reschedule an appointment and verify its queued broadcast. Receive/adjust stock, open a vial, administer/deduct a dose, and discard a vial; verify the second inventory view matches persisted quantities. Capture WebSocket frames and event-triggered fetches, not just polling refreshes. Check cross-clinic/recipient rejection, reconnect recovery, and that consuming broadcasts does not consume messaging jobs. Monitor job age/failures and duplicate or delayed deliveries from retries.
+
+**Rollback:** Stop only the dedicated broadcast service gracefully, then revert the three event queue properties and matching test expectations through the normal release process. Leave messaging workers, FCM settings, and scheduling unchanged. Retain pending/failed `broadcasts` jobs for separate review; reverting code does not relocate them. Do not bulk retry, delete, move, or replay jobs, including quarantined jobs. New queued broadcasts return to their prior `notifications` behavior; `QueueTicketUpdated` remains synchronous throughout.
 
 ### 2. Job Retries, Timeouts, and Dead-Letter Recovery
 - **Global Worker Timeout:** `--timeout=60` (terminates jobs exceeding 60 seconds).
@@ -447,7 +471,7 @@ for network checks and rollback evidence.
 - Android Firebase project selection is still unresolved. Do not build/release Android until `mobile/android/app/google-services.json` is explicitly resolved and checked against the backend project and credentials.
 - Backend FCM defaults remain disabled. Configure `FIREBASE_PROJECT_ID`, exactly one of `FIREBASE_CREDENTIALS_JSON` / `FIREBASE_CREDENTIALS_BASE64` (or a private file via `GOOGLE_APPLICATION_CREDENTIALS`), `FCM_ANDROID_CHANNEL_ID`, `FCM_CACHE_STORE`, `FCM_TEST_MODE`, and `FCM_ALLOWED_PATIENT_ACCOUNT_IDS` on every process that delivers notifications. Keep `FCM_ENABLED=false` until separately approved. The current default allowlist is account ID 1; confirm intended controlled test accounts explicitly.
 - Runtime credential resolution prefers JSON, then Base64, then the private file. The pre-deploy script keeps an existing file and otherwise prefers Base64 over JSON. Set only one environment credential source to avoid inconsistent copies. Base64 is encoding, not encryption. Never include credential output in logs or version control.
-- Queue workers consume `notifications,default` on `QUEUE_CONNECTION` (default `database`). Keep messaging queue/connection settings consistent with workers. Restart workers after code or configuration changes.
+- The existing messaging worker consumes `notifications,default`; the proposed separate broadcast worker consumes only `broadcasts` on the verified producer connection. Keep messaging settings and activation state unchanged. Restart only the affected service after approved changes; avoid shared `queue:restart` during broadcast-only rollout.
 - `init-app.sh` runs `migrate --force`; this is not a configuration-only command. This merge review does not authorize running it. New vial tables do not backfill existing open-vial summaries into physical vial records: reconcile legacy open vials before rollout to avoid treating remaining portions as a new sealed vial.
 - The Google SSO migration enables SSO for all existing clinic configurations; its rollback disables all of them. Review clinic intent before applying it. Intake changes alter MySQL columns and may lock tables; rollback is blocked while nullable answers exist. SQLite tests do not validate MySQL migration locking or concurrent deductions.
 - Preserve storage/provider configuration and persistent uploads across services. Announcement images use the public disk and `/api/storage/...`; verify uploaded assets survive redeployment. Configure SMTP/provider secrets only in Railway. No live email, SMS, FCM, database migration, or deployment validation was performed during this merge.

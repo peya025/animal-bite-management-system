@@ -255,7 +255,7 @@ class BroadcastingEventClassesTest extends TestCase
 
         $this->assertInstanceOf(ShouldBroadcast::class, $event, 'Must implement queued broadcasting');
         $this->assertInstanceOf(ShouldDispatchAfterCommit::class, $event, 'Must dispatch after DB commit');
-        $this->assertSame('notifications', $event->broadcastQueue, 'Must route to notifications queue');
+        $this->assertSame('broadcasts', $event->broadcastQueue, 'Must route to broadcasts queue');
     }
 
     public function test_appointment_status_changed_channel_targeting_with_patient_account(): void
@@ -408,7 +408,7 @@ class BroadcastingEventClassesTest extends TestCase
 
         $this->assertInstanceOf(ShouldBroadcast::class, $event, 'Must implement queued broadcasting');
         $this->assertInstanceOf(ShouldDispatchAfterCommit::class, $event, 'Must dispatch after DB commit');
-        $this->assertSame('notifications', $event->broadcastQueue, 'Must route to notifications queue');
+        $this->assertSame('broadcasts', $event->broadcastQueue, 'Must route to broadcasts queue');
     }
 
     public function test_staff_notification_broadcast_channel_targeting(): void
@@ -558,7 +558,7 @@ class BroadcastingEventClassesTest extends TestCase
 
         $this->assertInstanceOf(ShouldBroadcast::class, $event, 'Must implement queued broadcasting');
         $this->assertInstanceOf(ShouldDispatchAfterCommit::class, $event, 'Must dispatch after DB commit');
-        $this->assertSame('notifications', $event->broadcastQueue, 'Must route to notifications queue');
+        $this->assertSame('broadcasts', $event->broadcastQueue, 'Must route to broadcasts queue');
     }
 
     public function test_vaccine_stock_updated_channel_targeting(): void
@@ -815,6 +815,45 @@ class BroadcastingEventClassesTest extends TestCase
                 );
             }
         }
+    }
+
+    public function test_laravel_routes_only_queued_broadcasts_to_broadcasts(): void
+    {
+        \Illuminate\Support\Facades\Queue::fake();
+        $manager = app(\Illuminate\Broadcasting\BroadcastManager::class);
+        $events = [
+            new AppointmentStatusChanged(clinicId: 1, appointmentId: 1, status: 'scheduled'),
+            new StaffNotificationBroadcast(clinicId: 1, notificationId: 1, category: 'queue', type: 'call', title: 'T', message: 'M'),
+            new VaccineStockUpdated(clinicId: 1, inventoryId: 1, vaccineType: 'PVRV', batchNumber: 'B1', currentQuantity: 10),
+        ];
+
+        // Exercise Laravel's routing boundary without dispatching domain listeners.
+        foreach ($events as $event) {
+            $manager->queue($event);
+            \Illuminate\Support\Facades\Queue::assertPushedOn(
+                'broadcasts',
+                \Illuminate\Broadcasting\BroadcastEvent::class,
+                fn ($job) => $job->event == $event,
+            );
+        }
+
+        $this->assertSame('notifications', config('messaging.queue'));
+        $outbound = new \App\Jobs\DeliverOutboundMessage(1);
+        $push = new \App\Jobs\SendFcmPushNotification(1, 'Test', 'Test');
+        foreach ([$outbound, $push] as $job) {
+            $this->assertSame('notifications', $job->queue, 'Messaging jobs must retain their existing queue');
+            $this->assertSame(config('messaging.queue_connection'), $job->connection);
+        }
+
+        // A synchronous queue update must reach the broadcaster, not the job queue.
+        $broadcaster = \Mockery::mock(\Illuminate\Contracts\Broadcasting\Broadcaster::class);
+        $broadcaster->shouldReceive('broadcast')->once()->withArgs(
+            fn ($channels, $name, $payload) => $name === 'queue.updated' && $payload['queue_id'] === 1,
+        );
+        $manager->extend('routing-test', fn () => $broadcaster);
+        config(['broadcasting.default' => 'routing-test', 'broadcasting.connections.routing-test' => ['driver' => 'routing-test']]);
+        $manager->queue(new QueueTicketUpdated(clinicId: 1, queueId: 1, queueNumber: 1, status: 'called'));
+        \Illuminate\Support\Facades\Queue::assertCount(3);
     }
 
     public function test_event_fake_can_intercept_dispatches(): void

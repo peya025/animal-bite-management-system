@@ -144,7 +144,7 @@ export default function Login() {
       theme: 'outline',
       size: 'large',
       text: 'signin_with',
-      shape: 'rectangular',
+      shape: 'pill',
       logo_alignment: 'left',
       width: 360,
     });

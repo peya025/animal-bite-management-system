@@ -412,7 +412,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
         Route::get('/puroks', [BiteCaseController::class, 'getPuroks']); // All roles
         Route::get('/statistics', [BiteCaseController::class, 'statistics']); // All roles
         Route::get('/clinical-alerts/summary', [BiteCaseController::class, 'clinicalAlertSummary'])
-            ->middleware('role:admin,triage,treatment,doctor,nurse,developer');
+            ->middleware('role:admin,registration,triage,treatment,doctor,nurse,developer');
         Route::get('/location-summary', [BiteCaseController::class, 'locationRiskSummary']); // All roles - descriptive analytics
         Route::get('/map-data', [BiteCaseController::class, 'getMapData']); // All roles - Map visualization
         Route::post('/new-exposure', [BiteCaseController::class, 'registerNewExposure'])

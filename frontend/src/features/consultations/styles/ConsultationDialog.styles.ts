@@ -30,12 +30,13 @@ export const ConsultationDialog = styled('div')({
   '&& .fm-field--error': { padding: '0 !important', border: '0 !important', background: 'transparent !important', boxShadow: 'none !important' },
   '&& .fm-label': { fontSize: 13, lineHeight: 1.5, fontWeight: 600, color: 'var(--text-h, #374151)', fontFamily: "'Poppins', sans-serif" },
   '&& .fm-label span': { color: 'var(--registration-error-color)', marginLeft: 2 },
-  '&& .fm-input, && .fm-select': {
+  '&& .fm-input, && .fm-select, && .ss-trigger:not(.ss-trigger--compact), && input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="hidden"]), && select': {
+    width: '100%',
     minHeight: 46,
     height: 46,
     border: '1px solid var(--text-secondary, #6b7280) !important',
-    borderRadius: 8,
-    padding: '10px 12px',
+    borderRadius: '9999px !important',
+    padding: '10px 16px',
     fontSize: 14,
     lineHeight: 1.5,
     minWidth: 0,
@@ -44,14 +45,15 @@ export const ConsultationDialog = styled('div')({
     color: 'var(--input-text, #111827)',
     fontFamily: 'inherit',
     outline: 'none',
-    transition: 'border-color 0.15s, box-shadow 0.15s',
+    transition: 'border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease',
   },
-  '&& .fm-textarea': {
+  '&& .fm-textarea, && textarea': {
+    width: '100%',
     minHeight: 96,
     fontSize: 14,
     border: '1px solid var(--text-secondary, #6b7280) !important',
-    borderRadius: 8,
-    padding: '10px 12px',
+    borderRadius: '18px !important',
+    padding: '12px 16px',
     background: 'var(--input-bg, #fff)',
     color: 'var(--input-text, #111827)',
     fontFamily: 'inherit',
@@ -59,17 +61,26 @@ export const ConsultationDialog = styled('div')({
     resize: 'vertical',
     lineHeight: 1.5,
     boxSizing: 'border-box',
-    transition: 'border-color 0.15s, box-shadow 0.15s',
+    transition: 'border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease',
   },
-  '&& .fm-input:hover:not(:disabled), && .fm-select:hover:not(:disabled), && .fm-textarea:hover:not(:disabled)': {
+  '&& .fm-input::placeholder, && .fm-textarea::placeholder, && input::placeholder, && textarea::placeholder': {
+    color: 'var(--text-secondary, #9ca3af)',
+    opacity: 1,
+  },
+  '[data-theme="dark"] & .fm-input::placeholder, [data-theme="dark"] & .fm-textarea::placeholder, [data-theme="dark"] & input::placeholder, [data-theme="dark"] & textarea::placeholder': {
+    color: '#64748b',
+    opacity: 1,
+  },
+  '&& .fm-input:hover:not(:disabled), && .fm-select:hover:not(:disabled), && .fm-textarea:hover:not(:disabled), && .ss-trigger:hover:not(:disabled), && :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):hover:not(:disabled)': {
     borderColor: '#10b981 !important',
   },
-  '&& .fm-input:focus, && .fm-select:focus, && .fm-textarea:focus, && :is(input, select, textarea):focus, && :is(input, select, textarea):focus-visible': {
-    outline: 'none !important',
+  '&& .fm-input:focus, && .fm-select:focus, && .fm-textarea:focus, && .ss-trigger:focus, && .ss-trigger:focus-visible, && :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus, && :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus-visible': {
+    outline: '2px solid transparent !important',
+    outlineStyle: 'solid !important',
     borderColor: '#10b981 !important',
-    boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.1) !important',
+    boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.14) !important',
   },
-  '&& .fm-input:disabled, && .fm-select:disabled, && .fm-textarea:disabled': {
+  '&& .fm-input:disabled, && .fm-select:disabled, && .fm-textarea:disabled, && .ss-trigger:disabled, && :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):disabled': {
     background: 'var(--bg-secondary, #f1f5f9)',
     color: 'var(--text-secondary, #64748b)',
     opacity: 1,

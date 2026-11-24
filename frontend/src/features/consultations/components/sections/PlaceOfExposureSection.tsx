@@ -93,6 +93,8 @@ export default function PlaceOfExposureSection({
           {expLoc.useManual ? (
             <input
               type="text"
+              className="fm-input"
+              aria-invalid={Boolean(error && !expLoc.manualMun.trim()) || undefined}
               value={expLoc.manualMun}
               onChange={(e) => {
                 expLoc.setManualMun(e.target.value);
@@ -100,48 +102,17 @@ export default function PlaceOfExposureSection({
               }}
               placeholder="e.g. Tagoloan"
               disabled={disabled}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border:
-                  error && !expLoc.manualMun.trim()
-                    ? '1.5px solid #ef4444'
-                    : '1px solid var(--input-border, #d1d5db)',
-                borderRadius: BORDER_RADIUS,
-                fontSize: 13,
-                backgroundColor: disabled ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
-                color: 'var(--input-text, #111827)',
-                boxSizing: 'border-box',
-                outline: 'none',
-                boxShadow: error && !expLoc.manualMun.trim() ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
-              }}
             />
           ) : (
             <select
+              className="fm-select"
+              aria-invalid={Boolean(error && !expLoc.municipality) || undefined}
               value={expLoc.municipality}
               onChange={(e) => {
                 expLoc.setMunicipality(e.target.value);
                 if (error) onClearError?.();
               }}
               disabled={disabled || expLoc.loadingMun}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border:
-                  error && !expLoc.municipality
-                    ? '1.5px solid #ef4444'
-                    : '1px solid var(--input-border, #d1d5db)',
-                borderRadius: BORDER_RADIUS,
-                fontSize: 13,
-                backgroundColor:
-                  disabled || expLoc.loadingMun
-                    ? 'var(--bg-secondary, #f9fafb)'
-                    : 'var(--card-bg-solid, #ffffff)',
-                color: 'var(--input-text, #111827)',
-                boxSizing: 'border-box',
-                outline: 'none',
-                boxShadow: error && !expLoc.municipality ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
-              }}
             >
               <option value="">{expLoc.loadingMun ? 'Loading…' : '— Select —'}</option>
               {expLoc.municipalities.map((item) => (
@@ -171,6 +142,8 @@ export default function PlaceOfExposureSection({
           {expLoc.useManual ? (
             <input
               type="text"
+              className="fm-input"
+              aria-invalid={Boolean(error && !expLoc.manualBrgy.trim()) || undefined}
               value={expLoc.manualBrgy}
               onChange={(e) => {
                 expLoc.setManualBrgy(e.target.value);
@@ -178,48 +151,17 @@ export default function PlaceOfExposureSection({
               }}
               placeholder="e.g. Poblacion"
               disabled={disabled}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border:
-                  error && !expLoc.manualBrgy.trim()
-                    ? '1.5px solid #ef4444'
-                    : '1px solid var(--input-border, #d1d5db)',
-                borderRadius: BORDER_RADIUS,
-                fontSize: 13,
-                backgroundColor: disabled ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
-                color: 'var(--input-text, #111827)',
-                boxSizing: 'border-box',
-                outline: 'none',
-                boxShadow: error && !expLoc.manualBrgy.trim() ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
-              }}
             />
           ) : (
             <select
+              className="fm-select"
+              aria-invalid={Boolean(error && !expLoc.barangay) || undefined}
               value={expLoc.barangay}
               onChange={(e) => {
                 expLoc.setBarangay(e.target.value);
                 if (error) onClearError?.();
               }}
               disabled={disabled || !expLoc.municipality || expLoc.loadingBrgy}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border:
-                  error && !expLoc.barangay
-                    ? '1.5px solid #ef4444'
-                    : '1px solid var(--input-border, #d1d5db)',
-                borderRadius: BORDER_RADIUS,
-                fontSize: 13,
-                backgroundColor:
-                  disabled || !expLoc.municipality || expLoc.loadingBrgy
-                    ? 'var(--bg-secondary, #f9fafb)'
-                    : 'var(--card-bg-solid, #ffffff)',
-                color: 'var(--input-text, #111827)',
-                boxSizing: 'border-box',
-                outline: 'none',
-                boxShadow: error && !expLoc.barangay ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
-              }}
             >
               <option value="">{expLoc.loadingBrgy ? 'Loading…' : '— Select —'}</option>
               {expLoc.barangays.map((item) => (
@@ -245,24 +187,11 @@ export default function PlaceOfExposureSection({
           </label>
           <input
             type="text"
+            className="fm-input"
             value={purok}
             onChange={(e) => setPurok(e.target.value)}
             placeholder="e.g. Purok 3"
             disabled={disabled || (!expLoc.useManual && !expLoc.barangay)}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid var(--input-border, #d1d5db)',
-              borderRadius: BORDER_RADIUS,
-              fontSize: 13,
-              backgroundColor:
-                disabled || (!expLoc.useManual && !expLoc.barangay)
-                  ? 'var(--bg-secondary, #f9fafb)'
-                  : 'var(--card-bg-solid, #ffffff)',
-              color: 'var(--input-text, #111827)',
-              boxSizing: 'border-box',
-              outline: 'none',
-            }}
           />
         </div>
       </div>

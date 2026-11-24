@@ -1,5 +1,5 @@
 import { useId, useState, useEffect } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import { Typography } from '@mui/material';
 import api from '../../../shared/services/api';
@@ -307,6 +307,21 @@ export function SimpleDashboardPage() {
   }
 
   const now = new Date();
+  const role = String(user?.role || '').toLowerCase();
+  const patientsRoute =
+    role === 'triage' || role === 'treatment'
+      ? ROUTES.PATIENTS.REGISTRY
+      : ROUTES.PATIENTS.LIST;
+  const vaccinationsRoute =
+    role === 'registration'
+      ? ROUTES.BITE_CASES.LIST
+      : ROUTES.VACCINATIONS.LIST;
+  const calendarRoute =
+    role === 'admin' || role === 'developer'
+      ? ROUTES.CLINIC_SETUP.SCHEDULE
+      : vaccinationsRoute;
+  const calendarRouteLabel =
+    role === 'admin' || role === 'developer' ? 'Schedule' : 'Vaccinations';
 
   return (
     <DashboardLayout pageTitle="Dashboard">
@@ -381,7 +396,7 @@ export function SimpleDashboardPage() {
             }}
             className="sd-top-arrangement"
           >
-            <SdCalendar />
+            <SdCalendar linkTo={calendarRoute} linkLabel={calendarRouteLabel} />
 
             <div style={{ minWidth: 0, display: 'grid', gap: '12px', gridTemplateRows: '1fr auto' }}>
               <DashboardAnnouncements
@@ -399,10 +414,10 @@ export function SimpleDashboardPage() {
                   gap: '10px',
                 }}
               >
-                <SdCard color="purple" label="Total Patients" value={stats.totalPatients.toString()} sub="Registered" icon="patients" />
-                <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" icon="cases" />
-                <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" icon="completed" />
-                <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" icon="pending" />
+                <SdCard color="purple" label="Total Patients" value={stats.totalPatients.toString()} sub="Registered" icon="patients" to={patientsRoute} />
+                <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" icon="cases" to={ROUTES.BITE_CASES.LIST} />
+                <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" icon="completed" to={`${ROUTES.BITE_CASES.LIST}?tab=cases&status=completed`} />
+                <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" icon="pending" to={vaccinationsRoute} />
               </div>
             </div>
           </div>
@@ -468,7 +483,7 @@ export function SimpleDashboardPage() {
                 <div data-walkthrough="btn-goto-patients">
                   <button
                     className="sd-filter-link"
-                    onClick={() => { navigate('/patients'); }}
+                    onClick={() => { navigate(patientsRoute); }}
                     style={{ padding: '8px 12px', fontSize: '12.5px', justifyContent: 'center' }}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -482,7 +497,7 @@ export function SimpleDashboardPage() {
                 <div data-walkthrough="btn-goto-cases">
                   <button
                     className="sd-filter-link"
-                    onClick={() => { navigate('/bite-cases'); }}
+                    onClick={() => { navigate(ROUTES.BITE_CASES.LIST); }}
                     style={{ padding: '8px 12px', fontSize: '12.5px', justifyContent: 'center' }}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -517,9 +532,22 @@ export function SimpleDashboardPage() {
                 }}
                 data-walkthrough="chart-cases-over-time"
               >
-                <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Cases Over Time <span>(last 6 months)</span></p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                  <p className="sd-chart-title" style={{ margin: 0 }}>Cases Over Time <span>(last 6 months)</span></p>
+                  <Link
+                    to={ROUTES.BITE_CASES.LIST}
+                    className="sd-card-link-pill"
+                    aria-label="View bite cases summary"
+                  >
+                    View Cases
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M5 12h14" />
+                      <path d="m12 5 7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
                 <div style={{ flex: 1, minHeight: 0 }}>
-                  <SdLineChart color="#0d9488" />
+                  <SdLineChart color="#0d9488" onPointClick={() => navigate(ROUTES.BITE_CASES.LIST)} />
                 </div>
               </div>
 
@@ -532,12 +560,26 @@ export function SimpleDashboardPage() {
                 }}
                 data-walkthrough="chart-vaccination-trend"
               >
-                <p className="sd-chart-title" style={{ marginBottom: '12px' }}>Vaccination Trend <span>(last 6 months)</span></p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                  <p className="sd-chart-title" style={{ margin: 0 }}>Vaccination Trend <span>(last 6 months)</span></p>
+                  <Link
+                    to={vaccinationsRoute}
+                    className="sd-card-link-pill"
+                    aria-label="View vaccination schedule"
+                  >
+                    Vaccinations
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M5 12h14" />
+                      <path d="m12 5 7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
                 <div style={{ flex: 1, minHeight: 0 }}>
                   <SdLineChart
                     color="#10b981"
                     unitLabel="doses"
                     points={[32, 48, 44, 62, 58, 74, 68, 86, 79, 92, 88, 96]}
+                    onPointClick={() => navigate(vaccinationsRoute)}
                   />
                 </div>
               </div>
@@ -571,44 +613,57 @@ export function SimpleDashboardPage() {
                 <p className="sd-chart-title" style={{ margin: 0 }}>
                   Case Distribution
                 </p>
-                <div
-                  data-walkthrough="case-dist-period-controls"
-                  style={{
-                    display: 'flex',
-                    gap: '3px',
-                    background: '#f1f5f9',
-                    padding: '3px',
-                    borderRadius: '999px',
-                    border: '1px solid #e2e8f0',
-                  }}
-                >
-                  {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((period) => {
-                    const isActive = caseDistPeriod === period;
-                    return (
-                      <button
-                        key={period}
-                        type="button"
-                        onClick={() => setCaseDistPeriod(period)}
-                        style={{
-                          padding: '4px 12px',
-                          fontSize: '11px',
-                          fontWeight: isActive ? 600 : 500,
-                          borderRadius: '999px',
-                          border: 'none',
-                          background: isActive ? '#065f46' : 'transparent',
-                          color: isActive ? '#ffffff' : 'var(--text-secondary, #64748b)',
-                          boxShadow: isActive ? '0 2px 6px rgba(6, 95, 70, 0.25)' : 'none',
-                          cursor: 'pointer',
-                          textTransform: 'capitalize',
-                          transition: 'all 0.18s ease',
-                          fontFamily: 'inherit',
-                          lineHeight: 1.3,
-                        }}
-                      >
-                        {period}
-                      </button>
-                    );
-                  })}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <div
+                    data-walkthrough="case-dist-period-controls"
+                    style={{
+                      display: 'flex',
+                      gap: '3px',
+                      background: '#f1f5f9',
+                      padding: '3px',
+                      borderRadius: '999px',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((period) => {
+                      const isActive = caseDistPeriod === period;
+                      return (
+                        <button
+                          key={period}
+                          type="button"
+                          onClick={() => setCaseDistPeriod(period)}
+                          style={{
+                            padding: '4px 12px',
+                            fontSize: '11px',
+                            fontWeight: isActive ? 600 : 500,
+                            borderRadius: '999px',
+                            border: 'none',
+                            background: isActive ? '#065f46' : 'transparent',
+                            color: isActive ? '#ffffff' : 'var(--text-secondary, #64748b)',
+                            boxShadow: isActive ? '0 2px 6px rgba(6, 95, 70, 0.25)' : 'none',
+                            cursor: 'pointer',
+                            textTransform: 'capitalize',
+                            transition: 'all 0.18s ease',
+                            fontFamily: 'inherit',
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {period}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <Link
+                    to={`${ROUTES.BITE_CASES.LIST}?tab=cases`}
+                    className="sd-card-link-pill"
+                    aria-label="View bite cases by category"
+                  >
+                    Bite Cases
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M5 12h14" />
+                      <path d="m12 5 7 7-7 7" />
+                    </svg>
+                  </Link>
                 </div>
               </div>
 
@@ -617,28 +672,29 @@ export function SimpleDashboardPage() {
                   data={
                     caseDistPeriod === 'daily'
                       ? [
-                          { label: 'Category I',   pct: 20, color: '#a7e3c6' },
-                          { label: 'Category II',  pct: 50, color: '#34b584' },
-                          { label: 'Category III', pct: 30, color: '#0f766e' },
+                          { label: 'Category I',   pct: 20, color: '#a7e3c6', to: `${ROUTES.BITE_CASES.LIST}?tab=cases&severity=I` },
+                          { label: 'Category II',  pct: 50, color: '#34b584', to: `${ROUTES.BITE_CASES.LIST}?tab=cases&severity=II` },
+                          { label: 'Category III', pct: 30, color: '#0f766e', to: `${ROUTES.BITE_CASES.LIST}?tab=cases&severity=III` },
                         ]
                       : caseDistPeriod === 'weekly'
                       ? [
-                          { label: 'Category I',   pct: 30, color: '#a7e3c6' },
-                          { label: 'Category II',  pct: 45, color: '#34b584' },
-                          { label: 'Category III', pct: 25, color: '#0f766e' },
+                          { label: 'Category I',   pct: 30, color: '#a7e3c6', to: `${ROUTES.BITE_CASES.LIST}?tab=cases&severity=I` },
+                          { label: 'Category II',  pct: 45, color: '#34b584', to: `${ROUTES.BITE_CASES.LIST}?tab=cases&severity=II` },
+                          { label: 'Category III', pct: 25, color: '#0f766e', to: `${ROUTES.BITE_CASES.LIST}?tab=cases&severity=III` },
                         ]
                       : caseDistPeriod === 'yearly'
                       ? [
-                          { label: 'Category I',   pct: 38, color: '#a7e3c6' },
-                          { label: 'Category II',  pct: 42, color: '#34b584' },
-                          { label: 'Category III', pct: 20, color: '#0f766e' },
+                          { label: 'Category I',   pct: 38, color: '#a7e3c6', to: `${ROUTES.BITE_CASES.LIST}?tab=cases&severity=I` },
+                          { label: 'Category II',  pct: 42, color: '#34b584', to: `${ROUTES.BITE_CASES.LIST}?tab=cases&severity=II` },
+                          { label: 'Category III', pct: 20, color: '#0f766e', to: `${ROUTES.BITE_CASES.LIST}?tab=cases&severity=III` },
                         ]
                       : [
-                          { label: 'Category I',   pct: 35, color: '#a7e3c6' },
-                          { label: 'Category II',  pct: 40, color: '#34b584' },
-                          { label: 'Category III', pct: 25, color: '#0f766e' },
+                          { label: 'Category I',   pct: 35, color: '#a7e3c6', to: `${ROUTES.BITE_CASES.LIST}?tab=cases&severity=I` },
+                          { label: 'Category II',  pct: 40, color: '#34b584', to: `${ROUTES.BITE_CASES.LIST}?tab=cases&severity=II` },
+                          { label: 'Category III', pct: 25, color: '#0f766e', to: `${ROUTES.BITE_CASES.LIST}?tab=cases&severity=III` },
                         ]
                   }
+                  onSliceClick={(item) => { if (item.to) navigate(item.to); }}
                 />
               </div>
             </div>
@@ -700,40 +756,19 @@ export function SimpleDashboardPage() {
                   </div>
 
                   {/* Bite Map link button */}
-                  <button
-                    type="button"
+                  <Link
+                    to={ROUTES.BITE_CASES.MAP}
                     data-walkthrough="btn-risk-places-bitemap"
-                    onClick={() => navigate((ROUTES as any).BITE_MAP || '/bite-cases/map')}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '4px 9px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      color: '#475569',
-                      background: '#f8fafc',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '7px',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#f1f5f9';
-                      e.currentTarget.style.color = '#0f172a';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#f8fafc';
-                      e.currentTarget.style.color = '#475569';
-                    }}
+                    className="sd-card-link-pill"
+                    aria-label="Open Bite Map"
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
                       <line x1="8" y1="2" x2="8" y2="18"></line>
                       <line x1="16" y1="6" x2="16" y2="22"></line>
                     </svg>
                     Bite Map
-                  </button>
+                  </Link>
                 </div>
               </div>
 
@@ -749,6 +784,7 @@ export function SimpleDashboardPage() {
                       label: b.name,
                       value: b.count,
                       riskLevel: b.risk,
+                      to: `${ROUTES.BITE_CASES.MAP}?location=${encodeURIComponent(b.name)}`,
                       color:
                         b.risk === 'High'
                           ? '#f2a2a2' // Muted Pastel Coral for High Risk
@@ -756,6 +792,9 @@ export function SimpleDashboardPage() {
                           ? '#f3cc86' // Muted Pastel Warm Sand for Moderate Risk
                           : '#8ed7b5', // Muted Pastel Sage Mint for Low Risk
                     }))}
+                    onBarClick={(item) => {
+                      if (item.to) navigate(item.to);
+                    }}
                   />
                 )}
               </div>
@@ -767,12 +806,21 @@ export function SimpleDashboardPage() {
       {activeTab === 'cases' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} data-walkthrough="cases-tab-view">
           <div className="sd-cards-grid" data-walkthrough="cases-tab-cards">
-            <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" />
-            <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" />
+            <SdCard color="green" label="Total Bite Cases" value={stats.biteCases.toString()} sub="Reported cases" icon="cases" to={ROUTES.BITE_CASES.LIST} />
+            <SdCard color="violet" label="Completed Cases" value={stats.completedCases.toString()} sub="Treatment finished" icon="completed" to={`${ROUTES.BITE_CASES.LIST}?tab=cases&status=completed`} />
           </div>
 
           <div className="sd-chart-card" data-walkthrough="table-recent-cases" style={{ borderRadius: '20px', padding: '24px' }}>
-            <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: 'var(--text-h)' }}>Recent Bite Incident Cases</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <p style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-h)' }}>Recent Bite Incident Cases</p>
+              <Link to={`${ROUTES.BITE_CASES.LIST}?tab=cases`} className="sd-card-link-pill">
+                View All Cases
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12h14" />
+                  <path d="m12 5 7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead>
@@ -826,12 +874,21 @@ export function SimpleDashboardPage() {
       {activeTab === 'vaccinations' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} data-walkthrough="vaccinations-tab-view">
           <div className="sd-cards-grid" data-walkthrough="vaccinations-tab-cards">
-            <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" />
-            <SdCard color="purple" label="Total Scheduled" value={stats.followupPatients.toString()} sub="Doses tracked" />
+            <SdCard color="indigo" label="Pending Doses" value={stats.pendingVaccinations.toString()} sub="Scheduled" icon="pending" to={vaccinationsRoute} />
+            <SdCard color="purple" label="Total Scheduled" value={stats.followupPatients.toString()} sub="Doses tracked" icon="patients" to={vaccinationsRoute} />
           </div>
 
           <div className="sd-chart-card" data-walkthrough="table-recent-vaccinations" style={{ borderRadius: '20px', padding: '24px' }}>
-            <p style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: 'var(--text-h)' }}>Recent Vaccinations & Scheduled Doses</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <p style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-h)' }}>Recent Vaccinations & Scheduled Doses</p>
+              <Link to={vaccinationsRoute} className="sd-card-link-pill">
+                View Schedule
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12h14" />
+                  <path d="m12 5 7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead>
@@ -877,7 +934,7 @@ export function SimpleDashboardPage() {
   );
 }
 
-function SdCalendar() {
+function SdCalendar({ linkTo, linkLabel }: { linkTo?: string; linkLabel?: string }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -1216,17 +1273,28 @@ function SdCalendar() {
           >
             Holidays · {monthNames[month]}
           </span>
-          {monthHolidays.length > 0 && (
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                color: isDark ? '#f87171' : '#dc2626',
-              }}
-            >
-              {monthHolidays.length} {monthHolidays.length === 1 ? 'day' : 'days'}
-            </span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {monthHolidays.length > 0 && (
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: isDark ? '#f87171' : '#dc2626',
+                }}
+              >
+                {monthHolidays.length} {monthHolidays.length === 1 ? 'day' : 'days'}
+              </span>
+            )}
+            {linkTo && (
+              <Link to={linkTo} className="sd-card-link-pill" aria-label={`Open ${linkLabel || 'Schedule'}`}>
+                {linkLabel || 'Schedule'}
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12h14" />
+                  <path d="m12 5 7 7-7 7" />
+                </svg>
+              </Link>
+            )}
+          </div>
         </div>
 
         {monthHolidays.length === 0 ? (
@@ -1322,12 +1390,14 @@ function SdCard({
   value,
   sub,
   icon,
+  to,
 }: {
   color: string;
   label: string;
   value: string;
   sub: string;
   icon?: 'patients' | 'cases' | 'completed' | 'pending';
+  to?: string;
 }) {
   const autoId = `card-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
@@ -1374,14 +1444,44 @@ function SdCard({
     );
   };
 
-  return (
-    <div className={`sd-card sd-card--${color}`} data-walkthrough={autoId} data-card-label={label}>
+  const content = (
+    <>
       <div className="sd-card-head">
         <p className="sd-card-label">{label}</p>
         {renderIcon()}
       </div>
       <p className="sd-card-value">{value}</p>
-      <p className="sd-card-sub">{sub}</p>
+      <div className="sd-card-footer">
+        <p className="sd-card-sub">{sub}</p>
+        {to && (
+          <span className="sd-card-arrow" aria-hidden="true">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </span>
+        )}
+      </div>
+    </>
+  );
+
+  if (to) {
+    return (
+      <Link
+        to={to}
+        className={`sd-card sd-card--link sd-card--${color}`}
+        data-walkthrough={autoId}
+        data-card-label={label}
+        aria-label={`${label}: ${value} ${sub}`}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={`sd-card sd-card--${color}`} data-walkthrough={autoId} data-card-label={label}>
+      {content}
     </div>
   );
 }
@@ -1390,10 +1490,12 @@ function SdLineChart({
   color = '#3b82f6',
   points = [20, 45, 30, 60, 40, 75, 55, 80, 65, 90, 70, 85],
   unitLabel = 'cases',
+  onPointClick,
 }: {
   color?: string;
   points?: number[];
   unitLabel?: string;
+  onPointClick?: (month: string, value: number) => void;
 }) {
   const uid = useId().replace(/:/g, '');
   const theme = useTheme();
@@ -1527,6 +1629,7 @@ function SdLineChart({
             key={i}
             onMouseEnter={() => setHoveredIdx(i)}
             onMouseLeave={() => setHoveredIdx(null)}
+            onClick={() => onPointClick?.(months[i], pt.value)}
             style={{ cursor: 'pointer' }}
           >
             <rect
@@ -1590,7 +1693,13 @@ function SdLineChart({
   );
 }
 
-function SdDonutChart({ data }: { data: { label: string; pct: number; color: string }[] }) {
+function SdDonutChart({
+  data,
+  onSliceClick,
+}: {
+  data: { label: string; pct: number; color: string; to?: string }[];
+  onSliceClick?: (item: { label: string; pct: number; color: string; to?: string }) => void;
+}) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
@@ -1666,6 +1775,7 @@ function SdDonutChart({ data }: { data: { label: string; pct: number; color: str
                 }
                 onMouseEnter={() => setActiveIdx(i)}
                 onMouseLeave={() => setActiveIdx(null)}
+                onClick={() => onSliceClick?.(s)}
               />
             );
           })}
@@ -1723,6 +1833,13 @@ function SdDonutChart({ data }: { data: { label: string; pct: number; color: str
               onMouseLeave={() => setActiveIdx(null)}
               onFocus={() => setActiveIdx(i)}
               onBlur={() => setActiveIdx(null)}
+              onClick={() => onSliceClick?.(d)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSliceClick?.(d);
+                }
+              }}
               style={{
                 padding: '6px 10px',
                 borderRadius: '10px',
@@ -1784,8 +1901,10 @@ function SdDonutChart({ data }: { data: { label: string; pct: number; color: str
 
 function SdBarChart({
   data,
+  onBarClick,
 }: {
-  data: { label: string; value: number; color?: string; subLabel?: string; riskLevel?: 'High' | 'Moderate' | 'Low' }[];
+  data: { label: string; value: number; color?: string; subLabel?: string; riskLevel?: 'High' | 'Moderate' | 'Low'; to?: string }[];
+  onBarClick?: (item: { label: string; value: number; color?: string; subLabel?: string; riskLevel?: 'High' | 'Moderate' | 'Low'; to?: string }) => void;
 }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -1857,6 +1976,13 @@ function SdBarChart({
               onMouseLeave={() => setHoveredIdx(null)}
               onFocus={() => setHoveredIdx(idx)}
               onBlur={() => setHoveredIdx(null)}
+              onClick={() => onBarClick?.(item)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onBarClick?.(item);
+                }
+              }}
               aria-label={`${item.label}: ${item.value} cases${item.riskLevel ? `, ${item.riskLevel} risk` : ''}`}
               style={{
                 display: 'flex',

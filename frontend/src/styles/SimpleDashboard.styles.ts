@@ -189,7 +189,22 @@ export const AppStyleScope = styled('div')`
     justify-content: space-between;
     min-height: 106px;
     cursor: default;
-    transition: box-shadow 0.25s ease, transform 0.2s ease;
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow 0.22s ease, transform 0.18s ease, border-color 0.2s ease;
+  }
+  .sd-card--link {
+    cursor: pointer;
+  }
+  .sd-card--link:active {
+    transform: translateY(0) scale(0.985);
+  }
+  .sd-card--link:focus-visible {
+    outline: 2px solid #059669;
+    outline-offset: 2px;
+  }
+  [data-theme='dark'] .sd-card--link:focus-visible {
+    outline-color: #34d399;
   }
   [data-theme='dark'] .sd-card {
     background: #111827;
@@ -198,10 +213,99 @@ export const AppStyleScope = styled('div')`
   }
   .sd-card:hover {
     transform: translateY(-2px);
+    border-color: rgba(16, 185, 129, 0.45);
     box-shadow: 0 8px 22px rgba(16, 185, 129, 0.22), 0 2px 8px rgba(16, 185, 129, 0.12);
   }
   [data-theme='dark'] .sd-card:hover {
+    border-color: rgba(52, 211, 153, 0.5);
     box-shadow: 0 8px 24px rgba(16, 185, 129, 0.32), 0 0 16px rgba(16, 185, 129, 0.2);
+  }
+  .sd-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .sd-card-arrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #059669;
+    opacity: 0.72;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+  [data-theme='dark'] .sd-card-arrow {
+    color: #34d399;
+  }
+  .sd-card--link:hover .sd-card-arrow,
+  .sd-card--link:focus-visible .sd-card-arrow {
+    opacity: 1;
+    transform: translateX(2px);
+  }
+  .sd-card-link-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #047857;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 7px;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+    line-height: 1.4;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  }
+  .sd-card-link-pill:hover {
+    background: #d1fae5;
+    border-color: #6ee7b7;
+    color: #065f46;
+  }
+  .sd-card-link-pill:active {
+    transform: scale(0.97);
+  }
+  .sd-card-link-pill:focus-visible {
+    outline: 2px solid #059669;
+    outline-offset: 2px;
+  }
+  .sd-card-link-pill svg {
+    transition: transform 0.15s ease;
+  }
+  .sd-card-link-pill:hover svg {
+    transform: translateX(2px);
+  }
+  [data-theme='dark'] .sd-card-link-pill {
+    background: rgba(16, 185, 129, 0.14);
+    border-color: rgba(16, 185, 129, 0.35);
+    color: #6ee7b7;
+  }
+  [data-theme='dark'] .sd-card-link-pill:hover {
+    background: rgba(16, 185, 129, 0.24);
+    border-color: rgba(52, 211, 153, 0.6);
+    color: #a7f3d0;
+  }
+  [data-theme='dark'] .sd-card-link-pill:focus-visible {
+    outline-color: #34d399;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sd-card,
+    .sd-card-arrow,
+    .sd-card-link-pill,
+    .sd-card-link-pill svg {
+      transition: none;
+    }
+    .sd-card:hover,
+    .sd-card--link:active,
+    .sd-card--link:hover .sd-card-arrow,
+    .sd-card-link-pill:active,
+    .sd-card-link-pill:hover svg {
+      transform: none;
+    }
   }
   .sd-card-head {
     display: flex;

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { AddressLocationState } from '../../../patients/hooks/useAddressLocation';
+import { SearchableSelect } from '../../../../components/forms/SearchableSelect';
 
 const BORDER_RADIUS = 8;
 
@@ -24,6 +25,16 @@ export default function PlaceOfExposureSection({
   disabled = false,
   required = true,
 }: PlaceOfExposureSectionProps) {
+  const municipalityOptions = useMemo(
+    () => expLoc.municipalities.map((item) => ({ value: item.code, label: item.name })),
+    [expLoc.municipalities]
+  );
+
+  const barangayOptions = useMemo(
+    () => expLoc.barangays.map((item) => ({ value: item.code, label: item.name })),
+    [expLoc.barangays]
+  );
+
   return (
     <div
       id="field-place_of_exposure"
@@ -104,23 +115,21 @@ export default function PlaceOfExposureSection({
               disabled={disabled}
             />
           ) : (
-            <select
-              className="fm-select"
+            <SearchableSelect
+              aria-label="Municipality"
               aria-invalid={Boolean(error && !expLoc.municipality) || undefined}
+              aria-required={required || undefined}
               value={expLoc.municipality}
-              onChange={(e) => {
-                expLoc.setMunicipality(e.target.value);
+              options={municipalityOptions}
+              placeholder={expLoc.loadingMun ? 'Loading…' : '— Select —'}
+              searchPlaceholder="Search municipality..."
+              noResultsText="No municipality found"
+              onChange={(val) => {
+                expLoc.setMunicipality(val);
                 if (error) onClearError?.();
               }}
               disabled={disabled || expLoc.loadingMun}
-            >
-              <option value="">{expLoc.loadingMun ? 'Loading…' : '— Select —'}</option>
-              {expLoc.municipalities.map((item) => (
-                <option key={item.code} value={item.code}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
+            />
           )}
         </div>
 
@@ -153,23 +162,21 @@ export default function PlaceOfExposureSection({
               disabled={disabled}
             />
           ) : (
-            <select
-              className="fm-select"
+            <SearchableSelect
+              aria-label="Barangay"
               aria-invalid={Boolean(error && !expLoc.barangay) || undefined}
+              aria-required={required || undefined}
               value={expLoc.barangay}
-              onChange={(e) => {
-                expLoc.setBarangay(e.target.value);
+              options={barangayOptions}
+              placeholder={expLoc.loadingBrgy ? 'Loading…' : '— Select —'}
+              searchPlaceholder="Search barangay..."
+              noResultsText="No barangay found"
+              onChange={(val) => {
+                expLoc.setBarangay(val);
                 if (error) onClearError?.();
               }}
               disabled={disabled || !expLoc.municipality || expLoc.loadingBrgy}
-            >
-              <option value="">{expLoc.loadingBrgy ? 'Loading…' : '— Select —'}</option>
-              {expLoc.barangays.map((item) => (
-                <option key={item.code} value={item.code}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
+            />
           )}
         </div>
 

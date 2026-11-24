@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { TreatmentFormData } from '../../types/consultation.types';
 import {
   COMMON_REFERRAL_FACILITIES,
   COMMON_REFERRAL_REASONS,
 } from '../../constants/consultation.constants';
+import { SearchableSelect } from '../../../../components/forms/SearchableSelect';
 import { FormField } from '../FormField';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -49,8 +50,15 @@ export default function TransferReferralSection({
   const isEnabled = Boolean(formData.is_referral || isReferralCompleted || formData.transferred_to_facility);
   const facilityVal = (formData.transferred_to_facility ?? '').trim();
 
-  const handleFacilitySelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
+  const facilityOptions = useMemo(
+    () => [
+      ...COMMON_REFERRAL_FACILITIES.map((fac) => ({ value: fac, label: `🏥 ${fac}` })),
+      { value: 'custom', label: 'Other / Custom Health Facility…' },
+    ],
+    []
+  );
+
+  const handleFacilitySelect = (val: string) => {
     if (val && val !== 'custom') {
       onSelectFacility(val);
     }
@@ -224,28 +232,24 @@ export default function TransferReferralSection({
               className="fm-grid--full"
             >
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <select
-                  className="fm-select"
+                <SearchableSelect
+                  aria-label="Receiving Hospital or Facility"
                   value={
                     formData.transferred_to_facility && COMMON_REFERRAL_FACILITIES.includes(formData.transferred_to_facility)
                       ? formData.transferred_to_facility
                       : (formData.transferred_to_facility ? 'custom' : '')
                   }
+                  options={facilityOptions}
+                  placeholder="— Select Receiving Hospital / Facility —"
+                  searchPlaceholder="Search receiving hospital or facility..."
+                  noResultsText="No facility found"
                   onChange={handleFacilitySelect}
                   disabled={isFormDisabled}
                   style={{
                     fontWeight: formData.transferred_to_facility ? 600 : 400,
                     color: formData.transferred_to_facility ? '#065f46' : 'inherit',
                   }}
-                >
-                  <option value="">— Select Receiving Hospital / Facility —</option>
-                  {COMMON_REFERRAL_FACILITIES.map((fac) => (
-                    <option key={fac} value={fac}>
-                      🏥 {fac}
-                    </option>
-                  ))}
-                  <option value="custom">Other / Custom Health Facility…</option>
-                </select>
+                />
 
                 <input
                   className="fm-input"

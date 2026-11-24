@@ -99,7 +99,11 @@ function queryPrioritySelector(selectorList?: string): HTMLElement | null {
   return null;
 }
 
-function scrollElementIntoOptimalView(el: HTMLElement, placement: WalkthroughPlacement): boolean {
+function scrollElementIntoOptimalView(
+  el: HTMLElement,
+  placement: WalkthroughPlacement,
+  modalHeight = 230
+): boolean {
   if (placement === 'center') return true;
   const vh = window.innerHeight;
   const vw = window.innerWidth;
@@ -118,68 +122,92 @@ function scrollElementIntoOptimalView(el: HTMLElement, placement: WalkthroughPla
     return true;
   }
 
-  // If element is inside .page-content (the main scrollable workspace)
-  if (pageContent && pageContent.contains(el)) {
-    const containerRect = pageContent.getBoundingClientRect();
-    const elRect = el.getBoundingClientRect();
-    const topHeaderBottom = Math.max(containerRect.top, 68);
-    const maxScrollTop = Math.max(0, pageContent.scrollHeight - pageContent.clientHeight);
+  const isInsidePageContent = Boolean(pageContent && pageContent.contains(el));
+  const pageContentMaxScroll = pageContent
+    ? Math.max(0, pageContent.scrollHeight - pageContent.clientHeight)
+    : 0;
+  const usePageContentScroll = isInsidePageContent && pageContentMaxScroll > 4;
 
-    const MODAL_HEIGHT = 230;
-    const SAFE_GAP = 16;
-    const MARGIN = 16;
-    const MODAL_WIDTH = 340;
-
-    // Check if space is available beside the element (left or right)
-    const fitsRight = vw - elRect.right >= MODAL_WIDTH + SAFE_GAP + MARGIN;
-    const fitsLeft = elRect.left >= MODAL_WIDTH + SAFE_GAP + MARGIN;
-    const fitsBeside = fitsRight || fitsLeft;
-    const usableHeight = (vh - MARGIN) - topHeaderBottom;
-
-    // Case 1: Beside placement (explicitly requested 'left' or 'right')
-    if ((placement === 'left' || placement === 'right') && fitsBeside && elRect.height < usableHeight) {
-      if (elRect.top < topHeaderBottom + 12 || elRect.bottom > vh - 12) {
-        const idealTop = topHeaderBottom + Math.max(16, (usableHeight - elRect.height) / 2);
-        const delta = elRect.top - idealTop;
-        if (Math.abs(delta) > 8) {
-          pageContent.scrollTop = Math.max(0, Math.min(maxScrollTop, pageContent.scrollTop + delta));
-        }
-      }
-      return maxScrollTop > 0 || pageContent.scrollTop > 0;
-    }
-
-    // Case 2: Elements with placement 'bottom':
-    // Position element near sticky header so modal has maximum clearance below it!
-    if (placement === 'bottom') {
-      const minElTop = topHeaderBottom + 8;
-      const maxElBottom = (vh - MARGIN) - MODAL_HEIGHT - SAFE_GAP;
-      let desiredTop = minElTop;
-      if (minElTop + elRect.height > maxElBottom && maxElBottom - elRect.height >= topHeaderBottom) {
-        desiredTop = Math.max(topHeaderBottom, maxElBottom - elRect.height);
-      }
-      const delta = elRect.top - desiredTop;
-      if (Math.abs(delta) > 6) {
-        pageContent.scrollTop = Math.max(0, Math.min(maxScrollTop, pageContent.scrollTop + delta));
-      }
-      return maxScrollTop > 0 || pageContent.scrollTop > 0;
-    }
-
-    // Case 3: Elements with placement 'top' (e.g. tables, records, lower modules):
-    // Position top of element so there is generous clearance for the modal above it!
-    const desiredTop = topHeaderBottom + MODAL_HEIGHT + SAFE_GAP + 14;
-    const delta = elRect.top - desiredTop;
-    if (Math.abs(delta) > 6) {
-      pageContent.scrollTop = Math.max(0, Math.min(maxScrollTop, pageContent.scrollTop + delta));
-    }
-    return maxScrollTop > 0 || pageContent.scrollTop > 0;
-  }
-
-  // Fallback for document/window scrolling
+  const containerRect = pageContent ? pageContent.getBoundingClientRect() : null;
   const elRect = el.getBoundingClientRect();
-  if (elRect.top < 84 || elRect.bottom > vh - 84) {
-    el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+  const topHeaderBottom = isInsidePageContent
+    ? Math.max(containerRect ? containerRect.top : 68, 70)
+    : 70;
+
+  const MODAL_HEIGHT = Math.max(180, Math.min(320, Math.ceil(modalHeight)));
+  const SAFE_GAP = 16;
+  const MARGIN = 16;
+  const PAD = 8;
+  const MODAL_WIDTH = 340;
+
+  const currentScrollTop = usePageContentScroll
+    ? pageContent!.scrollTop
+    : window.scrollY || document.documentElement.scrollTop || 0;
+  const maxScrollTop = usePageContentScroll
+    ? pageContentMaxScroll
+    : Math.max(0, document.documentElement.scrollHeight - vh);
+
+  const applyScrollDelta = (delta: number): boolean => {
+    if (Math.abs(delta) <= 6) return maxScrollTop > 0 || currentScrollTop > 0;
+    const nextScroll = Math.max(0, Math.min(maxScrollTop, currentScrollTop + delta));
+    if (usePageContentScroll) {
+      pageContent!.scrollTop = nextScroll;
+    } else {
+      window.scrollTo({ top: nextScroll, behavior: 'auto' });
+    }
+    return maxScrollTop > 0 || nextScroll > 0;
+  };
+
+  // Check if space is available beside the element (left or right)
+  const fitsRight = vw - elRect.right >= MODAL_WIDTH + SAFE_GAP + MARGIN;
+  const fitsLeft = elRect.left >= MODAL_WIDTH + SAFE_GAP + MARGIN;
+  const fitsBeside = fitsRight || fitsLeft;
+  const usableHeight = (vh - MARGIN) - topHeaderBottom;
+  const isTallElement = elRect.height + 2 * PAD > usableHeight - MODAL_HEIGHT - SAFE_GAP;
+
+  // Case 1: Beside placement (explicitly requested 'left' or 'right')
+  if ((placement === 'left' || placement === 'right') && fitsBeside && elRect.height < usableHeight) {
+    if (elRect.top < topHeaderBottom + 12 || elRect.bottom > vh - 12) {
+      const idealTop = topHeaderBottom + Math.max(16, (usableHeight - elRect.height) / 2);
+      return applyScrollDelta(elRect.top - idealTop);
+    }
+    return maxScrollTop > 0 || currentScrollTop > 0;
   }
-  return true;
+
+  // Case 2: Tall elements or explicit 'top' placement:
+  // Reserve full clearance ABOVE the highlighted section so the modal sits cleanly above without overlapping.
+  if (placement === 'top' || isTallElement) {
+    const desiredTop = topHeaderBottom + MODAL_HEIGHT + SAFE_GAP + PAD + 8;
+    const deltaForTop = elRect.top - desiredTop;
+    const clampedTopScroll = Math.max(0, Math.min(maxScrollTop, currentScrollTop + deltaForTop));
+    const resultingElTop = elRect.top - (clampedTopScroll - currentScrollTop);
+
+    // If scrolling up gives enough space above the element, use it
+    if (resultingElTop - PAD >= topHeaderBottom + MODAL_HEIGHT + SAFE_GAP - 4) {
+      return applyScrollDelta(deltaForTop);
+    }
+
+    // Otherwise try scrolling down so the modal fits cleanly below the element
+    const desiredBottom = vh - MARGIN - MODAL_HEIGHT - SAFE_GAP - PAD;
+    const deltaForBottom = elRect.bottom - desiredBottom;
+    const clampedBottomScroll = Math.max(0, Math.min(maxScrollTop, currentScrollTop + deltaForBottom));
+    const resultingElBottom = elRect.bottom - (clampedBottomScroll - currentScrollTop);
+    if (resultingElBottom + PAD + SAFE_GAP + MODAL_HEIGHT <= vh - MARGIN + 4) {
+      return applyScrollDelta(deltaForBottom);
+    }
+
+    return applyScrollDelta(deltaForTop);
+  }
+
+  // Case 3: Elements with placement 'bottom' or 'auto' (that fit above a bottom modal):
+  // Position element near sticky header so modal has maximum clearance below it.
+  const minElTop = topHeaderBottom + 10;
+  const maxElBottom = (vh - MARGIN) - MODAL_HEIGHT - SAFE_GAP - PAD;
+  let desiredTop = minElTop;
+  if (minElTop + elRect.height > maxElBottom && maxElBottom - elRect.height >= topHeaderBottom) {
+    desiredTop = Math.max(topHeaderBottom, maxElBottom - elRect.height);
+  }
+  return applyScrollDelta(elRect.top - desiredTop);
 }
 
 export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
@@ -325,7 +353,7 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
         // Compact beside placement when full-width top/bottom/left/right cannot fit without clipping
         const COMPACT_MARGIN = 8;
         const COMPACT_GAP = 10;
-        const MIN_COMPACT_W = 248;
+        const MIN_COMPACT_W = 236;
         const compactLeftAvail = sLeft - COMPACT_MARGIN - COMPACT_GAP;
         const compactRightAvail = vw - sRight - COMPACT_MARGIN - COMPACT_GAP;
         const fitsCompactLeft = compactLeftAvail >= MIN_COMPACT_W && vh - 2 * COMPACT_MARGIN >= cardH;
@@ -334,7 +362,14 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
         type PlacementChoice = 'bottom' | 'top' | 'top-full' | 'right' | 'left' | 'compact-left' | 'compact-right';
         let chosenPlacement: PlacementChoice | null = null;
 
-        if (step.placement === 'right') {
+        if (step.placement === 'auto') {
+          if (fitsAbove && spaceAbove >= spaceBelow) chosenPlacement = 'top';
+          else if (fitsBelow) chosenPlacement = 'bottom';
+          else if (fitsAbove) chosenPlacement = 'top';
+          else if (fitsRight) chosenPlacement = 'right';
+          else if (fitsLeft) chosenPlacement = 'left';
+          else if (fitsAboveFull) chosenPlacement = 'top-full';
+        } else if (step.placement === 'right') {
           if (fitsRight) chosenPlacement = 'right';
           else if (fitsLeft) chosenPlacement = 'left';
           else if (fitsBelow) chosenPlacement = 'bottom';
@@ -427,11 +462,14 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
           chosen.left = Math.max(effectiveMargin, Math.min(vw - effectiveCardW - effectiveMargin, chosen.left));
           chosen.top = Math.max(effectiveMargin, Math.min(vh - cardH - effectiveMargin, chosen.top));
 
-          // Non-overlap check: only shift if the non-overlapping position also fits inside the viewport
+          // Non-overlap check: try all non-overlapping sides that fit cleanly inside the viewport
           const usedGap = chosen.width ? COMPACT_GAP : SAFE_GAP;
           if (overlapsSpotlight(chosen.top, chosen.left, effectiveCardW, usedGap)) {
             const aboveTop = sTop - cardH - SAFE_GAP;
             const belowTop = sBottom + SAFE_GAP;
+            const rightLeft = sRight + SAFE_GAP;
+            const leftLeft = sLeft - defaultCardW - SAFE_GAP;
+
             if (aboveTop >= effectiveMargin && !overlapsSpotlight(aboveTop, chosen.left, effectiveCardW, SAFE_GAP)) {
               chosen.top = aboveTop;
             } else if (
@@ -439,6 +477,27 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
               !overlapsSpotlight(belowTop, chosen.left, effectiveCardW, SAFE_GAP)
             ) {
               chosen.top = belowTop;
+            } else if (
+              rightLeft + defaultCardW <= vw - MARGIN &&
+              !overlapsSpotlight(clampedVerticalTop, rightLeft, defaultCardW, SAFE_GAP)
+            ) {
+              chosen = { top: clampedVerticalTop, left: rightLeft };
+            } else if (
+              leftLeft >= MARGIN &&
+              !overlapsSpotlight(clampedVerticalTop, leftLeft, defaultCardW, SAFE_GAP)
+            ) {
+              chosen = { top: clampedVerticalTop, left: leftLeft };
+            } else if (fitsCompactLeft || fitsCompactRight) {
+              const useRight = fitsCompactRight && (!fitsCompactLeft || compactRightAvail >= compactLeftAvail);
+              const compactW = Math.min(defaultCardW, Math.floor(useRight ? compactRightAvail : compactLeftAvail));
+              const compactTop = Math.max(
+                COMPACT_MARGIN,
+                Math.min(vh - cardH - COMPACT_MARGIN, Math.round(sTop + (sHeight - cardH) / 2))
+              );
+              const compactLeft = useRight
+                ? Math.min(vw - compactW - COMPACT_MARGIN, sRight + COMPACT_GAP)
+                : Math.max(COMPACT_MARGIN, sLeft - compactW - COMPACT_GAP);
+              chosen = { top: compactTop, left: compactLeft, width: compactW };
             }
           }
         }
@@ -520,7 +579,8 @@ export const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({
         const wasDifferent = activeElementRef.current !== primaryEl || isFallbackRef.current;
         setActiveElement(primaryEl, false);
         if (wasDifferent || stepScrolledRef.current !== step.id) {
-          const didScroll = scrollElementIntoOptimalView(primaryEl, step.placement);
+          const measuredCardH = cardRef.current?.getBoundingClientRect().height || 230;
+          const didScroll = scrollElementIntoOptimalView(primaryEl, step.placement, measuredCardH);
           if (didScroll) stepScrolledRef.current = step.id;
         }
         computeLayoutFromElement(primaryEl);

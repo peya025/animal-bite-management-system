@@ -27,7 +27,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->afterResolving('queue', function ($manager, $app) {
+            $manager->addConnector('database', fn () => new \App\Queue\QuarantineDatabaseConnector($app['db']));
+        });
     }
 
     /**

@@ -183,16 +183,16 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
     await page.getByTestId('menu-start-module-tour').click();
     await page.getByTestId('walkthrough-start-btn').click();
 
-    // Step 1 of 12: Station 1: New & Day 0
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 12');
+    // Step 1 of 6: Station 1: New & Day 0
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 6');
     await expect(page.getByTestId('walkthrough-module-badge')).toHaveText('Treatment Queues');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Station 1: New & Day 0');
 
-    // Fast-forward to Step 12
-    for (let i = 1; i < 12; i++) {
+    // Fast-forward to Step 6
+    for (let i = 1; i < 6; i++) {
       await page.getByTestId('walkthrough-btn-next').click();
     }
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 12 of 12');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 6 of 6');
 
     // Verify it finishes cleanly and DOES NOT auto-navigate to another station
     await page.getByTestId('walkthrough-btn-finish').click();
@@ -362,5 +362,134 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
     // Guide icon remains functional
     await page.getByTestId('walkthrough-help-button').click();
     await expect(page.getByTestId('walkthrough-help-menu')).toBeVisible();
+  });
+
+  test('8. Doctor (triage) Treatment Queues walkthrough has 6 simplified Station 1 steps without individual action buttons', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1366, height: 632 });
+    await page.route('**/api/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 55,
+          name: 'Dr. Maria Santos',
+          email: 'doctor@abtc.local',
+          role: 'triage',
+        }),
+      });
+    });
+
+    await page.addInitScript(() => {
+      localStorage.setItem('authToken', 'test-doc-token');
+      localStorage.setItem(
+        'userData',
+        JSON.stringify({
+          id: 55,
+          name: 'Dr. Maria Santos',
+          email: 'doctor@abtc.local',
+          role: 'triage',
+        }),
+      );
+      localStorage.setItem('abtc_walkthrough_status_55', 'completed');
+      localStorage.setItem('abtc_walkthrough_indicator_dismissed_55', 'true');
+    });
+
+    await page.goto('/tests/registration/walkthrough.html');
+    await page.locator('[data-tour="nav-item-treatment-queues"]').click();
+
+    await page.getByTestId('walkthrough-help-button').click();
+    await page.getByTestId('menu-start-module-tour').click();
+    await page.getByTestId('walkthrough-start-btn').click();
+
+    const expectedTitles = [
+      'Station 1: New & Day 0',
+      'Queue Summary Counters',
+      'Vaccine Availability',
+      'Search & Filters',
+      'Patient Queue List',
+      'Today’s Queue Progress',
+    ];
+
+    await expect(page.getByTestId('walkthrough-module-badge')).toHaveText('Treatment Queues');
+
+    for (let i = 0; i < expectedTitles.length; i++) {
+      await expect(page.getByTestId('walkthrough-step-counter')).toHaveText(`Step ${i + 1} of 6`);
+      await expect(page.getByTestId('walkthrough-step-title')).toHaveText(expectedTitles[i]);
+      if (i < expectedTitles.length - 1) {
+        await page.getByTestId('walkthrough-btn-next').click();
+      }
+    }
+
+    await page.getByTestId('walkthrough-btn-finish').click();
+    await expect(page.getByTestId('walkthrough-completion-modal')).toBeVisible();
+  });
+
+  test('9. Treatment Nurse Treatment Queues walkthrough has 11 simplified steps across Station 1 and Station 2', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1366, height: 632 });
+    await page.route('**/api/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 66,
+          name: 'Nurse Elena Cruz, RN',
+          email: 'nurse@abtc.local',
+          role: 'treatment',
+        }),
+      });
+    });
+
+    await page.addInitScript(() => {
+      localStorage.setItem('authToken', 'test-nurse-token');
+      localStorage.setItem(
+        'userData',
+        JSON.stringify({
+          id: 66,
+          name: 'Nurse Elena Cruz, RN',
+          email: 'nurse@abtc.local',
+          role: 'treatment',
+        }),
+      );
+      localStorage.setItem('abtc_walkthrough_status_66', 'completed');
+      localStorage.setItem('abtc_walkthrough_indicator_dismissed_66', 'true');
+    });
+
+    await page.goto('/tests/registration/walkthrough.html');
+    await page.locator('[data-tour="nav-item-treatment-queues"]').click();
+
+    await page.getByTestId('walkthrough-help-button').click();
+    await page.getByTestId('menu-start-module-tour').click();
+    await page.getByTestId('walkthrough-start-btn').click();
+
+    const expectedTitles = [
+      'Station 1: New & Day 0',
+      'Queue Summary Counters',
+      'Vaccine Availability',
+      'Search & Filters',
+      'Patient Queue List',
+      'Today’s Queue Progress',
+      'Station 2 · Follow-up Doses',
+      'Follow-up Queue Counters',
+      'Follow-up Dose Tabs',
+      'Search & Dose Filter',
+      'Follow-up Patient Roster',
+    ];
+
+    await expect(page.getByTestId('walkthrough-module-badge')).toHaveText('Treatment Queues');
+
+    for (let i = 0; i < expectedTitles.length; i++) {
+      await expect(page.getByTestId('walkthrough-step-counter')).toHaveText(`Step ${i + 1} of 11`);
+      await expect(page.getByTestId('walkthrough-step-title')).toHaveText(expectedTitles[i]);
+      if (i < expectedTitles.length - 1) {
+        await page.getByTestId('walkthrough-btn-next').click();
+      }
+    }
+
+    await page.getByTestId('walkthrough-btn-finish').click();
+    await expect(page.getByTestId('walkthrough-completion-modal')).toBeVisible();
   });
 });

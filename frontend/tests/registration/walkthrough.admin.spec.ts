@@ -322,4 +322,46 @@ test.describe('Administrator Module-Based Interactive Walkthrough & UX Improveme
     await page.getByTestId('walkthrough-help-button').click();
     await expect(page.getByTestId('walkthrough-help-menu')).toBeVisible();
   });
+
+  test('6. Administrator Patient Registration module tour has 10 concise top-to-bottom steps without individual action buttons', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1366, height: 632 });
+    await setupAdminSession(page, true);
+    await page.goto('/tests/registration/walkthrough.html');
+    await page.locator('[data-tour="nav-item-patient-registration"]').click();
+
+    await page.getByTestId('walkthrough-help-button').click();
+    await page.getByTestId('menu-start-module-tour').click();
+    await page.getByTestId('walkthrough-start-btn').click();
+
+    const expectedTitles = [
+      'Patient Registration',
+      'Add Patient',
+      'Patient Summary Cards',
+      "Today's Queue",
+      'All Patients',
+      'Online Appointments',
+      'Pre-Registered (Mobile)',
+      'Overdue Patients',
+      'Search, Filters & Print',
+      'Patient Records Table',
+    ];
+
+    await expect(page.getByTestId('walkthrough-module-badge')).toHaveText('Patient Registration');
+
+    for (let i = 0; i < expectedTitles.length; i++) {
+      await expect(page.getByTestId('walkthrough-step-counter')).toHaveText(`Step ${i + 1} of 10`);
+      await expect(page.getByTestId('walkthrough-step-title')).toHaveText(expectedTitles[i]);
+      if (i < expectedTitles.length - 1) {
+        await page.getByTestId('walkthrough-btn-next').click();
+      }
+    }
+
+    await page.getByTestId('walkthrough-btn-finish').click();
+    const completionModal = page.getByTestId('walkthrough-completion-modal');
+    await expect(completionModal).toBeVisible();
+    await completionModal.getByTestId('walkthrough-btn-finish').click();
+    await expect(page.getByTestId('walkthrough-tooltip')).toHaveCount(0);
+  });
 });

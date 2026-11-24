@@ -128,7 +128,7 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
     await expect(page.getByTestId('walkthrough-tooltip')).toHaveCount(0);
   });
 
-  test('2. Independent Patient Registration module tour runs independently', async ({
+  test('2. Independent Patient Registration module tour runs independently with 10 concise top-to-bottom steps', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1366, height: 632 });
@@ -140,76 +140,34 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
     await page.getByTestId('menu-start-module-tour').click();
     await page.getByTestId('walkthrough-start-btn').click();
 
-    // Step 1: Patient Registration
+    const expectedTitles = [
+      'Patient Registration',
+      'Add Patient',
+      'Patient Summary Cards',
+      "Today's Queue",
+      'All Patients',
+      'Online Appointments',
+      'Pre-Registered (Mobile)',
+      'Overdue Patients',
+      'Search, Filters & Print',
+      'Patient Records Table',
+    ];
+
     await expect(page.getByTestId('walkthrough-module-badge')).toHaveText('Patient Registration');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Patient Registration');
 
-    // Test proceeding through steps without flicker or getting stuck
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 2 of 47');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Add Patient');
+    for (let i = 0; i < expectedTitles.length; i++) {
+      await expect(page.getByTestId('walkthrough-step-counter')).toHaveText(`Step ${i + 1} of 10`);
+      await expect(page.getByTestId('walkthrough-step-title')).toHaveText(expectedTitles[i]);
+      if (i < expectedTitles.length - 1) {
+        await page.getByTestId('walkthrough-btn-next').click();
+      }
+    }
 
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 3 of 47');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Total Registered Patients');
-
-    // Step 4: Active Patients Under Treatment
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 4 of 47');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Active Patients Under Treatment');
-
-    // Step 5: Pending Follow-up Patients
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 5 of 47');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Pending Follow-up Patients');
-
-    // Step 6: Today's Queue Tab
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 6 of 47');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText("Today's Queue Tab");
-
-    // Advance to Step 7: Search & Filters
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 7 of 47');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Search & Filters');
-
-    // Advance to Step 8: Today's Queue Roster
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 8 of 47');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText("Today's Queue Roster");
-
-    // Advance to Step 9: Register New Bite Exposure (+ New Exposure)
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 9 of 47');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Register New Bite Exposure (+ New Exposure)');
-
-    // Advance to Step 10: Invite to Mobile Portal (Portal Invite)
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 10 of 47');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Invite to Mobile Portal (Portal Invite)');
-
-    // Advance to Step 11: View Patient Record (View)
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 11 of 47');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('View Patient Record (View)');
-
-    // Advance to Step 12: Check In to Doctor Triage
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 12 of 47');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Check In to Doctor Triage');
-
-    // Advance to Step 13: Check In for Reassessment
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 13 of 47');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Check In for Reassessment');
-
-    // Advance to Step 14: Check In to Nurse
-    await page.getByTestId('walkthrough-btn-next').click();
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 14 of 47');
-    await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Check In to Nurse');
-
-    // Close or skip tour
-    await page.getByTestId('walkthrough-btn-skip').click();
+    // Finish tour cleanly
+    await page.getByTestId('walkthrough-btn-finish').click();
+    const completionModal = page.getByTestId('walkthrough-completion-modal');
+    await expect(completionModal).toBeVisible();
+    await completionModal.getByTestId('walkthrough-btn-finish').click();
     await expect(page.getByTestId('walkthrough-tooltip')).toHaveCount(0);
   });
 
@@ -225,16 +183,16 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
     await page.getByTestId('menu-start-module-tour').click();
     await page.getByTestId('walkthrough-start-btn').click();
 
-    // Step 1 of 12: Station 1: New & Day 0
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 12');
+    // Step 1 of 6: Station 1: New & Day 0
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 1 of 6');
     await expect(page.getByTestId('walkthrough-module-badge')).toHaveText('Treatment Queues');
     await expect(page.getByTestId('walkthrough-step-title')).toHaveText('Station 1: New & Day 0');
 
-    // Fast-forward to Step 12
-    for (let i = 1; i < 12; i++) {
+    // Fast-forward to Step 6
+    for (let i = 1; i < 6; i++) {
       await page.getByTestId('walkthrough-btn-next').click();
     }
-    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 12 of 12');
+    await expect(page.getByTestId('walkthrough-step-counter')).toHaveText('Step 6 of 6');
 
     // Verify it finishes cleanly and DOES NOT auto-navigate to another station
     await page.getByTestId('walkthrough-btn-finish').click();
@@ -404,5 +362,134 @@ test.describe('Registration Staff Interactive Walkthrough - Modular UX & Spotlig
     // Guide icon remains functional
     await page.getByTestId('walkthrough-help-button').click();
     await expect(page.getByTestId('walkthrough-help-menu')).toBeVisible();
+  });
+
+  test('8. Doctor (triage) Treatment Queues walkthrough has 6 simplified Station 1 steps without individual action buttons', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1366, height: 632 });
+    await page.route('**/api/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 55,
+          name: 'Dr. Maria Santos',
+          email: 'doctor@abtc.local',
+          role: 'triage',
+        }),
+      });
+    });
+
+    await page.addInitScript(() => {
+      localStorage.setItem('authToken', 'test-doc-token');
+      localStorage.setItem(
+        'userData',
+        JSON.stringify({
+          id: 55,
+          name: 'Dr. Maria Santos',
+          email: 'doctor@abtc.local',
+          role: 'triage',
+        }),
+      );
+      localStorage.setItem('abtc_walkthrough_status_55', 'completed');
+      localStorage.setItem('abtc_walkthrough_indicator_dismissed_55', 'true');
+    });
+
+    await page.goto('/tests/registration/walkthrough.html');
+    await page.locator('[data-tour="nav-item-treatment-queues"]').click();
+
+    await page.getByTestId('walkthrough-help-button').click();
+    await page.getByTestId('menu-start-module-tour').click();
+    await page.getByTestId('walkthrough-start-btn').click();
+
+    const expectedTitles = [
+      'Station 1: New & Day 0',
+      'Queue Summary Counters',
+      'Vaccine Availability',
+      'Search & Filters',
+      'Patient Queue List',
+      'Today’s Queue Progress',
+    ];
+
+    await expect(page.getByTestId('walkthrough-module-badge')).toHaveText('Treatment Queues');
+
+    for (let i = 0; i < expectedTitles.length; i++) {
+      await expect(page.getByTestId('walkthrough-step-counter')).toHaveText(`Step ${i + 1} of 6`);
+      await expect(page.getByTestId('walkthrough-step-title')).toHaveText(expectedTitles[i]);
+      if (i < expectedTitles.length - 1) {
+        await page.getByTestId('walkthrough-btn-next').click();
+      }
+    }
+
+    await page.getByTestId('walkthrough-btn-finish').click();
+    await expect(page.getByTestId('walkthrough-completion-modal')).toBeVisible();
+  });
+
+  test('9. Treatment Nurse Treatment Queues walkthrough has 11 simplified steps across Station 1 and Station 2', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1366, height: 632 });
+    await page.route('**/api/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 66,
+          name: 'Nurse Elena Cruz, RN',
+          email: 'nurse@abtc.local',
+          role: 'treatment',
+        }),
+      });
+    });
+
+    await page.addInitScript(() => {
+      localStorage.setItem('authToken', 'test-nurse-token');
+      localStorage.setItem(
+        'userData',
+        JSON.stringify({
+          id: 66,
+          name: 'Nurse Elena Cruz, RN',
+          email: 'nurse@abtc.local',
+          role: 'treatment',
+        }),
+      );
+      localStorage.setItem('abtc_walkthrough_status_66', 'completed');
+      localStorage.setItem('abtc_walkthrough_indicator_dismissed_66', 'true');
+    });
+
+    await page.goto('/tests/registration/walkthrough.html');
+    await page.locator('[data-tour="nav-item-treatment-queues"]').click();
+
+    await page.getByTestId('walkthrough-help-button').click();
+    await page.getByTestId('menu-start-module-tour').click();
+    await page.getByTestId('walkthrough-start-btn').click();
+
+    const expectedTitles = [
+      'Station 1: New & Day 0',
+      'Queue Summary Counters',
+      'Vaccine Availability',
+      'Search & Filters',
+      'Patient Queue List',
+      'Today’s Queue Progress',
+      'Station 2 · Follow-up Doses',
+      'Follow-up Queue Counters',
+      'Follow-up Dose Tabs',
+      'Search & Dose Filter',
+      'Follow-up Patient Roster',
+    ];
+
+    await expect(page.getByTestId('walkthrough-module-badge')).toHaveText('Treatment Queues');
+
+    for (let i = 0; i < expectedTitles.length; i++) {
+      await expect(page.getByTestId('walkthrough-step-counter')).toHaveText(`Step ${i + 1} of 11`);
+      await expect(page.getByTestId('walkthrough-step-title')).toHaveText(expectedTitles[i]);
+      if (i < expectedTitles.length - 1) {
+        await page.getByTestId('walkthrough-btn-next').click();
+      }
+    }
+
+    await page.getByTestId('walkthrough-btn-finish').click();
+    await expect(page.getByTestId('walkthrough-completion-modal')).toBeVisible();
   });
 });

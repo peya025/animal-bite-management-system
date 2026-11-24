@@ -3,6 +3,7 @@
 use App\Services\Messaging\Sms\FakeSmsProvider;
 use App\Services\Messaging\Sms\SemaphoreSmsProvider;
 use App\Services\Messaging\Sms\TwilioSmsProvider;
+use App\Services\Messaging\Sms\UniSmsProvider;
 
 return [
     'queue_connection' => env('MESSAGING_QUEUE_CONNECTION', 'database'),
@@ -13,6 +14,8 @@ return [
     'sms_provider' => env('SMS_PROVIDER', 'fake'),
     'test_mode' => env('MESSAGING_TEST_MODE', true),
     'test_recipients' => array_filter(array_map('trim', explode(',', env('MESSAGING_TEST_RECIPIENTS', '')))),
+    'sms_test_mode' => (bool) env('SMS_TEST_MODE', true),
+    'sms_test_recipients' => array_values(array_filter(array_map('trim', explode(',', (string) env('SMS_TEST_RECIPIENTS', ''))))),
     'max_attempts' => 3,
     'sms_per_minute' => (int) env('SMS_PER_MINUTE', 30),
     'email_per_minute' => (int) env('EMAIL_PER_MINUTE', 30),
@@ -21,6 +24,7 @@ return [
         'fake' => FakeSmsProvider::class,
         'twilio' => TwilioSmsProvider::class,
         'semaphore' => SemaphoreSmsProvider::class,
+        'unisms' => UniSmsProvider::class,
     ],
     'twilio' => [
         'sid' => env('TWILIO_ACCOUNT_SID'),
@@ -30,5 +34,11 @@ return [
     'semaphore' => [
         'key' => env('SEMAPHORE_API_KEY'),
         'sender' => env('SEMAPHORE_SENDER_NAME'),
+    ],
+    'unisms' => [
+        'api_key' => env('UNISMS_API_KEY'),
+        'sender_id' => env('UNISMS_SENDER_ID'),
+        'url' => env('UNISMS_API_URL', 'https://unismsapi.com/api'),
+        'receipts_enabled' => (bool) env('UNISMS_RECEIPTS_ENABLED', false),
     ],
 ];

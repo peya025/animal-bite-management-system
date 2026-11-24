@@ -36,9 +36,11 @@ class MessagingIntegrationTest extends TestCase
         Http::preventStrayRequests();
         config([
             'messaging.sms_enabled' => true, 'messaging.email_enabled' => true,
-            'messaging.test_mode' => false, 'messaging.sms_provider' => 'twilio',
+            'messaging.test_mode' => false, 'messaging.sms_test_mode' => false,
+            'messaging.sms_provider' => 'twilio',
             'messaging.twilio.sid' => 'ACtest', 'messaging.twilio.token' => 'test-token',
             'messaging.twilio.sender' => '+15005550006', 'messaging.semaphore.key' => 'test-key',
+            'messaging.unisms.api_key' => 'test-unisms-key', 'messaging.unisms.sender_id' => 'Unisoft',
             'mail.default' => 'smtp',
         ]);
     }
@@ -382,5 +384,154 @@ class MessagingIntegrationTest extends TestCase
         Queue::assertPushed(\App\Jobs\SendFcmPushNotification::class, function ($job) use ($account) {
             return $job->patientAccountId === $account->id;
         });
+    }
+
+    public function test_unisms_end_to_end_delivery_idempotency_and_provider_coexistence(): void
+    {
+        Http::fake([
+            '*unismsapi.com/api/sms' => Http::response([
+                'message' => ['reference_id' => 'msg_unisms_1', 'status' => 'pending'],
+            ], 201),
+            '*semaphore.co/*' => Http::response([['message_id' => 99, 'status' => 'Queued']], 200),
+        ]);
+
+        config(['messaging.sms_provider' => 'unisms']);
+
+        $appointment = $this->appointment();
+        $message = $this->prepare($appointment, 'sms');
+        // Duplicate reminder request for same appointment/day must reuse idempotency key.
+        $this->prepare($appointment, 'sms');
+        $this->assertDatabaseCount('outbound_messages', 1);
+        $this->assertSame('unisms', $message->provider);
+
+        // Switching provider later must not alter already-queued message's provider.
+        config(['messaging.sms_provider' => 'semaphore']);
+        app(OutboundDelivery::class)->deliver($message->id);
+        $this->assertSame('accepted', $message->fresh()->status);
+        $this->assertSame('msg_unisms_1', $message->fresh()->provider_message_id);
+
+        $second = $this->prepare($this->appointment(), 'sms');
+        app(OutboundDelivery::class)->deliver($second->id);
+        $this->assertSame('semaphore', $second->fresh()->provider);
+        $this->assertSame('accepted', $second->fresh()->status);
+
+        Http::assertSentCount(2);
+    }
+
+    public function test_sms_test_mode_allowlist_blocks_other_sms_recipients_without_affecting_brevo_email(): void
+    {
+        Http::fake([
+            '*unismsapi.com/api/sms' => Http::response([
+                'message' => ['reference_id' => 'msg_allowlisted_1', 'status' => 'pending'],
+            ], 201),
+            'https://api.brevo.com/v3/smtp/email' => Http::response([
+                'messageId' => '<brevo-live-1@example.test>',
+            ], 201),
+        ]);
+
+        // Brevo is live (MESSAGING_TEST_MODE=false), while SMS stays restricted to one allowlisted number.
+        config([
+            'messaging.test_mode' => false,
+            'messaging.sms_test_mode' => true,
+            'messaging.sms_test_recipients' => ['0917 123 4567'],
+            'messaging.sms_provider' => 'unisms',
+            'services.brevo.key' => 'xkeysib-test-key',
+            'services.brevo.sender_email' => 'clinic@example.test',
+            'services.brevo.sender_name' => 'Tagoloan ABTC',
+        ]);
+
+        // 1. Allowlisted SMS recipient succeeds via UniSMS.
+        $allowedAppointment = $this->appointment();
+        $allowedSms = $this->prepare($allowedAppointment, 'sms');
+        app(OutboundDelivery::class)->deliver($allowedSms->id);
+        $this->assertSame('accepted', $allowedSms->fresh()->status);
+        $this->assertSame('unisms', $allowedSms->fresh()->provider);
+
+        // 2. Non-allowlisted SMS recipient is blocked before queuing.
+        $blockedClinic = Clinic::create(['name' => 'Other clinic', 'contact_number' => '09171234567']);
+        $blockedPatient = Patient::create([
+            'clinic_id' => $blockedClinic->id,
+            'patient_number' => 'PAT-BLK-'.$blockedClinic->id,
+            'first_name' => 'Blocked',
+            'last_name' => 'Patient',
+            'gender' => 'male',
+            'contact_number' => '09189998888',
+            'email' => 'unlisted.patient@example.test',
+        ]);
+        DB::table('communication_preferences')->insert([
+            'patient_id' => $blockedPatient->patient_id,
+            'sms' => true,
+            'email' => true,
+            'recorded_by' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $blockedAppointment = Appointment::create([
+            'clinic_id' => $blockedClinic->id,
+            'patient_id' => $blockedPatient->patient_id,
+            'scheduled_date' => today()->subDay(),
+            'appointment_date' => today()->subDay(),
+            'appointment_type' => 'vaccination',
+            'status' => 'scheduled',
+        ]);
+
+        $smsRes = app(AppointmentReminderService::class)->sendRecallAlert($blockedAppointment, 'sms');
+        $this->assertFalse($smsRes['success']);
+        $this->assertSame('recipient_not_allowlisted', $smsRes['errors']['sms']);
+
+        // 3. Same non-allowlisted patient's Brevo email still delivers unrestricted.
+        $emailMessage = $this->prepare($blockedAppointment, 'email');
+        app(OutboundDelivery::class)->deliver($emailMessage->id);
+        $this->assertSame('accepted', $emailMessage->fresh()->status);
+        $this->assertSame('brevo', $emailMessage->fresh()->provider);
+        $this->assertSame('<brevo-live-1@example.test>', $emailMessage->fresh()->provider_message_id);
+
+        Http::assertSentCount(2);
+    }
+
+    public function test_queued_sms_cannot_bypass_sms_test_mode_allowlist_at_delivery_time(): void
+    {
+        Http::fake();
+        config(['messaging.sms_provider' => 'unisms', 'messaging.sms_test_mode' => false]);
+
+        $message = $this->prepare($this->appointment(), 'sms');
+        $this->assertSame('queued', $message->status);
+
+        // Turn SMS_TEST_MODE back on without this recipient before worker runs.
+        config(['messaging.sms_test_mode' => true, 'messaging.sms_test_recipients' => ['+639190000000']]);
+        app(OutboundDelivery::class)->deliver($message->id);
+
+        $this->assertSame('skipped', $message->fresh()->status);
+        $this->assertSame('recipient_not_allowlisted', $message->fresh()->error_code);
+        Http::assertNothingSent();
+    }
+
+    public function test_unisms_insufficient_credits_fails_without_retry_and_rate_limit_retries_bounded(): void
+    {
+        config(['messaging.sms_provider' => 'unisms']);
+
+        Http::fake([
+            '*unismsapi.com/api/sms' => Http::sequence()
+                ->push(['message' => 'Insufficient credits'], 402)
+                ->push(['message' => 'Rate limited'], 429)
+                ->push(['message' => 'Rate limited'], 429)
+                ->push(['message' => 'Rate limited'], 429),
+        ]);
+
+        $creditMsg = $this->prepare($this->appointment(), 'sms');
+        app(OutboundDelivery::class)->deliver($creditMsg->id);
+        $this->assertSame('failed', $creditMsg->fresh()->status);
+        $this->assertSame('unisms_insufficient_credits', $creditMsg->fresh()->error_code);
+        $this->assertSame(1, $creditMsg->fresh()->attempt_count);
+
+        $rateMsg = $this->prepare($this->appointment(), 'sms');
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            app(OutboundDelivery::class)->deliver($rateMsg->id);
+            $this->assertSame($attempt, $rateMsg->fresh()->attempt_count);
+            $this->travel(10)->minutes();
+        }
+        $this->assertSame('failed', $rateMsg->fresh()->status);
+        $this->assertSame('rate_limited', $rateMsg->fresh()->error_code);
+        Http::assertSentCount(4);
     }
 }

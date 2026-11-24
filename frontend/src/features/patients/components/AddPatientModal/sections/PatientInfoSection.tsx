@@ -36,6 +36,7 @@ const emitSelectEvent = createSelectChangeEvent;
 interface PatientInfoSectionProps {
   data: EnrolmentFormData;
   onChange: (key: keyof EnrolmentFormData) => (ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+  onNoMiddleNameChange?: (checked: boolean) => void;
   errors?: Record<string, string>;
   showQueueFields?: boolean;
   duplicateMatches?: DuplicatePatientMatch[];
@@ -50,6 +51,7 @@ interface PatientInfoSectionProps {
 export function PatientInfoSection({
   data,
   onChange,
+  onNoMiddleNameChange,
   errors = {},
   showQueueFields = false,
   duplicateMatches = [],
@@ -75,9 +77,36 @@ export function PatientInfoSection({
           <FormField id="field-first_name" label="First Name" required error={!!errors.first_name} errorText={errors.first_name}>
             <input className="fm-input" name="first_name" value={data.first_name} onChange={onChange('first_name')} placeholder="Juan" style={errors.first_name ? { borderColor: '#ef4444' } : undefined} />
           </FormField>
-          <FormField label="Middle Name">
-            <input className="fm-input" name="middle_name" value={data.middle_name} onChange={onChange('middle_name')} placeholder="Santos" />
-          </FormField>
+          <div className="registration-field-stack">
+            <FormField
+              id="field-middle_name"
+              label="Middle Name"
+              required={!data.no_middle_name}
+              error={!!errors.middle_name}
+              errorText={errors.middle_name}
+            >
+              <input
+                className="fm-input"
+                name="middle_name"
+                value={data.no_middle_name ? '' : data.middle_name}
+                onChange={onChange('middle_name')}
+                placeholder={data.no_middle_name ? 'No Middle Name' : 'Santos'}
+                disabled={Boolean(data.no_middle_name)}
+                style={errors.middle_name ? { borderColor: '#ef4444' } : undefined}
+              />
+            </FormField>
+            <label
+              className={`registration-circle-check${data.no_middle_name ? ' registration-circle-check--checked' : ''}`}
+            >
+              <input
+                type="checkbox"
+                name="no_middle_name"
+                checked={Boolean(data.no_middle_name)}
+                onChange={(e) => onNoMiddleNameChange?.(e.target.checked)}
+              />
+              <span>No Middle Name</span>
+            </label>
+          </div>
           <FormField id="field-suffix" label="Suffix" error={!!errors.suffix} errorText={errors.suffix}>
             {(() => {
               const suffixValue = normalizePatientSuffix(data.suffix);

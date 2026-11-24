@@ -1626,14 +1626,6 @@ export default function PatientList() {
                         <td>
                           <div>
                             <span className="pm-patient-name">{fullName(p)}</span>
-                            {(() => {
-                              const tag = getSourceTagInfo(p);
-                              return (
-                                <span className={`pm-source-tag pm-source-tag--${tag.type}`}>
-                                  {tag.label}
-                                </span>
-                              );
-                            })()}
                             <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
                               {p.age ? `${p.age}y · ` : ''}{p.gender} {p.contact_number ? `· ${p.contact_number}` : ''}
                             </div>

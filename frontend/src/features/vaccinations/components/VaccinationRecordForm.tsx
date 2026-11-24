@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSavedExposureCategory } from '../hooks/useSavedExposureCategory';
 import ProphylaxisAdministrationSection from './ProphylaxisAdministrationSection';
+import { suggestIcd10FromExposure } from '../../../shared/constants/icd10Codes';
 import type { ProphylaxisRecord } from './ProphylaxisAdministrationSection';
 import type { ProphylaxisAdministration, ProphylaxisStock } from '../../../shared/types/prophylaxis';
 import { isProphylaxisInventoryName } from '../../../shared/types/prophylaxis';
@@ -440,6 +441,19 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [prophylaxisRecords, setProphylaxisRecords] = useState<ProphylaxisRecord[]>([]);
   const [prophylaxisStock, setProphylaxisStock] = useState<ProphylaxisStock | null | undefined>(undefined);
   const [icdCode, setIcdCode] = useState('');
+  const icdManuallyEditedRef = useRef(false);
+  const handleIcdCodeChange = (val: string) => {
+    icdManuallyEditedRef.current = true;
+    setIcdCode(val);
+  };
+  useEffect(() => {
+    if (icdManuallyEditedRef.current) return;
+    const mode = formData.mode_of_exposure.scratch_abrasion ? 'scratch_abrasion' : '';
+    const suggested = suggestIcd10FromExposure(formData.animal_type, formData.animal_type_other, mode);
+    if (suggested) {
+      setIcdCode(suggested);
+    }
+  }, [formData.animal_type, formData.animal_type_other, formData.mode_of_exposure.scratch_abrasion]);
   const [saving, setSaving] = useState(false);
   const [signatureVersion, setSignatureVersion] = useState<string | null>(null);
   const [signatureReady, setSignatureReady] = useState(false);
@@ -644,6 +658,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       const animal = card?.animal_type || bite?.animal_type || intake?.animal_species || intake?.animal_type || '';
       const animalOther = card?.animal_type_others || bite?.animal_type_others || intake?.animal_species_other || intake?.animal_type_others || '';
       const resolvedReferredBy = consultation?.referred_by || consultation?.referred_from || card?.referred_by || bite?.referred_from || '';
+      const savedIcd = card?.icd10_code || bite?.icd_code || consultation?.icd_code || '';
+      if (savedIcd) {
+        icdManuallyEditedRef.current = true;
+        setIcdCode(savedIcd);
+      } else {
+        icdManuallyEditedRef.current = false;
+        setIcdCode(suggestIcd10FromExposure(animal, animalOther, mode));
+      }
 
       // Clinic hospital number configured in Clinic Information
       const clinicRaw = localStorage.getItem('clinicData');
@@ -2040,111 +2062,111 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         ) : (
           <>
             {/* Dose List: active/selected dose as DoseCard, other doses as DoseRow */}
-        <div style={{ marginBottom: 12 }}>
-          {candidateDoseList.map((dose) => {
-            const isCompleted = Boolean(dose.is_completed || dose.inventory_linked);
-            const isPrereqLocked = isDosePrerequisiteLocked(dose.period);
-            const isLocked = readOnly || isCompleted || isPrereqLocked;
-            const isExpanded = dose.period === currentExpandedPeriod;
+            <div style={{ marginBottom: 12 }}>
+              {candidateDoseList.map((dose) => {
+                const isCompleted = Boolean(dose.is_completed || dose.inventory_linked);
+                const isPrereqLocked = isDosePrerequisiteLocked(dose.period);
+                const isLocked = readOnly || isCompleted || isPrereqLocked;
+                const isExpanded = dose.period === currentExpandedPeriod;
 
-            if (isExpanded) {
-              const doseIndex = doses.findIndex(d => d.period === dose.period);
-              return (
-                <DoseCard
-                  key={dose.period}
-                  dose={dose}
-                  index={doseIndex}
-                  isToday={dose.period === activeUnlockedPeriod}
-                  isCompleted={isCompleted}
-                  isLocked={isLocked}
-                  prescribedVaccineType={prescribedVaccineType}
-                  availableVaccineTypes={availableVaccineTypes}
-                  fifoError={fifoErrors[dose.period]}
-                  fieldErrors={fieldErrors}
-                  readOnly={readOnly}
-                  currentUser={currentUser}
-                  applySignature={applySignature}
-                  signatureReady={signatureReady}
-                  signatureVersion={signatureVersion}
-                  signatureLoadError={signatureLoadError}
-                  onDoseChange={handleDoseChange}
-                  onDoseVaccineTypeChange={handleDoseVaccineTypeChange}
-                  onToggleSignature={setApplySignature}
-                  onSignatureReady={() => setSignatureReady(true)}
-                  onRefreshSignature={() => setSignatureRefresh(v => v + 1)}
-                />
-              );
-            }
+                if (isExpanded) {
+                  const doseIndex = doses.findIndex(d => d.period === dose.period);
+                  return (
+                    <DoseCard
+                      key={dose.period}
+                      dose={dose}
+                      index={doseIndex}
+                      isToday={dose.period === activeUnlockedPeriod}
+                      isCompleted={isCompleted}
+                      isLocked={isLocked}
+                      prescribedVaccineType={prescribedVaccineType}
+                      availableVaccineTypes={availableVaccineTypes}
+                      fifoError={fifoErrors[dose.period]}
+                      fieldErrors={fieldErrors}
+                      readOnly={readOnly}
+                      currentUser={currentUser}
+                      applySignature={applySignature}
+                      signatureReady={signatureReady}
+                      signatureVersion={signatureVersion}
+                      signatureLoadError={signatureLoadError}
+                      onDoseChange={handleDoseChange}
+                      onDoseVaccineTypeChange={handleDoseVaccineTypeChange}
+                      onToggleSignature={setApplySignature}
+                      onSignatureReady={() => setSignatureReady(true)}
+                      onRefreshSignature={() => setSignatureRefresh(v => v + 1)}
+                    />
+                  );
+                }
 
-            return (
-              <DoseRow
-                key={dose.period}
-                dose={dose}
-                isCompleted={isCompleted}
-                isPrerequisiteLocked={isPrereqLocked}
-                prereqPeriod={PREREQ[dose.period]}
-                onClick={() => setSelectedPeriod(dose.period)}
-              />
-            );
-          })}
-        </div>
+                return (
+                  <DoseRow
+                    key={dose.period}
+                    dose={dose}
+                    isCompleted={isCompleted}
+                    isPrerequisiteLocked={isPrereqLocked}
+                    prereqPeriod={PREREQ[dose.period]}
+                    onClick={() => setSelectedPeriod(dose.period)}
+                  />
+                );
+              })}
+            </div>
 
-        {/* Secondary text buttons below the list */}
-        <div style={{ display: 'flex', gap: 16, marginTop: 12, alignItems: 'center' }}>
-          {!readOnly && (
-            <button
-              type="button"
-              onClick={() => {
-                setManualReExposure(v => !v);
-                setShowFullSchedule(false);
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                color: manualReExposure ? '#b45309' : '#047857',
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: 'pointer',
-                textDecoration: 'none',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
-            >
-              {manualReExposure ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} color="#b45309" />
-                  <span>Re-bite active</span>
-                </span>
-              ) : (
-                'Re-bite / re-exposure'
+            {/* Secondary text buttons below the list */}
+            <div style={{ display: 'flex', gap: 16, marginTop: 12, alignItems: 'center' }}>
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManualReExposure(v => !v);
+                    setShowFullSchedule(false);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    color: manualReExposure ? '#b45309' : '#047857',
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    textDecoration: 'none',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+                >
+                  {manualReExposure ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} color="#b45309" />
+                      <span>Re-bite active</span>
+                    </span>
+                  ) : (
+                    'Re-bite / re-exposure'
+                  )}
+                </button>
               )}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setTransferModalOpen(true)}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              color: '#047857',
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: 'pointer',
-              textDecoration: 'none',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
-          >
-            Transfer out / referral slip
-          </button>
-        </div>
+              <button
+                type="button"
+                onClick={() => setTransferModalOpen(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  color: '#047857',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  textDecoration: 'none',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+              >
+                Transfer out / referral slip
+              </button>
+            </div>
 
-        {/* Subtle helper line */}
-        <p style={{ fontSize: 12, color: '#64748b', marginTop: 12, marginBottom: 0 }}>Automatic FIFO stock deduction on save · Cross-clinic continuity supported</p></>)}<p style={{ display: 'none' }}>
-
-        </p>
+            {/* Subtle helper line */}
+            <p style={{ fontSize: 12, color: '#64748b', marginTop: 12, marginBottom: 0 }}>Automatic FIFO stock deduction on save · Cross-clinic continuity supported</p>
+          </>
+        )}
       </FormSection>
 
       {/* PROPHYLAXIS (ATS / TT / RIG) ADMINISTRATION IF PRESCRIBED */}
@@ -2159,7 +2181,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             disabled={readOnly || saving || !form3Ready}
             today={getLocalDateString()}
             icdCode={icdCode}
-            onIcdCodeChange={setIcdCode}
+            onIcdCodeChange={handleIcdCodeChange}
           />
         </div>
       )}

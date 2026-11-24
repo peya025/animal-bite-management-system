@@ -3,6 +3,7 @@
 
 import 'dart:convert';
 import '../models/announcement.dart';
+import '../models/community_bite_overview.dart';
 
 import '../models/app_notification.dart';
 import '../models/appointment_summary.dart';
@@ -54,6 +55,24 @@ class MockMobileApi {
   bool get isAuthenticated => _isAuthenticated;
 
   Future<List<Announcement>> fetchAnnouncements() async => const [];
+
+  Future<CommunityBiteOverview> fetchCommunityBiteOverview() async =>
+      const CommunityBiteOverview(
+        clinicName: 'Tagoloan Animal Bite Treatment Center',
+        municipality: 'Tagoloan',
+        status: 'normal',
+        headline: 'No unusual bite spikes reported in Tagoloan this week.',
+        guidance:
+            'Keep pets vaccinated and leashed. If bitten or scratched, wash immediately with soap and running water for 15 minutes and visit the clinic.',
+        elevatedAreas: [],
+        vaccineAvailability: CommunityVaccineAvailability(
+          arvAvailable: true,
+          rigAvailable: true,
+          statusLabel: 'Anti-Rabies Vaccine & RIG Available',
+        ),
+        disclaimer:
+            'Community bite awareness notice based on clinic bite presentations over the last 7 days; does not represent confirmed rabies cases.',
+      );
 
   Future<void> initialize() async {
     await Future.delayed(const Duration(milliseconds: 500));
@@ -278,7 +297,10 @@ class MockMobileApi {
     'patient_description': 'optional',
   };
 
-  Future<PatientProfile> createPatient(Map<String, dynamic> profile) async {
+  Future<PatientProfile> createPatient(
+    Map<String, dynamic> profile, {
+    int? configRevision,
+  }) async {
     debugOnCreatePatient?.call(Map<String, dynamic>.from(profile));
     await Future.delayed(const Duration(seconds: 1));
 
@@ -305,6 +327,7 @@ class MockMobileApi {
   Future<PatientProfile> updatePatient({
     required int patientId,
     required Map<String, dynamic> profile,
+    int? configRevision,
   }) async {
     debugOnUpdatePatient?.call(patientId, Map<String, dynamic>.from(profile));
     await Future.delayed(const Duration(seconds: 1));
@@ -358,6 +381,7 @@ class MockMobileApi {
     required dynamic booking,
     dynamic intake,
     Map<String, dynamic>? intakePayload,
+    int? configRevision,
   }) async {
     debugOnBook?.call(patient, booking, intakePayload ?? intake);
     await Future.delayed(const Duration(seconds: 1));
@@ -579,6 +603,7 @@ class MockMobileApi {
   Future<Map<String, dynamic>> updateAppointmentIntake({
     required int appointmentId,
     required Map<String, dynamic> intake,
+    int? configRevision,
   }) async {
     debugOnUpdateIntake?.call(appointmentId, Map<String, dynamic>.from(intake));
     await Future.delayed(const Duration(milliseconds: 300));

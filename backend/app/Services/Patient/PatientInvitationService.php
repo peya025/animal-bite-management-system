@@ -7,8 +7,8 @@ use App\Models\Patient;
 use App\Models\PatientAccount;
 use App\Models\PatientAccountPatient;
 use App\Models\PatientInvitation;
+use App\Services\Messaging\EmailTransportInterface;
 use App\Services\Messaging\InvitationDelivery;
-use App\Services\Messaging\SmtpEmailService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -68,6 +68,25 @@ class PatientInvitationService
                 ];
             }
 
+            // Block duplicate invitations while a pending (possibly undelivered)
+            // invitation is still active. Staff should use the resend endpoint
+            // which rotates the token and retries delivery safely.
+            $existingPending = PatientInvitation::where('patient_id', $patient->patient_id)
+                ->where('status', 'pending')
+                ->where('expires_at', '>', now())
+                ->lockForUpdate()
+                ->first();
+
+            if ($existingPending) {
+                return [
+                    'status' => 422,
+                    'data' => [
+                        'message' => 'A pending invitation already exists for this patient. Use the resend option to retry delivery.',
+                        'invitation' => $existingPending->load(['patient', 'invitedBy']),
+                    ],
+                ];
+            }
+
             $token = Str::random(64);
             $expiresAt = now()->addDays(7);
 
@@ -83,8 +102,9 @@ class PatientInvitationService
             ]);
 
             if (! $this->sendInvitationEmail($patient->email, $invitation->token, $patient)) {
-                $invitation->update(['status' => 'expired']);
-
+                // Do not expire the invitation on delivery failure. The token
+                // remains valid until its natural expiry so staff can retry
+                // without creating a duplicate invitation record.
                 return [
                     'status' => 503,
                     'data' => [
@@ -113,7 +133,8 @@ class PatientInvitationService
             return [
                 'status' => 201,
                 'data' => [
-                    'message' => 'Invitation email sent successfully to '.trim($patient->email).'.',
+                    'message' => 'Invitation email accepted for delivery to '.trim($patient->email).'.',
+                    'delivery_status' => 'accepted',
                     'invitation' => $invitation->load(['patient', 'invitedBy']),
                 ],
             ];
@@ -306,7 +327,8 @@ class PatientInvitationService
             return [
                 'status' => 200,
                 'data' => [
-                    'message' => 'Invitation email sent successfully to '.trim($patient->email).'.',
+                    'message' => 'Invitation email accepted for delivery to '.trim($patient->email).'.',
+                    'delivery_status' => 'accepted',
                     'invitation' => $invitation,
                 ],
             ];
@@ -385,7 +407,7 @@ class PatientInvitationService
 
         try {
             return app(InvitationDelivery::class)->send((int) $patient->clinic_id, $email, 'patient_invitation', function () use ($email, $token, $patient) {
-                return app(SmtpEmailService::class)->send($email, new ClinicEmail(
+                return app(EmailTransportInterface::class)->send($email, new ClinicEmail(
                     'Activate Your Tagoloan ABTC Patient Portal Account', [
                         "Hello {$patient->first_name} {$patient->last_name},",
                         'You have been invited to activate your Patient Portal account for the Tagoloan Animal Bite Treatment Center.',

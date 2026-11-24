@@ -6,9 +6,9 @@ export const BITE_CASES_STEPS: WalkthroughStep[] = [
     id: 'bite-cases-overview',
     module: 'Bite Cases Summary',
     section: 'DOH Overview & Key Numbers',
-    title: 'DOH-Aligned Bite Cases Summary',
+    title: 'Bite Cases Summary',
     content:
-      'Welcome to the redesigned Bite Cases Summary! It mirrors the data needed across the Rabies Exposure Registry (Form 1), ABTC Monthly Report (Form 2), and Cohort Report (Form 3), while explicitly reporting incomplete patient journeys without hiding pending or unknown information.',
+      'Review animal bite exposure records across Form 1, Form 2, and Form 3, including incomplete patient journeys.',
     route: ROUTES.BITE_CASES.LIST,
     targetSelector:
       '[data-walkthrough="bite-cases-kpi-cards"], [data-tour="bite-cases-kpi-cards"], .page-header',
@@ -19,9 +19,9 @@ export const BITE_CASES_STEPS: WalkthroughStep[] = [
     id: 'bite-cases-stat-cards',
     module: 'Bite Cases Summary',
     section: 'DOH Overview & Key Numbers',
-    title: 'DOH Indicator & Incomplete-Stage Cards',
+    title: 'Key Summary Cards',
     content:
-      'Review Recorded Exposures (Form 1), Category III Exposures (Form 2), PEP Started / Given PEP, Mature Course Completion at cutoff, plus the two incomplete-stage gap cards (Assessed vs. Awaiting Assessment and No Admin Recorded & Referrals). Click any card to drill down.',
+      'Track recorded exposures, Category III cases, PEP started, completed courses, and pending gaps. Click any card to drill down.',
     route: ROUTES.BITE_CASES.LIST,
     targetSelector:
       '[data-walkthrough="bite-cases-kpi-cards"], [data-tour="bite-cases-kpi-cards"]',
@@ -32,9 +32,9 @@ export const BITE_CASES_STEPS: WalkthroughStep[] = [
     id: 'bite-cases-view-tabs',
     module: 'Bite Cases Summary',
     section: 'Filter & Search Tools',
-    title: 'Summary Tabs: Overview, Treatment, Planning & Episode Drill-Down',
+    title: 'Summary View Tabs',
     content:
-      'Switch across four focused views: "Overview & DOH Summary" (executive findings, 5-stage incomplete-journey matrix, and exposure profiles), "Treatment & Follow-up" (progress strip, Form 2 & 3 cohort outcomes, denominator bridge, and review aging), "Planning & Barangays" (explicit review reasons and action guide), and "Episode Drill-Down" (authorized patient-level records, automatically hidden in Conference Mode).',
+      'Switch between Overview & DOH Summary, Treatment & Follow-up, Planning & Barangays, and Episode Drill-Down.',
     route: ROUTES.BITE_CASES.LIST,
     targetSelector:
       '[data-walkthrough="bite-cases-view-tabs"], [data-tour="bite-cases-view-tabs"]',
@@ -47,7 +47,7 @@ export const BITE_CASES_STEPS: WalkthroughStep[] = [
     section: 'Filter & Search Tools',
     title: 'Instant Search',
     content:
-      'Quickly find any episode by typing the patient name, case number (e.g., BC-2026-0009), or exposure location.',
+      'Find a case by patient name, case number, or exposure location.',
     route: ROUTES.BITE_CASES.LIST,
     targetSelector:
       '[data-walkthrough="bite-cases-search"], [data-tour="bite-cases-search"]',
@@ -58,9 +58,9 @@ export const BITE_CASES_STEPS: WalkthroughStep[] = [
     id: 'bite-cases-filters',
     module: 'Bite Cases Summary',
     section: 'Filter & Search Tools',
-    title: 'Category, Journey Stage, Animal, Date Range & Cutoff Filters',
+    title: 'Case Filters',
     content:
-      'Filter by Exposure Category (I, II, III, or Unassessed), Clinical Stage / Status (Form 1 Awaiting Assessment through Form 3 Treatment Recorded), Biting Animal (including Unknown), Exposure Date Range, and Reporting Cutoff Date.',
+      'Filter records by bite category, clinical stage, biting animal, date range, and reporting cutoff.',
     route: ROUTES.BITE_CASES.LIST,
     targetSelector:
       '[data-tour="bite-cases-filter-bar"], [data-walkthrough="bite-cases-filter-bar"]',
@@ -73,7 +73,7 @@ export const BITE_CASES_STEPS: WalkthroughStep[] = [
     section: 'Filter & Search Tools',
     title: 'Bite Map View',
     content:
-      'Click "Bite Map" anytime to open the geographic map showing exposure locations across Tagoloan and nearby areas.',
+      'Open the geographic map to see where animal bite incidents occurred.',
     route: ROUTES.BITE_CASES.LIST,
     targetSelector:
       '[data-walkthrough="bite-cases-map-button"], [data-tour="bite-cases-map-button"]',
@@ -84,9 +84,9 @@ export const BITE_CASES_STEPS: WalkthroughStep[] = [
     id: 'bite-cases-table',
     module: 'Bite Cases Summary',
     section: 'Summary Tables & Export',
-    title: 'DOH Matrix, Barangay & Episode Tables',
+    title: 'Summary & Episode Tables',
     content:
-      'Inspect what can be reported at each patient’s last completed stage, compare barangay-level DOH metrics, or review every individual episode including Form 1 and Form 2 cases where treatment has not started yet.',
+      'Compare barangay DOH metrics or inspect individual bite episodes by their latest clinical stage.',
     route: ROUTES.BITE_CASES.LIST,
     targetSelector:
       '[data-tour="bite-cases-table"], [data-walkthrough="bite-cases-table"], .MuiTable-root',
@@ -97,9 +97,9 @@ export const BITE_CASES_STEPS: WalkthroughStep[] = [
     id: 'bite-cases-export-csv',
     module: 'Bite Cases Summary',
     section: 'Summary Tables & Export',
-    title: 'Export CSV (DOH-Aligned Spreadsheet)',
+    title: 'Export CSV',
     content:
-      'Click "Export CSV" to download either the Barangay Exposure Summary (demographics, categories, PEP, RIG, completion) or All Recorded Episodes (stage, treatment decision, administration, and RIG fields) for MHO/DOH meetings.',
+      'Download the Barangay Exposure Summary or All Recorded Episodes as a CSV spreadsheet.',
     route: ROUTES.BITE_CASES.LIST,
     targetSelector:
       '[data-walkthrough="bite-cases-export-csv"], [data-tour="bite-cases-export-csv"]',

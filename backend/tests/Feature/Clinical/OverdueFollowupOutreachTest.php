@@ -192,4 +192,41 @@ class OverdueFollowupOutreachTest extends TestCase
             'status' => 'no_answer',
         ])->assertNotFound();
     }
+
+    public function test_automated_recall_sweep_logs_idempotent_followup_history_for_nurses(): void
+    {
+        config([
+            'messaging.sms_enabled' => true,
+            'messaging.sms_provider' => 'fake',
+            'messaging.test_mode' => false,
+        ]);
+
+        $ctx = $this->seedOverdueEpisode();
+
+        \Illuminate\Support\Facades\DB::table('communication_preferences')->insert([
+            'patient_id' => $ctx['patient']->patient_id,
+            'sms' => true,
+            'email' => false,
+            'recorded_by' => $ctx['nurse']->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $reminderService = app(\App\Services\AppointmentReminderService::class);
+        $first = $reminderService->runAutomatedSweep('sms', $ctx['clinic']->id);
+        $this->assertSame(1, $first['missed_recalls_eligible']);
+        $this->assertSame(1, $first['missed_recalls_sent']);
+
+        // Running sweep again on the same day must NOT duplicate patient_followup_logs
+        $reminderService->runAutomatedSweep('sms', $ctx['clinic']->id);
+
+        Sanctum::actingAs($ctx['nurse']);
+        $listRes = $this->getJson("/api/cases/{$ctx['incident']->bite_id}/followup-logs")->assertOk();
+        $logs = $listRes->json('logs');
+        $this->assertCount(1, $logs);
+        $this->assertSame('Automated Recall', $logs[0]['created_by_name']);
+        $this->assertSame('sms', $logs[0]['contact_type']);
+        $this->assertSame('Day 3', $logs[0]['dose_label']);
+        $this->assertStringContainsString('Automated recall dispatched via SMS', $logs[0]['notes']);
+    }
 }

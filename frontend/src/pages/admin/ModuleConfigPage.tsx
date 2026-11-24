@@ -35,6 +35,7 @@ interface FieldMeta {
   locked?: boolean;
   lockedValue?: FieldRuleValue;
   lockedReason?: string;
+  uiGatingPending?: boolean;
 }
 
 interface SectionMeta {
@@ -138,7 +139,7 @@ const CANONICAL_SECTIONS: SectionMeta[] = [
         lockedReason: 'Essential Clinical Safeguard (LF1 Invariant)',
       },
       { key: 'bite_site', label: 'Clinical Bite Site Verification', description: 'Verified anatomical location of bite' },
-      { key: 'animal_observation_status', label: 'Animal Observation Status', description: 'Current status during 14-day quarantine' },
+      { key: 'animal_observation_status', label: 'Animal Observation Status', description: 'Current status during 14-day quarantine', uiGatingPending: true },
       { key: 'treatment_given', label: 'Treatment Given at Triage', description: 'Local wound treatment or initial antiseptic' },
     ],
   },
@@ -151,17 +152,17 @@ const CANONICAL_SECTIONS: SectionMeta[] = [
     icon: 'vaccinations',
     description: 'Vaccine brand, route, dosage, batch, and adverse reaction tracking',
     fields: [
-      { key: 'protocol_type', label: 'Vaccination Protocol', description: 'Essen (IM), Zagreb (IM/ID), or Updated Thai Red Cross' },
+      { key: 'protocol_type', label: 'Vaccination Protocol', description: 'Essen (IM), Zagreb (IM/ID), or Updated Thai Red Cross', uiGatingPending: true },
       { key: 'route', label: 'Administration Route', description: 'Intradermal (ID) or Intramuscular (IM)' },
       { key: 'injection_site', label: 'Injection Site', description: 'Deltoid or Anterolateral Thigh' },
-      { key: 'dosage_ml', label: 'Dosage (mL)', description: 'Dosage volume per dose' },
-      { key: 'vaccine_brand', label: 'Vaccine Brand Name', description: 'Commercial brand name of vaccine' },
-      { key: 'vaccine_generic', label: 'Vaccine Generic Name', description: 'Purified Vero Cell Rabies Vaccine / PCECV' },
-      { key: 'batch_no', label: 'Batch / Lot Number', description: 'Stock batch number for traceability' },
-      { key: 'tt_status', label: 'Tetanus Toxoid (TT) Status', description: 'Tetanus immunization assessment' },
-      { key: 'medication_given', label: 'Additional Medications', description: 'Antibiotics, ERIG, or ATS prescribed' },
-      { key: 'adverse_reaction', label: 'Adverse Reaction', description: 'Signs of adverse events following immunization' },
-      { key: 'cost_recovery', label: 'Cost Recovery / Billing Type', description: 'Free / PhilHealth subsidized / Paid' },
+      { key: 'dosage_ml', label: 'Dosage (mL)', description: 'Dosage volume per dose', uiGatingPending: true },
+      { key: 'vaccine_brand', label: 'Vaccine Brand Name', description: 'Commercial brand name of vaccine', uiGatingPending: true },
+      { key: 'vaccine_generic', label: 'Vaccine Generic Name', description: 'Purified Vero Cell Rabies Vaccine / PCECV', uiGatingPending: true },
+      { key: 'batch_no', label: 'Batch / Lot Number', description: 'Stock batch number for traceability', uiGatingPending: true },
+      { key: 'tt_status', label: 'Tetanus Toxoid (TT) Status', description: 'Tetanus immunization assessment', uiGatingPending: true },
+      { key: 'medication_given', label: 'Additional Medications', description: 'Antibiotics, ERIG, or ATS prescribed', uiGatingPending: true },
+      { key: 'adverse_reaction', label: 'Adverse Reaction', description: 'Signs of adverse events following immunization', uiGatingPending: true },
+      { key: 'cost_recovery', label: 'Cost Recovery / Billing Type', description: 'Free / PhilHealth subsidized / Paid', uiGatingPending: true },
     ],
   },
 ];
@@ -1889,6 +1890,21 @@ export default function ModuleConfigPage() {
                               }}
                             >
                               Locked Safeguard
+                            </span>
+                          )}
+                          {field.uiGatingPending && (
+                            <span
+                              title="Stored in clinic config; Form 2/3 clinical UI gating is still staff-controlled"
+                              style={{
+                                background: '#f1f5f9',
+                                color: '#475569',
+                                fontSize: '0.65rem',
+                                padding: '0.1rem 0.35rem',
+                                borderRadius: '4px',
+                                fontWeight: 600,
+                              }}
+                            >
+                              Staff-controlled · UI gating pending
                             </span>
                           )}
                         </div>

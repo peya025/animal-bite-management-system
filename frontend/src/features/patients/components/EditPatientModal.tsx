@@ -91,7 +91,10 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
       value = formatPWDNumber(value);
     }
     setEnrolment(prev => {
-      const next = { ...prev, [key]: value };
+      let next = { ...prev, [key]: value };
+      if (key === 'sex' && value === 'male' && next.queue_priority_group === 'pregnant') {
+        next = { ...next, queue_priority_group: 'normal', queue_priority_level: 'normal' };
+      }
       draft.saveDraft(next);
       return next;
     });
@@ -99,7 +102,10 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
 
   const handleDirectChange = (key: keyof EnrolmentFormData, value: unknown) => {
     setEnrolment(prev => {
-      const next = { ...prev, [key]: value };
+      let next = { ...prev, [key]: value };
+      if (key === 'sex' && value === 'male' && next.queue_priority_group === 'pregnant') {
+        next = { ...next, queue_priority_group: 'normal', queue_priority_level: 'normal' };
+      }
       draft.saveDraft(next);
       return next;
     });
@@ -109,6 +115,10 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
     // Identity invariants
     if (!enrolment.last_name || !enrolment.first_name || !enrolment.date_of_birth || !enrolment.sex) {
       setError('Please fill in all required fields (Last Name, First Name, Date of Birth, Sex).');
+      return;
+    }
+    if (!enrolment.no_middle_name && !enrolment.middle_name.trim()) {
+      setError('Middle Name is required unless "No Middle Name" is checked.');
       return;
     }
 
@@ -184,7 +194,7 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
         animal_condition: enrolment.animal_condition || undefined,
       } : {}),
       first_name: enrolment.first_name.trim(),
-      middle_name: cleanField(enrolment.middle_name),
+      middle_name: enrolment.no_middle_name ? null : cleanField(enrolment.middle_name),
       last_name: enrolment.last_name.trim(),
       suffix: cleanField(enrolment.suffix),
       gender: enrolment.sex,
@@ -301,7 +311,21 @@ export default function EditPatientModal({ open, patient, onClose, onSuccess }: 
         <form className="registration-form" onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
           <p className="registration-intro">Update patient details below. Click <strong>Save Changes</strong> to apply updates.</p>
           {error && <div className="registration-error">{error}</div>}
-          <PatientInfoSection data={enrolment} onChange={handleFieldChange} />
+          <PatientInfoSection
+            data={enrolment}
+            onChange={handleFieldChange}
+            onNoMiddleNameChange={(checked) => {
+              setEnrolment(prev => {
+                const next = {
+                  ...prev,
+                  no_middle_name: checked,
+                  middle_name: checked ? '' : prev.middle_name,
+                };
+                draft.saveDraft(next);
+                return next;
+              });
+            }}
+          />
           <AddressSection loc={loc} />
           <ContactSection data={enrolment} onChange={handleFieldChange} />
           <SocioeconomicSection data={enrolment} onChange={handleFieldChange} />

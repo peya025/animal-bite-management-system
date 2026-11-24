@@ -1,7 +1,15 @@
 import { useMemo } from 'react';
 import { EMPTY_PROPHYLAXIS_ORDERS, getTetanusCategoryFromOrders } from '../../../../shared/types/prophylaxis';
 import type { ProphylaxisOrders, ProphylaxisStock } from '../../../../shared/types/prophylaxis';
+import { SearchableSelect } from '../../../../components/forms/SearchableSelect';
 import { FormField } from '../FormField';
+
+const TETANUS_CATEGORY_OPTIONS = [
+  { value: 'ats', label: 'ATS (Anti-Tetanus Serum)' },
+  { value: 'tt', label: 'Tetanus Vaccine (TT)' },
+  { value: 'ats_tt', label: 'ATS + TT' },
+  { value: 'not_indicated', label: 'Not Indicated' },
+];
 
 interface ProphylaxisOrderSectionProps {
   value: ProphylaxisOrders;
@@ -208,20 +216,16 @@ export default function ProphylaxisOrderSection({
           error={!!errors?.tetanus_category}
           errorText={errors?.tetanus_category}
         >
-          <select
-            className="fm-select"
+          <SearchableSelect
             name="tetanus_category"
             aria-label="Tetanus prophylaxis assessment"
             value={currentCategory}
+            options={TETANUS_CATEGORY_OPTIONS}
+            placeholder="Select tetanus prophylaxis"
+            searchPlaceholder="Search tetanus prophylaxis..."
             disabled={disabled}
-            onChange={(e) => handleCategoryChange(e.target.value)}
-          >
-            <option value="" disabled hidden>Select tetanus prophylaxis</option>
-            <option value="ats">ATS (Anti-Tetanus Serum)</option>
-            <option value="tt">Tetanus Vaccine (TT)</option>
-            <option value="ats_tt">ATS + TT</option>
-            <option value="not_indicated">Not Indicated</option>
-          </select>
+            onChange={handleCategoryChange}
+          />
         </FormField>
 
         {/* Conditional ATS Inventory Dropdown */}
@@ -233,21 +237,19 @@ export default function ProphylaxisOrderSection({
             error={!!errors?.tetanus_passive}
             errorText={errors?.tetanus_passive}
           >
-            <select
-              className="fm-select"
+            <SearchableSelect
               name="tetanus_passive"
               aria-label="ATS product selection"
               value={orders.tetanus_passive && orders.tetanus_passive !== 'none' ? orders.tetanus_passive : ''}
+              options={availableAtsBrands.map((brand) => ({
+                value: brand,
+                label: brand === 'ATS' ? 'ATS (Anti-Tetanus Serum)' : brand,
+              }))}
+              placeholder="Select available ATS"
+              searchPlaceholder="Search ATS product..."
               disabled={disabled}
-              onChange={(e) => handleAtsChange(e.target.value)}
-            >
-              <option value="" disabled hidden>[ Select available ATS ▼ ]</option>
-              {availableAtsBrands.map((brand) => (
-                <option key={brand} value={brand}>
-                  {brand === 'ATS' ? 'ATS (Anti-Tetanus Serum)' : brand}
-                </option>
-              ))}
-            </select>
+              onChange={handleAtsChange}
+            />
 
             {isAtsNoStock ? (
               <span className="registration-field-hint" style={{ marginTop: 4, display: 'block', color: '#dc2626', fontWeight: 600 }}>
@@ -308,21 +310,19 @@ export default function ProphylaxisOrderSection({
             error={!!errors?.tetanus_vaccine}
             errorText={errors?.tetanus_vaccine}
           >
-            <select
-              className="fm-select"
+            <SearchableSelect
               name="tetanus_vaccine"
               aria-label="TT vaccine product selection"
               value={orders.tetanus_vaccine && orders.tetanus_vaccine !== 'none' ? orders.tetanus_vaccine : ''}
+              options={availableTtBrands.map((brand) => ({
+                value: brand,
+                label: brand === 'TT' ? 'TT (Tetanus Toxoid)' : brand,
+              }))}
+              placeholder="Select available TT vaccine"
+              searchPlaceholder="Search TT vaccine..."
               disabled={disabled}
-              onChange={(e) => handleTtChange(e.target.value)}
-            >
-              <option value="" disabled hidden>[ Select available TT vaccine ▼ ]</option>
-              {availableTtBrands.map((brand) => (
-                <option key={brand} value={brand}>
-                  {brand === 'TT' ? 'TT (Tetanus Toxoid)' : brand}
-                </option>
-              ))}
-            </select>
+              onChange={handleTtChange}
+            />
 
             {isTtNoStock ? (
               <span className="registration-field-hint" style={{ marginTop: 4, display: 'block', color: '#dc2626', fontWeight: 600 }}>
@@ -348,22 +348,25 @@ export default function ProphylaxisOrderSection({
         )}
 
         <FormField id="field-rig" label="Rabies immunoglobulin (RIG)">
-          <select className="fm-select" aria-label="RIG order" value={orders.rig || 'none'} disabled={disabled}
-            onChange={e => {
-              const nextRig = e.target.value;
+          <SearchableSelect
+            name="rig"
+            aria-label="RIG order"
+            value={orders.rig || 'none'}
+            options={[
+              { value: 'none', label: 'No RIG order' },
+              ...availableRigBrands.map((brand) => ({ value: brand, label: brand })),
+            ]}
+            placeholder="No RIG order"
+            searchPlaceholder="Search RIG..."
+            disabled={disabled}
+            onChange={(nextRig) => {
               const nextOrders = { ...orders, rig: nextRig };
               if (nextRig && nextRig !== 'none' && !nextOrders.rig_weight_kg && Number(recordedWeight) > 0) {
                 nextOrders.rig_weight_kg = String(recordedWeight);
               }
               onChange(nextOrders);
-            }}>
-            <option value="none">No RIG order</option>
-            {availableRigBrands.map((brand) => (
-              <option key={brand} value={brand}>
-                {brand}
-              </option>
-            ))}
-          </select>
+            }}
+          />
           {isRigNoStock ? (
             <span className="registration-field-hint" style={{ marginTop: 4, display: 'block', color: '#dc2626', fontWeight: 600 }}>
               No available RIG stock

@@ -1,5 +1,8 @@
 import { DOCTOR_RE_EXPOSURE_OPTIONS } from '../../constants/consultation.constants';
+import { SearchableSelect } from '../../../../components/forms/SearchableSelect';
 import { FormField } from '../FormField';
+
+const RE_EXPOSURE_PLAN_OPTIONS = DOCTOR_RE_EXPOSURE_OPTIONS.filter((opt) => opt.value !== '');
 
 interface ReExposureAssessmentSectionProps {
   entry: any;
@@ -51,24 +54,16 @@ export default function ReExposureAssessmentSection({
           error={!!error}
           errorText={error}
         >
-          <select
-            className="fm-select"
+          <SearchableSelect
             name="treatment_plan"
+            aria-label="Treatment Plan"
             value={treatmentPlan}
-            onChange={(event) => onUpdateTreatmentPlan(event.target.value)}
+            options={RE_EXPOSURE_PLAN_OPTIONS}
+            placeholder="Select Doctor Re-Exposure Plan…"
+            searchPlaceholder="Search treatment plan..."
+            onChange={onUpdateTreatmentPlan}
             disabled={isFormDisabled}
-          >
-            {DOCTOR_RE_EXPOSURE_OPTIONS.map((option) => (
-              <option
-                key={option.value}
-                value={option.value}
-                disabled={option.value === ''}
-                hidden={option.value === ''}
-              >
-                {option.label}
-              </option>
-            ))}
-          </select>
+          />
         </FormField>
       </div>
     </div>

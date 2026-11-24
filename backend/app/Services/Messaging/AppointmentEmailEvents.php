@@ -50,7 +50,7 @@ class AppointmentEmailEvents
         $message = OutboundMessage::create([
             'clinic_id' => $appointment->clinic_id, 'patient_id' => $patient->patient_id,
             'appointment_id' => $appointment->appointment_id, 'channel' => 'email', 'purpose' => 'appointment_update',
-            'provider' => config('mail.default'), 'recipient' => $recipient, 'subject' => 'Clinic appointment update',
+            'provider' => DeliveryPolicy::emailProvider(), 'recipient' => $recipient, 'subject' => 'Clinic appointment update',
             'body' => $body, 'status' => 'queued', 'idempotency_key' => hash('sha256', Str::uuid()->toString()),
             'context' => ['event' => $event, 'snapshot' => $snapshot, 'expires_at' => now()->addDay()->toIso8601String()],
         ]);

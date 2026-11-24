@@ -468,32 +468,45 @@ export const SetupWizardRoot = styled('div')`
     position: relative;
     display: flex;
     align-items: center;
+    width: 100%;
   }
 
   .input-icon-wrapper {
     position: absolute;
-    left: 18px;
-    color: rgba(255, 255, 255, 0.4);
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    color: rgba(255, 255, 255, 0.45);
     display: flex;
     align-items: center;
     justify-content: center;
     pointer-events: none;
     transition: color 0.3s;
+    z-index: 2;
+  }
+
+  .input-icon-wrapper--top {
+    top: 15px;
+    transform: none;
   }
 
   .password-toggle-btn {
     position: absolute;
-    right: 14px;
+    right: 10px;
     top: 50%;
     transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
     background: transparent;
     border: none;
-    color: rgba(255, 255, 255, 0.45);
+    color: rgba(255, 255, 255, 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    padding: 6px;
+    padding: 0;
     border-radius: 50%;
     transition: color 0.2s, background-color 0.2s;
     z-index: 2;
@@ -504,6 +517,7 @@ export const SetupWizardRoot = styled('div')`
     }
   }
 
+  .form-group .setup-input,
   .form-group input[type="text"],
   .form-group input[type="email"],
   .form-group input[type="tel"],
@@ -511,19 +525,25 @@ export const SetupWizardRoot = styled('div')`
   .form-group select,
   .form-group textarea {
     width: 100%;
-    padding: 14px 20px 14px 48px;
-    border: 1.5px solid rgba(255, 255, 255, 0.1);
+    box-sizing: border-box;
+    min-height: 48px;
+    padding: 12px 18px 12px 46px;
+    border: 1.5px solid rgba(255, 255, 255, 0.12);
     border-radius: 30px; /* Capsule shape inputs to match mockup */
+    font-family: inherit;
     font-size: 14px;
+    line-height: 1.4;
     color: #ffffff;
     background: rgba(255, 255, 255, 0.04);
-    transition: all 0.3s ease;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
   }
 
+  .form-group .input-with-icon--has-toggle .setup-input,
   .form-group input[type="password"] {
     padding-right: 48px;
   }
 
+  .form-group select.setup-input,
   .form-group select {
     padding-right: 42px;
     appearance: none;
@@ -544,9 +564,12 @@ export const SetupWizardRoot = styled('div')`
     cursor: not-allowed;
   }
 
+  .form-group textarea.setup-input,
   .form-group textarea {
-    padding: 14px 20px 14px 48px;
+    min-height: 96px;
+    padding: 13px 18px 13px 46px;
     border-radius: 20px;
+    resize: vertical;
   }
 
   .form-group input::placeholder,
@@ -661,30 +684,53 @@ export const SetupWizardRoot = styled('div')`
   }
 
   .error-text {
-    font-size: 11px;
-    color: #ef4444;
-    margin-top: 6px;
-    font-weight: 600;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #f87171;
+    margin-top: 8px;
+    font-weight: 500;
     display: flex;
-    align-items: center;
-    gap: 4px;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .error-text svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .field-hint {
+    font-size: 12px;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.45);
+    margin: 8px 0 0;
+    font-weight: 500;
+  }
+
+  .field-hint--success {
+    color: #10b981;
   }
 
   /* Prevent browser autofill from turning input background solid white */
   .form-group input:-webkit-autofill,
-  .form-group input:-webkit-autofill:hover, 
-  .form-group input:-webkit-autofill:focus, 
+  .form-group input:-webkit-autofill:hover,
+  .form-group input:-webkit-autofill:focus,
   .form-group input:-webkit-autofill:active {
-    -webkit-background-clip: text;
     -webkit-text-fill-color: #ffffff !important;
+    caret-color: #ffffff;
     transition: background-color 5000s ease-in-out 0s;
-    box-shadow: inset 0 0 20px 20px rgba(11, 19, 41, 0.6) !important;
+    box-shadow: inset 0 0 0 1000px #09261f !important;
   }
 
   .form-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 20px;
+    align-items: start;
+  }
+
+  .form-row .form-group {
+    min-width: 0;
   }
 
   /* File Upload Area */
@@ -1192,6 +1238,7 @@ export const SetupWizardRoot = styled('div')`
       color: #475569;
     }
 
+    .form-group .setup-input,
     .form-group input[type="text"],
     .form-group input[type="email"],
     .form-group input[type="tel"],
@@ -1277,12 +1324,25 @@ export const SetupWizardRoot = styled('div')`
       color: #64748b;
     }
 
+    .error-text {
+      color: #dc2626;
+    }
+
+    .field-hint {
+      color: #64748b;
+    }
+
+    .field-hint--success {
+      color: #059669;
+    }
+
     .form-group input:-webkit-autofill,
-    .form-group input:-webkit-autofill:hover, 
-    .form-group input:-webkit-autofill:focus, 
+    .form-group input:-webkit-autofill:hover,
+    .form-group input:-webkit-autofill:focus,
     .form-group input:-webkit-autofill:active {
       -webkit-text-fill-color: #0f172a !important;
-      box-shadow: inset 0 0 20px 20px #ffffff !important;
+      caret-color: #0f172a;
+      box-shadow: inset 0 0 0 1000px #ffffff !important;
     }
 
     .file-upload-card {
@@ -1437,9 +1497,35 @@ export const SetupWizardRoot = styled('div')`
     }
     .form-row {
       grid-template-columns: 1fr;
+      gap: 0;
     }
     .setup-content {
-      padding: 28px;
+      padding: 28px 24px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .setup-header {
+      padding: 16px 20px;
+    }
+    .setup-container {
+      margin: 24px auto;
+      padding: 0 14px 48px;
+    }
+    .setup-content {
+      padding: 22px 18px;
+      border-radius: 20px;
+    }
+    .step-content h2 {
+      font-size: 22px;
+    }
+    .step-description {
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .setup-actions {
+      flex-wrap: wrap;
+      gap: 12px;
     }
   }
 `;

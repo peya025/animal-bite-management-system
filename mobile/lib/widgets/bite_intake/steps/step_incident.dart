@@ -239,17 +239,25 @@ class StepIncident extends StatelessWidget {
                           ? 'Loading municipalities...'
                           : 'Select municipality',
                     ),
-                    items: municipalities
-                        .map(
-                          (m) => DropdownMenuItem(
-                            value: m.code,
-                            child: Text(
-                              m.name,
-                              style: const TextStyle(fontSize: 13),
-                            ),
+                    items: [
+                      if (!reqPlace)
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text(
+                            'Not specified',
+                            style: TextStyle(fontSize: 13),
                           ),
-                        )
-                        .toList(),
+                        ),
+                      ...municipalities.map(
+                        (m) => DropdownMenuItem(
+                          value: m.code,
+                          child: Text(
+                            m.name,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ],
                     validator: (value) {
                       if (!reqPlace) return null;
                       if ((value == null || value.isEmpty) &&
@@ -409,6 +417,7 @@ class StepIncident extends StatelessWidget {
                     (opt) => RadioListTile<String>(
                       value: opt.key,
                       groupValue: exposureType,
+                      toggleable: !reqExposure,
                       title: Text(
                         opt.value,
                         style: const TextStyle(fontSize: 13),
@@ -442,6 +451,7 @@ class StepIncident extends StatelessWidget {
                     (opt) => RadioListTile<String>(
                       value: opt.key,
                       groupValue: bodyPartGroup,
+                      toggleable: !reqWound,
                       title: Text(
                         opt.value,
                         style: const TextStyle(fontSize: 13),

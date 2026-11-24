@@ -294,3 +294,127 @@ export async function disposeVialRecord(
   const response = await api.post(`/inventory/vials/${vialId}/dispose`, payload);
   return response.data;
 }
+
+export interface DailyVialForecastRow {
+  date: string;
+  day_label: string;
+  is_today: boolean;
+  is_open: boolean;
+  committed_followups: number;
+  dose_breakdown: {
+    d0: number;
+    d3: number;
+    d7: number;
+    d14: number;
+    d28: number;
+    other: number;
+  };
+  brand_doses: Record<string, number>;
+  waiting_room_d0: number;
+  expected_walkin_d0: number;
+  total_expected_doses: number;
+  vials_committed_only: number;
+  vials_realistic: number;
+  vials_conservative_im: number;
+  open_vial_leftover_doses: number;
+  high_wastage_risk: boolean;
+  expired_before_day_vials: number;
+  usable_stock_start: number;
+  projected_stock_after: number;
+  shortfall_vials: number;
+  status: 'ok' | 'tight' | 'shortfall' | 'closed';
+}
+
+export interface BrandSupplySummary {
+  brand: string;
+  usable_vials: number | null;
+  doses_per_vial: number;
+  earliest_expiry: string | null;
+  scheduled_doses_7d: number;
+  scheduled_doses_14d: number;
+  scheduled_doses_horizon: number;
+}
+
+export interface ExpiringUnusedBatch {
+  inventory_id: number;
+  vaccine_type: string;
+  batch_number: string;
+  expiration_date: string;
+  current_quantity: number;
+  projected_unused_vials: number;
+  days_until_expiry: number;
+}
+
+export interface RigReadinessSummary {
+  usable_rig_vials: number;
+  immediate_pending_cases: number;
+  recent_30d_cat3_cases: number;
+  projected_7d_cat3_cases: number;
+  projected_7d_rig_vials: number;
+  status: 'shortfall' | 'tight' | 'ok';
+  headline: string;
+}
+
+export interface FollowupVialReadiness {
+  status: 'shortfall' | 'tight' | 'expiring' | 'ok';
+  severity: 'critical' | 'warning' | 'ok';
+  usable_arv_vials: number;
+  usable_rig_vials: number;
+  effective_doses_per_vial: number;
+  next_7d_committed_followups: number;
+  today_waiting_d0_doses: number;
+  next_7d_expected_walkin_d0: number;
+  next_7d_vials_committed_only: number;
+  next_7d_vials_realistic: number;
+  next_7d_vials_conservative_im: number;
+  next_14d_committed_followups: number;
+  next_14d_vials_realistic: number;
+  projected_stock_after_7d: number;
+  projected_stockout_date: string | null;
+  committed_stockout_date: string | null;
+  expiring_within_30d_vials: number;
+  expiring_unused_vials: number;
+  rig_pending_cases: number;
+  rig_projected_7d_vials: number;
+  rig_status: 'shortfall' | 'tight' | 'ok';
+  high_wastage_days_next_7d: number;
+  headline: string;
+}
+
+export interface FollowupVialForecastResponse {
+  rule_version: string;
+  reference_date: string;
+  horizon_days: number;
+  effective_doses_per_vial: number;
+  usable_stock: {
+    arv_vials: number;
+    rig_vials: number;
+    arv_expiring_within_30d: number;
+    rig_expiring_within_30d: number;
+    earliest_arv_expiry: string | null;
+    earliest_rig_expiry: string | null;
+  };
+  same_day_waiting_demand: {
+    form1_awaiting_today: number;
+    form2_prescribed_unstarted: number;
+    estimated_waiting_d0_doses: number;
+    historical_pep_initiation_rate_pct: number;
+  };
+  walkin_baseline: {
+    d0_last_30d: number;
+    open_days_last_30d: number;
+    daily_walkin_d0_rate: number;
+  };
+  daily_schedule: DailyVialForecastRow[];
+  brand_summary: BrandSupplySummary[];
+  expiring_before_use_batches: ExpiringUnusedBatch[];
+  rig_readiness: RigReadinessSummary;
+  vial_readiness: FollowupVialReadiness;
+}
+
+export async function getSupplyForecast(horizon = 14): Promise<FollowupVialForecastResponse> {
+  const response = await api.get('/inventory/supply-forecast', {
+    params: { horizon },
+  });
+  return response.data;
+}

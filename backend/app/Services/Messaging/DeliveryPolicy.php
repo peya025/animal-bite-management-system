@@ -6,11 +6,18 @@ use App\Services\Messaging\Sms\SmsManager;
 
 class DeliveryPolicy
 {
+    public static function emailProvider(?string $configuredProvider = null): string
+    {
+        if (app(EmailTransportInterface::class) instanceof BrevoEmailService) {
+            return 'brevo';
+        }
+
+        return $configuredProvider ?: (string) config('mail.default');
+    }
+
     public function mailerReady(?string $mailer = null): bool
     {
-        $mailer ??= config('mail.default');
-
-        return app(SmtpEmailService::class)->configurationError($mailer) === null;
+        return app(EmailTransportInterface::class)->configurationError($mailer) === null;
     }
 
     public function error(string $channel, string $recipient, ?string $provider = null): ?string
@@ -29,10 +36,13 @@ class DeliveryPolicy
                 return 'invalid_email';
             }
 
-            return app(SmtpEmailService::class)->configurationError($provider);
+            return app(EmailTransportInterface::class)->configurationError($provider);
         }
         try {
-            SmsManager::normalize($recipient);
+            $normalizedRecipient = SmsManager::normalize($recipient);
+            if (config('messaging.sms_test_mode', true) && ! $this->isSmsRecipientAllowlisted($normalizedRecipient)) {
+                return 'recipient_not_allowlisted';
+            }
             $adapter = app(SmsManager::class)->provider($provider);
             if (! $adapter->configured()) {
                 return 'provider_not_configured';
@@ -45,6 +55,32 @@ class DeliveryPolicy
         }
 
         return null;
+    }
+
+    private function isSmsRecipientAllowlisted(string $normalizedRecipient): bool
+    {
+        $configured = config('messaging.sms_test_recipients', []);
+        if (is_string($configured)) {
+            $configured = array_filter(array_map('trim', explode(',', $configured)));
+        }
+        if (! is_array($configured)) {
+            return false;
+        }
+
+        foreach ($configured as $entry) {
+            if (! is_string($entry) || trim($entry) === '') {
+                continue;
+            }
+            try {
+                if (SmsManager::normalize($entry) === $normalizedRecipient) {
+                    return true;
+                }
+            } catch (\InvalidArgumentException) {
+                // Ignore malformed allowlist entries rather than failing open.
+            }
+        }
+
+        return false;
     }
 
     public function availability(): array

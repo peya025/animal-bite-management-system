@@ -270,6 +270,41 @@ class BiteCaseController extends Controller
     }
 
     /**
+     * Lightweight cached clinical alert summary for the global Top-Header Clinical Alert Pill.
+     * GET /api/cases/clinical-alerts/summary
+     */
+    public function clinicalAlertSummary(Request $request): JsonResponse
+    {
+        $summary = $this->biteCaseService->getHeaderClinicalAlertSummary((int) $request->user()->clinic_id);
+
+        return $this->json($summary);
+    }
+
+    /**
+     * Log or update the 14-day biting animal observation status for an episode.
+     * PATCH /api/cases/{id}/animal-observation
+     */
+    public function updateAnimalObservation(Request $request, int|string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'animal_observation_status' => 'required|in:healthy,sick,died,unknown',
+            'animal_observation_date' => 'nullable|date',
+            'remarks' => 'nullable|string|max:500',
+        ]);
+
+        $incident = $this->biteCaseService->updateAnimalObservation(
+            (int) $request->user()->clinic_id,
+            (int) $id,
+            $validated
+        );
+
+        return $this->json([
+            'message' => 'Animal observation status updated.',
+            'incident' => $incident,
+        ]);
+    }
+
+    /**
      * Get distinct saved Purok/Zone options for a given Barangay and Municipality.
      * GET /api/cases/puroks or /api/locations/puroks
      */

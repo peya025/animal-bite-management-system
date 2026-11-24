@@ -663,6 +663,8 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
   );
 }
 
+const setupInputClass = (hasError?: boolean) => (hasError ? 'setup-input has-error' : 'setup-input');
+
 function AdminAccountStep({ data, setData, errors, setErrors }: any) {
   const [passwordsMatch, setPasswordsMatch] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -739,7 +741,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
             }}
             placeholder="Tagoloan Rural Health Unit"
             onBlur={handleBlur('clinicName')}
-            className={errors?.clinicName ? 'has-error' : ''}
+            className={setupInputClass(!!errors?.clinicName)}
             required
           />
           <div className="input-icon-wrapper">
@@ -749,7 +751,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
           </div>
         </div>
         {errors?.clinicName && (
-          <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div className="error-text">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M12 9v4" />
               <path d="M12 17h.01" />
@@ -785,7 +787,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
               }}
               placeholder="Dr. Juan Dela Cruz"
               onBlur={handleBlur('adminName')}
-              className={errors?.adminName ? 'has-error' : ''}
+              className={setupInputClass(!!errors?.adminName)}
               required
             />
             <div className="input-icon-wrapper">
@@ -796,7 +798,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
             </div>
           </div>
           {errors?.adminName && (
-            <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="error-text">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <path d="M12 9v4" />
                 <path d="M12 17h.01" />
@@ -825,7 +827,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
               }}
               placeholder="admin@clinic.com"
               onBlur={handleBlur('adminEmail')}
-              className={errors?.adminEmail ? 'has-error' : ''}
+              className={setupInputClass(!!errors?.adminEmail)}
               required
             />
             <div className="input-icon-wrapper">
@@ -836,7 +838,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
             </div>
           </div>
           {errors?.adminEmail ? (
-            <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="error-text">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <path d="M12 9v4" />
                 <path d="M12 17h.01" />
@@ -845,7 +847,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
               <span>{errors.adminEmail}</span>
             </div>
           ) : (
-            <p style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', fontWeight: 500 }}>
+            <p className="field-hint">
               You'll use this email to log in
             </p>
           )}
@@ -856,7 +858,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
         <div className="form-row">
         <div className="form-group">
           <label>Password {isAlreadyInitialized ? '(Optional)' : '*'}</label>
-          <div className="input-with-icon">
+          <div className="input-with-icon input-with-icon--has-toggle">
             <input
               type={showPassword ? 'text' : 'password'}
               value={data.adminPassword}
@@ -872,9 +874,8 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
               }}
               placeholder={isAlreadyInitialized ? '•••••••• (Keep current password)' : 'Minimum 8 characters'}
               onBlur={handleBlur('adminPassword')}
-              className={errors?.adminPassword ? 'has-error' : ''}
+              className={setupInputClass(!!errors?.adminPassword)}
               required={!isAlreadyInitialized}
-              style={{ paddingRight: '48px' }}
             />
             <div className="input-icon-wrapper">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -903,7 +904,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
             </button>
           </div>
           {errors?.adminPassword ? (
-            <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="error-text">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <path d="M12 9v4" />
                 <path d="M12 17h.01" />
@@ -912,11 +913,11 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
               <span>{errors.adminPassword}</span>
             </div>
           ) : isAlreadyInitialized ? (
-            <p style={{ fontSize: '11px', color: '#10b981', marginTop: '6px', fontWeight: 500 }}>
+            <p className="field-hint field-hint--success">
               Admin account already created. Leave blank to keep existing password.
             </p>
           ) : (
-            <p style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', fontWeight: 500 }}>
+            <p className="field-hint">
               Must contain uppercase, lowercase, and a number
             </p>
           )}
@@ -924,7 +925,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
 
         <div className="form-group">
           <label>Confirm Password {isAlreadyInitialized ? '(Optional)' : '*'}</label>
-          <div className="input-with-icon">
+          <div className="input-with-icon input-with-icon--has-toggle">
             <input
               type={showConfirmPassword ? 'text' : 'password'}
               value={data.adminPasswordConfirm}
@@ -941,9 +942,8 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
               }}
               placeholder={isAlreadyInitialized ? '•••••••• (Keep current password)' : 'Re-enter password'}
               onBlur={handleBlur('adminPasswordConfirm')}
-              className={errors?.adminPasswordConfirm ? 'has-error' : ''}
+              className={setupInputClass(!!errors?.adminPasswordConfirm)}
               required={!isAlreadyInitialized}
-              style={{ paddingRight: '48px' }}
             />
             <div className="input-icon-wrapper">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -972,7 +972,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
             </button>
           </div>
           {errors?.adminPasswordConfirm ? (
-            <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="error-text">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <path d="M12 9v4" />
                 <path d="M12 17h.01" />
@@ -982,7 +982,7 @@ function AdminAccountStep({ data, setData, errors, setErrors }: any) {
             </div>
           ) : (
             data.adminPasswordConfirm && !passwordsMatch && (
-              <div className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div className="error-text">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                   <path d="M12 9v4" />
                   <path d="M12 17h.01" />
@@ -1018,6 +1018,7 @@ function CustomizeStep({ data, setData }: any) {
         <div className="input-with-icon">
           <input
             type="text"
+            className="setup-input"
             value={data.appName}
             onChange={(e) => setData({ ...data, appName: e.target.value })}
             placeholder="My Animal Bite Center"
@@ -1353,7 +1354,7 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
                   value={data.provinceCode || ''}
                   onChange={handleProvinceChange}
                   onBlur={handleClinicBlur('address')}
-                  className={errors?.address && !data.provinceCode ? 'has-error' : ''}
+                  className={setupInputClass(!!(errors?.address && !data.provinceCode))}
                   required
                 >
                   <option value="">{loadingProvinces ? 'Loading provinces...' : 'Select Province'}</option>
@@ -1381,7 +1382,7 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
                   onChange={handleCityChange}
                   onBlur={handleClinicBlur('address')}
                   disabled={!data.provinceCode || loadingCities}
-                  className={errors?.address && !data.municipalityCode ? 'has-error' : ''}
+                  className={setupInputClass(!!(errors?.address && !data.municipalityCode))}
                   required
                 >
                   <option value="">
@@ -1418,7 +1419,7 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
                   onChange={handleBarangayChange}
                   onBlur={handleClinicBlur('address')}
                   disabled={!data.municipalityCode || loadingBarangays}
-                  className={errors?.address && !data.barangayCode ? 'has-error' : ''}
+                  className={setupInputClass(!!(errors?.address && !data.barangayCode))}
                   required
                 >
                   <option value="">
@@ -1449,6 +1450,7 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
               <div className="input-with-icon">
                 <input
                   type="text"
+                  className="setup-input"
                   value={data.street || ''}
                   onChange={handleStreetChange}
                   placeholder="e.g. Zone 2, National Highway"
@@ -1501,12 +1503,11 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
               onChange={handleManualAddressChange}
               placeholder="123 Main Street, City, Province"
               onBlur={handleClinicBlur('address')}
-              className={errors?.address ? 'has-error' : ''}
+              className={setupInputClass(!!errors?.address)}
               rows={3}
               required
-              style={{ paddingLeft: '44px' }}
             />
-            <div className="input-icon-wrapper" style={{ top: '16px', alignItems: 'flex-start' }}>
+            <div className="input-icon-wrapper input-icon-wrapper--top">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
@@ -1547,7 +1548,7 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
               maxLength={11}
               placeholder="09XX XXX XXXX"
               onBlur={handleClinicBlur('phone')}
-              className={errors?.phone ? 'has-error' : ''}
+              className={setupInputClass(!!errors?.phone)}
               required
             />
             <div className="input-icon-wrapper">
@@ -1586,7 +1587,7 @@ function ClinicProfileStep({ data, setData, errors, setErrors }: any) {
               }}
               placeholder="contact@clinic.com"
               onBlur={handleClinicBlur('email')}
-              className={errors?.email ? 'has-error' : ''}
+              className={setupInputClass(!!errors?.email)}
               required
             />
             <div className="input-icon-wrapper">

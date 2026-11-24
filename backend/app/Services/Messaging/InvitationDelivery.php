@@ -20,9 +20,10 @@ class InvitationDelivery
             if (RateLimiter::tooManyAttempts($key, 1)) {
                 return false;
             }
+            $provider = DeliveryPolicy::emailProvider();
             $message = OutboundMessage::create([
                 'clinic_id' => $clinicId, 'channel' => 'email', 'purpose' => $purpose,
-                'provider' => config('mail.default'), 'idempotency_key' => hash('sha256', Str::uuid()->toString()),
+                'provider' => $provider, 'idempotency_key' => hash('sha256', Str::uuid()->toString()),
                 'recipient' => $recipient, 'body' => '[Invitation content omitted]',
                 'status' => $error ? 'skipped' : 'processing', 'error_code' => $error,
             ]);
@@ -30,9 +31,9 @@ class InvitationDelivery
                 return false;
             }
             RateLimiter::hit($key, 60);
-            // A known temporary SMTP rejection is safe to retry, at most three submissions.
+            // A known temporary rejection is safe to retry, at most three submissions.
             for ($attempt = 1; $attempt <= 3; $attempt++) {
-                $rateKey = 'messaging:email:'.config('mail.default');
+                $rateKey = 'messaging:email:'.$provider;
                 $allowed = Cache::lock($rateKey.':lock', 5)->get(function () use ($rateKey) {
                     if (RateLimiter::tooManyAttempts($rateKey, max(1, (int) config('messaging.email_per_minute')))) {
                         return false;
@@ -44,7 +45,7 @@ class InvitationDelivery
                 try {
                     $result = $allowed ? $send() : new SmsResult('failed', error: 'email_rate_limited');
                 } catch (\Throwable $e) {
-                    $result = app(SmtpEmailService::class)->failure($e);
+                    $result = app(EmailTransportInterface::class)->failure($e);
                 }
                 if (! $result instanceof SmsResult) {
                     $result = new SmsResult('failed', error: 'email_not_submitted');

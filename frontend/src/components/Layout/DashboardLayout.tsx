@@ -16,6 +16,7 @@ import {
 import { ROUTES } from '../../shared/config/routes';
 import ThemeToggle from '../../shared/components/ThemeToggle';
 import NotificationButton from '../../shared/components/NotificationButton';
+import ClinicalAlertHeaderPill from '../../shared/components/ClinicalAlertHeaderPill';
 import { WalkthroughHelpButton } from '../../features/walkthrough';
 
 interface DashboardLayoutProps {
@@ -319,6 +320,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             )}
           </div>
           <div className="header-right" data-walkthrough="header-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <ClinicalAlertHeaderPill />
             <span data-walkthrough="header-notifications"><NotificationButton /></span>
             <span data-walkthrough="header-walkthrough"><WalkthroughHelpButton /></span>
             <span data-walkthrough="header-theme"><ThemeToggle /></span>

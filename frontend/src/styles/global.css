@@ -787,9 +787,9 @@ tbody tr:last-child td,
 /* ══════════════════════════════════════════════════════════════════
    6. GLOBAL TEXTBOX & INPUT HOVER / FOCUS SYSTEM (Matches Login Page)
    ══════════════════════════════════════════════════════════════════ */
-input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):hover:not(:disabled),
-textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):hover:not(:disabled),
-select:not(.MuiSelect-select):not(.MuiNativeSelect-select):hover:not(:disabled),
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input):not(.ss-search-input):hover:not(:disabled),
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input):hover:not(:disabled),
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select):not(.setup-input):hover:not(:disabled),
 .fm-input:hover:not(:disabled),
 .fm-select:hover:not(:disabled),
 .fm-textarea:hover:not(:disabled),
@@ -798,12 +798,12 @@ select:not(.MuiSelect-select):not(.MuiNativeSelect-select):hover:not(:disabled),
   border-color: #10b981 !important;
 }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus,
-input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus-visible,
-textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus,
-textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus-visible,
-select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus,
-select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input):not(.ss-search-input):focus,
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input):not(.ss-search-input):focus-visible,
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input):focus,
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input):focus-visible,
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select):not(.setup-input):focus,
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select):not(.setup-input):focus-visible,
 .fm-input:focus,
 .fm-input:focus-visible,
 .fm-select:focus,
@@ -872,9 +872,9 @@ select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
 }
 
 /* Form inputs, selects & textareas in dark mode */
-[data-theme='dark'] input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input),
-[data-theme='dark'] select:not(.MuiSelect-select):not(.MuiNativeSelect-select),
-[data-theme='dark'] textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input),
+[data-theme='dark'] input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input):not(.ss-search-input),
+[data-theme='dark'] select:not(.MuiSelect-select):not(.MuiNativeSelect-select):not(.setup-input),
+[data-theme='dark'] textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input),
 [data-theme='dark'] .pm-search,
 [data-theme='dark'] .pm-entries-select,
 [data-theme='dark'] .sd-filter-select {
@@ -892,12 +892,12 @@ select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
   color: #64748b !important;
 }
 
-[data-theme='dark'] input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus,
-[data-theme='dark'] input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus-visible,
-[data-theme='dark'] select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus,
-[data-theme='dark'] select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
-[data-theme='dark'] textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus,
-[data-theme='dark'] textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus-visible,
+[data-theme='dark'] input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input):not(.ss-search-input):focus,
+[data-theme='dark'] input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input):not(.ss-search-input):focus-visible,
+[data-theme='dark'] select:not(.MuiSelect-select):not(.MuiNativeSelect-select):not(.setup-input):focus,
+[data-theme='dark'] select:not(.MuiSelect-select):not(.MuiNativeSelect-select):not(.setup-input):focus-visible,
+[data-theme='dark'] textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input):focus,
+[data-theme='dark'] textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input):focus-visible,
 [data-theme='dark'] .pm-search:focus,
 [data-theme='dark'] .pm-entries-select:focus,
 [data-theme='dark'] .sd-filter-select:focus {
@@ -1035,9 +1035,9 @@ select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus-visible,
 }
 
 /* Inputs & Form Controls */
-input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.pm-search):not(.auth-input):not(.login-input),
-select:not(.MuiSelect-select):not(.MuiNativeSelect-select),
-textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input) {
+input:not([type="checkbox"]):not([type="radio"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.pm-search):not(.auth-input):not(.login-input):not(.setup-input):not(.ss-search-input),
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select):not(.setup-input),
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input) {
   font-family: var(--sans);
   color: var(--input-text);
   background-color: var(--input-bg);
@@ -1049,9 +1049,9 @@ textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input) {
   transition: all 0.18s ease;
 }
 
-input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.auth-input):not(.login-input):focus,
-select:not(.MuiSelect-select):not(.MuiNativeSelect-select):focus,
-textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):focus {
+input:not([type="checkbox"]):not([type="radio"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.auth-input):not(.login-input):not(.setup-input):not(.ss-search-input):focus,
+select:not(.MuiSelect-select):not(.MuiNativeSelect-select):not(.setup-input):focus,
+textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input):focus {
   outline: none;
   border-color: var(--accent-green);
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);

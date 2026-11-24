@@ -1,8 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { FormField } from './FormField';
+import { SearchableSelect, createSelectChangeEvent } from '../../../../../shared/components';
 import type { EnrolmentFormData } from '../../../types';
 import { formatPWDNumber } from '../../../../../shared/utils';
 import { useClinicModuleConfig } from '../../../../../hooks/useClinicModuleConfig';
+
+const PHILHEALTH_STATUS_OPTIONS = [
+  { value: 'member', label: 'Member' },
+  { value: 'dependent', label: 'Dependent' },
+];
+
+const PHILHEALTH_CATEGORY_OPTIONS = [
+  { value: 'fe_private', label: 'FE – Private' },
+  { value: 'fe_government', label: 'FE – Government' },
+  { value: 'ie', label: 'IE' },
+  { value: 'others', label: 'Others' },
+];
+
+const FOURPS_CATEGORY_OPTIONS = [
+  { value: 'Beneficiary', label: 'Beneficiary' },
+  { value: 'Member of Beneficiary', label: 'Member of Beneficiary' },
+];
+
+const FOURPS_BENEFICIARY_OPTIONS = [
+  { value: 'Mother', label: 'Mother' },
+  { value: 'Father', label: 'Father' },
+];
+
+const FOURPS_RELATIONSHIP_OPTIONS = [
+  { value: 'Daughter', label: 'Daughter' },
+  { value: 'Son', label: 'Son' },
+];
+
+const emitSelectEvent = createSelectChangeEvent;
 
 interface GovProgramsSectionProps {
   data: EnrolmentFormData;
@@ -251,28 +281,24 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                 >
                 {/* Header row with Program Dropdown + Remove button */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <FormField label={`Membership ${rows.length > 1 ? `#${index + 1}` : ''}`}>
-                      <select 
-                        className="fm-select" 
-                        name={"membership-" + index} value={selectedProgram}
-                        onChange={(e) => handleProgramSelectChange(index, e.target.value)}
-                        style={{ fontWeight: selectedProgram ? 600 : 400 }}
-                      >
-                        <option value="">— Select Government Program / Membership —</option>
-                        {availablePrograms.map(opt => {
+                      <SearchableSelect
+                        name={`membership-${index}`}
+                        value={selectedProgram}
+                        placeholder="— Select Government Program / Membership —"
+                        searchPlaceholder="Search program..."
+                        options={availablePrograms.map((opt) => {
                           const isAlreadyChosen = otherSelected.includes(opt.value);
-                          return (
-                            <option 
-                              key={opt.value} 
-                              value={opt.value}
-                              disabled={isAlreadyChosen}
-                            >
-                              {opt.label} {isAlreadyChosen ? '(Already added)' : ''}
-                            </option>
-                          );
+                          return {
+                            value: opt.value,
+                            label: `${opt.label}${isAlreadyChosen ? ' (Already added)' : ''}`,
+                            disabled: isAlreadyChosen,
+                          };
                         })}
-                      </select>
+                        onChange={(val) => handleProgramSelectChange(index, val)}
+                        style={{ fontWeight: selectedProgram ? 600 : 400 }}
+                      />
                     </FormField>
                   </div>
 
@@ -316,11 +342,14 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                       <div className="fm-grid fm-grid--2">
                         {isFieldVisible('philhealth_status') && (
                           <FormField label="Status Type" required={isFieldRequired('philhealth_status')}>
-                            <select className="fm-select" name="philhealth_status" value={data.philhealth_status} onChange={onChange('philhealth_status')}>
-                              <option value="">— Select —</option>
-                              <option value="member">Member</option>
-                              <option value="dependent">Dependent</option>
-                            </select>
+                            <SearchableSelect
+                              name="philhealth_status"
+                              value={data.philhealth_status}
+                              options={PHILHEALTH_STATUS_OPTIONS}
+                              placeholder="— Select —"
+                              searchPlaceholder="Search status type..."
+                              onChange={(val) => onChange('philhealth_status')(emitSelectEvent('philhealth_status', val))}
+                            />
                           </FormField>
                         )}
                         {isFieldVisible('philhealth_no') && (
@@ -344,13 +373,14 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                       </div>
                       {isFieldVisible('philhealth_category') && (
                         <FormField label="Category" required={isFieldRequired('philhealth_category')}>
-                          <select className="fm-select" name="philhealth_category" value={data.philhealth_category} onChange={onChange('philhealth_category')}>
-                            <option value="">— Select —</option>
-                            <option value="fe_private">FE – Private</option>
-                            <option value="fe_government">FE – Government</option>
-                            <option value="ie">IE</option>
-                            <option value="others">Others</option>
-                          </select>
+                          <SearchableSelect
+                            name="philhealth_category"
+                            value={data.philhealth_category}
+                            options={PHILHEALTH_CATEGORY_OPTIONS}
+                            placeholder="— Select —"
+                            searchPlaceholder="Search category..."
+                            onChange={(val) => onChange('philhealth_category')(emitSelectEvent('philhealth_category', val))}
+                          />
                         </FormField>
                       )}
                     </div>
@@ -361,27 +391,36 @@ export function GovProgramsSection({ data, onChange, onDirectChange, errors = {}
                   <div className="registration-program-card" style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <FormField label="4Ps Membership Category">
-                        <select className="fm-select" name="fourps_category" value={data.fourps_category || ''} onChange={handleFourpsCategoryChange}>
-                          <option value="">— Select —</option>
-                          <option value="Beneficiary">Beneficiary</option>
-                          <option value="Member of Beneficiary">Member of Beneficiary</option>
-                        </select>
+                        <SearchableSelect
+                          name="fourps_category"
+                          value={data.fourps_category || ''}
+                          options={FOURPS_CATEGORY_OPTIONS}
+                          placeholder="— Select —"
+                          searchPlaceholder="Search 4Ps category..."
+                          onChange={(val) => handleFourpsCategoryChange(emitSelectEvent('fourps_category', val))}
+                        />
                       </FormField>
                       {data.fourps_category === 'Member of Beneficiary' && (
                         <div className="fm-grid fm-grid--2">
                           <FormField label="Registered 4Ps Beneficiary">
-                            <select className="fm-select" name="registered_fourps_beneficiary" value={data.registered_fourps_beneficiary || ''} onChange={onChange('registered_fourps_beneficiary')}>
-                              <option value="">— Select —</option>
-                              <option value="Mother">Mother</option>
-                              <option value="Father">Father</option>
-                            </select>
+                            <SearchableSelect
+                              name="registered_fourps_beneficiary"
+                              value={data.registered_fourps_beneficiary || ''}
+                              options={FOURPS_BENEFICIARY_OPTIONS}
+                              placeholder="— Select —"
+                              searchPlaceholder="Search beneficiary..."
+                              onChange={(val) => onChange('registered_fourps_beneficiary')(emitSelectEvent('registered_fourps_beneficiary', val))}
+                            />
                           </FormField>
                           <FormField label="Relationship to Registered 4Ps Beneficiary">
-                            <select className="fm-select" name="fourps_relationship" value={data.fourps_relationship || ''} onChange={onChange('fourps_relationship')}>
-                              <option value="">— Select —</option>
-                              <option value="Daughter">Daughter</option>
-                              <option value="Son">Son</option>
-                            </select>
+                            <SearchableSelect
+                              name="fourps_relationship"
+                              value={data.fourps_relationship || ''}
+                              options={FOURPS_RELATIONSHIP_OPTIONS}
+                              placeholder="— Select —"
+                              searchPlaceholder="Search relationship..."
+                              onChange={(val) => onChange('fourps_relationship')(emitSelectEvent('fourps_relationship', val))}
+                            />
                           </FormField>
                         </div>
                       )}

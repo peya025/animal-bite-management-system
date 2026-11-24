@@ -82,6 +82,38 @@ export const walkthroughStyles = `
   box-shadow: 0 24px 50px -10px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(16, 185, 129, 0.25);
 }
 
+.walkthrough-tooltip-card.walkthrough-tooltip-card--compact {
+  padding: 12px 12px;
+}
+
+.walkthrough-tooltip-card.walkthrough-tooltip-card--compact .walkthrough-footer {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.walkthrough-tooltip-card.walkthrough-tooltip-card--compact .walkthrough-footer-left,
+.walkthrough-tooltip-card.walkthrough-tooltip-card--compact .walkthrough-footer-right {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.walkthrough-tooltip-card.walkthrough-tooltip-card--compact .walkthrough-btn {
+  padding: 5px 8px;
+  font-size: 11.5px;
+  flex-shrink: 0;
+}
+
+.walkthrough-tooltip-card.walkthrough-tooltip-card--compact .walkthrough-btn-skip {
+  padding: 5px 2px;
+  font-size: 11.5px;
+}
+
+.walkthrough-tooltip-card.walkthrough-tooltip-card--compact .walkthrough-btn-restart-inline {
+  padding: 4px 7px;
+  font-size: 11.5px;
+  margin-left: 0;
+}
+
 @keyframes walkthroughCardFadeIn {
   from {
     opacity: 0;
@@ -97,7 +129,32 @@ export const walkthroughStyles = `
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.walkthrough-header-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.walkthrough-section-row {
   margin-bottom: 8px;
+}
+
+.walkthrough-section-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #047857;
+  background: rgba(16, 185, 129, 0.12);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
 }
 
 .walkthrough-step-badge {
@@ -111,12 +168,14 @@ export const walkthroughStyles = `
   font-weight: 600;
   letter-spacing: 0.02em;
   border: 1px solid #a7f3d0;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .walkthrough-progress { display: flex; gap: 3px; height: 5px; margin: 2px 0 10px; }
 .walkthrough-progress span { display: block; flex: 1; height: 100%; border-radius: 8px; background: #edf0ef; transition: background .22s ease; }
 .walkthrough-progress span.done { background: #12b981; }
-.walkthrough-step-count { font-size: 11px; color: #6b7280; margin-left: auto; margin-right: 10px; }
+.walkthrough-step-count { font-size: 11px; color: #6b7280; white-space: nowrap; flex-shrink: 0; }
 .guide-page-title { color: var(--text-h, #173b32); font-weight: 650; font-size: 14px; }
 .guide-center { margin: 0 0 18px; padding: 17px 20px; background: var(--card-bg, #fff); border: 1px solid #cce7df; border-radius: 14px; box-shadow: 0 2px 10px rgba(8, 70, 54, .05); }
 .guide-center-heading, .guide-center-card-top, .guide-center-card-bottom { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
@@ -303,11 +362,29 @@ export const walkthroughStyles = `
   font-weight: 400;
 }
 
+.walkthrough-tooltip-card[data-walkthrough-module="Bite Cases Summary"] .walkthrough-title,
+.walkthrough-tooltip-card[data-walkthrough-module="Bite Map"] .walkthrough-title,
+.walkthrough-tooltip-card[data-walkthrough-module="Vaccine Stock Management"] .walkthrough-title,
+.walkthrough-tooltip-card[data-walkthrough-module="Reports & Analytics"] .walkthrough-title,
+.walkthrough-tooltip-card[data-walkthrough-module="Clinic Setup"] .walkthrough-title {
+  font-size: 14.5px;
+}
+
+.walkthrough-tooltip-card[data-walkthrough-module="Bite Cases Summary"] .walkthrough-content,
+.walkthrough-tooltip-card[data-walkthrough-module="Bite Map"] .walkthrough-content,
+.walkthrough-tooltip-card[data-walkthrough-module="Vaccine Stock Management"] .walkthrough-content,
+.walkthrough-tooltip-card[data-walkthrough-module="Reports & Analytics"] .walkthrough-content,
+.walkthrough-tooltip-card[data-walkthrough-module="Clinic Setup"] .walkthrough-content {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .walkthrough-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  flex-wrap: nowrap;
+  gap: 6px;
   padding-top: 10px;
   border-top: 1px solid var(--border-subtle, #f1f5f9);
 }
@@ -315,20 +392,24 @@ export const walkthroughStyles = `
 .walkthrough-footer-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: nowrap;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .walkthrough-footer-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: nowrap;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .walkthrough-btn {
   font-family: inherit;
   font-size: 12.5px;
   font-weight: 600;
-  padding: 7px 14px;
+  padding: 6px 12px;
   border-radius: 8px;
   border: 1px solid transparent;
   cursor: pointer;
@@ -338,13 +419,14 @@ export const walkthroughStyles = `
   justify-content: center;
   gap: 5px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .walkthrough-btn-skip {
   background: none;
   border: none;
   color: #64748b;
-  padding: 7px 8px;
+  padding: 6px 4px;
 }
 
 .walkthrough-btn-skip:hover {
@@ -378,12 +460,12 @@ export const walkthroughStyles = `
   border: 1px solid #10b981;
   color: #059669;
   border-radius: 8px;
-  padding: 6px 12px;
+  padding: 6px 10px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  margin-left: 6px;
+  margin-left: 0;
 }
 
 .walkthrough-btn-restart-inline:hover {

@@ -53,4 +53,17 @@ return [
         'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    // -------------------------------------------------------------------------
+    // Brevo Transactional Email HTTP API
+    // Used by BrevoEmailService when BREVO_API_KEY is present.
+    // AppServiceProvider binds EmailTransportInterface to BrevoEmailService
+    // when this key is set, and to SmtpEmailService otherwise.
+    // -------------------------------------------------------------------------
+    'brevo' => [
+        'key'          => env('BREVO_API_KEY'),
+        'url'          => env('BREVO_API_URL', 'https://api.brevo.com/v3'),
+        'sender_email' => env('BREVO_SENDER_EMAIL'),
+        'sender_name'  => env('BREVO_SENDER_NAME', 'Tagoloan Animal Bite Treatment Center'),
+    ],
+
 ];

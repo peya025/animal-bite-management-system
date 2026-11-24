@@ -1,6 +1,7 @@
 import React from 'react';
 import { FormField } from './FormField';
 import { DuplicatePatientBanner } from './DuplicatePatientBanner';
+import { SearchableSelect, createSelectChangeEvent } from '../../../../../shared/components';
 import {
   PATIENT_SUFFIX_OPTIONS,
   normalizePatientSuffix,
@@ -9,9 +10,33 @@ import {
 } from '../../../types';
 import { useClinicModuleConfig } from '../../../../../hooks/useClinicModuleConfig';
 
+const BLOOD_TYPE_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((t) => ({
+  value: t,
+  label: t,
+}));
+
+const CIVIL_STATUS_OPTIONS = [
+  { value: 'single', label: 'Single' },
+  { value: 'married', label: 'Married' },
+  { value: 'widowed', label: 'Widowed' },
+  { value: 'separated', label: 'Separated' },
+  { value: 'annulled', label: 'Annulled' },
+  { value: 'cohabitation', label: 'Co-Habitation' },
+];
+
+const PRIORITY_CATEGORY_OPTIONS = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'pregnant', label: 'Pregnant' },
+  { value: 'senior', label: 'Senior Citizen' },
+  { value: 'pwd', label: 'PWD' },
+];
+
+const emitSelectEvent = createSelectChangeEvent;
+
 interface PatientInfoSectionProps {
   data: EnrolmentFormData;
   onChange: (key: keyof EnrolmentFormData) => (ev: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+  onNoMiddleNameChange?: (checked: boolean) => void;
   errors?: Record<string, string>;
   showQueueFields?: boolean;
   duplicateMatches?: DuplicatePatientMatch[];
@@ -26,6 +51,7 @@ interface PatientInfoSectionProps {
 export function PatientInfoSection({
   data,
   onChange,
+  onNoMiddleNameChange,
   errors = {},
   showQueueFields = false,
   duplicateMatches = [],
@@ -51,33 +77,55 @@ export function PatientInfoSection({
           <FormField id="field-first_name" label="First Name" required error={!!errors.first_name} errorText={errors.first_name}>
             <input className="fm-input" name="first_name" value={data.first_name} onChange={onChange('first_name')} placeholder="Juan" style={errors.first_name ? { borderColor: '#ef4444' } : undefined} />
           </FormField>
-          <FormField label="Middle Name">
-            <input className="fm-input" name="middle_name" value={data.middle_name} onChange={onChange('middle_name')} placeholder="Santos" />
-          </FormField>
+          <div className="registration-field-stack">
+            <FormField
+              id="field-middle_name"
+              label="Middle Name"
+              required={!data.no_middle_name}
+              error={!!errors.middle_name}
+              errorText={errors.middle_name}
+            >
+              <input
+                className="fm-input"
+                name="middle_name"
+                value={data.no_middle_name ? '' : data.middle_name}
+                onChange={onChange('middle_name')}
+                placeholder={data.no_middle_name ? 'No Middle Name' : 'Santos'}
+                disabled={Boolean(data.no_middle_name)}
+                style={errors.middle_name ? { borderColor: '#ef4444' } : undefined}
+              />
+            </FormField>
+            <label
+              className={`registration-circle-check${data.no_middle_name ? ' registration-circle-check--checked' : ''}`}
+            >
+              <input
+                type="checkbox"
+                name="no_middle_name"
+                checked={Boolean(data.no_middle_name)}
+                onChange={(e) => onNoMiddleNameChange?.(e.target.checked)}
+              />
+              <span>No Middle Name</span>
+            </label>
+          </div>
           <FormField id="field-suffix" label="Suffix" error={!!errors.suffix} errorText={errors.suffix}>
             {(() => {
               const suffixValue = normalizePatientSuffix(data.suffix);
               const hasLegacySuffix =
                 suffixValue !== '' &&
                 !(PATIENT_SUFFIX_OPTIONS as readonly string[]).includes(suffixValue);
+              const suffixOptions = [
+                { value: '', label: 'None' },
+                ...PATIENT_SUFFIX_OPTIONS.map((opt) => ({ value: opt, label: opt })),
+                ...(hasLegacySuffix ? [{ value: suffixValue, label: suffixValue }] : []),
+              ];
               return (
-                <select
-                  className="fm-select"
+                <SearchableSelect
                   name="suffix"
                   value={suffixValue}
-                  onChange={onChange('suffix')}
-                  style={errors.suffix ? { borderColor: '#ef4444' } : undefined}
-                >
-                  <option value="">None</option>
-                  {PATIENT_SUFFIX_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                  {hasLegacySuffix && (
-                    <option value={suffixValue}>{suffixValue}</option>
-                  )}
-                </select>
+                  options={suffixOptions}
+                  onChange={(val) => onChange('suffix')(emitSelectEvent('suffix', val))}
+                  searchPlaceholder="Search suffix..."
+                />
               );
             })()}
           </FormField>
@@ -182,18 +230,14 @@ export function PatientInfoSection({
                 error={!!errors.blood_type}
                 errorText={errors.blood_type}
               >
-                <select
-                  className="fm-select"
+                <SearchableSelect
                   name="blood_type"
                   value={data.blood_type}
-                  onChange={onChange('blood_type')}
-                  style={errors.blood_type ? { borderColor: '#ef4444' } : undefined}
-                >
-                  <option value="">— Select —</option>
-                  {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(t => (
-                    <option key={t}>{t}</option>
-                  ))}
-                </select>
+                  options={BLOOD_TYPE_OPTIONS}
+                  placeholder="— Select —"
+                  searchPlaceholder="Search blood type..."
+                  onChange={(val) => onChange('blood_type')(emitSelectEvent('blood_type', val))}
+                />
               </FormField>
             )}
             {isFieldVisible('mother_maiden_name') && (
@@ -227,34 +271,38 @@ export function PatientInfoSection({
               error={!!errors.civil_status}
               errorText={errors.civil_status}
             >
-              <select
-                className="fm-select"
+              <SearchableSelect
                 name="civil_status"
                 value={data.civil_status}
-                onChange={onChange('civil_status')}
-                style={errors.civil_status ? { borderColor: '#ef4444' } : undefined}
-              >
-                <option value="">— Select —</option>
-                <option value="single">Single</option>
-                <option value="married">Married</option>
-                <option value="widowed">Widowed</option>
-                <option value="separated">Separated</option>
-                <option value="annulled">Annulled</option>
-                <option value="cohabitation">Co-Habitation</option>
-              </select>
+                options={CIVIL_STATUS_OPTIONS}
+                placeholder="— Select —"
+                searchPlaceholder="Search civil status..."
+                onChange={(val) => onChange('civil_status')(emitSelectEvent('civil_status', val))}
+              />
             </FormField>
           )}
 
-          {showQueueFields && (
-            <FormField id="field-queue_priority_group" label="Priority Category" required error={!!errors.queue_priority_group} errorText={errors.queue_priority_group}>
-              <select className="fm-select" name="queue_priority_group" value={data.queue_priority_group} onChange={onChange('queue_priority_group')} style={errors.queue_priority_group ? { borderColor: '#ef4444' } : undefined}>
-                <option value="normal">Normal</option>
-                <option value="pregnant">Pregnant</option>
-                <option value="senior">Senior Citizen</option>
-                <option value="pwd">PWD</option>
-              </select>
-            </FormField>
-          )}
+          {showQueueFields && (() => {
+            const isMale = data.sex === 'male';
+            const priorityOptions = isMale
+              ? PRIORITY_CATEGORY_OPTIONS.filter((opt) => opt.value !== 'pregnant')
+              : PRIORITY_CATEGORY_OPTIONS;
+            const priorityValue =
+              isMale && data.queue_priority_group === 'pregnant'
+                ? 'normal'
+                : data.queue_priority_group;
+            return (
+              <FormField id="field-queue_priority_group" label="Priority Category" required error={!!errors.queue_priority_group} errorText={errors.queue_priority_group}>
+                <SearchableSelect
+                  name="queue_priority_group"
+                  value={priorityValue}
+                  options={priorityOptions}
+                  searchPlaceholder="Search priority category..."
+                  onChange={(val) => onChange('queue_priority_group')(emitSelectEvent('queue_priority_group', val))}
+                />
+              </FormField>
+            );
+          })()}
         </div>
 
         {/* Conditional Spouse Name (CF1) */}

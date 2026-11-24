@@ -31,6 +31,7 @@ import {
   WarningAmberOutlined as ExpiringIcon,
   AccessTime as OpenedIcon,
   ArrowBack as ArrowBackIcon,
+  EventNoteOutlined as ForecastIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
@@ -43,6 +44,7 @@ import InventoryTable from '../components/InventoryTable/InventoryTable';
 import StockCardView from '../components/StockCardView/StockCardView';
 import FifoComplianceReport from '../components/FifoComplianceReport/FifoComplianceReport';
 import NurseVaccineList from '../components/NurseVaccineList/NurseVaccineList';
+import FollowupVialForecastPanel from '../components/FollowupVialForecastPanel/FollowupVialForecastPanel';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import type { InventoryItem, VaccineTypePreset } from '../types';
 import { getVaccinePresets } from '../services/vaccineInventoryService';
@@ -51,7 +53,7 @@ import { daysUntil } from '../../../shared/utils';
 import { highlightRecordElement } from '../../../shared/utils/notificationNavigation';
 
 interface VaccineInventoryProps {
-  initialTab?: 'table' | 'stockcard' | 'fifo' | 'administrations';
+  initialTab?: 'table' | 'stockcard' | 'fifo' | 'administrations' | 'forecast';
 }
 
 function InventorySummaryCard({ label, value, subtitle, tone, icon, loading }: { label: string; value: number; subtitle: string; tone: 'green' | 'blue' | 'amber' | 'cyan'; icon: React.ReactNode; loading: boolean }) {
@@ -94,7 +96,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
 
   const defaultTab = initialTab
     || (location.pathname.includes('/administrations') ? 'administrations' : undefined)
-    || (tabParam && ['table', 'stockcard', 'fifo', 'administrations'].includes(tabParam) ? (tabParam as any) : undefined)
+    || (tabParam && ['table', 'stockcard', 'fifo', 'administrations', 'forecast'].includes(tabParam) ? (tabParam as any) : undefined)
     || 'table';
 
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -108,7 +110,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
   const [sourceFilter, setSourceFilter] = useState('');
   const [expiryFrom, setExpiryFrom] = useState('');
   const [expiryTo, setExpiryTo] = useState('');
-  const [view, setView] = useState<'table' | 'stockcard' | 'fifo' | 'administrations'>(defaultTab);
+  const [view, setView] = useState<'table' | 'stockcard' | 'fifo' | 'administrations' | 'forecast'>(defaultTab);
   const [selectedStockCardId, setSelectedStockCardId] = useState<number | null>(() => batchParam ? parseInt(batchParam, 10) : null);
   const [batchNotFound, setBatchNotFound] = useState(false);
 
@@ -127,6 +129,8 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
     }
     if (tabParam === 'stockcard') {
       setView('stockcard');
+    } else if (tabParam === 'forecast') {
+      setView('forecast');
     } else if (location.pathname.includes('/administrations') || initialTab === 'administrations') {
       setView('administrations');
     } else if (tabParam && ['table', 'fifo', 'administrations'].includes(tabParam)) {
@@ -453,7 +457,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
             <span style={{ color: '#9ca3af' }}>›</span>
             <span style={{ color: '#6b7280' }}>Vaccine Stock Management</span>
             <span style={{ color: '#9ca3af' }}>›</span>
-            {view === 'stockcard' ? (
+            {view === 'stockcard' || view === 'forecast' ? (
               <>
                 <button
                   onClick={() => {
@@ -475,7 +479,9 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
                   Vaccine Inventory
                 </button>
                 <span style={{ color: '#9ca3af' }}>›</span>
-                <span style={{ color: '#0f172a', fontWeight: 700 }}>Stock Card</span>
+                <span style={{ color: '#0f172a', fontWeight: 700 }}>
+                  {view === 'forecast' ? 'Follow-Up Vial Forecast' : 'Stock Card'}
+                </span>
               </>
             ) : (
               <span style={{ color: '#6b7280' }}>
@@ -486,7 +492,7 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
         </Box>
 
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          {view === 'stockcard' ? (
+          {view === 'stockcard' || view === 'forecast' ? (
             <>
               <Button
                 startIcon={<ArrowBackIcon />}
@@ -516,10 +522,13 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
                 Back to Inventory Batches
               </Button>
 
-              <Tooltip title="Refresh Stock Card">
+              <Tooltip title={view === 'forecast' ? 'Refresh Forecast' : 'Refresh Stock Card'}>
                 <span>
                   <IconButton
-                    onClick={loadData}
+                    onClick={() => {
+                      void loadData();
+                      window.dispatchEvent(new Event('inventory-updated'));
+                    }}
                     disabled={loading}
                     sx={{
                       bgcolor: '#f1f5f9',
@@ -573,6 +582,38 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
                   {!isNurseRole && <Tab label="FIFO Report" value="fifo" />}
                 </Tabs>
               )}
+
+              <Button
+                data-walkthrough="vax-inv-btn-forecast"
+                data-tour="vax-inv-btn-forecast"
+                variant="outlined"
+                startIcon={<ForecastIcon sx={{ fontSize: 17 }} />}
+                onClick={() => {
+                  setView('forecast');
+                  navigate('/inventory?tab=forecast');
+                }}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  borderRadius: 2,
+                  px: 2,
+                  minHeight: 36,
+                  border: '1.5px solid #0f766e',
+                  borderColor: '#0f766e',
+                  color: '#0f766e',
+                  bgcolor: 'transparent',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    bgcolor: '#0f766e',
+                    color: '#ffffff',
+                    borderColor: '#0f766e',
+                    boxShadow: '0 2px 8px rgba(15, 118, 110, 0.25)',
+                  },
+                }}
+              >
+                Vial Forecast
+              </Button>
 
               {/* Stock Card Button: only with stroke, turns green on hover */}
               <Button
@@ -755,6 +796,8 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
         />
       ) : view === 'stockcard' ? (
         <StockCardView items={items} loading={loading} initialItemId={selectedStockCardId} />
+      ) : view === 'forecast' ? (
+        <FollowupVialForecastPanel />
       ) : view === 'administrations' ? (
         <NurseVaccineList />
       ) : (

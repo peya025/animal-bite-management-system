@@ -65,6 +65,8 @@ export async function createPatientRecord(
 
   const payload = {
     ...enrolment,
+    middle_name: enrolment.no_middle_name ? null : cleanField(enrolment.middle_name),
+    no_middle_name: undefined,
     gender: enrolment.sex,
     address: addressDetails.full,
     address_municipality: addressDetails.munName,

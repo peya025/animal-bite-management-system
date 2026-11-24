@@ -7,8 +7,8 @@ use App\Models\Clinic;
 use App\Models\Role;
 use App\Models\StaffInvitation;
 use App\Models\User;
+use App\Services\Messaging\EmailTransportInterface;
 use App\Services\Messaging\InvitationDelivery;
-use App\Services\Messaging\SmtpEmailService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -82,7 +82,7 @@ class StaffInvitationService
             try {
                 $emailSent = app(InvitationDelivery::class)->send(
                     (int) $invitation->clinic_id, $invitation->email, 'staff_invitation',
-                    fn () => app(SmtpEmailService::class)->send($invitation->email, new StaffInvitationMail($invitation))
+                    fn () => app(EmailTransportInterface::class)->send($invitation->email, new StaffInvitationMail($invitation))
                 );
             } catch (\Exception $e) {
                 Log::error('Staff invitation delivery failed.', ['exception' => get_class($e)]);
@@ -90,15 +90,19 @@ class StaffInvitationService
             }
 
             if (! $emailSent) {
-                $invitation->update(['status' => 'expired']);
+                // Do not expire the invitation on delivery failure. The token
+                // remains valid until its natural expiry timestamp so the admin
+                // can retry sending without creating a duplicate invitation record.
+                Log::warning('Staff invitation email could not be delivered.', ['invitation_id' => $invitation->id]);
             }
 
             return [
                 'message' => $emailSent
-                    ? 'Invitation email sent successfully to '.$email.'.'
+                    ? 'Invitation email accepted for delivery to '.$email.'.'
                     : 'Unable to send the invitation email. Please try again or contact the system administrator.',
                 'invitation' => $invitation,
                 'email_sent' => $emailSent,
+                'delivery_status' => $emailSent ? 'accepted' : 'failed',
                 'invitation_link' => config('app.frontend_url').'/accept-invitation/'.$invitation->token,
             ];
         });
@@ -116,14 +120,14 @@ class StaffInvitationService
             $candidate->token = StaffInvitation::generateToken();
             $candidate->expires_at = now()->addDays(7);
             $sent = app(InvitationDelivery::class)->send((int) $invitation->clinic_id, $invitation->email, 'staff_invitation',
-                fn () => app(SmtpEmailService::class)->send($invitation->email, new StaffInvitationMail($candidate)));
+                fn () => app(EmailTransportInterface::class)->send($invitation->email, new StaffInvitationMail($candidate)));
             if ($sent) {
                 $invitation->update(['token' => $candidate->token, 'expires_at' => $candidate->expires_at, 'status' => 'pending']);
                 StaffInvitation::where('email', $invitation->email)->where('id', '!=', $id)->where('status', 'pending')->update(['status' => 'expired']);
             }
 
-            return ['email_sent' => $sent, 'invitation' => $invitation,
-                'message' => $sent ? 'Invitation email sent successfully to '.$invitation->email.'.' : 'Unable to send the invitation email. Please try again or contact the system administrator.'];
+            return ['email_sent' => $sent, 'delivery_status' => $sent ? 'accepted' : 'failed', 'invitation' => $invitation,
+                'message' => $sent ? 'Invitation email accepted for delivery to '.$invitation->email.'.' : 'Unable to send the invitation email. Please try again or contact the system administrator.'];
         });
     }
 

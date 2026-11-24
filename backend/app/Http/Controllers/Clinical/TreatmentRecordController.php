@@ -55,6 +55,9 @@ class TreatmentRecordController extends Controller
                 'response' => $result['data'],
                 'input' => $request->validated(),
             ]);
+        } else {
+            app(\App\Services\NotificationService::class)
+                ->triggerClinicalSafetySync((int) $request->user()->clinic_id, false);
         }
 
         return $this->json($result['data'], $result['status']);

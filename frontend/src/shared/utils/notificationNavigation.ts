@@ -143,14 +143,25 @@ export function resolveNotificationDestination(
     return '/inventory?tab=stockcard';
   }
 
-  // 8. High-Risk Exposure Area
+  // 8. Clinical Safety Alerts (RIG Pending, Biting Animal Died/Sick, 7-Day Follow-Up Vial Shortfall)
+  if (type === 'rig_pending') {
+    return '/bite-cases?tab=cases&status=rig_pending';
+  }
+  if (type === 'animal_risk') {
+    const cond = data.animal_condition || 'died';
+    return `/bite-cases?tab=cases&animal_condition=${encodeURIComponent(String(cond))}`;
+  }
+  if (type === 'vial_shortfall_7d') {
+    return '/inventory?tab=forecast';
+  }
+
+  // 9. High-Risk Exposure Area (7-Day Barangay Cluster / Surge)
   if (type === 'high_risk_area' || category === 'high_risk' || category === 'surveillance') {
     const location = data.location || '';
     const params = new URLSearchParams();
-    if (location) params.set('location', location);
-    params.set('period', 'month');
-    params.set('category', 'severe');
-    return `/bite-map?${params.toString()}`;
+    if (location) params.set('search', location);
+    params.set('range', 'week');
+    return `/bite-cases?${params.toString()}`;
   }
 
   // Fallback to notification's action_url or role default

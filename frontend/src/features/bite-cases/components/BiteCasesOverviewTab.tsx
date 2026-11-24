@@ -22,14 +22,16 @@ import {
   LocationOnOutlined,
   MapOutlined,
 } from '@mui/icons-material';
-import type { DescriptiveFinding, DohSummary, LocationSummary } from '../types/biteCasesSummary.types';
+import type { ClinicalAlertsSummary, DescriptiveFinding, DohSummary, LocationSummary } from '../types/biteCasesSummary.types';
 import { BITE_SUMMARY_AGE_GROUPS, formatPct } from '../types/biteCasesSummary.types';
-import { BC_BORDER, HorizontalDistBar, SemanticChip } from './BiteCasesSharedUi';
+import { BC_BORDER, SemanticChip } from './BiteCasesSharedUi';
+import { ClinicalRiskAlertsStrip } from './ClinicalRiskAlertsStrip';
 import { ROUTES } from '../../../shared/config/routes';
 
 interface BiteCasesOverviewTabProps {
   doh?: DohSummary;
   locations: LocationSummary[];
+  clinicalAlerts?: ClinicalAlertsSummary;
   insights?: DescriptiveFinding[];
   limitations?: string[];
   totalRecorded: number;
@@ -38,9 +40,6 @@ interface BiteCasesOverviewTabProps {
   pepPrescribedCount: number;
   givenPepCount: number;
   noAdminCount: number;
-  givenRigCount?: number;
-  completedMatureTotal?: number;
-  overdueEpisodesCount?: number;
   onDrillDownToStage: (stageKey: string) => void;
   onDrillDownFilter: (next: {
     status?: string;
@@ -51,7 +50,10 @@ interface BiteCasesOverviewTabProps {
     channel?: string;
     age_group?: string;
     search?: string;
+    range?: string;
   }) => void;
+  onJumpToOverdue: () => void;
+  onNotify: (msg: string) => void;
   onExportEpisodesCsv: () => void;
 }
 
@@ -438,6 +440,7 @@ function ProfileMetricRow({
 export function BiteCasesOverviewTab({
   doh,
   locations,
+  clinicalAlerts,
   insights,
   limitations,
   totalRecorded,
@@ -448,6 +451,8 @@ export function BiteCasesOverviewTab({
   noAdminCount,
   onDrillDownToStage,
   onDrillDownFilter,
+  onJumpToOverdue,
+  onNotify,
   onExportEpisodesCsv,
 }: BiteCasesOverviewTabProps) {
   const navigate = useNavigate();
@@ -481,6 +486,14 @@ export function BiteCasesOverviewTab({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* ── 0. Actionable Clinical Risk Alerts Strip ── */}
+      <ClinicalRiskAlertsStrip
+        alerts={clinicalAlerts}
+        onDrillDownFilter={onDrillDownFilter}
+        onJumpToOverdue={onJumpToOverdue}
+        onNotify={onNotify}
+      />
+
       {/* ── 1. Clinical progression: Form 1 → Form 2 → Form 3 ── */}
       <Section
         title="Clinical progression"
@@ -794,12 +807,44 @@ export function BiteCasesOverviewTab({
                         {rank}
                       </Typography>
 
-                      {/* Barangay Name + Hotspot tag */}
+                      {/* Barangay Name + 7-day Cluster / Surge tag */}
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
                         <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 700, color: 'var(--bc-text)' }}>
                           {rawName}
                         </Typography>
-                        {isHotspot && (
+                        {loc.surge_level === 'cluster' ? (
+                          <Box
+                            sx={{
+                              px: 0.8,
+                              py: 0.1,
+                              borderRadius: '10px',
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                              bgcolor: '#dc2626',
+                              color: '#ffffff',
+                              letterSpacing: '0.02em',
+                              flexShrink: 0,
+                            }}
+                          >
+                            Cluster (7d)
+                          </Box>
+                        ) : loc.surge_level === 'surge' ? (
+                          <Box
+                            sx={{
+                              px: 0.8,
+                              py: 0.1,
+                              borderRadius: '10px',
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                              bgcolor: '#d97706',
+                              color: '#ffffff',
+                              letterSpacing: '0.02em',
+                              flexShrink: 0,
+                            }}
+                          >
+                            Surge (7d)
+                          </Box>
+                        ) : isHotspot && loc.total_cases >= 3 ? (
                           <Box
                             sx={{
                               px: 0.8,
@@ -813,9 +858,9 @@ export function BiteCasesOverviewTab({
                               flexShrink: 0,
                             }}
                           >
-                            Hotspot
+                            Top volume
                           </Box>
-                        )}
+                        ) : null}
                       </Box>
 
                       {/* Segmented Category Mix Bar */}

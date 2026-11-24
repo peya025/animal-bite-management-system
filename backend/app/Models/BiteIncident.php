@@ -45,6 +45,8 @@ class BiteIncident extends Model
         'animal_available',
         'animal_available_answered',
         'animal_observation_status',
+        'animal_observation_date',
+        'animal_last_checked_at',
         'site_number',
         'body_part_exposed',
         'laterality',
@@ -71,6 +73,8 @@ class BiteIncident extends Model
         'animal_available_answered' => 'boolean',
         'is_previously_vaccinated' => 'boolean',
         'external_proof_reviewed_at' => 'datetime',
+        'animal_observation_date' => 'date:Y-m-d',
+        'animal_last_checked_at' => 'datetime',
         'transferred_at' => 'datetime',
         'confirmed_at' => 'datetime',
     ];

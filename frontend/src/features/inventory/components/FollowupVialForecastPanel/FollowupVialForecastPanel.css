@@ -1,0 +1,174 @@
+.vf-table-wrapper {
+  overflow: auto;
+  max-inline-size: 100%;
+  max-block-size: min(560px, 72vh);
+  container-type: inline-size;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: var(--card-bg-solid, #ffffff);
+}
+
+.vf-table-wrapper:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 2px;
+}
+
+.vf-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  color: var(--text-h, #0f172a);
+  --label-2: "Scheduled Follow-Ups";
+  --label-3: "Est. Walk-In / Waiting D0";
+  --label-4: "Vials Needed (Open-Vial)";
+  --label-5: "IM Conservative";
+  --label-6: "Open-Vial Leftover";
+  --label-7: "Projected Stock After Day";
+  --label-8: "Status";
+}
+
+.vf-table caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.vf-table thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+}
+
+.vf-table thead th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 11px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.vf-table thead th.vf-num,
+.vf-table tbody td.vf-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.vf-table tbody th,
+.vf-table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.vf-table tbody th {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  background: var(--card-bg-solid, #ffffff);
+  text-align: left;
+  font-weight: 700;
+  white-space: nowrap;
+  border-right: 1px solid #f1f5f9;
+}
+
+.vf-table tbody tr:hover th,
+.vf-table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+.vf-table tbody tr.vf-row-shortfall th,
+.vf-table tbody tr.vf-row-shortfall td {
+  background: #fef2f2;
+}
+
+.vf-table tbody tr.vf-row-closed th,
+.vf-table tbody tr.vf-row-closed td {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+@container (width < 720px) {
+  .vf-table,
+  .vf-table thead,
+  .vf-table tbody,
+  .vf-table tr,
+  .vf-table th,
+  .vf-table td {
+    display: block;
+  }
+
+  .vf-table thead {
+    display: none;
+  }
+
+  .vf-table tbody tr {
+    margin: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .vf-table tbody th {
+    position: sticky;
+    inset-block-start: 0;
+    inset-inline-start: auto;
+    z-index: 2;
+    background: #f1f5f9;
+    border-right: 0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .vf-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    text-align: right;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .vf-table tbody td:last-child {
+    border-bottom: 0;
+  }
+
+  .vf-table tbody td::before {
+    font-weight: 600;
+    color: #64748b;
+    font-size: 12px;
+    text-align: left;
+  }
+
+  .vf-table tbody td:nth-child(2)::before {
+    content: var(--label-2) ": ";
+  }
+  .vf-table tbody td:nth-child(3)::before {
+    content: var(--label-3) ": ";
+  }
+  .vf-table tbody td:nth-child(4)::before {
+    content: var(--label-4) ": ";
+  }
+  .vf-table tbody td:nth-child(5)::before {
+    content: var(--label-5) ": ";
+  }
+  .vf-table tbody td:nth-child(6)::before {
+    content: var(--label-6) ": ";
+  }
+  .vf-table tbody td:nth-child(7)::before {
+    content: var(--label-7) ": ";
+  }
+  .vf-table tbody td:nth-child(8)::before {
+    content: var(--label-8) ": ";
+  }
+}

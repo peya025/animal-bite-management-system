@@ -272,13 +272,13 @@ class NotificationBellTest extends TestCase
             'date_of_birth' => '1995-05-05',
         ]);
 
-        // Create 2 Category III incidents in Poblacion this month
+        // Create 2 finalized Category III incidents in Poblacion within the last 7 days (Cluster threshold)
         BiteIncident::create([
             'clinic_id' => $this->clinic->id,
             'patient_id' => $patient->patient_id,
             'created_by' => $this->doctor->id,
             'bite_date' => Carbon::now()->toDateString(),
-            'bite_place' => 'Poblacion',
+            'bite_place' => 'Brgy. Poblacion, Tagoloan',
             'severity' => 'severe', // Cat III
             'status' => 'active',
         ]);
@@ -294,10 +294,9 @@ class NotificationBellTest extends TestCase
 
         $this->service->syncHighRiskAreaAlerts($this->clinic->id);
 
-        $monthKey = Carbon::now()->format('Y-m');
         $this->assertDatabaseHas('notifications', [
             'clinic_id' => $this->clinic->id,
-            'alert_key' => "high_risk_area:clinic_{$this->clinic->id}:poblacion:{$monthKey}",
+            'alert_key' => "high_risk_area:clinic_{$this->clinic->id}:poblacion",
             'category' => 'high_risk',
             'is_active' => true,
         ]);
@@ -491,34 +490,101 @@ class NotificationBellTest extends TestCase
             'date_of_birth' => '1995-05-05',
         ]);
 
-        $incident = BiteIncident::create([
+        // 2 finalized Cat III incidents in the last 7 days trigger a Cluster alert
+        $incident1 = BiteIncident::create([
             'clinic_id' => $this->clinic->id,
             'patient_id' => $patient->patient_id,
             'created_by' => $this->doctor->id,
             'bite_date' => Carbon::now()->toDateString(),
             'bite_place' => 'Barangay Central',
-            'severity' => 'severe', // Cat III -> 150% score
+            'severity' => 'severe',
+            'status' => 'active',
+        ]);
+        BiteIncident::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'created_by' => $this->doctor->id,
+            'bite_date' => Carbon::now()->toDateString(),
+            'bite_place' => 'Central',
+            'severity' => 'severe',
             'status' => 'active',
         ]);
 
         $this->service->syncHighRiskAreaAlerts($this->clinic->id);
 
-        $monthKey = Carbon::now()->format('Y-m');
-        $alertKey = "high_risk_area:clinic_{$this->clinic->id}:barangay-central:{$monthKey}";
+        // Normalized barangay strips the "Barangay " prefix -> "Central"
+        $alertKey = "high_risk_area:clinic_{$this->clinic->id}:central";
 
         $this->assertDatabaseHas('notifications', [
             'alert_key' => $alertKey,
             'is_active' => true,
         ]);
 
-        // Record correction: incident changed to minor (Cat I), so score drops to 0%
-        $incident->update(['severity' => 'minor']);
+        // Record correction: downgrade one incident to minor (now 1 Cat III, 2 total -> below cluster/surge threshold)
+        $incident1->update(['severity' => 'minor']);
 
         $this->service->syncHighRiskAreaAlerts($this->clinic->id);
 
         $this->assertDatabaseHas('notifications', [
             'alert_key' => $alertKey,
             'is_active' => false,
+        ]);
+    }
+
+    public function test_single_case_unknown_location_and_provisional_date_do_not_trigger_high_risk_area_alert()
+    {
+        $patient = Patient::create([
+            'clinic_id' => $this->clinic->id,
+            'first_name' => 'Juan',
+            'last_name' => 'Dela Cruz',
+            'gender' => 'male',
+            'date_of_birth' => '1990-01-01',
+        ]);
+
+        // Single Cat III case in Bal-ason must NOT trigger a false High-Risk alert
+        BiteIncident::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'created_by' => $this->doctor->id,
+            'bite_date' => Carbon::now()->toDateString(),
+            'bite_place' => 'Bal-ason',
+            'severity' => 'severe',
+            'status' => 'active',
+        ]);
+
+        // 4 severe cases with Unknown / empty place must NEVER trigger an "Unknown" area alert
+        foreach (['', 'Unknown', 'Place not recorded', null] as $unknownPlace) {
+            BiteIncident::create([
+                'clinic_id' => $this->clinic->id,
+                'patient_id' => $patient->patient_id,
+                'created_by' => $this->doctor->id,
+                'bite_date' => Carbon::now()->toDateString(),
+                'bite_place' => $unknownPlace,
+                'severity' => 'severe',
+                'status' => 'active',
+            ]);
+        }
+
+        // 3 severe cases with provisional exposure date must be excluded from 7-day rolling clusters
+        for ($i = 0; $i < 3; $i++) {
+            BiteIncident::create([
+                'clinic_id' => $this->clinic->id,
+                'patient_id' => $patient->patient_id,
+                'created_by' => $this->doctor->id,
+                'bite_date' => Carbon::now()->toDateString(),
+                'bite_date_is_provisional' => true,
+                'bite_place' => 'Casinglot',
+                'severity' => 'severe',
+                'status' => 'active',
+            ]);
+        }
+
+        $this->service->syncHighRiskAreaAlerts($this->clinic->id);
+
+        $this->assertDatabaseMissing('notifications', [
+            'clinic_id' => $this->clinic->id,
+            'category' => 'high_risk',
+            'is_active' => true,
         ]);
     }
 

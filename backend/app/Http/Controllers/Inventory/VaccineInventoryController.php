@@ -689,6 +689,13 @@ class VaccineInventoryController extends Controller
             $request->validated(),
         );
 
+        \Illuminate\Support\Facades\Cache::forget("clinical-alerts:header:clinic:{$request->user()->clinic_id}");
+        try {
+            app(\App\Services\NotificationService::class)
+                ->syncFollowupVialReadinessAlerts((int) $request->user()->clinic_id);
+        } catch (\Throwable) {
+        }
+
         return response()->json(['message' => 'Vaccine inventory added successfully', 'inventory' => $inventory], 201);
     }
 
@@ -746,6 +753,13 @@ class VaccineInventoryController extends Controller
             (int) $request->validated('quantity'),
             $request->validated('remarks'),
         );
+
+        \Illuminate\Support\Facades\Cache::forget("clinical-alerts:header:clinic:{$request->user()->clinic_id}");
+        try {
+            app(\App\Services\NotificationService::class)
+                ->syncFollowupVialReadinessAlerts((int) $request->user()->clinic_id);
+        } catch (\Throwable) {
+        }
 
         return response()->json(['message' => 'Stock adjusted successfully', 'inventory' => $inventory]);
     }
@@ -832,5 +846,19 @@ class VaccineInventoryController extends Controller
             'vaccines' => $catalog,
             'categories' => $catalog->groupBy('category'),
         ])->header('Cache-Control', 'no-store');
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // GET /api/inventory/supply-forecast
+    // ────────────────────────────────────────────────────────────────────────
+    public function supplyForecast(Request $request): JsonResponse
+    {
+        $clinicId = (int) $request->user()->clinic_id;
+        $horizon = max(7, min(30, (int) $request->query('horizon', 14)));
+
+        $schedule = app(\App\Services\Reporting\SupplyPlanningService::class)
+            ->buildFollowupVialSchedule($clinicId, $horizon);
+
+        return response()->json($schedule);
     }
 }

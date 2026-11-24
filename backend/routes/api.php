@@ -43,6 +43,7 @@ use App\Http\Controllers\Settings\AnnouncementController;
 use App\Http\Controllers\Settings\LandingPageSettingsController;
 use App\Http\Controllers\Settings\NotificationController;
 use App\Http\Controllers\Support\DeveloperDatabaseExplorerController;
+use App\Http\Controllers\Support\PublicCommunityOverviewController;
 use App\Http\Controllers\Support\PublicStorageController;
 use App\Http\Middleware\EnsureStaffAccount;
 use App\Models\Clinic;
@@ -94,6 +95,7 @@ Route::post('/auth/google', [AuthController::class, 'googleLogin'])
 Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'getSettings']);
 Route::get('/public/vaccine-availability', [VaccineInventoryController::class, 'publicAvailability']);
 Route::get('/public/announcements', [AnnouncementController::class, 'published']);
+Route::get('/public/community-bite-overview', PublicCommunityOverviewController::class);
 
 Route::middleware(['auth:sanctum', EnsureStaffAccount::class, 'active.user'])->prefix('announcements')->group(function () {
     Route::get('/', [AnnouncementController::class, 'index']);
@@ -335,6 +337,10 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
         Route::get('/monthly', [PrintController::class, 'monthlyReport']);
         Route::get('/cohort', [PrintController::class, 'cohortReport']);
         Route::get('/bite-summary', [PrintController::class, 'biteSummaryMeetingPack']);
+        Route::get('/barangay-advisory-memo', [PrintController::class, 'barangayAdvisoryMemo'])
+            ->middleware('role:admin,triage,doctor,treatment,nurse,developer');
+        Route::get('/daily-turnover', [PrintController::class, 'dailyTurnoverSlip'])
+            ->middleware('role:admin,triage,doctor,treatment,nurse,developer');
     });
 
     // Patient Management (admin, registration, triage, treatment can view)
@@ -405,11 +411,16 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
         Route::get('/', [BiteCaseController::class, 'index']); // All roles
         Route::get('/puroks', [BiteCaseController::class, 'getPuroks']); // All roles
         Route::get('/statistics', [BiteCaseController::class, 'statistics']); // All roles
+        Route::get('/clinical-alerts/summary', [BiteCaseController::class, 'clinicalAlertSummary'])
+            ->middleware('role:admin,registration,triage,treatment,doctor,nurse,developer');
         Route::get('/location-summary', [BiteCaseController::class, 'locationRiskSummary']); // All roles - descriptive analytics
         Route::get('/map-data', [BiteCaseController::class, 'getMapData']); // All roles - Map visualization
         Route::post('/new-exposure', [BiteCaseController::class, 'registerNewExposure'])
             ->middleware('role:admin,registration,triage,doctor');
         Route::get('/patient/{patientId}/episodes', [BiteCaseController::class, 'patientEpisodes']); // All roles
+        Route::patch('/{id}/animal-observation', [BiteCaseController::class, 'updateAnimalObservation'])
+            ->whereNumber('id')
+            ->middleware('role:admin,triage,treatment,doctor,nurse,developer');
         Route::get('/{id}', [BiteCaseController::class, 'show']); // All roles
         Route::get('/{id}/map-details', [BiteCaseController::class, 'mapDetails'])
             ->whereNumber('id')->middleware('role:admin,registration,triage,treatment,doctor,nurse,staff');
@@ -516,6 +527,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     // Vaccine Inventory (accessible to clinic staff & admins)
     Route::prefix('inventory')->middleware('role:admin,treatment,developer,triage,registration')->group(function () {
         Route::get('/statistics', [VaccineInventoryController::class, 'statistics']);
+        Route::get('/supply-forecast', [VaccineInventoryController::class, 'supplyForecast']);
         Route::get('/vials', [VaccineInventoryController::class, 'listVials']);
         Route::get('/vials/{vialId}', [VaccineInventoryController::class, 'showVial'])->whereNumber('vialId');
         Route::post('/vials/{vialId}/expire', [VaccineInventoryController::class, 'expireVial'])

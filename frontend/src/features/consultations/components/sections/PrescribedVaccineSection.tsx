@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Stethoscope02Icon, LockIcon as HugeLockIcon } from '@hugeicons/core-free-icons';
 import type { VaccineStockMap } from '../../types/consultation.types';
+import { SearchableSelect } from '../../../../components/forms/SearchableSelect';
 import { FormField } from '../FormField';
 
 interface PrescribedVaccineSectionProps {
@@ -27,10 +29,16 @@ export default function PrescribedVaccineSection({
   onChange,
 }: PrescribedVaccineSectionProps) {
   const stock = prescribedVaccineType ? vaccineStockMap[prescribedVaccineType] : undefined;
-  const displayOptions = [...vaccineNames];
-  if (prescribedVaccineType && !displayOptions.includes(prescribedVaccineType)) {
-    displayOptions.unshift(prescribedVaccineType);
-  }
+  const vaccineOptions = useMemo(() => {
+    const displayOptions = [...vaccineNames];
+    if (prescribedVaccineType && !displayOptions.includes(prescribedVaccineType)) {
+      displayOptions.unshift(prescribedVaccineType);
+    }
+    return [
+      { value: '', label: '— No PEP vaccine prescribed —' },
+      ...displayOptions.map((name) => ({ value: name, label: name })),
+    ];
+  }, [vaccineNames, prescribedVaccineType]);
 
   return (
     <div className="fm-section">
@@ -102,25 +110,20 @@ export default function PrescribedVaccineSection({
 
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 260 }}>
-              <select
+              <SearchableSelect
                 id="field-prescribed_vaccine_type"
-                className={`fm-select ${error ? 'fm-select--error' : ''}`}
                 name="prescribed_vaccine_type"
+                aria-label="Prescribed PEP Vaccine"
+                aria-invalid={Boolean(error) || undefined}
+                aria-required={isRequired || undefined}
                 value={isCategory1 ? '' : prescribedVaccineType}
-                onChange={(e) => onChange(e.target.value)}
+                options={vaccineOptions}
+                placeholder="— No PEP vaccine prescribed —"
+                searchPlaceholder="Search PEP vaccine..."
+                noResultsText="No vaccine found"
+                onChange={onChange}
                 disabled={isFormDisabled || isCategory1}
-                style={{
-                  width: '100%',
-                  border: error ? '1px solid #ef4444' : undefined,
-                }}
-              >
-                <option value="">— No PEP vaccine prescribed —</option>
-                {displayOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+              />
               {error && (
                 <span className="fm-error-text" style={{ color: '#ef4444', fontSize: 12, marginTop: 4, display: 'block' }}>
                   {error}

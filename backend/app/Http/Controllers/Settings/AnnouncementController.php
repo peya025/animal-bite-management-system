@@ -69,12 +69,16 @@ class AnnouncementController extends Controller implements HasMiddleware
             'message' => 'required|string|max:1500',
             'is_published' => 'required|boolean',
             'is_urgent' => 'required|boolean',
+            'target_barangay' => 'nullable|string|max:120',
             'expires_on' => 'nullable|date_format:Y-m-d',
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120|dimensions:max_width=6000,max_height=6000',
             'remove_image' => 'sometimes|boolean',
         ]);
         unset($data['image'], $data['remove_image']);
         $data['expires_on'] = ($data['expires_on'] ?? '') !== '' ? $data['expires_on'] : null;
+        $data['target_barangay'] = isset($data['target_barangay']) && trim((string) $data['target_barangay']) !== ''
+            ? trim((string) $data['target_barangay'])
+            : null;
         $oldPath = $item->image_path;
         $newPath = $request->hasFile('image') ? $request->file('image')->store('announcements', 'public') : null;
         if ($newPath || $request->boolean('remove_image')) {
@@ -115,7 +119,7 @@ class AnnouncementController extends Controller implements HasMiddleware
 
     private function present(Announcement $item, bool $forManagement = false): array
     {
-        $data = $item->only(['id', 'title', 'message', 'is_urgent', 'expires_on', 'created_at']);
+        $data = $item->only(['id', 'title', 'message', 'is_urgent', 'target_barangay', 'expires_on', 'created_at']);
         $data['image_url'] = $item->image_path ? url('/api/storage/'.$item->image_path) : null;
         if ($forManagement) {
             $data['is_published'] = $item->is_published;

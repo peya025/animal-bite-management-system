@@ -1,4 +1,5 @@
 import { FormField } from './sections/FormField';
+import { SearchableSelect } from '../../../../components/forms/SearchableSelect';
 import type { AddressLocationState } from '../../hooks/useAddressLocation';
 import { useClinicModuleConfig } from '../../../../hooks/useClinicModuleConfig';
 
@@ -22,8 +23,8 @@ export function RegistrationAddressSection({ loc, errors }: { loc: AddressLocati
     return null;
   }
 
-  const municipalityError = errors.municipality || (errors.address && !(loc.useManual ? loc.manualMun : loc.municipality) ? errors.address : undefined);
-  const barangayError = errors.barangay || (errors.address && !(loc.useManual ? loc.manualBrgy : loc.barangay) ? errors.address : undefined);
+  const municipalityError = errors.municipality || (errors.address && !loc.municipality ? errors.address : undefined);
+  const barangayError = errors.barangay || (errors.address && !loc.barangay ? errors.address : undefined);
 
   return (
     <section className="fm-section" aria-labelledby="registration-address-title">
@@ -31,51 +32,43 @@ export function RegistrationAddressSection({ loc, errors }: { loc: AddressLocati
         <h3 id="registration-address-title" className="fm-section-title">
           {provinceVisible ? 'Residential Address — Misamis Oriental (Tirahan)' : 'Residential Address (Tirahan)'}
         </h3>
-        {(municipalityVisible || barangayVisible) && (
-          <button type="button" className="registration-manual-toggle"
-            onClick={() => loc.setUseManual(!loc.useManual)}>
-            {loc.useManual ? 'Switch to Dropdown' : 'Switch to Manual Typing'}
-          </button>
-        )}
       </div>
-      {loc.apiError && !loc.useManual && (municipalityVisible || barangayVisible) && (
-        <p className="registration-field-hint" role="status">Address service unavailable. You can use the available options or select “Switch to Manual Typing”.</p>
+      {loc.apiError && (municipalityVisible || barangayVisible) && (
+        <p className="registration-field-hint" role="status">Address service unavailable. Using built-in Misamis Oriental address options.</p>
       )}
       <div className="fm-grid fm-grid--2">
         {municipalityVisible && (
           <FormField label="City / Municipality" required={municipalityRequired} errorText={municipalityError}>
-            {loc.useManual ? (
-              <input className="fm-input" name="municipality" value={loc.manualMun}
-                onChange={e => loc.setManualMun(e.target.value)} placeholder="e.g. Tagoloan" />
-            ) : (
-              <select className="fm-select" name="municipality" value={loc.municipality}
-                onChange={e => loc.setMunicipality(e.target.value)} disabled={loc.loadingMun}>
-                <option value="">{loc.loadingMun ? 'Loading…' : '— Select —'}</option>
-                {loc.municipalities.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}
-              </select>
-            )}
+            <SearchableSelect
+              name="municipality"
+              value={loc.municipality}
+              options={loc.municipalities.map(item => ({ value: item.code, label: item.name }))}
+              placeholder={loc.loadingMun ? 'Loading…' : '— Select —'}
+              searchPlaceholder="Search city / municipality..."
+              onChange={val => loc.setMunicipality(val)}
+              disabled={loc.loadingMun}
+            />
           </FormField>
         )}
         {barangayVisible && (
           <FormField label="Barangay" required={barangayRequired} errorText={barangayError}
-            hint={!loc.useManual && !loc.municipality ? 'Select a city or municipality first.' : undefined}>
-            {loc.useManual ? (
-              <input className="fm-input" name="barangay" value={loc.manualBrgy}
-                onChange={e => loc.setManualBrgy(e.target.value)} placeholder="e.g. Poblacion" />
-            ) : (
-              <select className="fm-select" name="barangay" value={loc.barangay}
-                onChange={e => loc.setBarangay(e.target.value)} disabled={!loc.municipality || loc.loadingBrgy}>
-                <option value="">{loc.loadingBrgy ? 'Loading…' : '— Select —'}</option>
-                {loc.barangays.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}
-              </select>
-            )}
+            hint={!loc.municipality ? 'Select a city or municipality first.' : undefined}>
+            <SearchableSelect
+              name="barangay"
+              value={loc.barangay}
+              options={loc.barangays.map(item => ({ value: item.code, label: item.name }))}
+              placeholder={loc.loadingBrgy ? 'Loading…' : '— Select —'}
+              searchPlaceholder="Search barangay..."
+              onChange={val => loc.setBarangay(val)}
+              disabled={!loc.municipality || loc.loadingBrgy}
+            />
           </FormField>
         )}
         {purokVisible && (
           <FormField label="Purok / Zone / Street" required={purokRequired} errorText={errors.purok}>
             <input className="fm-input" name="purok" value={loc.purok}
               onChange={e => loc.setPurok(e.target.value)} placeholder="e.g. Purok 3, Zone 1"
-              disabled={!loc.useManual && barangayVisible && !loc.barangay} />
+              disabled={barangayVisible && !loc.barangay} />
           </FormField>
         )}
       </div>

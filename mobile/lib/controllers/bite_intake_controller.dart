@@ -84,7 +84,7 @@ class BiteIntakeController extends ChangeNotifier {
   String? bodyPartGroup;
   String? laterality;
 
-  String? animalType = 'dog';
+  String? animalType;
   String? animalStatus;
   bool? animalCaptured;
   bool? animalAvailable;
@@ -95,6 +95,7 @@ class BiteIntakeController extends ChangeNotifier {
 
   BiteIntakeContract contract = BiteIntakeContract.fallback;
   FormConfiguration? _config;
+  bool _appliedInitialDefaults = false;
   bool loadingConfig = false;
   String? configError;
   bool submitting = false;
@@ -135,8 +136,9 @@ class BiteIntakeController extends ChangeNotifier {
   }
 
   void initialize() {
-    selectedBiteDate = DateUtils.dateOnly(DateTime.now());
-    biteDate.text = formatDate(selectedBiteDate!);
+    if (_config != null) {
+      _applyConfig(_config!);
+    }
     loadConfiguration(forceRefresh: true);
     loadContract();
     loadMunicipalities();
@@ -191,7 +193,20 @@ class BiteIntakeController extends ChangeNotifier {
 
   void _applyConfig(FormConfiguration next) {
     _config = next;
-    final steps = ConfiguredFieldPolicy(next).activeIntakeSteps();
+    final nextPolicy = ConfiguredFieldPolicy(next);
+    if (!_appliedInitialDefaults) {
+      _appliedInitialDefaults = true;
+      if (selectedBiteDate == null &&
+          nextPolicy.isIntakeFieldRequired('bite_date')) {
+        selectedBiteDate = DateUtils.dateOnly(DateTime.now());
+        biteDate.text = formatDate(selectedBiteDate!);
+      }
+      if (animalType == null &&
+          nextPolicy.isIntakeFieldRequired('animal_type')) {
+        animalType = 'dog';
+      }
+    }
+    final steps = nextPolicy.activeIntakeSteps();
     if (!steps.contains(currentStepId)) {
       currentStepId = steps.last;
     }
@@ -516,6 +531,7 @@ class BiteIntakeController extends ChangeNotifier {
         booking: booking,
         intake: payload == null ? null : draft,
         intakePayload: payload,
+        configRevision: refreshed.revision,
       );
       if (_disposed) return IntakeSubmitOutcome.error;
       submitting = false;
@@ -524,6 +540,27 @@ class BiteIntakeController extends ChangeNotifier {
     } on ApiException catch (err) {
       if (_disposed) return IntakeSubmitOutcome.error;
       submitting = false;
+      if (err.isConfigConflict) {
+        if (err.updatedConfiguration != null) {
+          _applyConfig(err.updatedConfiguration!);
+          final updatedPolicy = ConfiguredFieldPolicy(err.updatedConfiguration!);
+          final invalidStep = _firstInvalidStep(updatedPolicy);
+          if (invalidStep != null) {
+            currentStepId = invalidStep;
+            validatedSteps.add(invalidStep);
+          }
+        }
+        error = err.message;
+        _notify();
+        if (context.mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!_disposed && context.mounted) {
+              validateVisibleStep(context, clearError: false);
+            }
+          });
+        }
+        return IntakeSubmitOutcome.policyChanged;
+      }
       if (err.hasProfileErrors) {
         missingProfileFields = err.profileErrors.keys.toList();
         error = err.message;

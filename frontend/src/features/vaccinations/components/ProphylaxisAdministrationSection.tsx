@@ -1,10 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Medicine01Icon, AlertCircleIcon, Tick02Icon } from '@hugeicons/core-free-icons';
 import { PROPHYLAXIS_GROUPS, PROPHYLAXIS_LABELS, PROPHYLAXIS_PRODUCTS } from '../../../shared/types/prophylaxis';
 import type { ProphylaxisOrders, ProphylaxisAdministration, ProphylaxisStock } from '../../../shared/types/prophylaxis';
 import { sanitizeDateInput } from '../../../shared/utils/date';
+import { SearchableSelect } from '../../../shared/components';
+import { buildIcd10Options } from '../../../shared/constants/icd10Codes';
 import { ConsultationDialog } from '../../consultations/styles/ConsultationDialog.styles';
 
 const HISTORICAL_GROUP_PRODUCTS: Record<string, string[]> = {
@@ -55,6 +57,7 @@ export default function ProphylaxisAdministrationSection({
 }: ProphylaxisAdministrationSectionProps) {
   const { isFieldVisible } = useClinicModuleConfig();
   const hasAutoInitializedRef = useRef<Record<string, boolean>>({});
+  const icd10Options = useMemo(() => buildIcd10Options(icdCode), [icdCode]);
 
   const update = (medication: string, field: keyof ProphylaxisAdministration, next: string) =>
     onChange(value.map((item) => (item.medication === medication ? { ...item, [field]: next } : item)));
@@ -463,20 +466,24 @@ export default function ProphylaxisAdministrationSection({
                       </label>
 
                       {onIcdCodeChange ? (
-                        <label className="fm-field" style={{ margin: 0 }}>
+                        <div className="fm-field" style={{ margin: 0 }}>
                           <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
                             ICD-10 Code
                           </span>
-                          <input
-                            className="fm-input"
-                            type="text"
+                          <SearchableSelect
+                            name="icd_code"
                             value={icdCode || ''}
+                            options={icd10Options}
+                            onChange={onIcdCodeChange}
                             disabled={disabled}
-                            placeholder="e.g. W54.0"
-                            onChange={(e) => onIcdCodeChange(e.target.value)}
-                            style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
+                            clearable
+                            placeholder="Select ICD-10 code (e.g. W54.0)"
+                            searchPlaceholder="Search W54, W55, Z20.3, dog, cat..."
+                            noResultsText="No matching ICD-10 code"
+                            menuMinWidth={320}
+                            aria-label="ICD-10 Code"
                           />
-                        </label>
+                        </div>
                       ) : null}
                     </div>
                   )}
@@ -558,20 +565,24 @@ export default function ProphylaxisAdministrationSection({
                       </label>
 
                       {onIcdCodeChange ? (
-                        <label className="fm-field" style={{ margin: 0 }}>
+                        <div className="fm-field" style={{ margin: 0 }}>
                           <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
                             ICD-10 Code
                           </span>
-                          <input
-                            className="fm-input"
-                            type="text"
+                          <SearchableSelect
+                            name="icd_code"
                             value={icdCode || ''}
+                            options={icd10Options}
+                            onChange={onIcdCodeChange}
                             disabled={disabled}
-                            placeholder="e.g. W54.0"
-                            onChange={(e) => onIcdCodeChange(e.target.value)}
-                            style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
+                            clearable
+                            placeholder="Select ICD-10 code (e.g. W54.0)"
+                            searchPlaceholder="Search W54, W55, Z20.3, dog, cat..."
+                            noResultsText="No matching ICD-10 code"
+                            menuMinWidth={320}
+                            aria-label="ICD-10 Code"
                           />
-                        </label>
+                        </div>
                       ) : null}
 
                       {(group === 'rig' || group === 'tetanus_passive') && (

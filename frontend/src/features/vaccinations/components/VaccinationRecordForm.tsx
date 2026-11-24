@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSavedExposureCategory } from '../hooks/useSavedExposureCategory';
 import ProphylaxisAdministrationSection from './ProphylaxisAdministrationSection';
+import { suggestIcd10FromExposure } from '../../../shared/constants/icd10Codes';
 import type { ProphylaxisRecord } from './ProphylaxisAdministrationSection';
 import type { ProphylaxisAdministration, ProphylaxisStock } from '../../../shared/types/prophylaxis';
 import { isProphylaxisInventoryName } from '../../../shared/types/prophylaxis';
@@ -440,6 +441,19 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [prophylaxisRecords, setProphylaxisRecords] = useState<ProphylaxisRecord[]>([]);
   const [prophylaxisStock, setProphylaxisStock] = useState<ProphylaxisStock | null | undefined>(undefined);
   const [icdCode, setIcdCode] = useState('');
+  const icdManuallyEditedRef = useRef(false);
+  const handleIcdCodeChange = (val: string) => {
+    icdManuallyEditedRef.current = true;
+    setIcdCode(val);
+  };
+  useEffect(() => {
+    if (icdManuallyEditedRef.current) return;
+    const mode = formData.mode_of_exposure.scratch_abrasion ? 'scratch_abrasion' : '';
+    const suggested = suggestIcd10FromExposure(formData.animal_type, formData.animal_type_other, mode);
+    if (suggested) {
+      setIcdCode(suggested);
+    }
+  }, [formData.animal_type, formData.animal_type_other, formData.mode_of_exposure.scratch_abrasion]);
   const [saving, setSaving] = useState(false);
   const [signatureVersion, setSignatureVersion] = useState<string | null>(null);
   const [signatureReady, setSignatureReady] = useState(false);
@@ -644,6 +658,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       const animal = card?.animal_type || bite?.animal_type || intake?.animal_species || intake?.animal_type || '';
       const animalOther = card?.animal_type_others || bite?.animal_type_others || intake?.animal_species_other || intake?.animal_type_others || '';
       const resolvedReferredBy = consultation?.referred_by || consultation?.referred_from || card?.referred_by || bite?.referred_from || '';
+      const savedIcd = card?.icd10_code || bite?.icd_code || consultation?.icd_code || '';
+      if (savedIcd) {
+        icdManuallyEditedRef.current = true;
+        setIcdCode(savedIcd);
+      } else {
+        icdManuallyEditedRef.current = false;
+        setIcdCode(suggestIcd10FromExposure(animal, animalOther, mode));
+      }
 
       // Clinic hospital number configured in Clinic Information
       const clinicRaw = localStorage.getItem('clinicData');
@@ -2159,7 +2181,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             disabled={readOnly || saving || !form3Ready}
             today={getLocalDateString()}
             icdCode={icdCode}
-            onIcdCodeChange={setIcdCode}
+            onIcdCodeChange={handleIcdCodeChange}
           />
         </div>
       )}

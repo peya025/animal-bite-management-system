@@ -863,6 +863,16 @@ export function useGeneralTreatmentForm({
       saveDraftSnapshot(next);
       return next;
     });
+
+    if (!enabled) {
+      setFieldErrors((errs) => {
+        if (!errs.transferred_to_facility && !errs.transfer_reason) return errs;
+        const next = { ...errs };
+        delete next.transferred_to_facility;
+        delete next.transfer_reason;
+        return next;
+      });
+    }
   };
 
   const handleSelectFacility = (facility: string) => {
@@ -886,9 +896,24 @@ export function useGeneralTreatmentForm({
   const handleSelectReason = (reason: string) => {
     setFormData((prev) => {
       const current = prev.transfer_reason?.trim() || '';
-      const nextReason = current
-        ? (current.includes(reason) ? current : `${current}\n• ${reason}`)
-        : `• ${reason}`;
+      let nextReason: string;
+      if (current.includes(reason)) {
+        // Toggle off: remove the selected reason line while preserving other reasons & manual notes
+        nextReason = current
+          .split('\n')
+          .map((line) => {
+            const cleaned = line.replace(/^\s*[•\-]\s*/, '').trim();
+            if (cleaned === reason) return '';
+            if (line.includes(reason)) {
+              return line.replace(reason, '').replace(/^\s*[•\-]\s*$/, '').trim();
+            }
+            return line;
+          })
+          .filter((line) => line.trim() !== '')
+          .join('\n');
+      } else {
+        nextReason = current ? `${current}\n• ${reason}` : `• ${reason}`;
+      }
       const next: TreatmentFormData = {
         ...prev,
         transfer_reason: nextReason,
@@ -1157,6 +1182,12 @@ export function useGeneralTreatmentForm({
       newFieldErrors.chief_complaints = 'Please enter Chief Complaints';
     }
 
+    if (formData.is_referral && !isReferralCompleted) {
+      if (!formData.transferred_to_facility || !formData.transferred_to_facility.trim()) {
+        newFieldErrors.transferred_to_facility = 'Please specify the receiving hospital or health facility.';
+      }
+    }
+
     if (requiresReExposureDecision && !treatmentPlan) {
       newFieldErrors.treatment_plan = 'Please select a Doctor treatment decision.';
     }
@@ -1254,8 +1285,8 @@ export function useGeneralTreatmentForm({
       setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
+        ? ['nature_of_visit', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
+        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {

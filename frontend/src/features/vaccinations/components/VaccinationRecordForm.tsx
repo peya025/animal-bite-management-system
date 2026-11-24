@@ -2062,111 +2062,111 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
         ) : (
           <>
             {/* Dose List: active/selected dose as DoseCard, other doses as DoseRow */}
-        <div style={{ marginBottom: 12 }}>
-          {candidateDoseList.map((dose) => {
-            const isCompleted = Boolean(dose.is_completed || dose.inventory_linked);
-            const isPrereqLocked = isDosePrerequisiteLocked(dose.period);
-            const isLocked = readOnly || isCompleted || isPrereqLocked;
-            const isExpanded = dose.period === currentExpandedPeriod;
+            <div style={{ marginBottom: 12 }}>
+              {candidateDoseList.map((dose) => {
+                const isCompleted = Boolean(dose.is_completed || dose.inventory_linked);
+                const isPrereqLocked = isDosePrerequisiteLocked(dose.period);
+                const isLocked = readOnly || isCompleted || isPrereqLocked;
+                const isExpanded = dose.period === currentExpandedPeriod;
 
-            if (isExpanded) {
-              const doseIndex = doses.findIndex(d => d.period === dose.period);
-              return (
-                <DoseCard
-                  key={dose.period}
-                  dose={dose}
-                  index={doseIndex}
-                  isToday={dose.period === activeUnlockedPeriod}
-                  isCompleted={isCompleted}
-                  isLocked={isLocked}
-                  prescribedVaccineType={prescribedVaccineType}
-                  availableVaccineTypes={availableVaccineTypes}
-                  fifoError={fifoErrors[dose.period]}
-                  fieldErrors={fieldErrors}
-                  readOnly={readOnly}
-                  currentUser={currentUser}
-                  applySignature={applySignature}
-                  signatureReady={signatureReady}
-                  signatureVersion={signatureVersion}
-                  signatureLoadError={signatureLoadError}
-                  onDoseChange={handleDoseChange}
-                  onDoseVaccineTypeChange={handleDoseVaccineTypeChange}
-                  onToggleSignature={setApplySignature}
-                  onSignatureReady={() => setSignatureReady(true)}
-                  onRefreshSignature={() => setSignatureRefresh(v => v + 1)}
-                />
-              );
-            }
+                if (isExpanded) {
+                  const doseIndex = doses.findIndex(d => d.period === dose.period);
+                  return (
+                    <DoseCard
+                      key={dose.period}
+                      dose={dose}
+                      index={doseIndex}
+                      isToday={dose.period === activeUnlockedPeriod}
+                      isCompleted={isCompleted}
+                      isLocked={isLocked}
+                      prescribedVaccineType={prescribedVaccineType}
+                      availableVaccineTypes={availableVaccineTypes}
+                      fifoError={fifoErrors[dose.period]}
+                      fieldErrors={fieldErrors}
+                      readOnly={readOnly}
+                      currentUser={currentUser}
+                      applySignature={applySignature}
+                      signatureReady={signatureReady}
+                      signatureVersion={signatureVersion}
+                      signatureLoadError={signatureLoadError}
+                      onDoseChange={handleDoseChange}
+                      onDoseVaccineTypeChange={handleDoseVaccineTypeChange}
+                      onToggleSignature={setApplySignature}
+                      onSignatureReady={() => setSignatureReady(true)}
+                      onRefreshSignature={() => setSignatureRefresh(v => v + 1)}
+                    />
+                  );
+                }
 
-            return (
-              <DoseRow
-                key={dose.period}
-                dose={dose}
-                isCompleted={isCompleted}
-                isPrerequisiteLocked={isPrereqLocked}
-                prereqPeriod={PREREQ[dose.period]}
-                onClick={() => setSelectedPeriod(dose.period)}
-              />
-            );
-          })}
-        </div>
+                return (
+                  <DoseRow
+                    key={dose.period}
+                    dose={dose}
+                    isCompleted={isCompleted}
+                    isPrerequisiteLocked={isPrereqLocked}
+                    prereqPeriod={PREREQ[dose.period]}
+                    onClick={() => setSelectedPeriod(dose.period)}
+                  />
+                );
+              })}
+            </div>
 
-        {/* Secondary text buttons below the list */}
-        <div style={{ display: 'flex', gap: 16, marginTop: 12, alignItems: 'center' }}>
-          {!readOnly && (
-            <button
-              type="button"
-              onClick={() => {
-                setManualReExposure(v => !v);
-                setShowFullSchedule(false);
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                color: manualReExposure ? '#b45309' : '#047857',
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: 'pointer',
-                textDecoration: 'none',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
-            >
-              {manualReExposure ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} color="#b45309" />
-                  <span>Re-bite active</span>
-                </span>
-              ) : (
-                'Re-bite / re-exposure'
+            {/* Secondary text buttons below the list */}
+            <div style={{ display: 'flex', gap: 16, marginTop: 12, alignItems: 'center' }}>
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManualReExposure(v => !v);
+                    setShowFullSchedule(false);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    color: manualReExposure ? '#b45309' : '#047857',
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    textDecoration: 'none',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+                >
+                  {manualReExposure ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} color="#b45309" />
+                      <span>Re-bite active</span>
+                    </span>
+                  ) : (
+                    'Re-bite / re-exposure'
+                  )}
+                </button>
               )}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setTransferModalOpen(true)}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              color: '#047857',
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: 'pointer',
-              textDecoration: 'none',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
-          >
-            Transfer out / referral slip
-          </button>
-        </div>
+              <button
+                type="button"
+                onClick={() => setTransferModalOpen(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  color: '#047857',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  textDecoration: 'none',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+              >
+                Transfer out / referral slip
+              </button>
+            </div>
 
-        {/* Subtle helper line */}
-        <p style={{ fontSize: 12, color: '#64748b', marginTop: 12, marginBottom: 0 }}>Automatic FIFO stock deduction on save · Cross-clinic continuity supported</p></>)}<p style={{ display: 'none' }}>
-
-        </p>
+            {/* Subtle helper line */}
+            <p style={{ fontSize: 12, color: '#64748b', marginTop: 12, marginBottom: 0 }}>Automatic FIFO stock deduction on save · Cross-clinic continuity supported</p>
+          </>
+        )}
       </FormSection>
 
       {/* PROPHYLAXIS (ATS / TT / RIG) ADMINISTRATION IF PRESCRIBED */}

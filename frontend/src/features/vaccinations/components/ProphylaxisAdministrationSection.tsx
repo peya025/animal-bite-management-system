@@ -7,6 +7,7 @@ import type { ProphylaxisOrders, ProphylaxisAdministration, ProphylaxisStock } f
 import { sanitizeDateInput } from '../../../shared/utils/date';
 import { SearchableSelect } from '../../../shared/components';
 import { buildIcd10Options } from '../../../shared/constants/icd10Codes';
+import { formatVaccineDisplayName } from '../../inventory/components/StockLevelIndicator/StockLevelIndicator';
 import { ConsultationDialog } from '../../consultations/styles/ConsultationDialog.styles';
 
 const HISTORICAL_GROUP_PRODUCTS: Record<string, string[]> = {
@@ -216,6 +217,8 @@ export default function ProphylaxisAdministrationSection({
           }
 
           const batches = stock?.[product as keyof ProphylaxisStock] || stock?.[defaultProduct] || [];
+          const totalVials = batches.reduce((sum, b) => sum + Number(b.current_quantity || 0), 0);
+          const displayProduct = formatVaccineDisplayName(product);
           const item = value.find((record) => record.medication === product);
           const isNotAdministered = item?.status === 'not_administered';
           const isChecked = Boolean(item) && !isNotAdministered;
@@ -232,12 +235,29 @@ export default function ProphylaxisAdministrationSection({
                 marginTop: 10,
               }}
             >
-              {/* Card Title Header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <HugeiconsIcon icon={Medicine01Icon} size={16} color="#0f172a" />
-                <strong style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
-                  {PROPHYLAXIS_LABELS[group]}: {isOrdered ? product : orderedProduct === 'none' ? 'Not ordered' : 'Awaiting doctor assessment'}
-                </strong>
+              {/* Card Title Header with Inline Stock */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <HugeiconsIcon icon={Medicine01Icon} size={16} color="#0f172a" />
+                  <strong style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
+                    {PROPHYLAXIS_LABELS[group]}: {isOrdered ? displayProduct : orderedProduct === 'none' ? 'Not ordered' : 'Awaiting doctor assessment'}
+                  </strong>
+                </div>
+                {isOrdered && stock !== undefined && stock !== null && (
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#111827', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: '50%',
+                        backgroundColor: totalVials === 0 ? '#dc2626' : totalVials <= 10 ? '#d97706' : '#16a34a',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span>{totalVials} {totalVials === 1 ? 'vial' : 'vials'} in stock</span>
+                  </span>
+                )}
               </div>
 
               {previous.map((record) => {

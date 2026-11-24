@@ -951,6 +951,9 @@ export default function QueuePatientDetailModal({
               readOnly={!editable || isNewCaseAwaitingTriage || isCategory1NoTreatment || isTransferredOut}
               inline={true}
             />
+            <Box sx={{ mt: 2 }}>
+              <StockLevelIndicator variant="compact-rows" collapsible showLegend={false} />
+            </Box>
           </Box>
         );
       }
@@ -1043,11 +1046,52 @@ export default function QueuePatientDetailModal({
           {/* Tab Navigation */}
           <TabBar active={activeTab} onSelect={setActiveTab} userRole={userRole} />
 
+          {/* Slim Patient-Specific Clinical Alert Context Bar */}
+          {(() => {
+            const incident = (entry.biteIncident || (entry as any).incident) as any;
+            const expCat = String(
+              incident?.exposure_category ||
+              (incident?.severity === 'severe' ? 'III' : incident?.severity === 'moderate' ? 'II' : incident?.severity === 'minor' ? 'I' : '')
+            ).toUpperCase();
+            const hasRigGiven = Boolean(incident?.rig_given || incident?.rig_administered || incident?.rig_administered_at);
+            const rigIndicated = expCat === 'III' || Boolean(entry.consultation_notes?.toLowerCase().includes('rig'));
+            const showRigPending = rigIndicated && !hasRigGiven && entry.status !== 'completed';
+            if (!showRigPending) return null;
+            return (
+              <Box
+                role="status"
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  px: 2.5,
+                  py: 0.9,
+                  bgcolor: '#fef2f2',
+                  borderBottom: '1px solid #fecaca',
+                  flexShrink: 0,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    bgcolor: '#dc2626',
+                    flexShrink: 0,
+                  }}
+                />
+                <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#991b1b' }}>
+                  {expCat === 'III' ? 'Category III · RIG Pending' : 'RIG Pending'}
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: '#b91c1c' }}>
+                  — Verify and record rabies immunoglobulin (RIG) with Day 0 dose
+                </Typography>
+              </Box>
+            );
+          })()}
+
           {/* Scrollable Content */}
           <DialogContent sx={{ p: 0, overflowY: 'auto', bgcolor: 'var(--bg-secondary, #f9fafb)' }}>
-            <Box sx={{ px: 2.5, pt: 2 }}>
-              <StockLevelIndicator compact={true} showLegend={true} />
-            </Box>
             {renderTabContent()}
           </DialogContent>
 

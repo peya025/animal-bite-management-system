@@ -553,7 +553,7 @@ class TreatmentRecordService
                 : Carbon::now('Asia/Manila'),
             'consultation_date' => $submittedConsultationDate,
             'consultation_time' => $validated['consultation_time'] ?? Carbon::now('Asia/Manila')->format('H:i'),
-            'mode_of_transaction' => in_array($validated['mode_of_transaction'] ?? '', ['walk-in', 'visited', 'referral'], true)
+            'mode_of_transaction' => in_array($validated['mode_of_transaction'] ?? '', ['walk-in', 'visited', 'referral', 'online'], true)
                 ? $validated['mode_of_transaction']
                 : ($isReferralOut ? 'referral' : 'walk-in'),
             'referred_from' => $validated['referred_from'] ?? null,

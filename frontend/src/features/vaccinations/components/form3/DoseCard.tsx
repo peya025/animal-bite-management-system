@@ -438,50 +438,65 @@ export function DoseCard({
                   {dose.is_open_vial ? (
                     <span
                       style={{
-                        fontSize: 11,
-                        fontWeight: 700,
+                        fontSize: 11.5,
+                        fontWeight: 600,
                         color: '#0e7490',
-                        background: '#cffafe',
-                        padding: '2px 8px',
-                        borderRadius: 4,
+                        background: '#ecfeff',
+                        border: '1px solid #a5f3fc',
+                        padding: '3px 10px',
+                        borderRadius: 999,
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 4,
+                        gap: 5,
                       }}
                     >
                       <HugeiconsIcon icon={Share01Icon} size={12} color="#0e7490" />
-                      <span>Auto-Shared Vial · 0 stock deducted</span>
+                      <span>
+                        {Number(dose.total_doses) > 1
+                          ? `Open vial: ${Math.max(1, Number(dose.total_doses) - (Number(dose.next_dose_index || 1) - 1))} of ${dose.total_doses} doses left · use first`
+                          : 'Open vial · use first'}
+                      </span>
                     </span>
                   ) : (
                     <span
                       style={{
-                        fontSize: 11,
-                        fontWeight: 700,
+                        fontSize: 11.5,
+                        fontWeight: 600,
                         color: '#1e40af',
-                        background: '#dbeafe',
-                        padding: '2px 8px',
-                        borderRadius: 4,
+                        background: '#eff6ff',
+                        border: '1px solid #bfdbfe',
+                        padding: '3px 10px',
+                        borderRadius: 999,
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 4,
+                        gap: 5,
                       }}
                     >
                       <HugeiconsIcon icon={PackageIcon} size={12} color="#1e40af" />
-                      <span>Opens New Vial · 1 vial deducted</span>
+                      <span>Opens new vial · 1 vial deducted</span>
                     </span>
                   )}
 
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#1e293b' }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
                     {Number(dose.total_doses) > 1
                       ? `Dose ${dose.next_dose_index || 1} of ${dose.total_doses}`
-                      : '1 vial (single dose)'}
+                      : 'Single-dose vial'}
                   </span>
                 </div>
 
                 {dose.available_stock !== undefined && (
-                  <span style={{ fontSize: 12, fontWeight: 600, color: dose.available_stock > 5 ? '#047857' : '#b45309', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <HugeiconsIcon icon={PackageIcon} size={13} color={dose.available_stock > 5 ? '#047857' : '#b45309'} />
-                    <span>{dose.available_stock} vials in stock</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-h, #111827)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: '50%',
+                        backgroundColor: dose.available_stock === 0 ? '#dc2626' : dose.available_stock <= 10 ? '#d97706' : '#16a34a',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span>{dose.available_stock} {dose.available_stock === 1 ? 'vial' : 'vials'} in stock</span>
                   </span>
                 )}
               </div>

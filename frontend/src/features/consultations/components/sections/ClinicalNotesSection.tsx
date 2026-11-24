@@ -83,8 +83,8 @@ export default function ClinicalNotesSection({
             {/* LEFT: Scrollable checklist */}
             <div
               style={{
-                border: '1px solid var(--text-secondary, #6b7280)',
-                borderRadius: 8,
+                border: '1px solid var(--input-border, #d7e3da)',
+                borderRadius: 16,
                 maxHeight: 230,
                 overflowY: 'auto',
                 backgroundColor: isFormDisabled ? 'var(--bg-secondary, #f1f5f9)' : 'var(--input-bg, #fff)',

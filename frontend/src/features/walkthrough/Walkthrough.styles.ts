@@ -362,6 +362,15 @@ export const walkthroughStyles = `
   font-weight: 400;
 }
 
+.walkthrough-tooltip-card[data-walkthrough-module="Bite Cases Summary"] .walkthrough-title {
+  font-size: 14.5px;
+}
+
+.walkthrough-tooltip-card[data-walkthrough-module="Bite Cases Summary"] .walkthrough-content {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .walkthrough-footer {
   display: flex;
   align-items: center;

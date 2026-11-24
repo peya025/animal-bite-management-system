@@ -47,7 +47,7 @@ export default function TransferReferralSection({
   onCompleteReferral,
 }: TransferReferralSectionProps) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const isEnabled = Boolean(formData.is_referral || isReferralCompleted || formData.transferred_to_facility);
+  const isEnabled = Boolean(formData.is_referral || isReferralCompleted);
   const facilityVal = (formData.transferred_to_facility ?? '').trim();
 
   const facilityOptions = useMemo(
@@ -224,7 +224,7 @@ export default function TransferReferralSection({
           <div className="fm-grid">
             <FormField
               id="field-transferred_to_facility"
-              label="Receiving Hospital / Facility *"
+              label="Receiving Hospital / Facility"
               required
               hint="Select a common hospital or type specific receiving facility"
               error={Boolean(fieldErrors?.transferred_to_facility)}

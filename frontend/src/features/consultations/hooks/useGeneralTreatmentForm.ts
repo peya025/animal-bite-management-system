@@ -38,6 +38,13 @@ import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import { getManilaCurrentDateTime } from '../../../shared/utils';
 import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
 
+const LOCAL_RECEIVING_FACILITY = 'tagoloan rural health unit (rhu) / abtc';
+
+function isExternalReferralFacility(val?: string | null): boolean {
+  const trimmed = (val || '').trim();
+  return trimmed !== '' && trimmed.toLowerCase() !== LOCAL_RECEIVING_FACILITY;
+}
+
 export function useGeneralTreatmentForm({
   open,
   entry,
@@ -139,8 +146,7 @@ export function useGeneralTreatmentForm({
   const isReferralCompleted = Boolean(
     existingRecord?.outcome === 'Transferred/Referred' ||
     existingRecord?.status === 'transferred_out' ||
-    selectedIncident?.status === 'transferred_out' ||
-    (entry?.status === 'completed' && Boolean(formData.transferred_to_facility && formData.is_referral))
+    selectedIncident?.status === 'transferred_out'
   );
 
   // Fetch available vaccine names and live inventory stock
@@ -176,6 +182,9 @@ export function useGeneralTreatmentForm({
         // ignore
       }
     }
+
+    const externalReferredTo = isExternalReferralFacility(record.referred_to) ? record.referred_to : '';
+    const externalTransferFacility = record.transferred_to_facility || externalReferredTo || '';
 
     setFormData((prev) => ({
       ...prev,
@@ -219,9 +228,9 @@ export function useGeneralTreatmentForm({
       name_of_attending_provider: resolveAttendingProvider(entryRef.current, record) || prev.name_of_attending_provider,
       laboratory_findings: record.laboratory_findings || '',
       performed_lab_test: record.performed_lab_test || '',
-      is_referral: Boolean(record.is_referral || record.transferred_to_facility || record.referred_to),
-      transferred_to_facility: record.transferred_to_facility || record.referred_to || '',
-      transfer_reason: record.transfer_reason || record.reason_for_referral || '',
+      is_referral: Boolean(record.is_referral || externalTransferFacility),
+      transferred_to_facility: externalTransferFacility,
+      transfer_reason: record.transfer_reason || (externalTransferFacility ? (record.reason_for_referral || '') : ''),
       transfer_date: record.transfer_date || record.transferred_at || (record.consultation_date || prev.transfer_date),
     }));
 
@@ -866,10 +875,21 @@ export function useGeneralTreatmentForm({
 
     if (!enabled) {
       setFieldErrors((errs) => {
-        if (!errs.transferred_to_facility && !errs.transfer_reason) return errs;
+        const hasReferralErrors = Boolean(errs.transferred_to_facility || errs.transfer_reason);
+        if (!hasReferralErrors) {
+          if (Object.keys(errs).length === 0) {
+            setError('');
+          }
+          return errs;
+        }
         const next = { ...errs };
         delete next.transferred_to_facility;
         delete next.transfer_reason;
+        if (Object.keys(next).length === 0) {
+          setError('');
+        } else {
+          setError(`Required: ${Object.values(next).join(' • ')}`);
+        }
         return next;
       });
     }
@@ -938,70 +958,28 @@ export function useGeneralTreatmentForm({
       return;
     }
 
-    setSaving(true);
     setError('');
+    setFieldErrors((prev) => {
+      if (!prev.transferred_to_facility) return prev;
+      const next = { ...prev };
+      delete next.transferred_to_facility;
+      return next;
+    });
 
-    try {
-      const patientId = entry.patient.patient_id || entry.patient.id;
-      const effectiveCategory = formData.exposure_category || selectedIncident?.exposure_category || 'II';
-      const facilityName = (formData.transferred_to_facility || '').trim();
-      const transferReason = formData.transfer_reason?.trim() || 'For further evaluation and management.';
-      const effectiveDate = formData.transfer_date || getManilaCurrentDateTime().date;
-      const chiefNotes = formData.chief_complaints?.trim() || formData.diagnosis?.trim() || `Referral details saved for ${facilityName}`;
-      const currentPlace = resolveCurrentPlace();
+    // Save referral details to the local draft only — do NOT submit the
+    // treatment record or alter patient case / queue status until the doctor
+    // explicitly finalizes the referral via "Complete Referral".
+    const nextData: TreatmentFormData = {
+      ...formData,
+      is_referral: true,
+      transferred_to_facility: formData.transferred_to_facility.trim(),
+      transfer_date: formData.transfer_date || getManilaCurrentDateTime().date,
+    };
+    setFormData(nextData);
+    saveDraftSnapshot(nextData);
 
-      const activeConsultationTypes = Object.keys(formData.consultation_types).filter(
-        (key) => formData.consultation_types[key as keyof typeof formData.consultation_types]
-      );
-      if (activeConsultationTypes.length === 0) {
-        activeConsultationTypes.push('injury');
-      }
-
-      const payload: TreatmentRecordPayload = {
-        patient_id: patientId,
-        queue_id: entry.queue_id || null,
-        bite_id: entry.bite_id || entry.incident?.bite_id || entry.bite_incident?.bite_id || entry.biteIncident?.bite_id || null,
-        nature_of_visit: formData.nature_of_visit || 'new_consultation',
-        consultation_types: activeConsultationTypes,
-        chief_complaints: chiefNotes,
-        diagnosis: formData.diagnosis,
-        exposure_category: effectiveCategory,
-        place_of_exposure: currentPlace || null,
-        bite_place: currentPlace || null,
-        new_bite_place: currentPlace || null,
-        treatment_plan: treatmentPlan || 'no_vaccine',
-        prescribed_vaccine_type: formData.prescribed_vaccine_type || null,
-        medication_treatment: formData.medication_treatment || '',
-        transferred_to_facility: facilityName,
-        transfer_reason: transferReason,
-        transfer_date: effectiveDate,
-        is_referral: true,
-        complete_referral: false,
-        consultation_date: formData.date_of_consultation || getManilaCurrentDateTime().date,
-        consultation_time: formData.consultation_time || getManilaCurrentDateTime().time,
-        mode_of_transaction: formData.mode_of_transaction || 'referral',
-        referred_to: facilityName,
-        reason_for_referral: transferReason,
-        laboratory_findings: formData.laboratory_findings || '',
-        performed_lab_test: formData.performed_lab_test || '',
-        provider_name: formData.name_of_provider || currentUserName || null,
-        attending_provider: formData.name_of_attending_provider,
-        referred_by: formData.referred_by,
-        prophylaxis_orders: formData.prophylaxis_orders,
-      };
-
-      const res = await submitTreatmentRecord(payload);
-      if (res?.treatment_record) {
-        setExistingRecord(res.treatment_record);
-      }
-      if (printAfter) {
-        setTransferSlipOpen(true);
-      }
-      return res;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save referral details');
-    } finally {
-      setSaving(false);
+    if (printAfter) {
+      setTransferSlipOpen(true);
     }
   };
 

@@ -84,6 +84,7 @@ export interface EnrolmentFormData {
   last_name: string;
   first_name: string;
   middle_name: string;
+  no_middle_name?: boolean;
   suffix: string;
   date_of_birth: string;
   sex: string;
@@ -147,6 +148,7 @@ export const INITIAL_ENROLMENT_DATA: EnrolmentFormData = {
   last_name: '',
   first_name: '',
   middle_name: '',
+  no_middle_name: false,
   suffix: '',
   date_of_birth: '',
   sex: '',

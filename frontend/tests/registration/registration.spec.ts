@@ -34,14 +34,11 @@ test.beforeEach(async ({ page }) => {
 async function requiredFields(page: Page) {
   await page.locator('input[name="last_name"]').fill('Dela Cruz');
   await page.locator('input[name="first_name"]').fill('Juan');
+  await page.locator('input[name="middle_name"]').fill('Santos');
   await page.getByRole('radio', { name: 'Male', exact: true }).check();
   await page.locator('input[name="date_of_birth"]').fill('1990-06-12');
-  const manualBtn = page.getByRole('button', { name: 'Switch to Manual Typing' });
-  if (await manualBtn.isVisible()) {
-    await manualBtn.click();
-  }
-  await page.getByLabel('City / Municipality').fill('Tagoloan');
-  await page.getByLabel('Barangay').fill('Poblacion');
+  await selectComboboxOption(page, page.getByLabel('City / Municipality'), 'Tagoloan');
+  await selectComboboxOption(page, page.getByLabel('Barangay'), 'Poblacion');
   await page.locator('input[name="contact_number"]').fill('09123456789');
   await page.locator('input[name="emergency_contact_name"]').fill('Maria Santos');
   await page.locator('input[name="emergency_contact_phone"]').fill('09987654321');
@@ -50,20 +47,16 @@ async function requiredFields(page: Page) {
   await page.locator('input[name="reg_temperature"]').fill('36.5');
   await page.locator('input[name="reg_height"]').fill('170');
   await page.locator('input[name="reg_weight"]').fill('70');
-  await page.locator('input[name="reg_attending_provider"]').fill('Dr. Juan Dela Cruz');
 }
 
 async function referralTestRequiredFields(page: Page) {
   await page.locator('input[name="last_name"]').fill('Dela Cruz');
   await page.locator('input[name="first_name"]').fill('Juan');
+  await page.locator('input[name="middle_name"]').fill('Santos');
   await page.getByRole('radio', { name: 'Male', exact: true }).check();
   await page.locator('input[name="date_of_birth"]').fill('1990-06-12');
-  const manualBtn = page.getByRole('button', { name: 'Switch to Manual Typing' });
-  if (await manualBtn.isVisible()) {
-    await manualBtn.click();
-  }
-  await page.getByLabel('City / Municipality').fill('Tagoloan');
-  await page.getByLabel('Barangay').fill('Poblacion');
+  await selectComboboxOption(page, page.getByLabel('City / Municipality'), 'Tagoloan');
+  await selectComboboxOption(page, page.getByLabel('Barangay'), 'Poblacion');
   await page.locator('input[name="contact_number"]').fill('09123456789');
   await page.locator('input[name="emergency_contact_name"]').fill('Maria Santos');
   await page.locator('input[name="emergency_contact_phone"]').fill('09987654321');
@@ -72,7 +65,6 @@ async function referralTestRequiredFields(page: Page) {
   await page.locator('input[name="reg_temperature"]').fill('36.5');
   await page.locator('input[name="reg_height"]').fill('170');
   await page.locator('input[name="reg_weight"]').fill('70');
-  await page.locator('input[name="reg_attending_provider"]').fill('Dr. Juan Dela Cruz');
 }
 
 test('referral fields appear only for Referral and are cleared when switching modes', async ({ page }) => {
@@ -145,12 +137,18 @@ test('Enter follows row order; Tab, Shift+Tab and native controls retain behavio
   await last.press('Enter');
   await expect(first).toBeFocused();
   await first.press('Enter');
-  await expect(page.getByLabel('Middle Name', { exact: true })).toBeFocused();
+  await expect(page.locator('input[name="middle_name"]')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('checkbox', { name: 'No Middle Name' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByLabel('Suffix', { exact: true })).toBeFocused();
   await page.keyboard.press('Shift+Tab');
-  await expect(page.getByLabel('Middle Name', { exact: true })).toBeFocused();
-  await page.getByLabel('Middle Name', { exact: true }).press('Enter');
+  await expect(page.getByRole('checkbox', { name: 'No Middle Name' })).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(page.locator('input[name="middle_name"]')).toBeFocused();
+  await page.locator('input[name="middle_name"]').press('Enter');
+  await expect(page.getByRole('checkbox', { name: 'No Middle Name' })).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(page.getByLabel('Suffix', { exact: true })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByLabel('Female', { exact: true })).toBeFocused();
@@ -196,9 +194,10 @@ test('required and length errors are linked to controls; corrections preserve fo
   await expect(page.getByLabel('Barangay')).toHaveValue('Poblacion');
 });
 
-test('address dependencies, manual entry and read-only preview', async ({ page }) => {
+test('address dependencies and read-only preview', async ({ page }) => {
   const municipality = page.getByLabel('City / Municipality');
   const barangay = page.getByLabel('Barangay');
+  await expect(page.getByRole('button', { name: 'Switch to Manual Typing' })).toHaveCount(0);
   await expect(barangay).toBeDisabled();
   await expect(page.getByLabel('Purok / Zone / Street', { exact: true })).toBeDisabled();
   await expect(municipality).toBeEnabled();
@@ -207,10 +206,6 @@ test('address dependencies, manual entry and read-only preview', async ({ page }
   await selectComboboxOption(page, barangay, 'Poblacion');
   await page.getByLabel('Purok / Zone / Street', { exact: true }).fill('Zone 1');
   await expect(page.getByLabel('Full Address preview')).toContainText('Zone 1, Poblacion, Tagoloan, Misamis Oriental');
-  await page.getByRole('button', { name: 'Switch to Manual Typing' }).click();
-  await municipality.fill('Villanueva');
-  await barangay.fill('Kimaya');
-  await expect(page.getByLabel('Full Address preview')).toContainText('Zone 1, Kimaya, Villanueva');
 });
 
 test('server errors appear at their fields and focus uses visual order', async ({ page }) => {
@@ -393,7 +388,7 @@ test('searchable comboboxes support live search, keyboard navigation, checkmark,
   await expect(menu).toBeVisible();
   await page.keyboard.press('Shift+Tab');
   await expect(menu).toHaveCount(0);
-  await expect(page.getByLabel('Middle Name', { exact: true })).toBeFocused();
+  await expect(page.getByRole('checkbox', { name: 'No Middle Name' })).toBeFocused();
 
   // Disabled options in Government Programs cannot be selected and are skipped by Arrow keys
   await page.getByLabel('Yes', { exact: true }).check();
@@ -452,6 +447,40 @@ test('selecting Male removes Pregnant from Priority Category and resets it to No
   await priorityTrigger.click();
   await expect(menu.getByRole('option', { name: 'Pregnant', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
+});
+
+test('No Middle Name checkbox toggles Middle Name requirement, clears value, and submits null', async ({ page }) => {
+  let submittedPayload: Record<string, unknown> | undefined;
+  await page.route('**/api/patients', route => {
+    submittedPayload = route.request().postDataJSON();
+    return route.fulfill({ status: 201, json: { patient_id: 101 } });
+  });
+
+  const middleInput = page.locator('input[name="middle_name"]');
+  const noMiddleCheckbox = page.getByRole('checkbox', { name: 'No Middle Name' });
+
+  await expect(noMiddleCheckbox).not.toBeChecked();
+  await expect(middleInput).toBeEnabled();
+  await expect(middleInput).toHaveAttribute('aria-required', 'true');
+
+  // Checking No Middle Name clears and disables Middle Name and removes required state
+  await middleInput.fill('Santos');
+  await noMiddleCheckbox.check();
+  await expect(middleInput).toBeDisabled();
+  await expect(middleInput).toHaveValue('');
+  await expect(middleInput).not.toHaveAttribute('aria-required', 'true');
+
+  // Unchecking re-enables and restores required state
+  await noMiddleCheckbox.uncheck();
+  await expect(middleInput).toBeEnabled();
+  await expect(middleInput).toHaveAttribute('aria-required', 'true');
+
+  // Re-check and submit full form -> middle_name should be null in payload
+  await requiredFields(page);
+  await noMiddleCheckbox.check();
+  await page.getByRole('button', { name: 'Save Patient Record' }).click();
+  await expect(page.getByText('Test record saved')).toBeVisible();
+  expect(submittedPayload?.middle_name).toBeNull();
 });
 
 

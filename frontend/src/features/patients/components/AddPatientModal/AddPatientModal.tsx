@@ -49,12 +49,17 @@ export default function AddPatientModal({
       : undefined;
 
     const isSavedReferral = (saved.mode_of_transaction || '').toLowerCase() === 'referral';
+    const normalizedModeOfTransaction =
+      saved.mode_of_transaction === 'visited' || saved.mode_of_transaction === 'referral'
+        ? saved.mode_of_transaction
+        : 'walk-in';
     const normalizedPriorityGroup =
       saved.sex === 'male' && saved.queue_priority_group === 'pregnant'
         ? 'normal'
         : saved.queue_priority_group;
     return {
       ...saved,
+      mode_of_transaction: normalizedModeOfTransaction,
       queue_priority_group: normalizedPriorityGroup,
       queue_priority_level: normalizedPriorityGroup === 'normal' ? 'normal' : 'priority',
       reg_date_of_consultation: saved.reg_date_of_consultation || fresh.reg_date_of_consultation,
@@ -300,6 +305,9 @@ export default function AddPatientModal({
     }
     if (!enrolment.first_name.trim()) {
       newFieldErrors.first_name = 'First Name is required';
+    }
+    if (!enrolment.no_middle_name && !enrolment.middle_name.trim()) {
+      newFieldErrors.middle_name = 'Middle Name is required';
     }
     if (!enrolment.sex) {
       newFieldErrors.sex = 'Sex is required';
@@ -691,6 +699,24 @@ export default function AddPatientModal({
           <PatientInfoSection
             data={enrolment}
             onChange={handleFieldChange}
+            onNoMiddleNameChange={(checked) => {
+              setEnrolment(prev => {
+                const next = {
+                  ...prev,
+                  no_middle_name: checked,
+                  middle_name: checked ? '' : prev.middle_name,
+                };
+                draft.saveDraft(next);
+                return next;
+              });
+              if (checked && fieldErrors.middle_name) {
+                setFieldErrors(prev => {
+                  const next = { ...prev };
+                  delete next.middle_name;
+                  return next;
+                });
+              }
+            }}
             errors={fieldErrors}
             showQueueFields={canQueuePatient}
             duplicateMatches={duplicateMatches}

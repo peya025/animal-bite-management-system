@@ -275,7 +275,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
         <div className="fm-grid" style={{ marginBottom: 14 }}>
           <FormField label="Mode of Transaction">
             <div className="fm-segmented-group">
-              {(['walk-in', 'online', 'visited', 'referral'] as const).map((mode) => {
+              {(['walk-in', 'visited', 'referral'] as const).map((mode) => {
                 const isSelected = (data.mode_of_transaction || 'walk-in') === mode;
                 return (
                   <label
@@ -534,15 +534,15 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                   alignItems: 'center',
                   border: (errors?.reg_blood_pressure || errors?.bp_systolic || errors?.bp_diastolic)
                     ? '1px solid #ef4444'
-                    : '1px solid var(--text-secondary, #6b7280)',
-                  borderRadius: 8,
+                    : '1px solid var(--input-border, #d1d5db)',
+                  borderRadius: 9999,
                   minHeight: 46,
                   height: 46,
                   background: 'var(--input-bg, #fff)',
                   overflow: 'hidden',
                   boxSizing: 'border-box',
                   width: '100%',
-                  padding: '0 8px',
+                  padding: '0 14px',
                   transition: 'border-color 0.15s, box-shadow 0.15s',
                 }}
                 onFocus={(e) => {
@@ -553,7 +553,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                     e.currentTarget.style.borderColor = (errors?.reg_blood_pressure || errors?.bp_systolic || errors?.bp_diastolic)
                       ? '#ef4444'
-                      : 'var(--text-secondary, #6b7280)';
+                      : 'var(--input-border, #d1d5db)';
                     e.currentTarget.style.boxShadow = 'none';
                   }
                 }}
@@ -783,13 +783,13 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                   border: (errors?.reg_blood_pressure || errors?.bp_systolic || errors?.bp_diastolic)
                     ? '1px solid #ef4444'
                     : '1px solid var(--input-border, #d1d5db)',
-                  borderRadius: 8,
+                  borderRadius: 9999,
                   minHeight: 46,
                   height: 46,
                   background: 'var(--input-bg, #fff)',
                   overflow: 'hidden',
                   boxSizing: 'border-box' as const,
-                  padding: '0 8px',
+                  padding: '0 14px',
                 }}
               >
                 <input

@@ -1035,7 +1035,7 @@ select:not(.MuiSelect-select):not(.MuiNativeSelect-select):not(.setup-input):foc
 }
 
 /* Inputs & Form Controls */
-input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.pm-search):not(.auth-input):not(.login-input):not(.setup-input):not(.ss-search-input),
+input:not([type="checkbox"]):not([type="radio"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.pm-search):not(.auth-input):not(.login-input):not(.setup-input):not(.ss-search-input),
 select:not(.MuiSelect-select):not(.MuiNativeSelect-select):not(.setup-input),
 textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input) {
   font-family: var(--sans);
@@ -1049,7 +1049,7 @@ textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input)
   transition: all 0.18s ease;
 }
 
-input:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.auth-input):not(.login-input):not(.setup-input):not(.ss-search-input):focus,
+input:not([type="checkbox"]):not([type="radio"]):not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.auth-input):not(.login-input):not(.setup-input):not(.ss-search-input):focus,
 select:not(.MuiSelect-select):not(.MuiNativeSelect-select):not(.setup-input):focus,
 textarea:not(.MuiInputBase-input):not(.MuiOutlinedInput-input):not(.setup-input):focus {
   outline: none;

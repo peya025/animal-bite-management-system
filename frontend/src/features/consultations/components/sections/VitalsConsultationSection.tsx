@@ -23,14 +23,14 @@ const POPPINS = "'Poppins', sans-serif";
 const RO: React.CSSProperties = {
   display: 'block',
   minHeight: 46,
-  padding: '11px 12px',
+  padding: '11px 16px',
   fontSize: 14,
   fontWeight: 600,
   fontFamily: POPPINS,
   color: 'var(--input-text, #111827)',
   background: 'var(--bg-secondary, #f8fafc)',
   border: '1px solid var(--border-color, #e2e8f0)',
-  borderRadius: 8,
+  borderRadius: 9999,
   lineHeight: '1.5',
   boxSizing: 'border-box',
 };

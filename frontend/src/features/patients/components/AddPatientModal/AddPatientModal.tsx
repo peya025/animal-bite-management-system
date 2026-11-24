@@ -687,7 +687,6 @@ export default function AddPatientModal({
             const name = target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement ? target.name : '';
             if (name && fieldErrors[name]) setFieldErrors(previous => { const next = { ...previous }; delete next[name]; return next; });
           }}>
-          <p className="registration-intro"><strong>Required fields are marked with *.</strong> Press Enter in a text field to move to the next field, or use Tab.</p>
           {error && <p ref={summaryRef} tabIndex={-1} role="alert" className="registration-error">{error}</p>}
           <PatientInfoSection
             data={enrolment}

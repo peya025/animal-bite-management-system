@@ -36,21 +36,6 @@ export function ContactSection({ data, onChange, errors = {} }: ContactSectionPr
       </div>
       <div className="fm-grid fm-grid--2" style={{ marginBottom: 14 }}>
         <FormField
-          id="field-emergency_contact_name"
-          label="Emergency Contact Name"
-          required
-          error={!!errors.emergency_contact_name}
-          errorText={errors.emergency_contact_name}
-        >
-          <input
-            className="fm-input"
-            name="emergency_contact_name"
-            value={data.emergency_contact_name}
-            onChange={onChange('emergency_contact_name')}
-            style={errors.emergency_contact_name ? { borderColor: '#ef4444' } : undefined}
-          />
-        </FormField>
-        <FormField
           id="field-emergency_contact_phone"
           label="Emergency Contact Phone"
           required
@@ -65,6 +50,21 @@ export function ContactSection({ data, onChange, errors = {} }: ContactSectionPr
             maxLength={11}
             type="tel" inputMode="numeric"
             style={errors.emergency_contact_phone ? { borderColor: '#ef4444' } : undefined}
+          />
+        </FormField>
+        <FormField
+          id="field-emergency_contact_name"
+          label="Emergency Contact Name"
+          required
+          error={!!errors.emergency_contact_name}
+          errorText={errors.emergency_contact_name}
+        >
+          <input
+            className="fm-input"
+            name="emergency_contact_name"
+            value={data.emergency_contact_name}
+            onChange={onChange('emergency_contact_name')}
+            style={errors.emergency_contact_name ? { borderColor: '#ef4444' } : undefined}
           />
         </FormField>
       </div>

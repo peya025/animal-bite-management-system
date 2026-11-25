@@ -142,6 +142,19 @@ class FcmServiceTest extends TestCase
         $this->assertEquals('appointment_reminder', $payload['message']['data']['category']);
     }
 
+    public function test_confirmation_category_survives_payload_sanitization(): void
+    {
+        $data = $this->service->validateAndSanitizeData([
+            'category' => 'appointment',
+            'route' => '/appointments',
+            'appointment_id' => 123,
+        ]);
+
+        $this->assertSame('appointment', $data['category']);
+        $this->assertSame('/appointments', $data['route']);
+        $this->assertSame('123', $data['appointment_id']);
+    }
+
     public function test_builds_payload_with_validate_only_flag(): void
     {
         $payload = $this->service->buildPayload('token_xyz', 'Title', 'Body', [], validateOnly: true);

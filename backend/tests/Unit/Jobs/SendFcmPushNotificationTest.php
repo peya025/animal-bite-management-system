@@ -49,7 +49,8 @@ class SendFcmPushNotificationTest extends TestCase
         $this->assertEquals(3, $job->tries);
         $this->assertEquals(30, $job->timeout);
         $this->assertEquals([30, 120, 300], $job->backoff);
-        $this->assertEquals('notifications', $job->queue);
+        $this->assertEquals('fcm', $job->queue);
+        $this->assertEquals(config('services.firebase.queue_connection'), $job->connection);
     }
 
     public function test_job_verifies_account_is_active_before_dispatch(): void

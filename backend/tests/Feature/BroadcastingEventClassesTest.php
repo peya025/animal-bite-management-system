@@ -838,12 +838,13 @@ class BroadcastingEventClassesTest extends TestCase
         }
 
         $this->assertSame('notifications', config('messaging.queue'));
+        $this->assertSame('fcm', config('services.firebase.queue'));
         $outbound = new \App\Jobs\DeliverOutboundMessage(1);
         $push = new \App\Jobs\SendFcmPushNotification(1, 'Test', 'Test');
-        foreach ([$outbound, $push] as $job) {
-            $this->assertSame('notifications', $job->queue, 'Messaging jobs must retain their existing queue');
-            $this->assertSame(config('messaging.queue_connection'), $job->connection);
-        }
+        $this->assertSame('notifications', $outbound->queue, 'SMS/email outbound jobs must retain the notifications queue');
+        $this->assertSame(config('messaging.queue_connection'), $outbound->connection);
+        $this->assertSame('fcm', $push->queue, 'FCM push jobs must use the isolated fcm queue');
+        $this->assertSame(config('services.firebase.queue_connection'), $push->connection);
 
         // A synchronous queue update must reach the broadcaster, not the job queue.
         $broadcaster = \Mockery::mock(\Illuminate\Contracts\Broadcasting\Broadcaster::class);

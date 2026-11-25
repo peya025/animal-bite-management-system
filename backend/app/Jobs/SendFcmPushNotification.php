@@ -46,8 +46,8 @@ class SendFcmPushNotification implements ShouldQueue
         public bool $isControlledTest = false
     ) {
         $this->idempotencyKey = $idempotencyKey ?? (string) Str::uuid();
-        $this->onConnection(config('messaging.queue_connection', 'database'));
-        $this->onQueue(config('messaging.queue', 'notifications'));
+        $this->onConnection(config('services.firebase.queue_connection', config('messaging.queue_connection', 'database')));
+        $this->onQueue(config('services.firebase.queue', 'fcm'));
         $this->afterCommit();
     }
 

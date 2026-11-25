@@ -30,6 +30,18 @@ class SendFcmTestNotification extends Command
         $this->info('  ABTC Management System — FCM Delivery Engine Test    ');
         $this->info('───────────────────────────────────────────────────────');
 
+        $accountOption = $this->option('account') ?: ($this->option('patient') ?: $this->option('user'));
+        $tokenOption   = $this->option('token');
+        $deviceOption  = $this->option('device');
+        $isDryRun      = (bool) ($this->option('dry-run') || $this->option('validate-only'));
+
+        // Enforce targeted testing before inspecting credentials — strictly prohibit untargeted bulk sends
+        if (empty($accountOption) && empty($tokenOption) && empty($deviceOption)) {
+            $this->error('Target required! You must specify --account=<id|email>, --token=<fcm_token>, or --device=<device_id>.');
+            $this->comment('Bulk push notification testing is strictly prohibited to protect patient privacy.');
+            return Command::FAILURE;
+        }
+
         // 1. Verify Firebase configuration and credentials
         try {
             $metadata = $authService->validateCredentialsFile();
@@ -45,18 +57,6 @@ class SendFcmTestNotification extends Command
             $this->line("FCM Allowlist:      {$allowlistDisplay}");
         } catch (Throwable $e) {
             $this->error('Firebase configuration error: ' . $e->getMessage());
-            return Command::FAILURE;
-        }
-
-        $accountOption = $this->option('account') ?: ($this->option('patient') ?: $this->option('user'));
-        $tokenOption   = $this->option('token');
-        $deviceOption  = $this->option('device');
-        $isDryRun      = (bool) ($this->option('dry-run') || $this->option('validate-only'));
-
-        // 2. Enforce targeted testing — strictly prohibit untargeted bulk sends
-        if (empty($accountOption) && empty($tokenOption) && empty($deviceOption)) {
-            $this->error('Target required! You must specify --account=<id|email>, --token=<fcm_token>, or --device=<device_id>.');
-            $this->comment('Bulk push notification testing is strictly prohibited to protect patient privacy.');
             return Command::FAILURE;
         }
 

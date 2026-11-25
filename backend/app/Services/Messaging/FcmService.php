@@ -20,6 +20,7 @@ class FcmService
     public const FCM_SEND_ENDPOINT_TEMPLATE = 'https://fcm.googleapis.com/v1/projects/%s/messages:send';
 
     public const ALLOWED_CATEGORIES = [
+        'appointment',
         'appointment_reminder',
         'appointment_rescheduled',
         'appointment_cancelled',

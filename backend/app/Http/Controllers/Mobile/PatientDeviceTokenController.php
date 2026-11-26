@@ -76,6 +76,7 @@ class PatientDeviceTokenController extends Controller
             'reminders'           => 'sometimes|boolean',
             'digital_card'        => 'sometimes|boolean',
             'announcements'       => 'sometimes|boolean',
+            'community_advisories' => 'sometimes|boolean',
         ]);
 
         $account = $request->user();

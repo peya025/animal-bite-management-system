@@ -56,12 +56,14 @@ class MockMobileApi {
 
   Future<List<Announcement>> fetchAnnouncements() async => const [];
 
-  Future<CommunityBiteOverview> fetchCommunityBiteOverview() async =>
+  Future<CommunityBiteOverview> fetchCommunityBiteOverview({
+    int? clinicId,
+  }) async =>
       const CommunityBiteOverview(
         clinicName: 'Tagoloan Animal Bite Treatment Center',
         municipality: 'Tagoloan',
-        status: 'normal',
-        headline: 'No unusual bite spikes reported in Tagoloan this week.',
+        status: 'information',
+        headline: 'Community Bite Awareness',
         guidance:
             'Keep pets vaccinated and leashed. If bitten or scratched, wash immediately with soap and running water for 15 minutes and visit the clinic.',
         elevatedAreas: [],
@@ -71,7 +73,15 @@ class MockMobileApi {
           statusLabel: 'Anti-Rabies Vaccine & RIG Available',
         ),
         disclaimer:
-            'Community bite awareness notice based on clinic bite presentations over the last 7 days; does not represent confirmed rabies cases.',
+            'Facility-reviewed clinic guidance only. Reports of animal bites do not by themselves confirm rabies infection.',
+      );
+
+  Future<CommunityAdvisoryDetailResult> fetchCommunityAdvisoryDetail(
+    int advisoryId,
+  ) async =>
+      const CommunityAdvisoryDetailResult(
+        status: 'not_found',
+        message: 'This clinic advisory is not available.',
       );
 
   Future<void> initialize() async {

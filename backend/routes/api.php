@@ -96,6 +96,29 @@ Route::get('/landing-page-settings', [LandingPageSettingsController::class, 'get
 Route::get('/public/vaccine-availability', [VaccineInventoryController::class, 'publicAvailability']);
 Route::get('/public/announcements', [AnnouncementController::class, 'published']);
 Route::get('/public/community-bite-overview', PublicCommunityOverviewController::class);
+Route::middleware('throttle:60,1')->prefix('public/community-advisories')
+    ->controller(\App\Http\Controllers\Support\PublicCommunityAdvisoryController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::get('/{advisory}', 'show')->whereNumber('advisory');
+    });
+
+Route::middleware(['auth:sanctum', EnsureStaffAccount::class, 'active.user', 'role:admin,registration,triage,treatment,doctor,nurse,staff', 'throttle:60,1'])
+    ->prefix('reports/surveillance')->controller(\App\Http\Controllers\Reports\SurveillanceSignalController::class)->group(function () {
+        Route::get('/signals', 'index');
+        Route::post('/evaluate', 'evaluate')->middleware('throttle:5,1');
+        Route::post('/signals/{signal}/reviews', 'review')->whereNumber('signal');
+        Route::get('/signals/{signal}/history', 'history')->whereNumber('signal');
+        Route::get('/signals/{signal}/evidence', 'evidence')->whereNumber('signal');
+    });
+
+Route::middleware(['auth:sanctum', EnsureStaffAccount::class, 'active.user', 'throttle:60,1'])
+    ->prefix('community-advisories')->controller(\App\Http\Controllers\CommunityAwareness\CommunityAdvisoryController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::post('/', 'store');
+        Route::get('/{advisory}/history', 'history')->whereNumber('advisory');
+        Route::post('/{advisory}/{action}', 'transition')->whereNumber('advisory')
+            ->where('action', 'edit|submit|approve|return|schedule|publish|withdraw');
+    });
 
 Route::middleware(['auth:sanctum', EnsureStaffAccount::class, 'active.user'])->prefix('announcements')->group(function () {
     Route::get('/', [AnnouncementController::class, 'index']);

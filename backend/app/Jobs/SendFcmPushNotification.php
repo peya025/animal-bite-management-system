@@ -108,6 +108,15 @@ class SendFcmPushNotification implements ShouldQueue
 
     public function handle(FcmService $fcmService): void
     {
+        // Revalidate queued legacy announcements at delivery time. Area advisories
+        // now require the separate review workflow and must never use this channel.
+        if (($this->data['category'] ?? null) === 'announcement' && isset($this->data['announcement_id'])) {
+            $announcement = \App\Models\Announcement::find($this->data['announcement_id']);
+            if (!$announcement || !$announcement->is_published || $announcement->target_barangay
+                || ($announcement->expires_on && $announcement->expires_on < now('Asia/Manila')->toDateString())) {
+                return;
+            }
+        }
         // 1. Recover persistent delivery state to survive worker crashes, reboots, and queue deserialization
         $this->loadDeliveredDevicesFromStorage();
 

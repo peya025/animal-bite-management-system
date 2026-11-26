@@ -745,7 +745,7 @@ class NotificationService
         foreach ($result['alerts'] as $item) {
             $barangay = $item['barangay'];
             $level = $item['level'];
-            $alertKey = "high_risk_area:clinic_{$clinicId}:" . Str::slug($barangay);
+            $alertKey = "high_risk_area:clinic_{$clinicId}:" . $item['geography_key'];
             $activeHighRiskKeys[] = $alertKey;
 
             $existing = Notification::where('clinic_id', $clinicId)
@@ -754,9 +754,9 @@ class NotificationService
                 ->first();
 
             $title = $level === 'cluster'
-                ? 'Barangay Bite Cluster Alert'
-                : 'Barangay Bite Surge Alert';
-            $message = "Elevated Bite Activity in {$barangay}: {$item['reason']}";
+                ? 'Bite Reports: Priority Review'
+                : 'Bite Reports: Trend for Review';
+            $message = "Internal review for {$barangay}, {$item['municipality']}: {$item['reason']} Not an outbreak declaration.";
             $actionUrl = '/bite-cases?search=' . urlencode($barangay) . '&range=week';
 
             if (!$existing) {
@@ -792,6 +792,8 @@ class NotificationService
                     ],
                 ]);
                 $this->broadcastNotification($notif);
+            } else {
+                $existing->update(['title' => $title, 'message' => $message, 'data' => array_merge($existing->data ?? [], $item)]);
             }
         }
 

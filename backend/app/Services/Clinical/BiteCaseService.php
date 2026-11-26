@@ -577,7 +577,7 @@ class BiteCaseService
                 $cat3 = $categories->filter(fn ($category) => $category === 'III')->count();
                 $unassessed = $categories->filter(fn ($category) => $category === 'Unassessed')->count();
 
-                $surgeInfo = $surgeAlertMap[$geo['barangay']] ?? null;
+                $surgeInfo = $surgeAlertMap[\App\Services\Reporting\ClinicalRiskAlertService::geographyKey($geo)] ?? null;
 
                 // Calculate vaccine initiation strictly among prescribed PEP courses, never awaiting-assessment or no-PEP rows
                 $eligibleCases = $locationCases

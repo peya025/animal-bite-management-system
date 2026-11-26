@@ -14,6 +14,12 @@ Artisan::command('sample:nurse-unattended {action=seed : seed or remove}', funct
 })->purpose('Seed or remove sample unattended patient for testing Check In to Nurse');
 
 // Daily Morning Clinic Readiness & Risk Alert Sync at 7:30 AM Manila Time (before clinic opening)
+Schedule::command('surveillance:evaluate')
+    ->dailyAt('07:20')->timezone('Asia/Manila')->withoutOverlapping(30)->onOneServer();
+
+Schedule::command('advisories:publish-scheduled')
+    ->everyFiveMinutes()->timezone('Asia/Manila')->withoutOverlapping(10)->onOneServer();
+
 Schedule::command('clinic:sync-alerts')
     ->dailyAt('07:30')
     ->timezone(config('app.timezone', 'Asia/Manila'))

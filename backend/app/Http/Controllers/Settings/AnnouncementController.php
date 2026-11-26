@@ -25,7 +25,7 @@ class AnnouncementController extends Controller implements HasMiddleware
 
     public function published()
     {
-        return Announcement::where('is_published', true)
+        return Announcement::where('is_published', true)->whereNull('target_barangay')
             ->where(fn ($q) => $q->whereNull('expires_on')->orWhere('expires_on', '>=', now('Asia/Manila')->toDateString()))
             ->latest()->get()->map(fn ($item) => $this->present($item));
     }
@@ -64,12 +64,17 @@ class AnnouncementController extends Controller implements HasMiddleware
 
     private function save(Request $request, Announcement $item)
     {
+        abort_if($item->exists && $item->target_barangay, 409, 'Legacy area advisories must be withdrawn and recreated through community review.');
         $data = $request->validate([
             'title' => 'required|string|max:160',
             'message' => 'required|string|max:1500',
             'is_published' => 'required|boolean',
             'is_urgent' => 'required|boolean',
-            'target_barangay' => 'nullable|string|max:120',
+            'target_barangay' => 'prohibited',
+            'advisory_type' => 'prohibited',
+            'source_authority' => 'prohibited',
+            'approved_by' => 'prohibited',
+            'approved_hash' => 'prohibited',
             'expires_on' => 'nullable|date_format:Y-m-d',
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120|dimensions:max_width=6000,max_height=6000',
             'remove_image' => 'sometimes|boolean',

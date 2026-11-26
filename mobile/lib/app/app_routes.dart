@@ -15,4 +15,5 @@ abstract final class AppRoutes {
   static const patientActivation = '/activate';
   static const privacySecurity = '/privacy-security';
   static const boosterGuidance = '/booster-guidance';
+  static const communityAdvisory = '/community-advisory';
 }

@@ -27,6 +27,8 @@ import {
   SearchOutlined,
 } from '@mui/icons-material';
 import api from '../../../services/api';
+import { AdvisoryReviewPanel } from '../../community-awareness/AdvisoryReviewPanel';
+import { SurveillanceInsightsPanel } from '../../community-awareness/SurveillanceInsightsPanel';
 import { ROUTES } from '../../../shared/config/routes';
 import { BiteCasesEpisodesTab } from '../components/BiteCasesEpisodesTab';
 import { BiteCasesOverviewTab } from '../components/BiteCasesOverviewTab';
@@ -233,14 +235,16 @@ export default function BiteCaseRiskDashboard() {
   const ageGroupParam = searchParams.get('age_group') || '';
 
   const [tab, setTab] = useState<ViewTab>(
-    tabParam === 'treatment' || tabParam === 'cases' ? tabParam : 'summary'
+    tabParam === 'treatment' || tabParam === 'cases' || tabParam === 'surveillance' ? tabParam : 'summary'
   );
   const [privacyMode, setPrivacyMode] = useState<PrivacyMode>('internal_aggregate');
   const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null);
+  const [advisoryRefreshKey, setAdvisoryRefreshKey] = useState(0);
   const tabRefs = useRef<Record<ViewTab, HTMLButtonElement | null>>({
     summary: null,
     treatment: null,
     cases: null,
+    surveillance: null,
   });
 
   const [filters, setFilters] = useState<Filters>({
@@ -300,7 +304,7 @@ export default function BiteCaseRiskDashboard() {
   };
 
   const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, currentTab: ViewTab) => {
-    const order: ViewTab[] = ['summary', 'treatment', 'cases'];
+    const order: ViewTab[] = ['summary', 'treatment', 'cases', 'surveillance'];
     const idx = order.indexOf(currentTab);
     let next: ViewTab | null = null;
     if (event.key === 'ArrowRight') next = order[(idx + 1) % order.length];
@@ -880,8 +884,9 @@ export default function BiteCaseRiskDashboard() {
               { id: 'treatment' as ViewTab, label: 'Treatment & Follow-up' },
               {
                 id: 'cases' as ViewTab,
-                label: `Episode Drill-Down (${privacyMode === 'aggregate_only' ? 'Hidden' : cases.length})`,
+                label: `Case Records (${privacyMode === 'aggregate_only' ? 'Hidden' : cases.length})`,
               },
+              { id: 'surveillance' as ViewTab, label: 'Surveillance Insights' },
             ].map((item) => (
               <button
                 key={item.id}
@@ -1325,6 +1330,13 @@ export default function BiteCaseRiskDashboard() {
                 }
               }}
             />
+          </div>
+        )}
+
+        {tab === 'surveillance' && (
+          <div role="tabpanel" aria-labelledby="tab-surveillance" tabIndex={0}>
+            <SurveillanceInsightsPanel onDraftCreated={() => setAdvisoryRefreshKey((k) => k + 1)} />
+            <AdvisoryReviewPanel refreshKey={advisoryRefreshKey} />
           </div>
         )}
       </Box>

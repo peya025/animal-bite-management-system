@@ -48,6 +48,10 @@ class FcmTestCommandTest extends TestCase
 
     public function test_command_requires_target_option(): void
     {
+        $auth = $this->createMock(FirebaseAuthService::class);
+        $auth->expects($this->never())->method('validateCredentialsFile');
+        $this->app->instance(FirebaseAuthService::class, $auth);
+
         $this->artisan('fcm:test')
             ->expectsOutputToContain('Target required!')
             ->expectsOutputToContain('Bulk push notification testing is strictly prohibited')

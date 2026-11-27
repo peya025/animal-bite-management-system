@@ -472,6 +472,47 @@ class MobilePatientWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_mobile_bite_intake_check_in_accepts_online_mode_of_transaction(): void
+    {
+        $clinic = Clinic::create(['name' => 'Online Check-In Clinic']);
+        $account = $this->account();
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'first_name' => 'Shoyo',
+            'last_name' => 'Hinata',
+            'birth_date' => '2000-06-21',
+            'gender' => 'Male',
+            'contact_number' => '09123456789',
+        ]);
+        $this->completeBookingProfile($patient);
+        $patient->accounts()->attach($account->id, ['relationship' => 'self', 'status' => 'verified']);
+
+        $staff = $this->registrationStaff($clinic);
+
+        Sanctum::actingAs($account);
+        $booking = $this->postJson('/api/mobile/appointments', [
+            'patient_id' => $patient->patient_id,
+            'appointment_type' => 'consultation',
+            'scheduled_date' => Carbon::today('Asia/Manila')->toDateString(),
+            'intake' => $this->intakePayload(),
+        ])->assertCreated();
+
+        $intakeId = $booking->json('bite_intake.intake_id');
+
+        Sanctum::actingAs($staff);
+        $this->postJson("/api/bite-intakes/{$intakeId}/check-in", [
+            'mode_of_transaction' => 'online',
+            'blood_pressure' => '120/80',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('consultation_record.mode_of_transaction', 'online');
+
+        $this->assertDatabaseHas('treatment_records', [
+            'patient_id' => $patient->patient_id,
+            'mode_of_transaction' => 'online',
+        ]);
+    }
+
     public function test_booking_accepts_the_current_manila_date_at_the_utc_day_boundary(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-19 16:30:00', 'UTC'));

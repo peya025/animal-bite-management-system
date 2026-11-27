@@ -18,7 +18,7 @@ class StaffNotificationBroadcast implements ShouldBroadcast, ShouldDispatchAfter
     /**
      * The name of the queue on which to place the broadcasting job.
      */
-    public string $broadcastQueue = 'notifications';
+    public string $broadcastQueue = 'broadcasts';
 
     /**
      * Create a new event instance.

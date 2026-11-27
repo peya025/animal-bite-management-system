@@ -261,7 +261,7 @@ class ReverbProductionConfigurationTest extends TestCase
     }
 
     /**
-     * Test AppointmentStatusChanged places on notifications queue and isolates channels.
+     * Test AppointmentStatusChanged places on broadcasts queue and isolates channels.
      */
     public function test_appointment_status_changed_event_broadcast(): void
     {
@@ -278,7 +278,7 @@ class ReverbProductionConfigurationTest extends TestCase
         );
 
         $this->assertInstanceOf(ShouldBroadcast::class, $event);
-        $this->assertSame('notifications', $event->broadcastQueue);
+        $this->assertSame('broadcasts', $event->broadcastQueue);
         $this->assertSame('appointment.changed', $event->broadcastAs());
 
         $channels = array_map(fn ($ch) => $ch->name, $event->broadcastOn());
@@ -317,7 +317,7 @@ class ReverbProductionConfigurationTest extends TestCase
     }
 
     /**
-     * Test VaccineStockUpdated is queued on notifications and broadcasts to inventory channel.
+     * Test VaccineStockUpdated is queued on broadcasts and broadcasts to inventory channel.
      */
     public function test_vaccine_stock_updated_event_broadcast(): void
     {
@@ -334,7 +334,7 @@ class ReverbProductionConfigurationTest extends TestCase
         );
 
         $this->assertInstanceOf(ShouldBroadcast::class, $event);
-        $this->assertSame('notifications', $event->broadcastQueue);
+        $this->assertSame('broadcasts', $event->broadcastQueue);
         $this->assertSame('inventory.updated', $event->broadcastAs());
         $this->assertSame("private-clinic.{$this->clinic1->id}.inventory", $event->broadcastOn()[0]->name);
 

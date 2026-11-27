@@ -167,7 +167,7 @@ export const LoginRoot = styled('div')`
     height: 1px;
     background: linear-gradient(90deg, transparent, var(--primary-light), transparent);
   }
-  .form-header { margin-bottom: clamp(20px, 3.5vh, 40px); }
+  .form-header { margin-bottom: clamp(20px, 3.5vh, 40px); text-align: center; }
   .form-header h2 {
     font-size: clamp(24px, 2.5vw, 36px);
     font-weight: 800;
@@ -247,7 +247,7 @@ export const LoginRoot = styled('div')`
   }
   .input-icon {
     position: absolute;
-    left: 14px;
+    left: 18px;
     top: 50%;
     transform: translateY(-50%);
     color: var(--gray-400);
@@ -265,15 +265,18 @@ export const LoginRoot = styled('div')`
   .input-wrapper input {
     width: 100% !important;
     height: 48px;
-    padding: 12px 50px 12px 44px !important;
-    border: 2px solid var(--gray-200) !important;
-    border-radius: 12px !important;
+    padding: 12px 52px 12px 48px !important;
+    border: 1px solid var(--gray-300) !important;
+    border-radius: 9999px !important;
     font-size: 15px !important;
     font-family: inherit !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
     background: var(--white) !important;
     color: var(--gray-900) !important;
     box-sizing: border-box !important;
+  }
+  .input-wrapper input:hover:not(:disabled) {
+    border-color: var(--primary) !important;
   }
   .input-wrapper input:focus {
     outline: none !important;
@@ -290,7 +293,7 @@ export const LoginRoot = styled('div')`
   }
   .visibility-toggle {
     position: absolute;
-    right: 14px;
+    right: 16px;
     top: 50%;
     transform: translateY(-50%);
     background: none;
@@ -302,7 +305,7 @@ export const LoginRoot = styled('div')`
     justify-content: center;
     padding: 6px;
     transition: all 0.3s ease;
-    border-radius: 8px;
+    border-radius: 9999px;
     z-index: 2;
   }
   .visibility-toggle:hover { color: var(--primary); background: var(--primary-light); }
@@ -366,7 +369,7 @@ export const LoginRoot = styled('div')`
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
     color: white;
     border: none;
-    border-radius: 12px;
+    border-radius: 9999px;
     font-size: 16px;
     font-weight: 700;
     cursor: pointer;

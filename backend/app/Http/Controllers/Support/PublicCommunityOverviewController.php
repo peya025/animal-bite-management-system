@@ -6,68 +6,31 @@ use App\Http\Controllers\Controller;
 use App\Models\Clinic;
 use App\Models\VaccineInventory;
 use App\Services\ProphylaxisService;
-use App\Services\Reporting\ClinicalRiskAlertService;
+use App\Services\CommunityAwareness\PublishedAdvisoryFeed;
 use Carbon\CarbonImmutable;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 
-/**
- * Public, aggregate-only Community Bite Watch endpoint for the mobile home page.
- *
- * Privacy & safety guarantees:
- * - Zero patient identifiers (no names, ages, addresses, case numbers, or puroks).
- * - Strictly excludes Unknown / Place not recorded locations and provisional exposure dates.
- * - Never exposes raw small counts (<5); only surfaces calm qualitative barangay caution notices
- *   for areas crossing the clinic's 7-day rolling cluster/surge thresholds.
- */
+/** Public education and approved advisories only. Never queries incident trends. */
 class PublicCommunityOverviewController extends Controller
 {
-    public function __invoke(Request $request, ClinicalRiskAlertService $alertService): JsonResponse
+    public function __invoke(Request $request, PublishedAdvisoryFeed $feed)
     {
-        $requestedClinicId = $request->query('clinic_id');
-        $clinic = $requestedClinicId
-            ? Clinic::find((int) $requestedClinicId)
-            : Clinic::orderBy('id')->first();
-
-        if (!$clinic) {
-            return response()->json([
-                'clinic_name' => 'Animal Bite Treatment Center',
-                'municipality' => 'Tagoloan',
-                'updated_at' => CarbonImmutable::now('Asia/Manila')->toIso8601String(),
-                'status' => 'normal',
-                'headline' => 'No unusual bite spikes reported this week.',
-                'guidance' => 'If bitten or scratched by a dog or cat, wash the wound immediately with soap and running water for 15 minutes and visit the clinic.',
-                'elevated_areas' => [],
-                'vaccine_availability' => [
-                    'arv_available' => false,
-                    'rig_available' => false,
-                    'status_label' => 'Check with clinic',
-                ],
-                'disclaimer' => 'Community bite awareness notice based on facility presentations; does not represent confirmed rabies cases.',
-            ]);
+        // Old clients render a hardcoded Normal badge; hide their obsolete card.
+        if ($request->header('X-Community-Awareness-Version') !== '2') {
+            return response()->noContent()->header('Cache-Control', 'no-store');
         }
-
-        $cacheKey = "public:community-bite-overview:clinic:{$clinic->id}";
-
-        $compute = function () use ($clinic, $alertService): array {
-            $now = CarbonImmutable::now('Asia/Manila');
-            $todayStr = $now->toDateString();
-
-            $surgeData = $alertService->detectBarangaySurges($clinic->id, $now, $clinic);
-            $elevatedAreas = collect($surgeData['alerts'] ?? [])
-                ->filter(fn (array $a) => ($a['scope'] ?? '') !== 'unknown')
-                ->take(5)
-                ->map(fn (array $a) => [
-                    'barangay' => $a['barangay'],
-                    'municipality' => $a['municipality'],
-                    'caution_level' => $a['level'] === 'cluster' ? 'elevated' : 'watch',
-                    'label' => $a['level'] === 'cluster' ? 'Higher bite reports' : 'Rising bite reports',
-                    'notice' => "Higher animal bite reports recorded in Brgy. {$a['barangay']} over the past 7 days. Keep pets leashed and stay cautious around stray animals.",
-                ])
-                ->values()
-                ->all();
-
+        $data = $request->validate(['clinic_id' => 'nullable|integer|min:1|exists:clinics,id']);
+        $clinic = isset($data['clinic_id']) ? Clinic::find($data['clinic_id']) : null;
+        // Never silently select one clinic in a multi-clinic installation.
+        if (!$clinic && Clinic::count() === 1) {
+            $clinic = Clinic::first();
+        }
+        if (!$clinic) {
+            return response()->json(['message' => 'Select a clinic to view community updates.'], 503)
+                ->header('Cache-Control', 'no-store');
+        }
+        $now = CarbonImmutable::now('Asia/Manila');
+        $todayStr = $now->toDateString();
             // Live unexpired ARV / RIG availability (boolean + calm status, no raw vial counts)
             $activeBatches = VaccineInventory::where('clinic_id', $clinic->id)
                 ->where('status', 'active')
@@ -102,41 +65,20 @@ class PublicCommunityOverviewController extends Controller
                 default => 'Please Contact Clinic for Stock',
             };
 
-            $municipality = $clinic->municipality ?: 'Tagoloan';
-            $hasElevated = count($elevatedAreas) > 0;
-            $areaNames = array_map(fn (array $a) => 'Brgy. ' . $a['barangay'], $elevatedAreas);
 
-            $headline = $hasElevated
-                ? 'Higher bite reports this week in ' . implode(', ', array_slice($areaNames, 0, 3)) . (count($areaNames) > 3 ? ' and nearby areas.' : '.')
-                : "No unusual bite spikes reported in {$municipality} this week.";
-
-            $guidance = $hasElevated
-                ? 'Keep pets leashed, supervise children outdoors, and avoid stray animals. If bitten or scratched, wash immediately with soap and running water for 15 minutes and book an ABTC visit.'
-                : 'Keep pets vaccinated and leashed. If bitten or scratched, wash immediately with soap and running water for 15 minutes and visit the clinic.';
-
-            return [
-                'clinic_name' => $clinic->name ?: 'Animal Bite Treatment Center',
-                'municipality' => $municipality,
-                'updated_at' => $now->toIso8601String(),
-                'window_7d_start' => $surgeData['window_7d_start'] ?? $now->subDays(6)->toDateString(),
-                'window_7d_end' => $surgeData['window_7d_end'] ?? $todayStr,
-                'status' => $hasElevated ? 'caution' : 'normal',
-                'headline' => $headline,
-                'guidance' => $guidance,
-                'elevated_areas' => $elevatedAreas,
-                'vaccine_availability' => [
-                    'arv_available' => $hasArv,
-                    'rig_available' => $hasRig,
-                    'status_label' => $vaccineLabel,
-                ],
-                'disclaimer' => 'Community bite awareness notice based on clinic bite presentations over the last 7 days; does not represent confirmed rabies cases.',
-            ];
-        };
-
-        $payload = app()->runningUnitTests()
-            ? $compute()
-            : Cache::remember($cacheKey, now()->addMinutes(15), $compute);
-
-        return response()->json($payload);
+        return response()->json([
+            'clinic_name' => $clinic->name,
+            'municipality' => $clinic->municipality ?? '',
+            'updated_at' => $now->toIso8601String(),
+            'status' => 'information',
+            'headline' => 'Community Bite Awareness',
+            'guidance' => 'Contact the clinic for bite-prevention information and assessment. Do not wait for a community advisory to seek care.',
+            'elevated_areas' => [],
+            'advisories' => $feed->forClinic($clinic->id),
+            'vaccine_availability' => [
+                'arv_available' => $hasArv, 'rig_available' => $hasRig, 'status_label' => $vaccineLabel,
+            ],
+            'disclaimer' => 'Animal bite reports do not by themselves confirm rabies infection. The absence of an advisory does not mean an area is free of risk.',
+        ])->header('Cache-Control', 'no-store');
     }
 }

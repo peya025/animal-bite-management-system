@@ -53,6 +53,7 @@ class PatientAccount extends Authenticatable
             'reminders'           => true,
             'digital_card'        => true,
             'announcements'       => true,
+            'community_advisories' => false,
         ];
 
         $raw = $this->getAttribute('notification_preferences');
@@ -92,6 +93,8 @@ class PatientAccount extends Authenticatable
                 => (bool) ($prefs['digital_card'] ?? true),
             'announcement'
                 => (bool) ($prefs['announcements'] ?? true),
+            'community_advisory'
+                => (bool) ($prefs['community_advisories'] ?? false),
             default => true,
         };
     }

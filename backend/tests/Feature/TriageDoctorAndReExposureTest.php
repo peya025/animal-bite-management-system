@@ -939,5 +939,86 @@ class TriageDoctorAndReExposureTest extends TestCase
             'medication_given' => null,
         ]);
     }
+
+    public function test_unchecked_referral_restores_normal_treatment_and_progresses_to_form3(): void
+    {
+        $clinic = $this->createClinic();
+        $doctor = $this->createDoctor($clinic);
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'patient_number' => 'PAT-UNCHECK-REF',
+            'first_name' => 'Danny',
+            'last_name' => 'Pizana',
+            'birthdate' => '2002-01-01',
+            'gender' => 'Male',
+        ]);
+        $incident = BiteIncident::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'case_number' => 'CASE-UNCHECK-01',
+            'bite_date' => Carbon::today()->toDateString(),
+            'animal_type' => 'dog',
+            'severity' => 'moderate',
+            'status' => 'active',
+            'created_by' => $doctor->id,
+        ]);
+        $queue = Queue::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'queue_number' => 1,
+            'queue_date' => Carbon::today()->toDateString(),
+            'visit_type' => 'new_case',
+            'status' => 'called',
+            'priority' => 'normal',
+            'queue_category' => 'regular',
+            'checked_in_by' => $doctor->id,
+        ]);
+
+        Sanctum::actingAs($doctor);
+
+        $res = $this->postJson('/api/treatment-records', [
+            'patient_id' => $patient->patient_id,
+            'queue_id' => $queue->queue_id,
+            'bite_id' => $incident->bite_id,
+            'exposure_category' => 'II',
+            'consultation_date' => Carbon::today()->toDateString(),
+            'nature_of_visit' => 'new_consultation',
+            'consultation_types' => ['injury'],
+            'chief_complaints' => 'Dog bite on left leg',
+            'diagnosis' => 'Rabies Exposure (PEP Indicated)',
+            'prescribed_vaccine_type' => 'PCECV',
+            'treatment_plan' => 'full_pep',
+            'is_referral' => false,
+            'complete_referral' => false,
+            // Even if stale referral fields were sent, is_referral=false must ignore them
+            'transferred_to_facility' => 'Northern Mindanao Medical Center (NMMC)',
+            'transfer_reason' => 'Accidental selection',
+            'prophylaxis_orders' => [
+                'tetanus_category' => 'not_indicated',
+                'tetanus_vaccine' => 'none',
+                'tetanus_passive' => 'none',
+                'rig' => 'none',
+            ],
+        ]);
+
+        $res->assertCreated();
+        $res->assertJsonPath('is_referral_completed', false);
+
+        $incident->refresh();
+        $this->assertSame('active', $incident->status);
+        $this->assertNull($incident->transferred_to_facility);
+
+        $queue->refresh();
+        $this->assertSame('vaccination', $queue->visit_type);
+        $this->assertSame('waiting', $queue->status);
+
+        $this->assertDatabaseHas('treatment_records', [
+            'patient_id' => $patient->patient_id,
+            'bite_id' => $incident->bite_id,
+            'referred_to' => null,
+            'outcome' => null,
+        ]);
+    }
 }
 

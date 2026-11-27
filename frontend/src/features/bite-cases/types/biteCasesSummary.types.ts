@@ -3,7 +3,7 @@
  * Preserves backend-computed clinical and DOH cohort definitions without recalculating formulas in the browser.
  */
 
-export type ViewTab = 'summary' | 'treatment' | 'cases';
+export type ViewTab = 'summary' | 'treatment' | 'cases' | 'surveillance';
 export type PrivacyMode = 'internal_aggregate' | 'aggregate_only';
 export type BiteSummaryAgeGroupKey = 'children' | 'teenagers' | 'adults' | 'senior_citizens';
 

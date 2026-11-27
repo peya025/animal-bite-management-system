@@ -365,14 +365,16 @@ export const walkthroughStyles = `
 .walkthrough-tooltip-card[data-walkthrough-module="Bite Cases Summary"] .walkthrough-title,
 .walkthrough-tooltip-card[data-walkthrough-module="Bite Map"] .walkthrough-title,
 .walkthrough-tooltip-card[data-walkthrough-module="Vaccine Stock Management"] .walkthrough-title,
-.walkthrough-tooltip-card[data-walkthrough-module="Reports & Analytics"] .walkthrough-title {
+.walkthrough-tooltip-card[data-walkthrough-module="Reports & Analytics"] .walkthrough-title,
+.walkthrough-tooltip-card[data-walkthrough-module="Clinic Setup"] .walkthrough-title {
   font-size: 14.5px;
 }
 
 .walkthrough-tooltip-card[data-walkthrough-module="Bite Cases Summary"] .walkthrough-content,
 .walkthrough-tooltip-card[data-walkthrough-module="Bite Map"] .walkthrough-content,
 .walkthrough-tooltip-card[data-walkthrough-module="Vaccine Stock Management"] .walkthrough-content,
-.walkthrough-tooltip-card[data-walkthrough-module="Reports & Analytics"] .walkthrough-content {
+.walkthrough-tooltip-card[data-walkthrough-module="Reports & Analytics"] .walkthrough-content,
+.walkthrough-tooltip-card[data-walkthrough-module="Clinic Setup"] .walkthrough-content {
   font-size: 12px;
   line-height: 1.45;
 }

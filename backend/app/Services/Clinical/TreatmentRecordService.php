@@ -498,8 +498,16 @@ class TreatmentRecordService
             : ($isCategory1 ? 'No PEP vaccine prescribed' : ($validated['medication_treatment'] ?? null));
 
         $isCompleteReferral = filter_var($validated['complete_referral'] ?? false, FILTER_VALIDATE_BOOLEAN);
-        $referralFacilityInput = trim((string) ($validated['transferred_to_facility'] ?? $validated['referred_to'] ?? ''));
-        $referralReasonInput = trim((string) ($validated['transfer_reason'] ?? $validated['reason_for_referral'] ?? ''));
+        $isExplicitlyNotReferral = array_key_exists('is_referral', $validated)
+            && !filter_var($validated['is_referral'], FILTER_VALIDATE_BOOLEAN)
+            && !$isCompleteReferral;
+
+        $referralFacilityInput = $isExplicitlyNotReferral
+            ? ''
+            : trim((string) ($validated['transferred_to_facility'] ?? $validated['referred_to'] ?? ''));
+        $referralReasonInput = $isExplicitlyNotReferral
+            ? ''
+            : trim((string) ($validated['transfer_reason'] ?? $validated['reason_for_referral'] ?? ''));
         $transferDate = !empty($validated['transfer_date']) ? Carbon::parse($validated['transfer_date']) : Carbon::now('Asia/Manila');
 
         $referredToFacility = $referralFacilityInput;
@@ -507,8 +515,8 @@ class TreatmentRecordService
 
         $isReferralOut = $isCompleteReferral
             || (!empty($validated['is_referral']) && $isExternalDestination)
-            || (($validated['mode_of_transaction'] ?? '') === 'referral' && $isExternalDestination)
-            || (($validated['outcome'] ?? null) === 'Transferred/Referred');
+            || (!$isExplicitlyNotReferral && ($validated['mode_of_transaction'] ?? '') === 'referral' && $isExternalDestination)
+            || (!$isExplicitlyNotReferral && ($validated['outcome'] ?? null) === 'Transferred/Referred');
 
         if ($isReferralOut) {
             $planType = 'no_vaccine';
@@ -553,11 +561,13 @@ class TreatmentRecordService
                 : Carbon::now('Asia/Manila'),
             'consultation_date' => $submittedConsultationDate,
             'consultation_time' => $validated['consultation_time'] ?? Carbon::now('Asia/Manila')->format('H:i'),
-            'mode_of_transaction' => in_array($validated['mode_of_transaction'] ?? '', ['walk-in', 'visited', 'referral'], true)
+            'mode_of_transaction' => in_array($validated['mode_of_transaction'] ?? '', ['walk-in', 'visited', 'referral', 'online'], true)
                 ? $validated['mode_of_transaction']
                 : ($isReferralOut ? 'referral' : 'walk-in'),
             'referred_from' => $validated['referred_from'] ?? null,
-            'referred_to' => $referredToFacility ?: ($validated['referred_to'] ?? null),
+            'referred_to' => $isExplicitlyNotReferral
+                ? (TreatmentRecord::isExternalReferralDestination($validated['referred_to'] ?? null) ? null : ($validated['referred_to'] ?? null))
+                : ($referredToFacility ?: ($validated['referred_to'] ?? null)),
             'referred_by' => $validated['referred_by'] ?? null,
             'pertinent_history' => $validated['pertinent_history'] ?? null,
             'reason_for_referral' => $referralReasonInput ?: ($validated['reason_for_referral'] ?? null),

@@ -97,21 +97,75 @@ class MobileApi {
         .toList();
   }
 
-  /// Aggregate-only 7-day Community Bite Watch overview (zero patient PII).
-  Future<CommunityBiteOverview> fetchCommunityBiteOverview() async {
+  /// Clinic-scoped Community Bite Awareness overview (approved advisories only, zero patient PII).
+  Future<CommunityBiteOverview> fetchCommunityBiteOverview({
+    int? clinicId,
+  }) async {
     final rootUrl = _baseUrl.replaceFirst(RegExp(r'/mobile$'), '');
+    final targetClinicId = clinicId ?? MobileApi.clinicId;
+    final uri = Uri.parse(
+      '$rootUrl/public/community-bite-overview',
+    ).replace(queryParameters: {'clinic_id': targetClinicId.toString()});
     final response = await http
         .get(
-          Uri.parse('$rootUrl/public/community-bite-overview'),
-          headers: {'Accept': 'application/json'},
+          uri,
+          headers: {
+            'Accept': 'application/json',
+            'X-Community-Awareness-Version': '2',
+          },
         )
         .timeout(_requestTimeout);
     if (response.statusCode != 200) {
-      throw const ApiException('Community bite overview is temporarily unavailable.');
+      throw const ApiException(
+        'Community bite overview is temporarily unavailable.',
+      );
     }
     return CommunityBiteOverview.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
+  }
+
+  /// Revalidate a single advisory by ID; handles 200 active, 410 tombstone, and 404 not found.
+  Future<CommunityAdvisoryDetailResult> fetchCommunityAdvisoryDetail(
+    int advisoryId,
+  ) async {
+    final rootUrl = _baseUrl.replaceFirst(RegExp(r'/mobile$'), '');
+    final response = await http
+        .get(
+          Uri.parse('$rootUrl/public/community-advisories/$advisoryId'),
+          headers: {'Accept': 'application/json'},
+        )
+        .timeout(_requestTimeout);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final advisoryJson = data['advisory'];
+      return CommunityAdvisoryDetailResult(
+        status: (data['status'] ?? 'active').toString(),
+        advisory: advisoryJson is Map<String, dynamic>
+            ? CommunityAdvisory.fromJson(advisoryJson)
+            : null,
+        disclaimer: (data['disclaimer'] ?? '').toString(),
+      );
+    }
+
+    if (response.statusCode == 410) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return CommunityAdvisoryDetailResult(
+        status: (data['status'] ?? 'withdrawn').toString(),
+        message: (data['message'] ?? '').toString(),
+        disclaimer: (data['disclaimer'] ?? '').toString(),
+      );
+    }
+
+    if (response.statusCode == 404) {
+      return const CommunityAdvisoryDetailResult(
+        status: 'not_found',
+        message: 'This clinic advisory is not available.',
+      );
+    }
+
+    throw const ApiException('Community advisory is temporarily unavailable.');
   }
 
   Future<void> initialize() async {

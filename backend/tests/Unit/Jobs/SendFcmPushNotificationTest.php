@@ -49,7 +49,8 @@ class SendFcmPushNotificationTest extends TestCase
         $this->assertEquals(3, $job->tries);
         $this->assertEquals(30, $job->timeout);
         $this->assertEquals([30, 120, 300], $job->backoff);
-        $this->assertEquals('notifications', $job->queue);
+        $this->assertEquals('fcm', $job->queue);
+        $this->assertEquals(config('services.firebase.queue_connection'), $job->connection);
     }
 
     public function test_job_verifies_account_is_active_before_dispatch(): void
@@ -75,22 +76,15 @@ class SendFcmPushNotificationTest extends TestCase
 
         $fcmMock = $this->createMock(FcmService::class);
         $fcmMock->expects($this->once())
-            ->method('sendToAccount')
-            ->with(
-                $this->callback(fn ($acc) => $acc->id === $account->id),
-                'Test Title',
-                'Test Body',
-                ['category' => 'appointment_reminder']
-            )
-            ->willReturn([
-                1 => FcmResult::success('projects/test/messages/msg_123'),
-            ]);
+            ->method('sendToDevice')
+            ->with($this->callback(fn ($token) => $token->patient_account_id === $account->id))
+            ->willReturn(FcmResult::success('projects/test/messages/msg_123'));
 
         $job = new SendFcmPushNotification(
             patientAccountId: $account->id,
             title: 'Test Title',
             body: 'Test Body',
-            data: ['category' => 'appointment_reminder']
+            data: ['category' => 'general']
         );
 
         $job->handle($fcmMock);

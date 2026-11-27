@@ -164,7 +164,7 @@ class ClinicalRiskAlertServiceTest extends TestCase
     {
         $today = Carbon::today();
 
-        // 3 verified cases in Bal-ason within 7 days -> triggers elevated area notice
+        // 3 cases cross the internal threshold but must not create a public warning
         for ($i = 0; $i < 3; $i++) {
             BiteIncident::create([
                 'clinic_id' => $this->clinic->id,
@@ -202,12 +202,12 @@ class ClinicalRiskAlertServiceTest extends TestCase
             ]);
         }
 
-        $res = $this->getJson('/api/public/community-bite-overview?clinic_id=' . $this->clinic->id)
+        $res = $this->getJson('/api/public/community-bite-overview?clinic_id=' . $this->clinic->id, ['X-Community-Awareness-Version' => '2'])
             ->assertOk();
 
-        $res->assertJsonPath('status', 'caution');
+        $res->assertJsonPath('status', 'information');
         $areas = collect($res->json('elevated_areas'));
-        $this->assertTrue($areas->contains('barangay', 'Bal-ason'));
+        $this->assertTrue($areas->isEmpty());
         $this->assertFalse($areas->contains('barangay', 'Unknown'));
         $this->assertFalse($areas->contains('barangay', 'Casinglot'));
 
@@ -215,10 +215,10 @@ class ClinicalRiskAlertServiceTest extends TestCase
         $rawBody = $res->getContent();
         $this->assertStringNotContainsString('Ana', $rawBody);
         $this->assertStringNotContainsString('Santos', $rawBody);
-        $this->assertArrayNotHasKey('total_7d', $areas->first());
+        $this->assertStringNotContainsString('total_7d', $rawBody);
     }
 
-    public function test_admin_can_publish_barangay_advisory_announcement_for_mobile()
+    public function test_admin_cannot_bypass_review_through_targeted_announcement()
     {
         $res = $this->postJson('/api/announcements', [
             'title' => 'Community Bite Caution: Brgy. Bal-ason',
@@ -227,13 +227,8 @@ class ClinicalRiskAlertServiceTest extends TestCase
             'is_urgent' => true,
             'target_barangay' => 'Bal-ason',
             'expires_on' => Carbon::today()->addDays(7)->toDateString(),
-        ])->assertCreated();
-
-        $res->assertJsonPath('target_barangay', 'Bal-ason');
-        $res->assertJsonPath('is_urgent', true);
-
-        $publicRes = $this->getJson('/api/public/announcements')->assertOk();
-        $this->assertEquals('Bal-ason', $publicRes->json('0.target_barangay'));
+        ])->assertUnprocessable();
+        $this->getJson('/api/public/announcements')->assertOk()->assertExactJson([]);
     }
 
     public function test_phase4_header_summary_animal_observation_tracking_and_safety_notifications()

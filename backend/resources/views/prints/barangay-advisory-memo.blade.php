@@ -37,6 +37,7 @@
     </style>
 </head>
 <body>
+<p style="border: 3px solid #555; padding: 12px; font-weight: bold;">DRAFT  -  INTERNAL REVIEW ONLY. Not an approved community advisory. Do not distribute publicly.</p>
     <div class="no-print no-print-bar">
         <span><strong>Official LGU / MAO Coordination Memorandum</strong> — Aggregate surveillance notice (Zero patient PII)</span>
         <button class="btn-print" onclick="window.print()">Print / Save PDF</button>

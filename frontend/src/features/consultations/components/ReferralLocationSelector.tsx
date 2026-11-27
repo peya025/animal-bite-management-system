@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   MISAMIS_ORIENTAL_MUNICIPALITIES,
   FALLBACK_BARANGAYS,
   suggestReferralFacility,
 } from '../../patients/hooks/useAddressLocation';
+import { SearchableSelect } from '../../../components/forms/SearchableSelect';
 import type { PsgcItem } from '../../patients/types';
 
 const PSGC = 'https://psgc.gitlab.io/api';
@@ -159,8 +160,20 @@ export default function ReferralLocationSelector({
       });
   }, [municipalityCode]);
 
-  const handleMunicipalityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const code = e.target.value;
+  const municipalityOptions = useMemo(
+    () => [
+      ...MISAMIS_ORIENTAL_MUNICIPALITIES.map((m) => ({ value: m.code, label: m.name })),
+      { value: 'other', label: 'Other / Outside MisOr' },
+    ],
+    []
+  );
+
+  const barangayOptions = useMemo(
+    () => barangays.map((b) => ({ value: b.name, label: b.name })),
+    [barangays]
+  );
+
+  const handleMunicipalityChange = (code: string) => {
     setMunicipalityCode(code);
     setBarangayName('');
     if (code === 'other') {
@@ -168,8 +181,7 @@ export default function ReferralLocationSelector({
     }
   };
 
-  const handleBarangayChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const name = e.target.value;
+  const handleBarangayChange = (name: string) => {
     setBarangayName(name);
     if (!name) return;
 
@@ -186,20 +198,16 @@ export default function ReferralLocationSelector({
           <span style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-secondary, #6b7280)', marginBottom: 6 }}>
             1. City / Municipality
           </span>
-          <select
-            className="fm-select"
+          <SearchableSelect
+            aria-label="City or Municipality"
             value={municipalityCode}
+            options={municipalityOptions}
+            placeholder="— Select Municipality —"
+            searchPlaceholder="Search municipality..."
+            noResultsText="No municipality found"
             onChange={handleMunicipalityChange}
             disabled={disabled}
-          >
-            <option value="">— Select Municipality —</option>
-            {MISAMIS_ORIENTAL_MUNICIPALITIES.map(m => (
-              <option key={m.code} value={m.code}>
-                {m.name}
-              </option>
-            ))}
-            <option value="other">Other / Outside MisOr</option>
-          </select>
+          />
         </div>
 
         {/* 2. Barangay */}
@@ -207,21 +215,16 @@ export default function ReferralLocationSelector({
           <span style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-secondary, #6b7280)', marginBottom: 6 }}>
             2. Barangay
           </span>
-          <select
-            className="fm-select"
+          <SearchableSelect
+            aria-label="Barangay"
             value={barangayName}
+            options={barangayOptions}
+            placeholder={loadingBrgy ? 'Loading…' : !municipalityCode ? '— Select Municipality First —' : '— Select Barangay —'}
+            searchPlaceholder="Search barangay..."
+            noResultsText="No barangay found"
             onChange={handleBarangayChange}
             disabled={disabled || municipalityCode === 'other' || !municipalityCode}
-          >
-            <option value="">
-              {loadingBrgy ? 'Loading…' : !municipalityCode ? '— Select Municipality First —' : '— Select Barangay —'}
-            </option>
-            {barangays.map(b => (
-              <option key={b.code} value={b.name}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         {/* 3. Health Center / Facility Name */}

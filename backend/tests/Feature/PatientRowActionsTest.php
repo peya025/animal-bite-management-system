@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Appointment;
 use App\Models\AuditLog;
 use App\Models\BiteIncident;
+use App\Models\BiteIncidentIntake;
 use App\Models\Clinic;
 use App\Models\Patient;
 use App\Models\PatientAccount;
@@ -551,5 +552,58 @@ class PatientRowActionsTest extends TestCase
         $response->assertJson([
             'code' => 'NOT_ELIGIBLE_FOR_REASSESSMENT',
         ]);
+    }
+
+    public function test_cancelled_mobile_appointment_with_pending_intake_does_not_get_checkin_action()
+    {
+        $today = Carbon::now('Asia/Manila')->toDateString();
+
+        $account = PatientAccount::create([
+            'name' => 'Satoru Gojo',
+            'email' => 'cancelled-mobile@example.com',
+            'password' => bcrypt('password'),
+            'phone' => '09171234567',
+            'is_active' => true,
+        ]);
+
+        $patient = $this->createPatient([
+            'registration_source' => 'mobile',
+            'created_at' => now()->subDays(2),
+        ]);
+
+        $appointment = Appointment::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'booked_by_account_id' => $account->id,
+            'appointment_type' => 'consultation',
+            'scheduled_date' => $today,
+            'appointment_date' => $today,
+            'status' => 'cancelled',
+        ]);
+
+        BiteIncidentIntake::create([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => $patient->patient_id,
+            'patient_account_id' => $account->id,
+            'appointment_id' => $appointment->appointment_id,
+            'bite_date' => $today,
+            'site_washed' => true,
+            'exposure_type' => 'scratch_abrasion',
+            'animal_type' => 'Dog',
+            'animal_status' => 'owned',
+            'status' => 'pending',
+        ]);
+
+        $actions = PatientRowActions::resolve($patient->fresh());
+        $this->assertNull($actions['primary']);
+
+        $response = $this->postJson("/api/patients/{$patient->patient_id}/check-in", [
+            'blood_pressure' => '120/80',
+            'temperature' => '36.8',
+            'weight' => '62',
+            'height' => '165',
+        ]);
+
+        $response->assertStatus(422);
     }
 }

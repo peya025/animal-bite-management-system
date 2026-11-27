@@ -8,6 +8,7 @@ import '../views/bite_intake_view.dart';
 import '../views/booster_guidance_view.dart';
 import '../views/booking_view.dart';
 import '../views/appointments_view.dart';
+import '../views/community_advisory_view.dart';
 import '../views/history_view.dart';
 import '../views/login_view.dart';
 import '../views/menu_view.dart';
@@ -71,6 +72,10 @@ abstract final class AppRouter {
             : const BookingView(),
       AppRoutes.appointments => const AppointmentsView(),
       AppRoutes.calendar => const ScheduleCalendarView(),
+      AppRoutes.communityAdvisory =>
+        settings.arguments is int && (settings.arguments! as int) > 0
+            ? CommunityAdvisoryView(advisoryId: settings.arguments! as int)
+            : const MenuView(),
       _ => const WelcomeView(),
     };
 

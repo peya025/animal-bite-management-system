@@ -328,7 +328,17 @@ class PushNotificationService {
 
     try {
       debugPrint('🧭 Navigating from notification tap to: $targetRoute');
-      navigatorKey?.currentState?.pushNamed(targetRoute);
+      final advisoryId = int.tryParse((data['advisory_id'] ?? '').toString());
+      if (targetRoute == AppRoutes.communityAdvisory &&
+          advisoryId != null &&
+          advisoryId > 0) {
+        navigatorKey?.currentState?.pushNamed(
+          targetRoute,
+          arguments: advisoryId,
+        );
+      } else {
+        navigatorKey?.currentState?.pushNamed(targetRoute);
+      }
     } catch (e) {
       debugPrint('⚠️ Navigation error on notification tap: $e');
       navigatorKey?.currentState?.pushNamed(AppRoutes.notifications);
@@ -356,6 +366,7 @@ class PushNotificationService {
         AppRoutes.calendar,
         AppRoutes.privacySecurity,
         AppRoutes.boosterGuidance,
+        AppRoutes.communityAdvisory,
       };
 
       if (allowedRoutes.contains(sanitized)) {
@@ -389,6 +400,12 @@ class PushNotificationService {
       case 'card':
         // Routed to menu where the patient card and action buttons are immediately accessible
         return AppRoutes.menu;
+
+      case 'community_advisory':
+        final advisoryId = int.tryParse((data['advisory_id'] ?? '').toString());
+        return advisoryId != null && advisoryId > 0
+            ? AppRoutes.communityAdvisory
+            : AppRoutes.menu;
 
       case 'announcement':
       case 'clinic_update':

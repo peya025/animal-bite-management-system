@@ -140,10 +140,12 @@ class ClinicalRiskAlertService
             }
 
             $barangay = $geo['barangay'];
-            if (!isset($buckets[$barangay])) {
-                $buckets[$barangay] = [
+            $bucketKey = self::geographyKey($geo);
+            if (!isset($buckets[$bucketKey])) {
+                $buckets[$bucketKey] = [
                     'barangay' => $barangay,
                     'municipality' => $geo['municipality'],
+                    'province' => $geo['province'],
                     'scope' => $geo['scope'],
                     'total_7d' => 0,
                     'cat_1_7d' => 0,
@@ -157,37 +159,38 @@ class ClinicalRiskAlertService
 
             if ($inCurrent7d) {
                 $state = $this->stateResolver()->resolve($incident, $cutoffEnd);
-                $buckets[$barangay]['total_7d']++;
+                $buckets[$bucketKey]['total_7d']++;
 
                 if ($state['assessment'] !== 'finalized') {
-                    $buckets[$barangay]['awaiting_assessment_7d']++;
+                    $buckets[$bucketKey]['awaiting_assessment_7d']++;
                 } elseif ($state['category'] === 'III') {
-                    $buckets[$barangay]['cat_3_7d']++;
+                    $buckets[$bucketKey]['cat_3_7d']++;
                 } elseif ($state['category'] === 'II') {
-                    $buckets[$barangay]['cat_2_7d']++;
+                    $buckets[$bucketKey]['cat_2_7d']++;
                 } elseif ($state['category'] === 'I') {
-                    $buckets[$barangay]['cat_1_7d']++;
+                    $buckets[$bucketKey]['cat_1_7d']++;
                 }
 
                 $biteDateStr = $biteDate->toDateString();
-                if ($buckets[$barangay]['latest_bite_date'] === null || $biteDateStr > $buckets[$barangay]['latest_bite_date']) {
-                    $buckets[$barangay]['latest_bite_date'] = $biteDateStr;
+                if ($buckets[$bucketKey]['latest_bite_date'] === null || $biteDateStr > $buckets[$bucketKey]['latest_bite_date']) {
+                    $buckets[$bucketKey]['latest_bite_date'] = $biteDateStr;
                 }
             } else {
-                $buckets[$barangay]['baseline_30d_total']++;
+                $buckets[$bucketKey]['baseline_30d_total']++;
             }
         }
 
         $alerts = [];
         $alertMap = [];
 
-        foreach ($buckets as $barangay => $stats) {
+        foreach ($buckets as $bucketKey => $stats) {
+            $barangay = $stats['barangay'];
             $total7d = (int) $stats['total_7d'];
             $cat3_7d = (int) $stats['cat_3_7d'];
             $awaiting7d = (int) $stats['awaiting_assessment_7d'];
             $baseline30d = (int) $stats['baseline_30d_total'];
-            $baselineWeeklyAvg = round($baseline30d * (7 / 30), 2);
-            $surgeRatio = $baselineWeeklyAvg > 0 ? round($total7d / $baselineWeeklyAvg, 2) : null;
+            $baselineWeeklyAvg = $baseline30d * (7 / 30);
+            $surgeRatio = $baselineWeeklyAvg > 0 ? $total7d / $baselineWeeklyAvg : null;
 
             $isCluster = $total7d >= self::CLUSTER_MIN_7D_CASES || $cat3_7d >= self::CLUSTER_MIN_7D_CAT3;
             $isSurge = !$isCluster
@@ -222,6 +225,8 @@ class ClinicalRiskAlertService
             $alertItem = [
                 'barangay' => $barangay,
                 'municipality' => $stats['municipality'],
+                'province' => $stats['province'],
+                'geography_key' => $bucketKey,
                 'scope' => $stats['scope'],
                 'level' => $level,
                 'severity' => $severity,
@@ -239,7 +244,7 @@ class ClinicalRiskAlertService
             ];
 
             $alerts[] = $alertItem;
-            $alertMap[$barangay] = $alertItem;
+            $alertMap[$bucketKey] = $alertItem;
         }
 
         usort($alerts, function (array $a, array $b): int {
@@ -268,6 +273,12 @@ class ClinicalRiskAlertService
             'alerts' => $alerts,
             'alert_map' => $alertMap,
         ];
+    }
+
+    public static function geographyKey(array $geo): string
+    {
+        return hash('sha256', json_encode(array_map(fn ($value) => mb_strtolower(trim((string) $value)),
+            [$geo['province'] ?? '', $geo['municipality'] ?? '', $geo['barangay'] ?? '']), JSON_THROW_ON_ERROR));
     }
 
     /**
@@ -370,8 +381,7 @@ class ClinicalRiskAlertService
 
         $hasCriticalAlerts = $rigPendingTotal > 0
             || $overdueCritical3dPlus > 0
-            || $animalDiedCount > 0
-            || !empty($clusterZones);
+            || $animalDiedCount > 0;
 
         return [
             'rule_version' => self::RULE_VERSION,

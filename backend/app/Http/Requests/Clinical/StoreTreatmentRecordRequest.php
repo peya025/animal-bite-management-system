@@ -83,7 +83,7 @@ class StoreTreatmentRecordRequest extends FormRequest
             // General Consultation Fields (NEW Form 2)
             'consultation_date' => 'nullable|date',
             'consultation_time' => 'nullable|string|max:10',
-            'mode_of_transaction' => 'nullable|in:walk-in,visited,referral',
+            'mode_of_transaction' => 'nullable|in:walk-in,visited,referral,online',
             'referred_from' => 'nullable|string|max:255',
             'referred_to' => 'nullable|string|max:255',
             'referred_by' => 'nullable|string|max:255',

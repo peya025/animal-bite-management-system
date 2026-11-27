@@ -66,7 +66,7 @@ export default function ClinicalAlertHeaderPill() {
   const popoverRef = useRef<HTMLDivElement>(null);
 
   const role: string = user?.role ?? '';
-  const isAllowedRole = ['admin', 'developer', 'triage', 'doctor', 'treatment', 'nurse'].includes(role);
+  const isAllowedRole = ['admin', 'developer', 'registration', 'triage', 'doctor', 'treatment', 'nurse'].includes(role);
   const isOnBiteCasesPage = location.pathname.startsWith(ROUTES.BITE_CASES.LIST);
 
   const [summary, setSummary] = useState<HeaderClinicalAlertSummary | null>(null);
@@ -126,8 +126,9 @@ export default function ClinicalAlertHeaderPill() {
     const isDoctor = role === 'triage' || role === 'doctor';
     const isNurse = role === 'treatment' || role === 'nurse';
     const isAdmin = role === 'admin' || role === 'developer';
+    const isRegistration = role === 'registration';
 
-    if (summary.rig_pending_total > 0 && (isDoctor || isNurse || isAdmin)) {
+    if (summary.rig_pending_total > 0 && (isDoctor || isNurse || isAdmin || isRegistration)) {
       list.push({
         key: 'rig_pending',
         severity: 'critical',
@@ -141,7 +142,7 @@ export default function ClinicalAlertHeaderPill() {
       });
     }
 
-    if ((summary.animal_died > 0 || summary.animal_sick > 0) && (isDoctor || isNurse || isAdmin)) {
+    if ((summary.animal_died > 0 || summary.animal_sick > 0) && (isDoctor || isNurse || isAdmin || isRegistration)) {
       const total = summary.animal_died + summary.animal_sick;
       list.push({
         key: 'animal_risk',
@@ -156,18 +157,18 @@ export default function ClinicalAlertHeaderPill() {
       });
     }
 
-    if (summary.vial_readiness_status === 'shortfall' && (isNurse || isAdmin)) {
+    if (summary.vial_readiness_status === 'shortfall' && (isNurse || isAdmin || isRegistration)) {
       list.push({
         key: 'vial_shortfall',
         severity: 'critical',
         title: '7-Day Follow-Up Vial Shortfall',
         detail: summary.vial_readiness_headline || `${summary.usable_arv_vials} usable ARV vials`,
         badge: summary.projected_stockout_date ? summary.projected_stockout_date.slice(5) : `${summary.usable_arv_vials}v`,
-        route: `${ROUTES.INVENTORY.LIST}?tab=forecast`,
+        route: isRegistration ? ROUTES.BITE_CASES.LIST : `${ROUTES.INVENTORY.LIST}?tab=forecast`,
       });
     }
 
-    if (summary.overdue_critical_3d_plus > 0 && (isNurse || isAdmin)) {
+    if (summary.overdue_critical_3d_plus > 0 && (isNurse || isAdmin || isRegistration)) {
       list.push({
         key: 'overdue_pep',
         severity: 'critical',
@@ -178,7 +179,7 @@ export default function ClinicalAlertHeaderPill() {
       });
     }
 
-    if (summary.barangay_clusters_count > 0 && isAdmin) {
+    if (summary.barangay_clusters_count > 0 && (isAdmin || isRegistration)) {
       list.push({
         key: 'barangay_cluster',
         severity: 'critical',
@@ -189,7 +190,7 @@ export default function ClinicalAlertHeaderPill() {
       });
     }
 
-    if (summary.unassessed_over_48h > 0 && (isDoctor || isAdmin)) {
+    if (summary.unassessed_over_48h > 0 && (isDoctor || isAdmin || isRegistration)) {
       list.push({
         key: 'unassessed_48h',
         severity: 'warning',

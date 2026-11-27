@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -13,12 +14,14 @@ class AnnouncementCarousel extends StatefulWidget {
     this.refreshTrigger = 0,
     this.userBarangay,
     this.loadAnnouncements,
+    this.autoScrollInterval = const Duration(seconds: 5),
   });
 
   final Widget welcome;
   final int refreshTrigger;
   final String? userBarangay;
   final Future<List<Announcement>> Function()? loadAnnouncements;
+  final Duration autoScrollInterval;
 
   @override
   State<AnnouncementCarousel> createState() => AnnouncementCarouselState();
@@ -32,11 +35,36 @@ class AnnouncementCarouselState extends State<AnnouncementCarousel> {
   final Set<int> _expandedIds = {};
   int _page = 0;
   int _request = 0;
+  Timer? _autoScrollTimer;
+  bool _isUserInteracting = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  void _restartAutoScroll() {
+    _autoScrollTimer?.cancel();
+    if (_items.isEmpty || widget.autoScrollInterval <= Duration.zero) {
+      return;
+    }
+    _autoScrollTimer = Timer.periodic(widget.autoScrollInterval, (_) {
+      if (!mounted ||
+          !_controller.hasClients ||
+          _items.isEmpty ||
+          _isUserInteracting ||
+          _expandedIds.isNotEmpty ||
+          MediaQuery.disableAnimationsOf(context)) {
+        return;
+      }
+      final nextPage = (_page + 1) % (_items.length + 1);
+      _controller.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOutCubic,
+      );
+    });
   }
 
   @override
@@ -71,6 +99,7 @@ class AnnouncementCarouselState extends State<AnnouncementCarousel> {
       setState(() {
         _items = items;
       });
+      _restartAutoScroll();
     } catch (_) {
       // Keep the guide usable offline; pull-to-refresh retries the feed.
     }
@@ -88,6 +117,7 @@ class AnnouncementCarouselState extends State<AnnouncementCarousel> {
 
   @override
   void dispose() {
+    _autoScrollTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -130,7 +160,17 @@ class AnnouncementCarouselState extends State<AnnouncementCarousel> {
           alignment: Alignment.topCenter,
           child: SizedBox(
             height: _currentHeight,
-            child: PageView.builder(
+            child: Listener(
+              onPointerDown: (_) => _isUserInteracting = true,
+              onPointerUp: (_) {
+                _isUserInteracting = false;
+                _restartAutoScroll();
+              },
+              onPointerCancel: (_) {
+                _isUserInteracting = false;
+                _restartAutoScroll();
+              },
+              child: PageView.builder(
               controller: _controller,
               itemCount: _items.length + 1,
               onPageChanged: (page) => setState(() => _page = page),
@@ -180,6 +220,7 @@ class AnnouncementCarouselState extends State<AnnouncementCarousel> {
                   ),
                 );
               },
+              ),
             ),
           ),
         ),

@@ -44,20 +44,20 @@ class FcmSecurityAndRetryTest extends TestCase
 
         $fcmMock = $this->createMock(FcmService::class);
 
-        // Attempt 1: sendToAccount returns deviceA succeeded, deviceB failed retryable
-        $fcmMock->expects($this->once())
-            ->method('sendToAccount')
-            ->willReturn([
-                $deviceA->id => FcmResult::success('msg_101'),
-                $deviceB->id => FcmResult::failure('UNAVAILABLE', 'Server Busy', 503, isRetryable: true),
-            ]);
+        // Attempt 1: each device result is persisted before the next send.
+        $fcmMock->expects($this->exactly(2))
+            ->method('sendToDevice')
+            ->willReturnOnConsecutiveCalls(
+                FcmResult::success('msg_101'),
+                FcmResult::failure('UNAVAILABLE', 'Server Busy', 503, isRetryable: true)
+            );
 
         $job = $this->getMockBuilder(SendFcmPushNotification::class)
             ->setConstructorArgs([
                 'patientAccountId' => $account->id,
                 'title'            => 'Vaccination Reminder',
                 'body'             => 'You have an upcoming appointment.',
-                'data'             => ['category' => 'appointment_reminder'],
+                'data'             => ['category' => 'general'],
             ])
             ->onlyMethods(['release', 'attempts'])
             ->getMock();
@@ -88,7 +88,7 @@ class FcmSecurityAndRetryTest extends TestCase
                 'patientAccountId' => $account->id,
                 'title'            => 'Vaccination Reminder',
                 'body'             => 'You have an upcoming appointment.',
-                'data'             => ['category' => 'appointment_reminder'],
+                'data'             => ['category' => 'general'],
             ])
             ->onlyMethods(['release', 'attempts'])
             ->getMock();
@@ -114,13 +114,13 @@ class FcmSecurityAndRetryTest extends TestCase
 
         $fcmMock = $this->createMock(FcmService::class);
 
-        // Attempt 1: sendToAccount delivers to deviceA, deviceB fails retryable
-        $fcmMock->expects($this->once())
-            ->method('sendToAccount')
-            ->willReturn([
-                $deviceA->id => FcmResult::success('msg_101'),
-                $deviceB->id => FcmResult::failure('UNAVAILABLE', 'Server Busy', 503, isRetryable: true),
-            ]);
+        // Attempt 1: device A succeeds and device B needs retry.
+        $fcmMock->expects($this->exactly(2))
+            ->method('sendToDevice')
+            ->willReturnOnConsecutiveCalls(
+                FcmResult::success('msg_101'),
+                FcmResult::failure('UNAVAILABLE', 'Server Busy', 503, isRetryable: true)
+            );
 
         $idempotencyKey = 'test-idemp-' . uniqid();
         $job1 = $this->getMockBuilder(SendFcmPushNotification::class)
@@ -128,7 +128,7 @@ class FcmSecurityAndRetryTest extends TestCase
                 'patientAccountId' => $account->id,
                 'title'            => 'Vaccination Reminder',
                 'body'             => 'You have an upcoming appointment.',
-                'data'             => ['category' => 'appointment_reminder'],
+                'data'             => ['category' => 'general'],
                 'deviceTokenId'    => null,
                 'idempotencyKey'   => $idempotencyKey,
             ])
@@ -150,7 +150,7 @@ class FcmSecurityAndRetryTest extends TestCase
                 'patientAccountId' => $account->id,
                 'title'            => 'Vaccination Reminder',
                 'body'             => 'You have an upcoming appointment.',
-                'data'             => ['category' => 'appointment_reminder'],
+                'data'             => ['category' => 'general'],
                 'deviceTokenId'    => null,
                 'idempotencyKey'   => $idempotencyKey,
             ])

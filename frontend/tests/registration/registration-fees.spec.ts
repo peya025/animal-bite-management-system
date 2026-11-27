@@ -43,14 +43,15 @@ function setupApiRoutes(page: Page, configOverrides: Record<string, any> = {}) {
 async function fillMinimalRegistration(page: Page) {
   await page.locator('input[name="last_name"]').fill('Dela Cruz');
   await page.locator('input[name="first_name"]').fill('Juan');
+  await page.locator('input[name="middle_name"]').fill('Santos');
   await page.getByRole('radio', { name: 'Male', exact: true }).check();
   await page.locator('input[name="date_of_birth"]').fill('1990-06-12');
-  const manualBtn = page.getByRole('button', { name: 'Switch to Manual Typing' });
-  if (await manualBtn.isVisible()) {
-    await manualBtn.click();
-  }
-  await page.getByLabel('City / Municipality').fill('Tagoloan');
-  await page.getByLabel('Barangay').fill('Poblacion');
+  const mun = page.getByLabel('City / Municipality');
+  await mun.click();
+  await page.locator('[data-combobox-menu="true"]').getByRole('option', { name: 'Tagoloan', exact: true }).click();
+  const brgy = page.getByLabel('Barangay');
+  await brgy.click();
+  await page.locator('[data-combobox-menu="true"]').getByRole('option', { name: 'Poblacion', exact: true }).click();
   await page.locator('input[name="contact_number"]').fill('09123456789');
   await page.locator('input[name="emergency_contact_name"]').fill('Maria Santos');
   await page.locator('input[name="emergency_contact_phone"]').fill('09987654321');
@@ -59,7 +60,6 @@ async function fillMinimalRegistration(page: Page) {
   await page.locator('input[name="reg_temperature"]').fill('36.5');
   await page.locator('input[name="reg_height"]').fill('170');
   await page.locator('input[name="reg_weight"]').fill('70');
-  await page.locator('input[name="reg_attending_provider"]').fill('Dr. Juan Dela Cruz');
 }
 
 test.describe('Registration Fees and Payment UI', () => {

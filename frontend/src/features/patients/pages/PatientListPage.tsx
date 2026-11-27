@@ -113,7 +113,6 @@ export default function PatientList() {
   const { clinic: authClinic, user: authUser } = useAuth();
   const { echo, isConnected } = useEcho();
   const [invitingPatientId, setInvitingPatientId] = useState<number | null>(null);
-  const [reassessConfirmPatient, setReassessConfirmPatient] = useState<Patient | null>(null);
   const [toast, setToast] = useState<{
     open: boolean;
     message: string;
@@ -1713,7 +1712,7 @@ export default function PatientList() {
                                 handleOpenReassessmentCheckIn(patient, 'checkin');
                               }
                             }}
-                            onReassess={(patient) => setReassessConfirmPatient(patient)}
+                            onReassess={(patient) => handleOpenReassessmentCheckIn(patient, 'reassess')}
                             onNurseCheckIn={handleNurseCheckIn}
                             onNewExposure={(patient) => {
                               setSelectedViewPatient(patient);
@@ -2044,54 +2043,6 @@ export default function PatientList() {
           onConfirm={() => setSuccessModal(null)}
         />
       )}
-
-      {/* ── Reassess Confirmation Dialog ── */}
-      <Dialog
-        open={Boolean(reassessConfirmPatient)}
-        onClose={() => setReassessConfirmPatient(null)}
-        maxWidth="xs"
-        fullWidth
-        slotProps={{
-          paper: { sx: { borderRadius: '12px', p: 1 } },
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 600, fontSize: '16px', pb: 1 }}>
-          Physician Reassessment
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ color: '#374151' }}>
-            This patient has an unfinished prior visit. Send to the doctor for reassessment?
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, pt: 1, gap: 1 }}>
-          <Button
-            variant="outlined"
-            onClick={() => setReassessConfirmPatient(null)}
-            sx={{ textTransform: 'none', borderRadius: '8px' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              const target = reassessConfirmPatient;
-              setReassessConfirmPatient(null);
-              if (target) {
-                handleOpenReassessmentCheckIn(target);
-              }
-            }}
-            sx={{
-              backgroundColor: '#d97706',
-              '&:hover': { backgroundColor: '#b45309' },
-              textTransform: 'none',
-              borderRadius: '8px',
-              fontWeight: 600,
-            }}
-          >
-            Send
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* ── Global Toast / Snackbar ── */}
       <Snackbar

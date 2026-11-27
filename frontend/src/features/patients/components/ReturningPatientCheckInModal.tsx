@@ -61,6 +61,10 @@ export default function ReturningPatientCheckInModal({
   const [temperature, setTemperature] = useState('');
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
+  const [isEditingWeight, setIsEditingWeight] = useState(false);
+  const [isEditingHeight, setIsEditingHeight] = useState(false);
+  const weightRef = useRef<HTMLInputElement>(null);
+  const heightRef = useRef<HTMLInputElement>(null);
   const [modeOfTransaction, setModeOfTransaction] = useState<'walk-in' | 'visited' | 'referral'>('walk-in');
   const [referredBy, setReferredBy] = useState('');
   const [error, setError] = useState('');
@@ -84,6 +88,8 @@ export default function ReturningPatientCheckInModal({
       setTemperature('');
       setWeight(priorWeight ? String(priorWeight) : '');
       setHeight(priorHeight ? String(priorHeight) : '');
+      setIsEditingWeight(!isReassess || !priorWeight);
+      setIsEditingHeight(!isReassess || !priorHeight);
       setReferredBy(priorReferredBy ? String(priorReferredBy) : '');
       setModeOfTransaction(
         priorMode === 'referral' || priorMode === 'visited' || priorMode === 'walk-in'
@@ -206,14 +212,20 @@ export default function ReturningPatientCheckInModal({
     }
   };
 
+  const pillInputStyle: React.CSSProperties = {
+    borderRadius: 9999,
+    minHeight: 46,
+    height: 46,
+    padding: '10px 18px',
+  };
+
   return (
     <FormModal
       title={
         isReassess
-          ? 'Returning Patient — Check In for Doctor Reassessment'
+          ? 'Patient Reassessment — Vital Signs & Referral'
           : 'Patient Check-In — Vital Signs & Referral'
       }
-      subtitle={`Case Consultation, Vitals & Referral • ${patient.patient_number || ''}`}
       onClose={onClose}
       maxWidth={620}
       footer={
@@ -339,16 +351,13 @@ export default function ReturningPatientCheckInModal({
               fontSize: '13px',
               fontWeight: 700,
               color: 'var(--text-h, #0f172a)',
-              marginBottom: '4px',
+              marginBottom: '12px',
             }}
           >
             {isReassess
               ? 'Updated Vital Signs (Required Before Doctor Reassessment)'
               : 'Current Vital Signs (Required Before Doctor Triage)'}
           </div>
-          <p style={{ fontSize: '12px', color: 'var(--text-secondary, #64748b)', margin: '0 0 12px' }}>
-            Measure and enter the patient&apos;s current vitals upon clinic check-in.
-          </p>
 
           {error && (
             <div
@@ -383,12 +392,14 @@ export default function ReturningPatientCheckInModal({
                   display: 'flex',
                   alignItems: 'center',
                   border: '1px solid var(--input-border, #e5e7eb)',
-                  borderRadius: 8,
+                  borderRadius: 9999,
+                  minHeight: 46,
+                  height: 46,
                   background: 'var(--input-bg, #fff)',
                   overflow: 'hidden',
                   boxSizing: 'border-box',
                   width: '100%',
-                  padding: '0 8px',
+                  padding: '0 14px',
                   transition: 'border-color 0.15s, box-shadow 0.15s',
                 }}
                 onFocus={(e) => {
@@ -488,6 +499,7 @@ export default function ReturningPatientCheckInModal({
                 value={temperature}
                 onChange={(e) => setTemperature(sanitizeDecimalInput(e.target.value))}
                 disabled={submitting}
+                style={pillInputStyle}
               />
             </div>
 
@@ -496,14 +508,59 @@ export default function ReturningPatientCheckInModal({
                 Weight (kg) <span>*</span>
               </label>
               <input
+                ref={weightRef}
                 type="text"
                 inputMode="decimal"
                 className="fm-input"
                 placeholder="e.g. 62"
                 value={weight}
-                onChange={(e) => setWeight(sanitizeDecimalInput(e.target.value))}
+                readOnly={isReassess && !isEditingWeight}
+                onChange={(e) => {
+                  if (isReassess && !isEditingWeight) return;
+                  setWeight(sanitizeDecimalInput(e.target.value));
+                }}
                 disabled={submitting}
+                style={
+                  isReassess && !isEditingWeight
+                    ? {
+                        ...pillInputStyle,
+                        backgroundColor: 'var(--bg-secondary, #f1f5f9)',
+                        color: 'var(--text-secondary, #64748b)',
+                        cursor: 'not-allowed',
+                      }
+                    : pillInputStyle
+                }
               />
+              {isReassess && (
+                <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary, #64748b)' }}>
+                    {!isEditingWeight ? 'Locked from previous record' : 'Editing weight'}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => {
+                      const next = !isEditingWeight;
+                      setIsEditingWeight(next);
+                      if (next) {
+                        setTimeout(() => weightRef.current?.focus(), 0);
+                      }
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: '#059669',
+                      cursor: submitting ? 'not-allowed' : 'pointer',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    {!isEditingWeight ? 'Edit' : 'Done'}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="fm-field">
@@ -511,14 +568,59 @@ export default function ReturningPatientCheckInModal({
                 Height (cm) <span>*</span>
               </label>
               <input
+                ref={heightRef}
                 type="text"
                 inputMode="decimal"
                 className="fm-input"
                 placeholder="e.g. 165"
                 value={height}
-                onChange={(e) => setHeight(sanitizeDecimalInput(e.target.value))}
+                readOnly={isReassess && !isEditingHeight}
+                onChange={(e) => {
+                  if (isReassess && !isEditingHeight) return;
+                  setHeight(sanitizeDecimalInput(e.target.value));
+                }}
                 disabled={submitting}
+                style={
+                  isReassess && !isEditingHeight
+                    ? {
+                        ...pillInputStyle,
+                        backgroundColor: 'var(--bg-secondary, #f1f5f9)',
+                        color: 'var(--text-secondary, #64748b)',
+                        cursor: 'not-allowed',
+                      }
+                    : pillInputStyle
+                }
               />
+              {isReassess && (
+                <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary, #64748b)' }}>
+                    {!isEditingHeight ? 'Locked from previous record' : 'Editing height'}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => {
+                      const next = !isEditingHeight;
+                      setIsEditingHeight(next);
+                      if (next) {
+                        setTimeout(() => heightRef.current?.focus(), 0);
+                      }
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: '#059669',
+                      cursor: submitting ? 'not-allowed' : 'pointer',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    {!isEditingHeight ? 'Edit' : 'Done'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -530,14 +632,11 @@ export default function ReturningPatientCheckInModal({
               fontSize: '13px',
               fontWeight: 700,
               color: 'var(--text-h, #0f172a)',
-              marginBottom: '4px',
+              marginBottom: '10px',
             }}
           >
             Referral Information (Optional)
           </div>
-          <p style={{ fontSize: '12px', color: 'var(--text-secondary, #64748b)', margin: '0 0 10px' }}>
-            Record if the patient was referred by a Barangay Health Station, RHU, or hospital.
-          </p>
 
           <div
             style={{
@@ -552,6 +651,7 @@ export default function ReturningPatientCheckInModal({
                 className="fm-input"
                 value={modeOfTransaction}
                 onChange={(e) => setModeOfTransaction(e.target.value as 'walk-in' | 'visited' | 'referral')}
+                style={pillInputStyle}
               >
                 <option value="walk-in">Walk-in</option>
                 <option value="visited">Visited</option>
@@ -573,6 +673,7 @@ export default function ReturningPatientCheckInModal({
                     setModeOfTransaction('referral');
                   }
                 }}
+                style={pillInputStyle}
               />
             </div>
           </div>

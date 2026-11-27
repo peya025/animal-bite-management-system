@@ -1,5 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useId } from 'react';
+import { createPortal } from 'react-dom';
 import FormModal from '../../../components/forms/FormModal';
+import '../../../components/forms/SearchableSelect/SearchableSelect.css';
+import { ALL_HEALTH_FACILITIES } from '../../../shared/constants/healthFacilities';
 import api from '../../../shared/services/api';
 import type { Patient } from '../types';
 
@@ -47,6 +50,395 @@ function sanitizeDecimalInput(value: string, maxDecimals = 2): string {
   return `${parts[0]}.${parts.slice(1).join('').slice(0, maxDecimals)}`;
 }
 
+const REFERRAL_FACILITY_OPTIONS = ALL_HEALTH_FACILITIES.filter(
+  (name) => !/\(Specify\)$/i.test(name.trim())
+);
+
+interface EditableFacilityComboboxProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  placeholder?: string;
+  disabled?: boolean;
+}
+
+function EditableFacilityCombobox({
+  value,
+  onChange,
+  options,
+  placeholder = 'Search or type facility...',
+  disabled = false,
+}: EditableFacilityComboboxProps) {
+  const uid = useId();
+  const listboxId = `${uid}-listbox`;
+  const [isOpen, setIsOpen] = useState(false);
+  const [filterByQuery, setFilterByQuery] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [menuPos, setMenuPos] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+    width: number;
+    maxListHeight: number;
+    openAbove: boolean;
+  } | null>(null);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+
+  const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const filteredOptions = useMemo(() => {
+    const q = value.trim().toLowerCase();
+    if (!filterByQuery || !q) return options;
+    return options.filter((opt) => opt.toLowerCase().includes(q));
+  }, [options, value, filterByQuery]);
+
+  const updateMenuPosition = useCallback(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const rect = root.getBoundingClientRect();
+    const viewportH = window.innerHeight;
+    const viewportW = window.innerWidth;
+    const gap = 4;
+    const margin = 8;
+
+    const width = Math.min(Math.max(rect.width, 280), viewportW - margin * 2);
+    const left = Math.max(margin, Math.min(rect.left, viewportW - width - margin));
+
+    const spaceBelow = viewportH - rect.bottom - gap - margin;
+    const spaceAbove = rect.top - gap - margin;
+    const openAbove = spaceBelow < 210 && spaceAbove > spaceBelow;
+    const availableSpace = openAbove ? spaceAbove : spaceBelow;
+    const maxListHeight = Math.max(110, Math.min(240, availableSpace - 16));
+
+    setMenuPos({
+      top: openAbove ? undefined : rect.bottom + gap,
+      bottom: openAbove ? viewportH - rect.top + gap : undefined,
+      left,
+      width,
+      maxListHeight,
+      openAbove,
+    });
+  }, []);
+
+  const openMenu = useCallback(
+    (shouldFilter: boolean) => {
+      if (disabled) return;
+      setFilterByQuery(shouldFilter);
+      const muiModalRoot = rootRef.current?.closest<HTMLElement>('.MuiModal-root') ?? null;
+      setPortalContainer(muiModalRoot || document.body);
+      updateMenuPosition();
+      setIsOpen(true);
+    },
+    [disabled, updateMenuPosition]
+  );
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    updateMenuPosition();
+  }, [isOpen, updateMenuPosition, filteredOptions.length]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleScroll = (event: Event) => {
+      if (menuRef.current && event.target instanceof Node && menuRef.current.contains(event.target)) {
+        return;
+      }
+      updateMenuPosition();
+    };
+    const handleResize = () => updateMenuPosition();
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isOpen, updateMenuPosition]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (rootRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handlePointerDown, true);
+    document.addEventListener('touchstart', handlePointerDown, true);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown, true);
+      document.removeEventListener('touchstart', handlePointerDown, true);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (filteredOptions.length === 0) {
+      setHighlightedIndex(-1);
+      return;
+    }
+    const exactIdx = filteredOptions.findIndex(
+      (opt) => opt.toLowerCase() === value.trim().toLowerCase()
+    );
+    setHighlightedIndex(exactIdx >= 0 ? exactIdx : 0);
+  }, [filteredOptions, isOpen, value]);
+
+  useEffect(() => {
+    if (!isOpen || highlightedIndex < 0) return;
+    const optionEl = listRef.current?.querySelector<HTMLElement>(
+      `#${CSS.escape(`${uid}-opt-${highlightedIndex}`)}`
+    );
+    optionEl?.scrollIntoView({ block: 'nearest' });
+  }, [highlightedIndex, isOpen, uid]);
+
+  const handleSelectOption = (option: string) => {
+    onChange(option);
+    setIsOpen(false);
+    setFilterByQuery(false);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      if (!isOpen) {
+        openMenu(Boolean(value.trim()) && !options.includes(value));
+      } else if (filteredOptions.length > 0) {
+        setHighlightedIndex((prev) => (prev + 1) % filteredOptions.length);
+      }
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!isOpen) {
+        openMenu(Boolean(value.trim()) && !options.includes(value));
+      } else if (filteredOptions.length > 0) {
+        setHighlightedIndex((prev) => (prev <= 0 ? filteredOptions.length - 1 : prev - 1));
+      }
+    } else if (event.key === 'Enter' && isOpen) {
+      if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+      event.preventDefault();
+      if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
+        handleSelectOption(filteredOptions[highlightedIndex]);
+      } else {
+        setIsOpen(false);
+      }
+    } else if (event.key === 'Escape' && isOpen) {
+      event.preventDefault();
+      event.stopPropagation();
+      setIsOpen(false);
+    }
+  };
+
+  return (
+    <div ref={rootRef} className="ss-root">
+      <div
+        className={`ss-trigger${isOpen ? ' ss-trigger--open' : ''}`}
+        style={{
+          borderRadius: 9999,
+          minHeight: 46,
+          height: 46,
+          padding: '0 12px 0 18px',
+          cursor: disabled ? 'not-allowed' : 'text',
+        }}
+        onClick={() => {
+          if (disabled) return;
+          inputRef.current?.focus();
+          if (!isOpen) {
+            const isExactPreset = options.includes(value);
+            openMenu(Boolean(value.trim()) && !isExactPreset);
+          }
+        }}
+      >
+        <input
+          ref={inputRef}
+          type="text"
+          role="combobox"
+          aria-expanded={isOpen}
+          aria-controls={isOpen ? listboxId : undefined}
+          aria-autocomplete="list"
+          aria-label="Referred By / Referring Facility"
+          placeholder={placeholder}
+          value={value}
+          disabled={disabled}
+          onFocus={() => {
+            if (!isOpen) {
+              const isExactPreset = options.includes(value);
+              openMenu(Boolean(value.trim()) && !isExactPreset);
+            }
+          }}
+          onChange={(e) => {
+            onChange(e.target.value);
+            if (!isOpen) {
+              openMenu(true);
+            } else {
+              setFilterByQuery(true);
+            }
+          }}
+          onKeyDown={handleKeyDown}
+          style={{
+            flex: '1 1 auto',
+            minWidth: 0,
+            width: '100%',
+            border: 'none',
+            outline: 'none',
+            background: 'transparent',
+            color: 'var(--input-text, #111827)',
+            fontFamily: 'inherit',
+            fontSize: 14,
+            lineHeight: 1.5,
+            padding: 0,
+          }}
+        />
+        <span className="ss-trigger-actions">
+          {value && !disabled && (
+            <button
+              type="button"
+              tabIndex={-1}
+              className="ss-trigger-clear"
+              aria-label="Clear facility"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onChange('');
+                setFilterByQuery(false);
+                inputRef.current?.focus();
+              }}
+              style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
+          <button
+            type="button"
+            tabIndex={-1}
+            disabled={disabled}
+            aria-label={isOpen ? 'Close facility options' : 'Show facility options'}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (disabled) return;
+              if (isOpen) {
+                setIsOpen(false);
+              } else {
+                openMenu(false);
+                inputRef.current?.focus();
+              }
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: 'none',
+              background: 'transparent',
+              padding: 2,
+              cursor: disabled ? 'not-allowed' : 'pointer',
+            }}
+          >
+            <svg
+              className="ss-trigger-chevron"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        </span>
+      </div>
+
+      {isOpen &&
+        menuPos &&
+        portalContainer &&
+        createPortal(
+          <div
+            ref={menuRef}
+            data-combobox-menu="true"
+            className={`ss-menu${menuPos.openAbove ? ' ss-menu--above' : ''}`}
+            style={{
+              top: menuPos.top,
+              bottom: menuPos.bottom,
+              left: menuPos.left,
+              width: menuPos.width,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              ref={listRef}
+              id={listboxId}
+              role="listbox"
+              aria-label="Referring Facilities"
+              className="ss-list"
+              style={{ maxHeight: menuPos.maxListHeight }}
+            >
+              {filteredOptions.length === 0 ? (
+                <div className="ss-empty" role="status" aria-live="polite">
+                  {value.trim()
+                    ? `Using custom facility: "${value.trim()}"`
+                    : 'No facility found'}
+                </div>
+              ) : (
+                filteredOptions.map((opt, idx) => {
+                  const isSelected = opt.toLowerCase() === value.trim().toLowerCase();
+                  const isHighlighted = idx === highlightedIndex;
+                  return (
+                    <div
+                      key={opt}
+                      id={`${uid}-opt-${idx}`}
+                      role="option"
+                      aria-selected={isSelected}
+                      className={`ss-option${isSelected ? ' ss-option--selected' : ''}${isHighlighted ? ' ss-option--highlighted' : ''}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseEnter={() => setHighlightedIndex(idx)}
+                      onClick={() => handleSelectOption(opt)}
+                    >
+                      <span className="ss-option-label">{opt}</span>
+                      {isSelected && (
+                        <svg
+                          className="ss-option-check"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>,
+          portalContainer
+        )}
+    </div>
+  );
+}
+
 export default function ReturningPatientCheckInModal({
   open,
   mode = 'reassess',
@@ -65,7 +457,7 @@ export default function ReturningPatientCheckInModal({
   const [isEditingHeight, setIsEditingHeight] = useState(false);
   const weightRef = useRef<HTMLInputElement>(null);
   const heightRef = useRef<HTMLInputElement>(null);
-  const [modeOfTransaction, setModeOfTransaction] = useState<'walk-in' | 'visited' | 'referral'>('walk-in');
+  const [modeOfTransaction, setModeOfTransaction] = useState<'walk-in' | 'referral'>('walk-in');
   const [referredBy, setReferredBy] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -92,9 +484,7 @@ export default function ReturningPatientCheckInModal({
       setIsEditingHeight(!isReassess || !priorHeight);
       setReferredBy(priorReferredBy ? String(priorReferredBy) : '');
       setModeOfTransaction(
-        priorMode === 'referral' || priorMode === 'visited' || priorMode === 'walk-in'
-          ? priorMode
-          : priorReferredBy
+        priorMode === 'referral' || Boolean(priorReferredBy)
           ? 'referral'
           : 'walk-in'
       );
@@ -650,30 +1040,34 @@ export default function ReturningPatientCheckInModal({
               <select
                 className="fm-input"
                 value={modeOfTransaction}
-                onChange={(e) => setModeOfTransaction(e.target.value as 'walk-in' | 'visited' | 'referral')}
+                disabled={submitting}
+                onChange={(e) => {
+                  const next = e.target.value as 'walk-in' | 'referral';
+                  setModeOfTransaction(next);
+                  if (next === 'walk-in') {
+                    setReferredBy('');
+                  }
+                }}
                 style={pillInputStyle}
               >
                 <option value="walk-in">Walk-in</option>
-                <option value="visited">Visited</option>
                 <option value="referral">Referral</option>
               </select>
             </div>
 
             <div className="fm-field">
               <label className="fm-label">Referred By / Referring Facility</label>
-              <input
-                type="text"
-                className="fm-input"
-                placeholder="e.g. BHS Poblacion / Tagoloan RHU"
+              <EditableFacilityCombobox
                 value={referredBy}
-                onChange={(e) => {
-                  const val = e.target.value;
+                options={REFERRAL_FACILITY_OPTIONS}
+                placeholder="Search or type facility..."
+                disabled={submitting}
+                onChange={(val) => {
                   setReferredBy(val);
                   if (val.trim() && modeOfTransaction === 'walk-in') {
                     setModeOfTransaction('referral');
                   }
                 }}
-                style={pillInputStyle}
               />
             </div>
           </div>

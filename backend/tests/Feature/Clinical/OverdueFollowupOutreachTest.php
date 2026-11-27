@@ -96,8 +96,8 @@ class OverdueFollowupOutreachTest extends TestCase
             'bite_id' => $incident->bite_id,
             'patient_id' => $patient->patient_id,
             'dose_number' => 3,
-            'scheduled_date' => today()->subDays(2)->toDateString(),
-            'appointment_date' => today()->subDays(2)->toDateString(),
+            'scheduled_date' => today()->subDays(3)->toDateString(),
+            'appointment_date' => today()->subDays(3)->toDateString(),
             'appointment_type' => 'vaccination',
             'status' => 'scheduled',
         ]);
@@ -136,7 +136,7 @@ class OverdueFollowupOutreachTest extends TestCase
             'dose_day' => 3,
         ])->assertOk();
 
-        $expectedText = 'ABCare Tagoloan Reminder: Maayong adlaw Juan Dela Cruz. Schedule nimo karon para sa imong follow-up anti-rabies shot (Day 3) sa Tagoloan ABTC. Palihug bisita taliwala sa 8:00 AM - 4:00 PM para sa imong kaluwasan. Salamat!';
+        $expectedText = 'Tagoloan ABTC Reminder: Maayong adlaw. Nalapas na ang imong naka-schedule nga follow-up vaccination (Day 3) sa Tagoloan ABTC. Palihug bisita o kontaka ang clinic taliwala sa 8:00 AM - 4:00 PM para sa imong follow-up. Salamat!';
         $smsRes->assertJsonPath('sms_text', $expectedText);
         $smsRes->assertJsonPath('recipient_number', '+639171234567');
         $smsRes->assertJsonPath('log.contact_type', 'sms');
@@ -199,6 +199,7 @@ class OverdueFollowupOutreachTest extends TestCase
             'messaging.sms_enabled' => true,
             'messaging.sms_provider' => 'fake',
             'messaging.test_mode' => false,
+            'messaging.sms_test_mode' => false,
         ]);
 
         $ctx = $this->seedOverdueEpisode();

@@ -61,11 +61,25 @@ class VaccinationJourneyController extends Controller
 
         $res = $this->reminderService->sendRecallAlert($appointment, $channel, $senderId, $customMessage);
 
+        $dispatchedChannels = $res['channels_dispatched'] ?? [];
+        $allReused = ! empty($dispatchedChannels) && collect($dispatchedChannels)
+            ->every(fn (string $ch) => (bool) ($res['channel_results'][$ch]['reused'] ?? false));
+
+        if ($res['success']) {
+            $message = $allReused
+                ? "Reminder already queued or sent today for {$res['patient_name']} via "
+                    .implode(', ', $dispatchedChannels).'; duplicate dispatch was skipped.'
+                : "Reminder request processed for {$res['patient_name']} via "
+                    .implode(', ', $dispatchedChannels).'. External messages may be queued; receipt is not yet confirmed.';
+            if (! empty($res['errors'])) {
+                $message .= ' Some channels were skipped or failed: '.implode(', ', $res['errors']);
+            }
+        } else {
+            $message = 'Failed to dispatch recall alert: '.implode(', ', $res['errors'] ?? []);
+        }
+
         return response()->json([
-            'message' => $res['success']
-                ? "Reminder request processed for {$res['patient_name']} via "
-                    .implode(', ', $res['channels_dispatched']).'. External messages may be queued; receipt is not yet confirmed.'.(! empty($res['errors']) ? ' Some channels were skipped or failed: '.implode(', ', $res['errors']) : '')
-                : 'Failed to dispatch recall alert: '.implode(', ', $res['errors'] ?? []),
+            'message' => $message,
             'result' => $res,
         ], $res['success'] ? 200 : 422);
     }
@@ -168,7 +182,8 @@ class VaccinationJourneyController extends Controller
         $res = $this->reminderService->runAutomatedSweep(($request->input('channel') ?? 'all'), (int) $request->user()->clinic_id);
 
         return response()->json([
-            'message' => "Automated Sweep executed: {$res['advance_reminders_sent']} advance reminders"
+            'message' => "Automated Sweep executed: {$res['advance_reminders_sent']} advance reminders, "
+                ."{$res['same_day_reminders_sent']} same-day reminders"
                 ." & {$res['missed_recalls_sent']} missed recall requests processed; queued delivery is not confirmed receipt.",
             'result' => $res,
         ]);

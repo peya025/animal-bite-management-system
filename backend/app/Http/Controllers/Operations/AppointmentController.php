@@ -109,19 +109,18 @@ class AppointmentController extends Controller
     // ────────────────────────────────────────────────────────────────────────
     public function overdue(Request $request): JsonResponse
     {
-        $clinicId     = $request->user()->clinic_id;
-        $appointments = Appointment::where('clinic_id', $clinicId)
-            ->where('appointment_date', '<', Carbon::today())
-            ->whereIn('status', ['scheduled', 'confirmed'])
-            ->with(['patient', 'biteIncident'])
-            ->orderBy('appointment_date', 'desc')
-            ->get();
+        $clinicId = $request->user()->clinic_id;
+        $reminderService = app(\App\Services\AppointmentReminderService::class);
+        $today = Carbon::today()->toDateString();
 
-        // Auto-update to missed status
-        foreach ($appointments as $appointment) {
-            $appointment->update(['status' => 'missed']);
-            AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment->fresh(), 'missed'));
-        }
+        $appointments = Appointment::where('clinic_id', $clinicId)
+            ->whereRaw('DATE(COALESCE(scheduled_date, appointment_date)) < ?', [$today])
+            ->whereIn('status', \App\Services\AppointmentReminderService::RECALL_ELIGIBLE_STATUSES)
+            ->with(['patient', 'clinic', 'biteIncident.treatmentPlan'])
+            ->orderByRaw('COALESCE(scheduled_date, appointment_date) DESC')
+            ->get()
+            ->filter(fn (Appointment $appointment) => $reminderService->ineligibilityReason($appointment, 'recall') === null)
+            ->values();
 
         return response()->json(['count' => $appointments->count(), 'appointments' => $appointments]);
     }

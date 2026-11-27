@@ -891,7 +891,14 @@ class PatientService
         }
 
         $isMobileOrAccount = ($patient->registration_source === 'mobile') || $patient->accounts()->exists();
-        $hasIntakeOrAppt = $patient->biteIntakes()->exists() || $patient->appointments()->exists() || $patient->biteIncidents()->exists();
+        $hasNonCancelledAppt = $patient->appointments()->where('status', '!=', 'cancelled')->exists();
+        $hasNonCancelledIntake = $patient->biteIntakes()
+            ->where(function ($q) {
+                $q->whereNull('appointment_id')
+                  ->orWhereHas('appointment', fn ($aq) => $aq->where('status', '!=', 'cancelled'));
+            })
+            ->exists();
+        $hasIntakeOrAppt = $hasNonCancelledIntake || $hasNonCancelledAppt || $patient->biteIncidents()->exists();
         if ($isMobileOrAccount && !$hasIntakeOrAppt) {
             return [
                 'status' => 422,

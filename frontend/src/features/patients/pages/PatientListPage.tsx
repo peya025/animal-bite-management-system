@@ -222,10 +222,18 @@ export default function PatientList() {
     if (!isMobileOrAccount) return false;
 
     const appointments: any[] = (p as any).appointments || [];
-    if (appointments.length > 0) return false;
+    const hasNonCancelledAppointment = appointments.some((appt: any) => appt.status !== 'cancelled');
+    if (hasNonCancelledAppointment) return false;
 
     const biteIntakes: any[] = (p as any).bite_intakes || (p as any).biteIntakes || [];
-    if (biteIntakes.length > 0) return false;
+    const hasNonCancelledIntake = biteIntakes.some((intake: any) => {
+      if (intake.appointment_id) {
+        const linkedAppt = appointments.find((appt: any) => appt.appointment_id === intake.appointment_id);
+        if (linkedAppt && linkedAppt.status === 'cancelled') return false;
+      }
+      return true;
+    });
+    if (hasNonCancelledIntake) return false;
 
     const biteIncidents: any[] = (p as any).bite_incidents || (p as any).biteIncidents || [];
     if (biteIncidents.length > 0) return false;

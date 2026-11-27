@@ -74,9 +74,23 @@ class PatientRowActions
                 ? $patient->biteIncidents
                 : $patient->biteIncidents()->get();
 
+            $hasNonCancelledAppointments = $appointments->contains(function ($appt) {
+                return $appt->status !== 'cancelled';
+            });
+
+            $hasNonCancelledIntakes = $biteIntakes->contains(function ($intake) use ($appointments) {
+                if ($intake->appointment_id) {
+                    $appt = $appointments->firstWhere('appointment_id', $intake->appointment_id);
+                    if ($appt && $appt->status === 'cancelled') {
+                        return false;
+                    }
+                }
+                return true;
+            });
+
             $isPreRegisteredOnly = ($isOnline || $accounts->isNotEmpty())
-                && $appointments->isEmpty()
-                && $biteIntakes->isEmpty()
+                && !$hasNonCancelledAppointments
+                && !$hasNonCancelledIntakes
                 && $biteIncidents->isEmpty();
 
             if (!$isPreRegisteredOnly) {
@@ -85,7 +99,7 @@ class PatientRowActions
                         return false;
                     }
                     $appt = $appointments->firstWhere('appointment_id', $intake->appointment_id);
-                    if (!$appt) {
+                    if (!$appt || !in_array($appt->status, ['scheduled', 'missed'], true)) {
                         return false;
                     }
                     $scheduledDate = $appt->scheduled_date ?? $appt->appointment_date;

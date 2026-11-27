@@ -24,13 +24,12 @@ class EpisodeFollowupService
 
     public function buildStandardDohSms(string $patientName, int|string $doseDay): string
     {
-        $cleanName = trim($patientName) !== '' ? trim($patientName) : 'Patient';
         $dayText = is_numeric($doseDay) ? (string) (int) $doseDay : trim((string) $doseDay);
         if ($dayText === '') {
             $dayText = 'Follow-up';
         }
 
-        return "ABCare Tagoloan Reminder: Maayong adlaw {$cleanName}. Schedule nimo karon para sa imong follow-up anti-rabies shot (Day {$dayText}) sa Tagoloan ABTC. Palihug bisita taliwala sa 8:00 AM - 4:00 PM para sa imong kaluwasan. Salamat!";
+        return "Tagoloan ABTC Reminder: Maayong adlaw. Nalapas na ang imong naka-schedule nga follow-up vaccination (Day {$dayText}) sa Tagoloan ABTC. Palihug bisita o kontaka ang clinic taliwala sa 8:00 AM - 4:00 PM para sa imong follow-up. Salamat!";
     }
 
     public function formatLog(PatientFollowupLog $log): array
@@ -117,12 +116,19 @@ class EpisodeFollowupService
     public function sendReminder(int $clinicId, int $biteId, array $validated, User $user): array
     {
         $incident = BiteIncident::where('clinic_id', $clinicId)
-            ->with(['patient', 'appointments', 'treatmentRecords', 'treatmentPlan'])
+            ->with(['patient', 'clinic', 'appointments', 'treatmentRecords', 'treatmentPlan'])
             ->findOrFail($biteId);
 
         $patient = $incident->patient;
         if (! $patient) {
             throw ValidationException::withMessages(['episode' => 'Patient record is missing for this episode.']);
+        }
+
+        if ($this->reminderService->isEpisodeIneligible($incident)
+            || in_array((string) ($patient->status ?? ''), AppointmentReminderService::INELIGIBLE_PATIENT_STATUSES, true)) {
+            throw ValidationException::withMessages([
+                'episode' => 'This episode is not eligible for overdue follow-up reminders.',
+            ]);
         }
 
         $patientPhone = trim((string) ($patient->contact_number ?? ''));
@@ -132,6 +138,42 @@ class EpisodeFollowupService
         if ($rawRecipient === '') {
             throw ValidationException::withMessages([
                 'recipient_number' => 'No verified patient or guardian mobile number is recorded for this patient.',
+            ]);
+        }
+
+        try {
+            $normalizedRecipient = SmsManager::normalize($rawRecipient);
+        } catch (\InvalidArgumentException) {
+            throw ValidationException::withMessages([
+                'recipient_number' => 'Mobile number format is invalid for SMS delivery.',
+            ]);
+        }
+
+        $normalizedPatientPhone = null;
+        if ($patientPhone !== '') {
+            try {
+                $normalizedPatientPhone = SmsManager::normalize($patientPhone);
+            } catch (\InvalidArgumentException) {
+                $normalizedPatientPhone = null;
+            }
+        }
+
+        $normalizedGuardianPhone = null;
+        if ($guardianPhone !== '') {
+            try {
+                $normalizedGuardianPhone = SmsManager::normalize($guardianPhone);
+            } catch (\InvalidArgumentException) {
+                $normalizedGuardianPhone = null;
+            }
+        }
+
+        if ($normalizedPatientPhone !== null && $normalizedRecipient === $normalizedPatientPhone) {
+            $recipientType = 'patient';
+        } elseif ($normalizedGuardianPhone !== null && $normalizedRecipient === $normalizedGuardianPhone) {
+            $recipientType = 'guardian';
+        } else {
+            throw ValidationException::withMessages([
+                'recipient_number' => 'SMS reminders may only be sent to the patient or recorded guardian mobile number.',
             ]);
         }
 
@@ -147,82 +189,54 @@ class EpisodeFollowupService
         $doseLabel = $validated['dose_label'] ?? "Day {$doseDayForSms}";
         $daysOverdue = $validated['days_overdue'] ?? ($course['days_overdue'] ?? null);
 
+        $appointment = $this->findOverdueAppointment($incident, $doseDay);
+        if (! $appointment) {
+            $hasOverdueCourse = ! empty($course['overdue_dose_slots']) || ((int) ($course['days_overdue'] ?? 0) > 0);
+            if (! $hasOverdueCourse || ! $this->reminderService->isEpisodeDoseOutstanding($incident, $doseDay)) {
+                throw ValidationException::withMessages([
+                    'episode' => 'No outstanding overdue vaccination dose was found for this episode.',
+                ]);
+            }
+        }
+
         $customMessage = isset($validated['message']) ? trim((string) $validated['message']) : '';
         $smsBody = $customMessage !== ''
             ? $customMessage
             : $this->buildStandardDohSms($patient->name ?? 'Patient', $doseDayForSms);
 
-        $appointment = $this->findOverdueAppointment($incident, $doseDay);
         $availability = $this->deliveryPolicy->availability();
 
-        $normalizedRecipient = $rawRecipient;
-        $normalizationError = null;
-        try {
-            $normalizedRecipient = SmsManager::normalize($rawRecipient);
-        } catch (\InvalidArgumentException) {
-            $normalizationError = 'invalid_mobile_number';
-        }
+        $dispatch = $this->reminderService->sendEpisodeFollowupSms(
+            incident: $incident,
+            appointment: $appointment,
+            recipient: $normalizedRecipient,
+            recipientType: $recipientType,
+            body: $smsBody,
+            senderUserId: $user->id,
+            doseDay: $doseDay,
+        );
 
-        $deliveryStatus = 'logged_only';
-        $logStatus = 'sms_logged';
-        $deliveryNote = '';
+        $smsStatus = $dispatch['status'] ?? null;
+        $smsError = $dispatch['error'] ?? null;
+        $reused = (bool) ($dispatch['reused'] ?? false);
 
-        if ($normalizationError !== null) {
-            throw ValidationException::withMessages([
-                'recipient_number' => 'Mobile number format is invalid for SMS delivery.',
-            ]);
-        }
-
-        if ($appointment && $patientPhone !== '' && $rawRecipient === $patientPhone) {
-            $recallResult = $this->reminderService->sendRecallAlert($appointment, 'sms', $user->id, $smsBody);
-            $smsResult = $recallResult['channel_results']['sms'] ?? null;
-            $smsStatus = $smsResult['status'] ?? null;
-            $smsError = $smsResult['error'] ?? ($recallResult['errors']['sms'] ?? null);
-
-            if (in_array($smsStatus, ['queued', 'processing', 'accepted', 'delivered'], true)) {
-                $deliveryStatus = $smsStatus;
-                $logStatus = 'sms_' . $smsStatus;
-                $deliveryNote = "DOH SMS reminder {$smsStatus} to {$normalizedRecipient}.";
-            } elseif ($smsStatus === 'simulated') {
-                $deliveryStatus = 'simulated';
-                $logStatus = 'sms_simulated';
-                $deliveryNote = "DOH SMS reminder simulated for {$normalizedRecipient} (simulated SMS provider active).";
-            } else {
-                $reason = $this->humanizeSmsSkipReason($smsError);
-                $deliveryStatus = 'logged_only';
-                $logStatus = 'sms_logged';
-                $deliveryNote = "DOH SMS reminder logged for {$normalizedRecipient} ({$reason}).";
-            }
+        if ($reused && in_array($smsStatus, ['queued', 'processing', 'accepted', 'delivered', 'simulated'], true)) {
+            $deliveryStatus = 'duplicate_suppressed';
+            $logStatus = 'sms_duplicate_skipped';
+            $deliveryNote = "Duplicate SMS suppressed for {$normalizedRecipient}: a reminder was already {$smsStatus} today.";
+        } elseif (in_array($smsStatus, ['queued', 'processing', 'accepted', 'delivered'], true)) {
+            $deliveryStatus = $smsStatus;
+            $logStatus = 'sms_' . $smsStatus;
+            $deliveryNote = "DOH SMS reminder {$smsStatus} to {$normalizedRecipient}.";
+        } elseif ($smsStatus === 'simulated') {
+            $deliveryStatus = 'simulated';
+            $logStatus = 'sms_simulated';
+            $deliveryNote = "DOH SMS reminder simulated for {$normalizedRecipient} (simulated SMS provider active).";
         } else {
-            // Direct SMS dispatch for verified guardian numbers or overdue episodes without a linked scheduled appointment
-            $policyError = $this->deliveryPolicy->error('sms', $normalizedRecipient, config('messaging.sms_provider'));
-            if ($policyError === null) {
-                try {
-                    $adapter = app(SmsManager::class)->provider();
-                    $reference = sprintf('followup-ep-%d-%d', $incident->bite_id, now()->timestamp);
-                    $smsResult = $adapter->send($normalizedRecipient, $smsBody, $reference);
-                    $isSimulated = (bool) ($adapter->capabilities()['simulated'] ?? false);
-
-                    if ($smsResult->accepted) {
-                        $deliveryStatus = $isSimulated ? 'simulated' : ($smsResult->status ?: 'sent');
-                        $logStatus = $isSimulated ? 'sms_simulated' : 'sms_sent';
-                        $deliveryNote = $isSimulated
-                            ? "DOH SMS reminder simulated for {$normalizedRecipient} (simulated SMS provider active)."
-                            : "DOH SMS reminder sent to {$normalizedRecipient}.";
-                    } else {
-                        $deliveryStatus = 'failed';
-                        $logStatus = 'sms_failed';
-                        $deliveryNote = "DOH SMS dispatch failed for {$normalizedRecipient}" . ($smsResult->error ? " ({$smsResult->error})." : '.');
-                    }
-                } catch (\Throwable $e) {
-                    $deliveryStatus = 'logged_only';
-                    $logStatus = 'sms_logged';
-                    $deliveryNote = "DOH SMS reminder logged for {$normalizedRecipient} (carrier dispatch error).";
-                }
-            } else {
-                $reason = $this->humanizeSmsSkipReason($policyError);
-                $deliveryNote = "DOH SMS reminder logged for {$normalizedRecipient} ({$reason}).";
-            }
+            $reason = $this->humanizeSmsSkipReason($smsError);
+            $deliveryStatus = 'logged_only';
+            $logStatus = 'sms_logged';
+            $deliveryNote = "DOH SMS reminder logged for {$normalizedRecipient} ({$reason}).";
         }
 
         $log = PatientFollowupLog::create([
@@ -235,7 +249,7 @@ class EpisodeFollowupService
             'contact_type' => 'sms',
             'status' => $logStatus,
             'recipient_number' => $normalizedRecipient,
-            'message_body' => $smsBody,
+            'message_body' => $reused ? null : $smsBody,
             'notes' => $deliveryNote,
             'created_by' => $user->id,
             'created_by_name' => $user->name,
@@ -245,6 +259,8 @@ class EpisodeFollowupService
             'message' => $deliveryNote,
             'delivery_status' => $deliveryStatus,
             'delivery_note' => $deliveryNote,
+            'reused' => $reused,
+            'message_id' => $dispatch['message_id'] ?? null,
             'sms_text' => $smsBody,
             'recipient_number' => $normalizedRecipient,
             'sms_available' => (bool) ($availability['sms'] ?? false),
@@ -258,23 +274,29 @@ class EpisodeFollowupService
             ? $incident->appointments
             : $incident->appointments()->get();
 
-        $scheduledPast = $appointments->filter(function (Appointment $a) {
-            if ($a->status !== 'scheduled') {
+        $eligibleOverdue = $appointments->filter(function (Appointment $a) use ($incident) {
+            if (! in_array((string) $a->status, AppointmentReminderService::RECALL_ELIGIBLE_STATUSES, true)) {
                 return false;
             }
-            $date = $a->scheduled_date ?? $a->appointment_date;
+            $a->setRelation('biteIncident', $incident);
+            if ($incident->relationLoaded('patient') && $incident->patient) {
+                $a->setRelation('patient', $incident->patient);
+            }
+            if ($incident->relationLoaded('clinic') && $incident->clinic) {
+                $a->setRelation('clinic', $incident->clinic);
+            }
 
-            return $date !== null && $date->isBefore(today());
+            return $this->reminderService->ineligibilityReason($a, 'recall') === null;
         });
 
         if ($doseDay !== null) {
-            $exact = $scheduledPast->first(fn (Appointment $a) => $a->dose_number !== null && (int) $a->dose_number === $doseDay);
+            $exact = $eligibleOverdue->first(fn (Appointment $a) => $a->dose_number !== null && (int) $a->dose_number === $doseDay);
             if ($exact) {
                 return $exact;
             }
         }
 
-        return $scheduledPast->sortBy(fn (Appointment $a) => $a->scheduled_date ?? $a->appointment_date)->first();
+        return $eligibleOverdue->sortBy(fn (Appointment $a) => $a->scheduled_date ?? $a->appointment_date)->first();
     }
 
     private function humanizeSmsSkipReason(?string $code): string

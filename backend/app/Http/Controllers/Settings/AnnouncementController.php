@@ -100,11 +100,10 @@ class AnnouncementController extends Controller implements HasMiddleware
         if ($item->is_published && ($item->wasRecentlyCreated || $item->wasChanged('is_published'))) {
             $fcmService = app(\App\Services\Messaging\FcmService::class);
             \App\Models\PatientAccount::where('is_active', true)
-                ->whereHas('patients', fn ($q) => $q->where('clinic_id', $item->clinic_id))
-                ->limit(50)
-                ->get()
+                ->whereHas('patients', fn ($q) => $q->where('clinic_id', $item->clinic_id)->where('patient_account_patient.status', 'verified'))
+                ->lazyById(100)
                 ->each(function ($acc) use ($item, $fcmService) {
-                    if ($fcmService->isAccountAllowed($acc->id)) {
+                    if ($fcmService->isAccountAllowed($acc->id) && $acc->allowsNotificationCategory('announcement')) {
                         \App\Jobs\SendFcmPushNotification::dispatch(
                             patientAccountId: (int) $acc->id,
                             title: 'Clinic Announcement',
@@ -113,7 +112,8 @@ class AnnouncementController extends Controller implements HasMiddleware
                                 'category'        => 'announcement',
                                 'route'           => '/notifications',
                                 'announcement_id' => (string) $item->id,
-                            ]
+                            ],
+                            idempotencyKey: hash('sha256', 'announcement|'.$acc->id.'|'.$item->id.'|'.\App\Services\Messaging\FcmNotificationPolicy::snapshot($acc->id, ['category' => 'announcement', 'announcement_id' => $item->id]))
                         );
                     }
                 });

@@ -5,7 +5,6 @@ namespace App\Listeners;
 use App\Events\AppointmentStatusChanged;
 use App\Jobs\SendFcmPushNotification;
 use App\Models\Appointment;
-use App\Models\PatientAccount;
 use Illuminate\Support\Facades\Log;
 
 class SendAppointmentFcmNotification
@@ -22,28 +21,21 @@ class SendAppointmentFcmNotification
             return;
         }
 
-        // Resolve target patient account
-        $account = null;
-        if ($event->patientAccountId !== null && $event->patientAccountId > 0) {
-            $account = PatientAccount::find($event->patientAccountId);
+        $appointment = Appointment::with('patient.accounts')->find($event->appointmentId);
+        if (!$appointment || !$appointment->patient || $appointment->clinic_id != $event->clinicId
+            || $appointment->status !== $event->status
+            || ($event->appointmentDate !== null && $event->appointmentDate !== $appointment->appointment_date?->format('Y-m-d'))
+            || ($event->appointmentTime !== null && $event->appointmentTime !== $appointment->appointment_time?->format('H:i'))) {
+            return;
         }
-
-        if (!$account) {
-            $appointment = Appointment::with(['patient.accounts', 'bookedByAccount'])->find($event->appointmentId);
-            if (!$appointment) {
-                return;
-            }
-
-            if ($appointment->booked_by_account_id) {
-                $account = $appointment->bookedByAccount;
-            } elseif ($appointment->patient && $appointment->patient->accounts->isNotEmpty()) {
-                // Prioritize verified or primary relationship to prevent cross-account delivery
-                $account = $appointment->patient->accounts->first(fn ($a) =>
-                    $a->is_active && ($a->pivot?->status === 'verified' || $a->pivot?->is_primary)
-                );
-                $account ??= $appointment->patient->accounts->first(fn ($a) => $a->is_active);
-            }
-        }
+        $eligible = $appointment->patient->accounts->filter(fn ($a) => $a->is_active);
+        $targetId = $event->patientAccountId ?? $appointment->booked_by_account_id;
+        // An explicit unauthorized recipient must not be substituted with another account.
+        $verified = $eligible->filter(fn ($a) => $a->pivot?->status === 'verified');
+        // Explicit recipients are subsequently checked by FcmNotificationPolicy, including
+        // the narrowly scoped booking-owner exception. Fallback remains verified-only.
+        $account = $targetId ? $eligible->firstWhere('id', $targetId)
+            : ($verified->first(fn ($a) => $a->pivot->is_primary) ?? $verified->first());
 
         if (!$account || !$account->is_active) {
             Log::info("Appointment FCM skipped: No active authorized patient account found for appointment #{$event->appointmentId}.");
@@ -75,6 +67,11 @@ class SendAppointmentFcmNotification
             ],
         };
 
+        if (!\App\Services\Messaging\FcmNotificationPolicy::snapshot((int) $account->id, [
+            'category' => $notificationConfig['category'], 'appointment_id' => $event->appointmentId,
+        ])) {
+            return;
+        }
         SendFcmPushNotification::dispatch(
             patientAccountId: (int) $account->id,
             title: $notificationConfig['title'],
@@ -83,7 +80,11 @@ class SendAppointmentFcmNotification
                 'category'       => $notificationConfig['category'],
                 'route'          => '/appointments',
                 'appointment_id' => (string) $event->appointmentId,
-            ]
+            ],
+            idempotencyKey: hash('sha256', json_encode([
+                'appointment', $account->id, $event->appointmentId, $action, $event->timestamp,
+                $event->status, $event->appointmentDate, $event->appointmentTime, $event->doseNumber,
+            ], JSON_THROW_ON_ERROR))
         );
 
         Log::info("Enqueued FCM push notification for appointment #{$event->appointmentId} [Action: {$action}] to patient account #{$account->id}.");

@@ -147,16 +147,9 @@ export function AdvisoryReviewPanel({ refreshKey = 0 }: { refreshKey?: number })
     (action === 'schedule' && !scheduledFor) ||
     (['return', 'withdraw'].includes(action) && !reason.trim());
 
-  // Stay compact when no surveillance-originated advisory drafts exist.
+  // Hide completely when no surveillance-originated advisory drafts exist.
   if (!items.length && !error && page === 1) {
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.5, py: 0.75, my: 1, border: '1px dashed #cbd5e1', borderRadius: 1 }}>
-        <Typography variant="caption" color="text.secondary">
-          No surveillance advisory drafts pending review. Drafts created from verified Surveillance Insights will appear here for independent doctor approval.
-        </Typography>
-        <Button size="small" onClick={load} disabled={busy}>Refresh</Button>
-      </Box>
-    );
+    return null;
   }
 
   return (

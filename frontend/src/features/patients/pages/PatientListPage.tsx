@@ -28,6 +28,7 @@ import {
   AlertCircleIcon,
   CheckmarkCircle02Icon,
   UserMultiple02Icon,
+  CancelCircleIcon,
 } from '@hugeicons/core-free-icons';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -112,7 +113,6 @@ export default function PatientList() {
   const { clinic: authClinic, user: authUser } = useAuth();
   const { echo, isConnected } = useEcho();
   const [invitingPatientId, setInvitingPatientId] = useState<number | null>(null);
-  const [reassessConfirmPatient, setReassessConfirmPatient] = useState<Patient | null>(null);
   const [toast, setToast] = useState<{
     open: boolean;
     message: string;
@@ -222,10 +222,18 @@ export default function PatientList() {
     if (!isMobileOrAccount) return false;
 
     const appointments: any[] = (p as any).appointments || [];
-    if (appointments.length > 0) return false;
+    const hasNonCancelledAppointment = appointments.some((appt: any) => appt.status !== 'cancelled');
+    if (hasNonCancelledAppointment) return false;
 
     const biteIntakes: any[] = (p as any).bite_intakes || (p as any).biteIntakes || [];
-    if (biteIntakes.length > 0) return false;
+    const hasNonCancelledIntake = biteIntakes.some((intake: any) => {
+      if (intake.appointment_id) {
+        const linkedAppt = appointments.find((appt: any) => appt.appointment_id === intake.appointment_id);
+        if (linkedAppt && linkedAppt.status === 'cancelled') return false;
+      }
+      return true;
+    });
+    if (hasNonCancelledIntake) return false;
 
     const biteIncidents: any[] = (p as any).bite_incidents || (p as any).biteIncidents || [];
     if (biteIncidents.length > 0) return false;
@@ -1122,6 +1130,12 @@ export default function PatientList() {
     );
     const hasTriage = Boolean(hasConfirmedIncident || hasCompletedConsultation || (record && record.dose_number !== null && record.dose_number !== undefined));
     if (!hasTriage) {
+      const latestAppt = [...appts].sort(
+        (a, b) => Number(b.appointment_id ?? b.id ?? 0) - Number(a.appointment_id ?? a.id ?? 0)
+      )[0];
+      if (latestAppt && String(latestAppt.status || '').toLowerCase() === 'cancelled') {
+        return { label: 'Appointment Cancelled', icon: CancelCircleIcon, bg: '#fee2e2', color: '#b91c1c' };
+      }
       if (isPreRegisteredOnly(p) || p.registration_source === 'mobile' || Boolean((p as any).accounts?.length) || Boolean((p as any).is_online_registration)) {
         return { label: 'Pre-Registered (Awaiting Intake)', icon: UserMultiple02Icon, bg: '#fef3c7', color: '#92400e' };
       }
@@ -1698,7 +1712,7 @@ export default function PatientList() {
                                 handleOpenReassessmentCheckIn(patient, 'checkin');
                               }
                             }}
-                            onReassess={(patient) => setReassessConfirmPatient(patient)}
+                            onReassess={(patient) => handleOpenReassessmentCheckIn(patient, 'reassess')}
                             onNurseCheckIn={handleNurseCheckIn}
                             onNewExposure={(patient) => {
                               setSelectedViewPatient(patient);
@@ -2029,54 +2043,6 @@ export default function PatientList() {
           onConfirm={() => setSuccessModal(null)}
         />
       )}
-
-      {/* ── Reassess Confirmation Dialog ── */}
-      <Dialog
-        open={Boolean(reassessConfirmPatient)}
-        onClose={() => setReassessConfirmPatient(null)}
-        maxWidth="xs"
-        fullWidth
-        slotProps={{
-          paper: { sx: { borderRadius: '12px', p: 1 } },
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 600, fontSize: '16px', pb: 1 }}>
-          Physician Reassessment
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ color: '#374151' }}>
-            This patient has an unfinished prior visit. Send to the doctor for reassessment?
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, pt: 1, gap: 1 }}>
-          <Button
-            variant="outlined"
-            onClick={() => setReassessConfirmPatient(null)}
-            sx={{ textTransform: 'none', borderRadius: '8px' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              const target = reassessConfirmPatient;
-              setReassessConfirmPatient(null);
-              if (target) {
-                handleOpenReassessmentCheckIn(target);
-              }
-            }}
-            sx={{
-              backgroundColor: '#d97706',
-              '&:hover': { backgroundColor: '#b45309' },
-              textTransform: 'none',
-              borderRadius: '8px',
-              fontWeight: 600,
-            }}
-          >
-            Send
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* ── Global Toast / Snackbar ── */}
       <Snackbar

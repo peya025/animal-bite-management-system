@@ -629,7 +629,7 @@ class VaccinationRecordService
                 $fcmService = app(\App\Services\Messaging\FcmService::class);
                 foreach ($patientObj->accounts as $acc) {
                     $accId = (int) ($acc->patient_account_id ?? $acc->id);
-                    if ($fcmService->isAccountAllowed($accId)) {
+                    if ($fcmService->isAccountAllowed($accId) && $acc->pivot?->status === 'verified' && $acc->allowsNotificationCategory('digital_card')) {
                         SendFcmPushNotification::dispatch(
                             patientAccountId: $accId,
                             title: 'Vaccination Card Updated',
@@ -638,7 +638,8 @@ class VaccinationRecordService
                                 'category'   => 'digital_card',
                                 'route'      => '/menu',
                                 'patient_id' => (string) $patientId,
-                            ]
+                            ],
+                            idempotencyKey: hash('sha256', 'digital_card|'.$accId.'|'.$patientId.'|'.\App\Services\Messaging\FcmNotificationPolicy::snapshot($accId, ['category' => 'digital_card', 'patient_id' => $patientId]))
                         );
                     } else {
                         Log::info("Digital vaccination card FCM skipped: Patient account #{$accId} is not in the automatic FCM allowlist.");
@@ -847,7 +848,7 @@ class VaccinationRecordService
                     ]);
                     Cache::forget("mobile:notifications:account:{$accId}:page:1");
 
-                    if (app(\App\Services\Messaging\FcmService::class)->isAccountAllowed($accId)) {
+                    if (app(\App\Services\Messaging\FcmService::class)->isAccountAllowed($accId) && $account->pivot?->status === 'verified' && $account->allowsNotificationCategory('vaccination_schedule')) {
                         SendFcmPushNotification::dispatch(
                             patientAccountId: (int) $accId,
                             title: 'Vaccination Reminder',
@@ -856,7 +857,8 @@ class VaccinationRecordService
                                 'category'       => 'vaccination_schedule',
                                 'route'          => '/calendar',
                                 'appointment_id' => (string) $appt->appointment_id,
-                            ]
+                            ],
+                            idempotencyKey: hash('sha256', 'vaccination_schedule|'.$accId.'|'.$appt->appointment_id)
                         );
                     } else {
                         Log::info("Follow-up appointment FCM skipped: Patient account #{$accId} is not in the automatic FCM allowlist.");

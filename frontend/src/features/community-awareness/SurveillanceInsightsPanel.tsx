@@ -9,7 +9,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   MenuItem,
   Paper,
   TextField,
@@ -19,10 +18,8 @@ import {
   CheckCircleOutlined,
   ExpandLess,
   ExpandMore,
-  FactCheckOutlined,
-  InfoOutlined,
   PlayArrowRounded,
-  RefreshRounded,
+  VisibilityOutlined,
 } from '@mui/icons-material';
 import api from '../../services/api';
 import { AdvisoryPatientPreview, type AdvisoryType } from './AdvisoryPatientPreview';
@@ -72,7 +69,7 @@ const defaultExpiry = () => new Date(Date.now() + 7 * 86400000).toISOString().sl
 const STATE_LABELS: Record<string, string> = {
   new: 'Needs review',
   in_review: 'In review',
-  verified: 'Verified',
+  verified: 'Ready to post',
   dismissed: 'Dismissed',
   resolved: 'Resolved',
 };
@@ -145,7 +142,7 @@ export function SurveillanceInsightsPanel({ onDraftCreated }: { onDraftCreated?:
     try {
       await api.post('/reports/surveillance/evaluate');
       setReload(v => v + 1);
-      setNotice('Completed 7-day bite case check updated.');
+      setNotice('Checked the last 7 days of bite records.');
     } catch (err) {
       failure(err);
     } finally {
@@ -156,10 +153,17 @@ export function SurveillanceInsightsPanel({ onDraftCreated }: { onDraftCreated?:
   const choose = (item: Signal, next: string) => {
     setSelected(item);
     setAction(next);
-    setReason('');
     setExpiry(defaultExpiry());
     setDraftType('community_awareness');
-    setDraftTitle('Community Bite Safety Update');
+    if (next === 'draft') {
+      setDraftTitle(`Community Bite Safety Update — ${item.municipality}`);
+      setReason(
+        `The clinic has shared a bite-prevention reminder for the ${item.municipality} community. If bitten or scratched by an animal, wash the wound immediately with soap and running water for at least 15 minutes and visit the clinic for assessment.`
+      );
+    } else {
+      setDraftTitle('Community Bite Safety Update');
+      setReason('');
+    }
     setSourceAuthority('');
     setSourceReference('');
     setSourceIssuedOn('');
@@ -189,14 +193,14 @@ export function SurveillanceInsightsPanel({ onDraftCreated }: { onDraftCreated?:
             : {}),
         });
         onDraftCreated?.();
-        setNotice('Private advisory draft created and sent to the review queue below.');
+        setNotice('Draft saved — submit it for doctor approval in the review queue below.');
       } else {
         await api.post(`/reports/surveillance/signals/${selected.id}/reviews`, {
           version: selected.version,
           action,
           reason,
         });
-        setNotice('Signal review status updated.');
+        setNotice(action === 'verify' ? 'Cases verified! You can now click Review & draft post.' : 'Signal updated.');
       }
       setSelected(null);
       setReload(v => v + 1);
@@ -233,57 +237,38 @@ export function SurveillanceInsightsPanel({ onDraftCreated }: { onDraftCreated?:
       (isOfficialDraft && (!sourceAuthority.trim() || !sourceReference.trim() || !sourceIssuedOn || !sourceGeoNote.trim())));
 
   return (
-    <Paper
-      variant="outlined"
-      sx={{ p: { xs: 2, md: 2.5 }, my: 2, borderRadius: 2.5, borderColor: '#e2e8f0', bgcolor: '#ffffff' }}
-      aria-label="Surveillance Insights"
-    >
-      {/* Header & Plain-Language Purpose */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-        <Box sx={{ maxWidth: 740 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <FactCheckOutlined sx={{ color: '#0f766e', fontSize: 22 }} />
-            <Typography variant="h6" sx={{ fontWeight: 700, color: '#0f172a', fontSize: '1.05rem' }}>
-              Surveillance Insights
-            </Typography>
-            <Chip size="small" label="Internal staff review" sx={{ bgcolor: '#f1f5f9', color: '#334155', fontWeight: 600 }} />
-          </Box>
-          <Typography variant="body2" sx={{ color: '#475569', mt: 0.5 }}>
-            Checks the last 7 completed days of bite cases for unusual clusters in any barangay so staff can verify records before deciding whether to draft a community safety advisory.
+    <Box sx={{ my: 2 }} aria-label="Surveillance Insights">
+      {/* Clean, minimal top bar */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: '#0f172a', fontSize: '1.1rem' }}>
+            Suggested Mobile Advisories
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#64748b' }}>
+            Review flagged 7-day bite activity below before sharing a safety update to the mobile app.
           </Typography>
         </Box>
 
-        {/* Primary Controls */}
         {data && (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             <TextField
               select
               size="small"
-              label="Review state"
+              label="Filter"
               value={filter}
               onChange={e => {
                 setFilter(e.target.value);
                 setPage(1);
               }}
-              sx={{ minWidth: 160 }}
+              sx={{ minWidth: 145, bgcolor: '#fff' }}
             >
-              <MenuItem value="">All states</MenuItem>
+              <MenuItem value="">All</MenuItem>
               {['new', 'in_review', 'verified', 'dismissed', 'resolved'].map(state => (
                 <MenuItem key={state} value={state}>
                   {STATE_LABELS[state] ?? state}
                 </MenuItem>
               ))}
             </TextField>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<RefreshRounded />}
-              onClick={() => setReload(v => v + 1)}
-              disabled={busy}
-              sx={{ textTransform: 'none', borderColor: '#cbd5e1', color: '#334155' }}
-            >
-              Refresh signals
-            </Button>
             {data.can_review && (
               <Button
                 size="small"
@@ -300,300 +285,147 @@ export function SurveillanceInsightsPanel({ onDraftCreated }: { onDraftCreated?:
         )}
       </Box>
 
-      {/* Simple 3-step workflow guide for new users */}
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 1.5,
-          flexWrap: 'wrap',
-          mt: 1.5,
-          mb: 2,
-          px: 1.5,
-          py: 1,
-          borderRadius: 1.5,
-          bgcolor: '#f8fafc',
-          border: '1px solid #e2e8f0',
-        }}
-      >
-        <Typography variant="caption" sx={{ color: '#334155' }}>
-          <strong>How it works:</strong> 1. Daily check flags barangays with 3+ cases (or 2+ Cat III) in 7 days → 2. Staff inspects records & verifies data → 3. If needed, draft an advisory for independent doctor approval.
-        </Typography>
-      </Box>
-
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+        <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setError('')}>
           {error}
         </Alert>
       )}
       {notice && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>
+        <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setNotice('')}>
           {notice}
         </Alert>
       )}
 
       {!data && !error && (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-          Loading surveillance insights…
+        <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
+          Checking recent bite activity…
         </Typography>
       )}
 
       {data && (
         <>
-          {!data.latest_run ? (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              No completed analysis is available yet. Click <strong>Analyze completed days</strong> to run the first check.
-            </Alert>
-          ) : (
-            <>
-              {data.latest_run.stale && (
-                <Alert severity="warning" sx={{ mb: 1.5 }}>
-                  Analysis is stale. Click <strong>Analyze completed days</strong> before making a decision.
-                </Alert>
-              )}
-
-              {/* Compact 3-metric summary strip */}
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
-                  gap: 1.5,
-                  mb: 1.5,
-                }}
-              >
-                <Box sx={{ p: 1.5, borderRadius: 1.5, border: '1px solid #e2e8f0', bgcolor: '#fcfcfd' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                    7-DAY CHECK WINDOW
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#0f172a', mt: 0.25 }}>
-                    {summary?.period.start} to {summary?.period.end}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Updated {new Date(data.latest_run.created_at).toLocaleString()}
-                  </Typography>
-                </Box>
-
-                <Box sx={{ p: 1.5, borderRadius: 1.5, border: '1px solid #e2e8f0', bgcolor: '#fcfcfd' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                    AREAS FLAGGED IN THIS VIEW
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#0f172a', mt: 0.25 }}>
-                    {data.signals.data.length} {data.signals.data.length === 1 ? 'area' : 'areas'}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Reviewing a signal never publishes publicly
-                  </Typography>
-                </Box>
-
-                <Box sx={{ p: 1.5, borderRadius: 1.5, border: '1px solid #e2e8f0', bgcolor: '#fcfcfd' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                      DATA QUALITY & RULES
-                    </Typography>
-                    <Button
-                      size="small"
-                      endIcon={showDetails ? <ExpandLess /> : <ExpandMore />}
-                      onClick={() => setShowDetails(v => !v)}
-                      sx={{ textTransform: 'none', minWidth: 0, py: 0, fontSize: '0.75rem' }}
-                    >
-                      {showDetails ? 'Hide' : 'Details'}
-                    </Button>
-                  </Box>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#0f172a', mt: 0.25 }}>
-                    {totalExcluded} excluded {totalExcluded === 1 ? 'record' : 'records'}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Unknown location:{' '}
-                    {summary?.unknown_location_pct == null ? 'Not available' : `${summary.unknown_location_pct}%`}
-                  </Typography>
-                </Box>
-              </Box>
-
-              {/* Important quality/data warnings stay visible when triggered */}
-              {!summary?.baseline_adequate && (
-                <Alert icon={<InfoOutlined fontSize="small" />} severity="info" sx={{ mb: 1.5, py: 0.25 }}>
-                  Baseline coverage or location/date quality is incomplete. Ratio-based review is suppressed (absolute count rules still apply).
-                </Alert>
-              )}
-              {!!summary?.possible_duplicate_groups && (
-                <Alert severity="warning" sx={{ mb: 1.5, py: 0.25 }}>
-                  {summary.possible_duplicate_groups} possible repeat-record groups need review. Separate exposures are not automatically merged.
-                </Alert>
-              )}
-              {summary?.suspicious_count_change && (
-                <Alert severity="warning" sx={{ mb: 1.5, py: 0.25 }}>
-                  Recorded volume changed by at least 3 since the previous run. Check imports, corrections and reporting coverage before interpreting the change.
-                </Alert>
-              )}
-
-              {/* Collapsible technical breakdown (keeps UI clean while preserving full transparency) */}
-              <Collapse in={showDetails}>
-                <Box
-                  sx={{
-                    p: 1.5,
-                    mb: 2,
-                    borderRadius: 1.5,
-                    bgcolor: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    display: 'grid',
-                    gap: 0.75,
-                  }}
-                >
-                  <Typography variant="caption" color="text.secondary">
-                    <strong>Comparison baseline:</strong> {summary?.period.baseline_start} to {summary?.period.baseline_end} (completed Manila days).
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    <strong>Review thresholds:</strong> 3 recorded incidents or 2 finalized Category III exposures in 7 days; otherwise at least 2 incidents and 2× the preceding 30-day weekly average when baseline coverage is confirmed.
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    <strong>Excluded records breakdown:</strong>{' '}
-                    {Object.entries(summary?.exclusions ?? {})
-                      .map(([key, count]) => `${key.replaceAll('_', ' ')}: ${count}`)
-                      .join(' · ')}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    <strong>Note:</strong> Facility-recorded bite reports only — not an outbreak declaration or rabies diagnosis.
-                  </Typography>
-                </Box>
-              </Collapse>
-            </>
-          )}
-
-          {/* Signal list or calm empty state */}
+          {/* Memory-style cards right up front */}
           {!data.signals.data.length ? (
-            <Box
+            <Paper
+              variant="outlined"
               sx={{
                 textAlign: 'center',
-                py: 4,
-                px: 2,
-                borderRadius: 2,
-                border: '1px dashed #cbd5e1',
-                bgcolor: '#f8fafc',
+                py: 5,
+                px: 3,
+                borderRadius: 3,
+                borderColor: '#e2e8f0',
+                bgcolor: '#ffffff',
               }}
             >
-              <CheckCircleOutlined sx={{ color: '#64748b', fontSize: 32, mb: 0.75 }} />
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1e293b' }}>
+              <CheckCircleOutlined sx={{ color: '#0f766e', fontSize: 36, mb: 1 }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0f172a' }}>
                 No review signals match this view.
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                This is not a statement of community safety. New signals appear automatically whenever 7-day bite records cross review thresholds.
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 460, mx: 'auto' }}>
+                When a barangay records 3 or more bite cases in 7 days, a ready-to-review card will appear here so you can check the records and post a calm safety update to mobile. This is not a statement of community safety.
               </Typography>
-            </Box>
+            </Paper>
           ) : (
-            <Box sx={{ display: 'grid', gap: 1.5 }}>
-              {data.signals.data.map(item => (
-                <Paper
-                  key={item.id}
-                  variant="outlined"
-                  sx={{ p: 2, borderRadius: 2, borderColor: '#cbd5e1', bgcolor: '#ffffff' }}
-                >
-                  <Box
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' }, gap: 2 }}>
+              {data.signals.data.map(item => {
+                const isVerified = item.state === 'verified';
+                return (
+                  <Paper
+                    key={item.id}
+                    variant="outlined"
                     sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      gap: 1,
-                      flexWrap: 'wrap',
+                      borderRadius: 3,
+                      overflow: 'hidden',
+                      borderColor: isVerified ? '#99f6e4' : '#e2e8f0',
+                      bgcolor: '#ffffff',
+                      boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)',
                     }}
                   >
-                    <Box>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0f172a' }}>
-                        {item.barangay}, {item.municipality}, {item.province}
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: '#334155', mt: 0.25 }}>
-                        <strong>{item.metrics.current_count}</strong> unique incidents in 7 days ·{' '}
-                        <strong>{item.metrics.baseline_count}</strong> in preceding 30 days · Ratio:{' '}
-                        {item.metrics.ratio == null ? 'Unavailable' : `${item.metrics.ratio.toFixed(2)}× weekly baseline`}{' '}
-                        · Awaiting assessment: {item.metrics.awaiting_assessment}
-                      </Typography>
-                      {!item.metrics.priority && (
-                        <Typography variant="caption" color="text.secondary">
-                          Currently below review threshold; retained for review history.
+                    {/* Soft "Memories-style" highlight banner */}
+                    <Box
+                      sx={{
+                        px: 2.5,
+                        py: 2,
+                        background: isVerified
+                          ? 'linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 100%)'
+                          : 'linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)',
+                        borderBottom: '1px solid #e2e8f0',
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#0f172a', fontSize: '1.02rem', lineHeight: 1.3 }}>
+                          Higher bite reports in {item.barangay}, {item.municipality}
                         </Typography>
-                      )}
+                        <Chip
+                          size="small"
+                          color={STATE_COLORS[item.state] ?? 'default'}
+                          label={STATE_LABELS[item.state] ?? item.state.replaceAll('_', ' ')}
+                        />
+                      </Box>
+                      <Typography variant="caption" sx={{ color: '#475569', display: 'block', mt: 0.5 }}>
+                        {item.barangay}, {item.municipality}, {item.province} ·{' '}
+                        <strong>{item.metrics.current_count} cases</strong> in the last 7 days
+                        {item.metrics.baseline_count > 0 ? ` (vs ${item.metrics.baseline_count} in prior 30 days)` : ''}
+                      </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                      <Chip
-                        size="small"
-                        color={item.priority === 'priority_review' ? 'warning' : 'info'}
-                        variant="outlined"
-                        label={item.priority === 'priority_review' ? 'Priority review' : 'Trend for review'}
-                      />
-                      <Chip
-                        size="small"
-                        color={STATE_COLORS[item.state] ?? 'default'}
-                        label={`${STATE_LABELS[item.state] ?? item.state.replaceAll('_', ' ')} · Rev ${item.version}`}
-                      />
-                    </Box>
-                  </Box>
 
-                  <Divider sx={{ my: 1.5 }} />
+                    {/* Quick post-preview teaser */}
+                    <Box sx={{ px: 2.5, py: 2 }}>
+                      <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', mb: 2 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#334155', display: 'block' }}>
+                          Suggested mobile safety post
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: '#475569', fontSize: '0.82rem', mt: 0.25 }}>
+                          “Community Bite Safety Update — {item.municipality}: Wash any animal bite wound immediately with soap and running water and visit the clinic for assessment.”
+                        </Typography>
+                      </Box>
 
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() =>
-                        showDetail(`/reports/surveillance/signals/${item.id}/evidence`, 'Current-window incident evidence')
-                      }
-                      sx={{ textTransform: 'none' }}
-                    >
-                      Review incident evidence
-                    </Button>
-                    <Button
-                      size="small"
-                      onClick={() => showDetail(`/reports/surveillance/signals/${item.id}/history`, 'Signal review history')}
-                      sx={{ textTransform: 'none' }}
-                    >
-                      History
-                    </Button>
-                    {data.can_review && (
-                      <>
-                        {['new', 'in_review', 'verified'].includes(item.state) && (
-                          <Button size="small" onClick={() => choose(item, 'assign')} sx={{ textTransform: 'none' }}>
-                            Assign to me
-                          </Button>
-                        )}
-                        {['new', 'in_review'].includes(item.state) && (
-                          <>
+                      {/* Simple Facebook-style action row */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          {data.can_review && ['new', 'in_review'].includes(item.state) && (
                             <Button
                               size="small"
                               variant="contained"
                               onClick={() => choose(item, 'verify')}
-                              sx={{ textTransform: 'none', bgcolor: '#0f766e', '&:hover': { bgcolor: '#115e59' } }}
+                              sx={{ textTransform: 'none', borderRadius: 2, bgcolor: '#0f766e', '&:hover': { bgcolor: '#115e59' } }}
                             >
                               Verify data
                             </Button>
+                          )}
+                          {data.can_review && isVerified && (
                             <Button
                               size="small"
-                              color="inherit"
-                              onClick={() => choose(item, 'dismiss')}
-                              sx={{ textTransform: 'none' }}
+                              variant="contained"
+                              onClick={() => choose(item, 'draft')}
+                              sx={{ textTransform: 'none', borderRadius: 2, bgcolor: '#0f766e', '&:hover': { bgcolor: '#115e59' } }}
                             >
-                              Dismiss
+                              Review &amp; draft post
                             </Button>
-                          </>
-                        )}
-                        {['verified', 'dismissed', 'resolved'].includes(item.state) && (
-                          <Button size="small" onClick={() => choose(item, 'reopen')} sx={{ textTransform: 'none' }}>
-                            Reopen review
-                          </Button>
-                        )}
-                        {item.state === 'verified' && (
+                          )}
                           <Button
                             size="small"
-                            variant="contained"
-                            color="primary"
-                            onClick={() => choose(item, 'draft')}
-                            sx={{ textTransform: 'none' }}
+                            variant="outlined"
+                            startIcon={<VisibilityOutlined sx={{ fontSize: 16 }} />}
+                            onClick={() =>
+                              showDetail(`/reports/surveillance/signals/${item.id}/evidence`, 'Current-window incident evidence')
+                            }
+                            sx={{ textTransform: 'none', borderRadius: 2, borderColor: '#cbd5e1', color: '#334155' }}
                           >
-                            Create private awareness draft
+                            Review incident evidence
+                          </Button>
+                        </Box>
+
+                        {data.can_review && ['new', 'in_review'].includes(item.state) && (
+                          <Button size="small" color="inherit" onClick={() => choose(item, 'dismiss')} sx={{ textTransform: 'none', color: '#64748b' }}>
+                            Dismiss
                           </Button>
                         )}
-                      </>
-                    )}
-                  </Box>
-                </Paper>
-              ))}
+                      </Box>
+                    </Box>
+                  </Paper>
+                );
+              })}
             </Box>
           )}
 
@@ -607,12 +439,49 @@ export function SurveillanceInsightsPanel({ onDraftCreated }: { onDraftCreated?:
               </Button>
             </Box>
           )}
+
+          {/* Quiet footer for technical details & data-quality notes (out of the way!) */}
+          {data.latest_run && (
+            <Box sx={{ mt: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Last checked {summary?.period.start} to {summary?.period.end} · {totalExcluded} excluded records
+                  {!summary?.baseline_adequate && ' · Ratio-based review is suppressed (incomplete baseline)'}
+                  {!!summary?.possible_duplicate_groups && ` · ${summary.possible_duplicate_groups} possible repeat-record groups`}
+                  {data.latest_run.stale && ' · Stale — click Analyze completed days'}
+                </Typography>
+                <Button
+                  size="small"
+                  endIcon={showDetails ? <ExpandLess /> : <ExpandMore />}
+                  onClick={() => setShowDetails(v => !v)}
+                  sx={{ textTransform: 'none', fontSize: '0.75rem', color: '#64748b', minWidth: 0, py: 0 }}
+                >
+                  {showDetails ? 'Hide details' : 'Details'}
+                </Button>
+              </Box>
+              <Collapse in={showDetails}>
+                <Box sx={{ mt: 1, p: 1.5, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', display: 'grid', gap: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    <strong>Updated:</strong> {new Date(data.latest_run.created_at).toLocaleString()} ·{' '}
+                    <strong>Baseline:</strong> {summary?.period.baseline_start} to {summary?.period.baseline_end}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    <strong>Exclusions:</strong>{' '}
+                    {Object.entries(summary?.exclusions ?? {})
+                      .map(([key, count]) => `${key.replaceAll('_', ' ')}: ${count}`)
+                      .join(' · ')}{' '}
+                    · Unknown location: {summary?.unknown_location_pct == null ? 'Not available' : `${summary.unknown_location_pct}%`}
+                  </Typography>
+                </Box>
+              </Collapse>
+            </Box>
+          )}
         </>
       )}
 
       {/* Action / Draft Dialog */}
       <Dialog open={!!selected} onClose={() => !busy && setSelected(null)} fullWidth maxWidth="sm">
-        <DialogTitle>{action === 'draft' ? 'Create a private awareness draft' : `Confirm ${action}`}</DialogTitle>
+        <DialogTitle>{action === 'draft' ? 'Review & draft mobile post' : `Confirm ${action}`}</DialogTitle>
         <DialogContent>
           {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
           <Typography variant="body2" sx={{ mb: 1 }}>
@@ -715,7 +584,7 @@ export function SurveillanceInsightsPanel({ onDraftCreated }: { onDraftCreated?:
                 }}
               />
               <Typography variant="caption" color="text.secondary">
-                The draft requires independent doctor approval. It will not publish or send notifications.
+                Requires independent doctor approval before publishing to the mobile app.
               </Typography>
             </>
           )}
@@ -758,6 +627,6 @@ export function SurveillanceInsightsPanel({ onDraftCreated }: { onDraftCreated?:
           <Button onClick={() => setDetail(null)}>Close</Button>
         </DialogActions>
       </Dialog>
-    </Paper>
+    </Box>
   );
 }

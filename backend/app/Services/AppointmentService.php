@@ -35,7 +35,10 @@ class AppointmentService
 
     public function isScheduledFollowUp(?Appointment $appointment): bool
     {
-        return $appointment !== null && (int) ($appointment->dose_number ?? 0) > 0;
+        return $appointment !== null
+            && (int) ($appointment->dose_number ?? 0) > 0
+            && !$this->isBoosterAppointment($appointment)
+            && !$this->isConsultationAppointment($appointment);
     }
 
     public function isMobileBiteConsultation(?Appointment $appointment): bool
@@ -44,6 +47,73 @@ class AppointmentService
             && $appointment->booked_by_account_id !== null
             && $appointment->appointment_type === 'consultation'
             && $appointment->biteIntake()->exists();
+    }
+
+    public function isConsultationAppointment(?Appointment $appointment): bool
+    {
+        if ($appointment === null) {
+            return false;
+        }
+
+        return $appointment->appointment_type === 'consultation'
+            || str_contains(strtolower($appointment->notes ?? ''), 'consultation')
+            || $this->isMobileBiteConsultation($appointment)
+            || $appointment->biteIntake()->where('status', 'pending')->exists();
+    }
+
+    public function isFutureScheduledAppointment(?Appointment $appointment, ?string $todayDate = null): bool
+    {
+        if ($appointment === null) {
+            return false;
+        }
+
+        $rawDate = $appointment->scheduled_date ?? $appointment->appointment_date;
+        if (!$rawDate) {
+            return false;
+        }
+
+        $today = $todayDate ?: Carbon::today()->toDateString();
+
+        return Carbon::parse($rawDate)->toDateString() > $today;
+    }
+
+    /**
+     * Scope a query to Station 2 follow-up dose appointments, excluding consultations,
+     * pending mobile bite intakes, and (unless requested) booster requests.
+     */
+    public function scopeFollowUpAppointments($appointmentQuery, bool $includeBoosters = false): void
+    {
+        if ($includeBoosters) {
+            $appointmentQuery->where(fn($q) =>
+                $q->where('dose_number', '>=', 90)
+                  ->orWhere('appointment_type', 'booster')
+                  ->orWhere('notes', 'like', '%booster%')
+            );
+        } else {
+            $appointmentQuery->where('dose_number', '>', 0)
+                ->where(fn($stream) =>
+                    $stream->whereNull('appointment_type')
+                           ->orWhereNotIn('appointment_type', ['consultation', 'booster'])
+                )
+                ->where(fn($stream) =>
+                    $stream->whereNull('notes')
+                           ->orWhere(fn($note) =>
+                               $note->where('notes', 'not like', '%booster%')
+                                    ->where('notes', 'not like', '%consultation%')
+                           )
+                )
+                ->whereDoesntHave('biteIntake', fn($intake) =>
+                    $intake->where('status', 'pending')
+                );
+        }
+
+        $appointmentQuery->where(fn($plan) =>
+            $plan->whereDoesntHave('biteIncident.treatmentPlan')
+                 ->orWhereHas('biteIncident.treatmentPlan', fn($tp) =>
+                     $tp->whereIn('plan_type', ['full_pep', 'two_dose_booster', 'single_booster'])
+                        ->where('status', 'approved')
+                 )
+        );
     }
 
     // ── Bulk auto-complete ─────────────────────────────────────────────────
@@ -135,6 +205,16 @@ class AppointmentService
                 ], 422);
             }
 
+            // Guard: Prevent premature check-in of future scheduled follow-up doses
+            if ($this->isScheduledFollowUp($appointment) && $this->isFutureScheduledAppointment($appointment, $todayDate)) {
+                $scheduledStr = Carbon::parse($appointment->scheduled_date ?? $appointment->appointment_date)->format('M j, Y');
+                return response()->json([
+                    'success' => false,
+                    'code'    => 'appointment_not_yet_due',
+                    'message' => "Day {$appointment->dose_number} follow-up is scheduled for {$scheduledStr} and cannot be checked in before its scheduled date.",
+                ], 422);
+            }
+
             // Idempotency: patient already active in today's queue
             $activeStatuses  = ['waiting', 'called', 'serving', 'in_consultation', 'second_chance', 'final_recall'];
             $existingQueue   = Queue::where('clinic_id', $clinicId)
@@ -212,6 +292,7 @@ class AppointmentService
             $queue = Queue::create([
                 'clinic_id'      => $clinicId,
                 'patient_id'     => $patientId,
+                'appointment_id' => $appointment?->appointment_id,
                 'bite_id'        => $appointment?->bite_id,
                 'queue_number'   => $nextQueueNumber,
                 'queue_date'     => $todayDate,

@@ -1131,8 +1131,10 @@ export default function PatientList() {
     );
     const hasTriage = Boolean(hasConfirmedIncident || hasCompletedConsultation || (record && record.dose_number !== null && record.dose_number !== undefined));
     if (!hasTriage) {
-      const hasOnlyCancelledAppts = appts.length > 0 && appts.every(a => a.status === 'cancelled');
-      if (hasOnlyCancelledAppts) {
+      const latestAppt = [...appts].sort(
+        (a, b) => Number(b.appointment_id ?? b.id ?? 0) - Number(a.appointment_id ?? a.id ?? 0)
+      )[0];
+      if (latestAppt && String(latestAppt.status || '').toLowerCase() === 'cancelled') {
         return { label: 'Appointment Cancelled', icon: CancelCircleIcon, bg: '#fee2e2', color: '#b91c1c' };
       }
       if (isPreRegisteredOnly(p) || p.registration_source === 'mobile' || Boolean((p as any).accounts?.length) || Boolean((p as any).is_online_registration)) {

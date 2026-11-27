@@ -4,20 +4,18 @@ import { FormField } from '../FormField';
 
 interface NatureOfVisitSectionProps {
   natureOfVisit: string;
+  exposureCategory: 'I' | 'II' | 'III' | '';
   isFormDisabled: boolean;
-  isAutomaticallySet?: boolean;
-  error?: string;
-  onChange: (ev: React.ChangeEvent<HTMLInputElement>) => void;
-  onBlur: () => void;
+  exposureCategoryError?: string;
+  onExposureCategoryChange: (ev: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 export default function NatureOfVisitSection({
   natureOfVisit,
+  exposureCategory,
   isFormDisabled,
-  isAutomaticallySet = false,
-  error,
-  onChange,
-  onBlur,
+  exposureCategoryError,
+  onExposureCategoryChange,
 }: NatureOfVisitSectionProps) {
   return (
     <div className="fm-section">
@@ -27,50 +25,66 @@ export default function NatureOfVisitSection({
         <FormField
           id="field-nature_of_visit"
           label="Nature of Visit"
-          required
-          error={!!error}
-          errorText={error}
           className="fm-grid--full"
+          hint="Set by Registration Staff during patient registration (View-only for Doctor)"
         >
-          {isAutomaticallySet ? (
-            <div
-              role="status"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                width: 'fit-content',
-                padding: '8px 14px',
-                borderRadius: 8,
-                backgroundColor: 'var(--nav-item-active-bg, #ecfdf5)',
-                border: '1px solid var(--input-border, #a7f3d0)',
-                color: 'var(--text-h, #065f46)',
-                fontSize: 13,
-              }}
-            >
-              <strong>New Consultation</strong>
-              <span style={{ color: 'var(--nav-item-active-color, #047857)' }}>
-                Set automatically for this new or re-exposure episode.
-              </span>
-            </div>
-          ) : (
-            <div className="fm-radio-group">
-              {NATURE_OF_VISIT_OPTIONS.map((option) => (
-                <label key={option.value} className="fm-radio">
+          <div className="fm-radio-group" role="radiogroup" aria-label="Nature of Visit">
+            {NATURE_OF_VISIT_OPTIONS.map((option) => {
+              const isSelected = natureOfVisit === option.value;
+              return (
+                <label
+                  key={option.value}
+                  className="fm-radio"
+                  style={{
+                    cursor: 'default',
+                    opacity: isSelected ? 1 : 0.65,
+                  }}
+                >
                   <input
                     type="radio"
                     name="nature_of_visit"
                     value={option.value}
-                    checked={natureOfVisit === option.value}
-                    onChange={onChange}
-                    onBlur={onBlur}
-                    disabled={isFormDisabled}
+                    checked={isSelected}
+                    onChange={() => {}}
+                    disabled={true}
+                    readOnly={true}
+                    style={{ cursor: 'default' }}
                   />
-                  <span>{option.label}</span>
+                  <span style={{ fontWeight: isSelected ? 600 : 400 }}>{option.label}</span>
                 </label>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
+        </FormField>
+
+        <FormField
+          id="field-exposure_category"
+          label="Exposure Category"
+          required
+          error={!!exposureCategoryError}
+          errorText={exposureCategoryError}
+          className="fm-grid--full"
+        >
+          <div
+            role="radiogroup"
+            aria-label="Exposure Category"
+            aria-required="true"
+            className="fm-radio-group"
+          >
+            {(['I', 'II', 'III'] as const).map((category) => (
+              <label key={category} className="fm-radio">
+                <input
+                  type="radio"
+                  name="exposure_category"
+                  value={category}
+                  checked={exposureCategory === category}
+                  onChange={onExposureCategoryChange}
+                  disabled={isFormDisabled}
+                />
+                <span>Category {category}</span>
+              </label>
+            ))}
+          </div>
         </FormField>
       </div>
     </div>

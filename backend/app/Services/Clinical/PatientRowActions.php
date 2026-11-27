@@ -136,8 +136,8 @@ class PatientRowActions
                     : $patient->latestConsultationRecord()->first();
                 $hasCompletedConsultation = $latestConsultation && (
                     $latestConsultation->status === 'completed'
-                    || !empty($latestConsultation->nature_of_visit)
                     || !empty($latestConsultation->diagnosis)
+                    || !empty($latestConsultation->chief_complaints)
                 );
 
                 $hasConfirmedEpisode = $biteIncidents->contains(function ($bi) {

@@ -554,8 +554,8 @@ export default function PatientList() {
     const hasCompletedConsultation = Boolean(
       latestConsultation && (
         latestConsultation.status === 'completed' ||
-        Boolean(latestConsultation.nature_of_visit) ||
-        Boolean(latestConsultation.diagnosis)
+        Boolean(latestConsultation.diagnosis) ||
+        Boolean(latestConsultation.chief_complaints)
       )
     );
     const hasCompletedDoses = Boolean(
@@ -627,8 +627,8 @@ export default function PatientList() {
     const hasCompletedConsultation = Boolean(
       latestConsultation && (
         latestConsultation.status === 'completed' ||
-        Boolean(latestConsultation.nature_of_visit) ||
-        Boolean(latestConsultation.diagnosis)
+        Boolean(latestConsultation.diagnosis) ||
+        Boolean(latestConsultation.chief_complaints)
       )
     );
     if (hasCompletedConsultation) return false;
@@ -1116,9 +1116,9 @@ export default function PatientList() {
     );
     const hasCompletedConsultation = Boolean(
       (p as any).latest_consultation_record?.status === 'completed' ||
-      (p as any).latest_consultation_record?.nature_of_visit ||
       (p as any).latest_consultation_record?.diagnosis ||
-      (record && (record.status === 'completed' || record.nature_of_visit || record.diagnosis))
+      (p as any).latest_consultation_record?.chief_complaints ||
+      (record && (record.status === 'completed' || record.diagnosis || record.chief_complaints))
     );
     const hasTriage = Boolean(hasConfirmedIncident || hasCompletedConsultation || (record && record.dose_number !== null && record.dose_number !== undefined));
     if (!hasTriage) {

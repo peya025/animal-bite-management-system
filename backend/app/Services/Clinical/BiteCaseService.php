@@ -143,6 +143,9 @@ class BiteCaseService
             $modeOfTx = $rawInput['mode_of_transaction'] ?? ($rawInput['reg_mode_of_transaction'] ?? null);
             $validMode = in_array($modeOfTx, ['walk-in', 'visited', 'referral'], true) ? $modeOfTx : 'walk-in';
 
+            $natureOfVisit = $rawInput['nature_of_visit'] ?? ($rawInput['reg_nature_of_visit'] ?? null);
+            $validNatureOfVisit = in_array($natureOfVisit, ['new_consultation', 'new_admission', 'follow_up'], true) ? $natureOfVisit : null;
+
             $treatmentRecord = TreatmentRecord::create([
                 'clinic_id'           => $clinicId,
                 'patient_id'          => $validated['patient_id'],
@@ -156,6 +159,7 @@ class BiteCaseService
                 'temperature'         => $temperature,
                 'height'              => $height,
                 'weight'              => $weight,
+                'nature_of_visit'     => $validNatureOfVisit,
                 'attending_provider'  => $attendingProvider,
                 'referred_by'         => $referredBy,
                 'mode_of_transaction' => $validMode,

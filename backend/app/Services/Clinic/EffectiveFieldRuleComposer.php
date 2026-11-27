@@ -295,6 +295,8 @@ class EffectiveFieldRuleComposer
         // Additional registration / vitals fields
         $rules['mode_of_transaction'] = 'nullable|in:walk-in,visited,referral,online';
         $rules['reg_mode_of_transaction'] = 'nullable|in:walk-in,visited,referral,online';
+        $rules['nature_of_visit'] = 'nullable|in:new_consultation,new_admission,follow_up';
+        $rules['reg_nature_of_visit'] = 'nullable|in:new_consultation,new_admission,follow_up';
         $rules['reg_date_of_consultation'] = 'nullable|date';
         $rules['reg_consultation_time'] = 'nullable|string|max:10';
         $rules['reg_blood_pressure'] = 'nullable|string|max:20';

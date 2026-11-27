@@ -68,8 +68,7 @@ class EpisodeReportingStateResolver
                 return false;
             }
 
-            return !empty($record->nature_of_visit)
-                || !empty($record->diagnosis)
+            return !empty($record->diagnosis)
                 || !empty($record->chief_complaints)
                 || !empty($record->prophylaxis_orders)
                 || !empty($record->prescribed_vaccine_type)

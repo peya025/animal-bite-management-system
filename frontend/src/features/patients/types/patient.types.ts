@@ -140,7 +140,9 @@ export interface EnrolmentFormData {
   reg_weight: string;
   reg_attending_provider: string;
   reg_referred_by: string;      // full facility name string, same format as treatment_records.referred_by
-  // IV. Fees and Payment
+  // Nature of Visit (stored on treatment_records.nature_of_visit)
+  nature_of_visit: 'new_consultation' | 'new_admission' | 'follow_up' | '';
+  // Fees and Payment
   registration_fee?: RegistrationFeePayload;
 }
 
@@ -198,6 +200,7 @@ export const INITIAL_ENROLMENT_DATA: EnrolmentFormData = {
   reg_weight: '',
   reg_attending_provider: '',
   reg_referred_by: '',
+  nature_of_visit: '',
 };
 
 export function getInitialEnrolmentData(): EnrolmentFormData {

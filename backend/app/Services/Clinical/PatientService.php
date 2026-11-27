@@ -466,6 +466,7 @@ class PatientService
                 'reg_date_of_consultation', 'reg_consultation_time', 'reg_blood_pressure',
                 'reg_temperature', 'reg_height', 'reg_weight',
                 'reg_attending_provider', 'reg_referred_by',
+                'nature_of_visit', 'reg_nature_of_visit',
             ];
             $hasVitals = collect($vitalsFields)->contains(
                 fn($f) => !empty($rawInput[$f])
@@ -511,6 +512,9 @@ class PatientService
                 $modeOfTx = $rawInput['mode_of_transaction'] ?? ($rawInput['reg_mode_of_transaction'] ?? null);
                 $validMode = in_array($modeOfTx, ['walk-in', 'visited', 'referral', 'online'], true) ? $modeOfTx : 'walk-in';
 
+                $natureOfVisit = $rawInput['nature_of_visit'] ?? ($rawInput['reg_nature_of_visit'] ?? null);
+                $validNatureOfVisit = in_array($natureOfVisit, ['new_consultation', 'new_admission', 'follow_up'], true) ? $natureOfVisit : null;
+
                 TreatmentRecord::create([
                     'clinic_id'             => $clinicId,
                     'patient_id'            => $patient->patient_id,
@@ -524,6 +528,7 @@ class PatientService
                     'temperature'           => $rawInput['reg_temperature'] ?? null,
                     'height'                => $rawInput['reg_height'] ?? null,
                     'weight'                => $rawInput['reg_weight'] ?? null,
+                    'nature_of_visit'       => $validNatureOfVisit,
                     'attending_provider'    => $validMode === 'referral' ? ($rawInput['reg_attending_provider'] ?? null) : null,
                     'referred_by'           => $validMode === 'referral' ? ($rawInput['reg_referred_by'] ?? null) : null,
                     'mode_of_transaction'   => $validMode,
@@ -816,8 +821,8 @@ class PatientService
             ->whereNull('dose_number')
             ->where(function ($q) {
                 $q->where('status', 'completed')
-                  ->orWhereNotNull('nature_of_visit')
-                  ->orWhereNotNull('diagnosis');
+                  ->orWhereNotNull('diagnosis')
+                  ->orWhereNotNull('chief_complaints');
             })
             ->exists();
 
@@ -1307,8 +1312,8 @@ class PatientService
             ->whereNull('dose_number')
             ->where(function ($q) {
                 $q->where('status', 'completed')
-                  ->orWhereNotNull('nature_of_visit')
-                  ->orWhereNotNull('diagnosis');
+                  ->orWhereNotNull('diagnosis')
+                  ->orWhereNotNull('chief_complaints');
             })
             ->exists();
 

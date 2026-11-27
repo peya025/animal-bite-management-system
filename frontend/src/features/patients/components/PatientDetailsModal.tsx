@@ -445,6 +445,7 @@ export default function PatientDetailsModal({
     reg_weight: '',
     reg_attending_provider: '',
     reg_referred_by: '',
+    nature_of_visit: '' as 'new_consultation' | 'new_admission' | 'follow_up' | '',
     registration_fee: undefined as RegistrationFeePayload | undefined,
   });
 
@@ -682,6 +683,11 @@ export default function PatientDetailsModal({
       }
     }
 
+    // Section IV: Nature of Visit
+    if (!newExposure.nature_of_visit) {
+      errors.nature_of_visit = 'Please select Nature of Visit';
+    }
+
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       setSubmitError('Please complete all required consultation details and vitals before proceeding.');
@@ -689,6 +695,7 @@ export default function PatientDetailsModal({
       const errorKeysPriority = [
         'bite_date',
         'reg_referred_by',
+        'nature_of_visit',
         'reg_date_of_consultation',
         'reg_consultation_time',
         'reg_blood_pressure',
@@ -747,6 +754,8 @@ export default function PatientDetailsModal({
         reg_weight: newExposure.reg_weight,
         reg_attending_provider: newExposure.mode_of_transaction === 'referral' ? newExposure.reg_attending_provider : undefined,
         reg_referred_by: newExposure.mode_of_transaction === 'referral' ? newExposure.reg_referred_by : undefined,
+        nature_of_visit: newExposure.nature_of_visit || undefined,
+        reg_nature_of_visit: newExposure.nature_of_visit || undefined,
         registration_fee: newExposure.registration_fee || undefined,
       });
 
@@ -894,6 +903,8 @@ export default function PatientDetailsModal({
         reg_weight: newExposure.reg_weight,
         reg_attending_provider: newExposure.mode_of_transaction === 'referral' ? newExposure.reg_attending_provider : undefined,
         reg_referred_by: newExposure.mode_of_transaction === 'referral' ? newExposure.reg_referred_by : undefined,
+        nature_of_visit: newExposure.nature_of_visit || undefined,
+        reg_nature_of_visit: newExposure.nature_of_visit || undefined,
         registration_fee: newExposure.registration_fee || undefined,
       });
       setNewExposureOpen(false);

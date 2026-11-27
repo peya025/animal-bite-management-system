@@ -136,7 +136,11 @@ class TagoloanTreatmentCardService
                 ->where('bite_id', $latestBite->bite_id)
                 ->whereNull('dose_number')
                 ->whereNull('medication_given')
-                ->whereNotNull('nature_of_visit')
+                ->where(function ($q) {
+                    $q->where('status', 'completed')
+                      ->orWhereNotNull('diagnosis')
+                      ->orWhereNotNull('chief_complaints');
+                })
                 ->orderBy('consultation_date', 'desc')
                 ->orderBy('consultation_time', 'desc')
                 ->latest('treatment_id')

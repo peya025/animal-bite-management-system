@@ -5,6 +5,7 @@ import { SearchableSelect } from '../../../../../components/forms/SearchableSele
 import { RegistrationErrors } from '../registrationAccessibility';
 import type { EnrolmentFormData } from '../../../types';
 import { useClinicModuleConfig } from '../../../../../hooks/useClinicModuleConfig';
+import { NATURE_OF_VISIT_OPTIONS } from '../../../../consultations/constants/consultation.constants';
 import {
   MISAMIS_ORIENTAL_MUNICIPALITIES,
   FALLBACK_BARANGAYS,
@@ -124,6 +125,7 @@ export interface RegistrationVitalsFields extends Pick<EnrolmentFormData, 'anima
   reg_attending_provider: string;
   reg_referred_by: string;
   mode_of_transaction?: 'walk-in' | 'visited' | 'referral' | string;
+  nature_of_visit: 'new_consultation' | 'new_admission' | 'follow_up' | '';
 }
 
 export interface RegistrationVitalsSectionProps<T extends RegistrationVitalsFields = any> {
@@ -135,16 +137,16 @@ export interface RegistrationVitalsSectionProps<T extends RegistrationVitalsFiel
   onDirectChange: (key: any, value: string) => void;
   layout?: 'default' | 'two-column';
   errors?: Record<string, string>;
+  sectionStartNumber?: 2 | 3;
 }
 
 /**
- * II. For CHU / RHU Personnel Only (Para sa Kinatawan ng CHU / RHU Lamang) &
- * III. Consultation Details & Vitals
+ * For CHU / RHU Personnel Only, Consultation Details & Vitals, and Nature of Visit.
  *
  * Entered by Registration Staff during patient registration (Add Patient)
  * and during Re-Exposure registration check-in.
  * Values are saved to the treatment_records table (see PatientController::store & BiteCaseController::registerNewExposure).
- * Displayed read-only in Form 2 (VitalsConsultationSection with readOnly=true).
+ * Displayed read-only in Form 2 (ReferralSection, VitalsConsultationSection, NatureOfVisitSection).
  * Displayed in Form 1 print via patient-enrolment.blade.php.
  *
  * Field mapping to treatment_records columns:
@@ -157,6 +159,7 @@ export interface RegistrationVitalsSectionProps<T extends RegistrationVitalsFiel
  *   reg_weight                → weight
  *   reg_attending_provider    → attending_provider
  *   reg_referred_by           → referred_by  (full facility name string)
+ *   nature_of_visit           → nature_of_visit ('new_consultation' | 'new_admission' | 'follow_up')
  */
 export function RegistrationVitalsSection<T extends RegistrationVitalsFields = any>({
   data,
@@ -165,11 +168,15 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
   layout = 'two-column',
   errors: propsErrors,
   referralPatient,
+  sectionStartNumber = 2,
 }: RegistrationVitalsSectionProps<T>) {
   const contextErrors = useContext(RegistrationErrors);
   const errors = propsErrors || contextErrors || {};
   const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
   const isReferral = (data.mode_of_transaction || '').toLowerCase() === 'referral';
+  const sectionLabels = sectionStartNumber === 3
+    ? { personnel: 'III', vitals: 'IV' }
+    : { personnel: 'II', vitals: 'III' };
 
   // --- Blood pressure split/combine ---
   const splitBP = (bp: string) => {
@@ -267,10 +274,10 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
 
   return (
     <RegistrationErrors.Provider value={errors || {}}>
-      {/* SECTION II: For CHU / RHU Personnel Only */}
+      {/* For CHU / RHU Personnel Only */}
       <div className="fm-section">
         <h3 className="fm-section-title">
-          II. For CHU / RHU Personnel Only (Para sa Kinatawan ng CHU / RHU Lamang)
+          {sectionLabels.personnel}. For CHU / RHU Personnel Only (Para sa Kinatawan ng CHU / RHU Lamang)
         </h3>
         <div className="fm-grid" style={{ marginBottom: 14 }}>
           <FormField label="Mode of Transaction">
@@ -431,16 +438,56 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
         )}
       </div>
 
-      {/* SECTION III: Consultation Details & Vitals */}
-      {isSectionEnabled('triage_section_enabled') && (
+      {/* Consultation Details & Vitals */}
       <div className="fm-section">
-        <h3 className="fm-section-title">III. Consultation Details &amp; Vitals</h3>
-        <OnlineReferralPhoto patient={referralPatient} />
-        <p className="registration-field-hint" style={{ marginBottom: 12, marginTop: -4 }}>
-          Entered by Registration Staff from the patient's referral paper or intake form. These values will be visible to the attending doctor in read-only mode.
-        </p>
+        <h3 className="fm-section-title">{sectionLabels.vitals}. Consultation Details &amp; Vitals</h3>
+        {isSectionEnabled('triage_section_enabled') && (
+          <>
+            <OnlineReferralPhoto patient={referralPatient} />
+            <p className="registration-field-hint" style={{ marginBottom: 12, marginTop: -4 }}>
+              Entered by Registration Staff from the patient's referral paper or intake form. These values will be visible to the attending doctor in read-only mode.
+            </p>
+          </>
+        )}
 
-      {layout === 'two-column' ? (
+        {/* Nature of Visit (Full-width above Date of Consultation; displayed read-only in Form 2) */}
+        <div
+          style={{
+            marginBottom: isSectionEnabled('triage_section_enabled')
+              ? (layout === 'two-column' ? 16 : 14)
+              : 0,
+          }}
+        >
+          <FormField
+            id="field-nature_of_visit"
+            label="Nature of Visit"
+            required
+            error={!!errors?.nature_of_visit}
+            errorText={errors?.nature_of_visit}
+          >
+            <div
+              role="radiogroup"
+              aria-label="Nature of Visit"
+              aria-required="true"
+              className="fm-radio-group"
+            >
+              {NATURE_OF_VISIT_OPTIONS.map((option) => (
+                <label key={option.value} className="fm-radio">
+                  <input
+                    type="radio"
+                    name="nature_of_visit"
+                    value={option.value}
+                    checked={data.nature_of_visit === option.value}
+                    onChange={onChange('nature_of_visit')}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
+          </FormField>
+        </div>
+
+      {isSectionEnabled('triage_section_enabled') && (layout === 'two-column' ? (
         <>
           {/* Row 1: Date + Time */}
           <div
@@ -916,9 +963,8 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
           )}
 
         </>
-      )}
-    </div>
-    )}
+      ))}
+      </div>
     </RegistrationErrors.Provider>
   );
 }

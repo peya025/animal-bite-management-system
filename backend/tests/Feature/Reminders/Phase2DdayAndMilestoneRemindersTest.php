@@ -457,12 +457,25 @@ class Phase2DdayAndMilestoneRemindersTest extends TestCase
         $res = app(AppointmentReminderService::class)->runAutomatedSweep('all', $ctx['clinic']->id);
         $this->assertSame(1, $res['same_day_reminders_sent']);
 
-        // FCM push dispatched for D-Day with zero-PHI message
+        // FCM push dispatched for D-Day with zero-PHI message and valid policy snapshot
         Queue::assertPushed(SendFcmPushNotification::class, function (SendFcmPushNotification $job) use ($ctx) {
             return $job->patientAccountId === $ctx['account']->id
                 && $job->title === 'Vaccination Reminder'
-                && $job->body === 'Your vaccination appointment is scheduled for today. Open the app to view your schedule.';
+                && $job->body === 'Your vaccination appointment is scheduled for today. Open the app to view your schedule.'
+                && $job->stateSnapshot !== null;
         });
+
+        // Disabled push preferences still block D-Day FCM
+        $disabledPrefCtx = $this->seedAppointmentForDayOffset(0, smsConsent: false, emailConsent: false, linkAccount: true);
+        $disabledPrefCtx['account']->updateNotificationPreferences(['reminders' => false]);
+        app(AppointmentReminderService::class)->runAutomatedSweep('in_app', $disabledPrefCtx['clinic']->id);
+        Queue::assertNotPushed(SendFcmPushNotification::class, fn (SendFcmPushNotification $job) => $job->patientAccountId === $disabledPrefCtx['account']->id);
+
+        // Non-allowlisted patient account never receives D-Day FCM
+        $unlistedCtx = $this->seedAppointmentForDayOffset(0, smsConsent: false, emailConsent: false, linkAccount: true);
+        config(['services.firebase.allowed_patient_account_ids' => (string) $ctx['account']->id]);
+        app(AppointmentReminderService::class)->runAutomatedSweep('in_app', $unlistedCtx['clinic']->id);
+        Queue::assertNotPushed(SendFcmPushNotification::class, fn (SendFcmPushNotification $job) => $job->patientAccountId === $unlistedCtx['account']->id);
 
         // Brevo email delivered cleanly
         $emailMsg = OutboundMessage::where('channel', 'email')->where('purpose', 'same_day')->firstOrFail();

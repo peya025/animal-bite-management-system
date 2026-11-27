@@ -76,22 +76,15 @@ class SendFcmPushNotificationTest extends TestCase
 
         $fcmMock = $this->createMock(FcmService::class);
         $fcmMock->expects($this->once())
-            ->method('sendToAccount')
-            ->with(
-                $this->callback(fn ($acc) => $acc->id === $account->id),
-                'Test Title',
-                'Test Body',
-                ['category' => 'appointment_reminder']
-            )
-            ->willReturn([
-                1 => FcmResult::success('projects/test/messages/msg_123'),
-            ]);
+            ->method('sendToDevice')
+            ->with($this->callback(fn ($token) => $token->patient_account_id === $account->id))
+            ->willReturn(FcmResult::success('projects/test/messages/msg_123'));
 
         $job = new SendFcmPushNotification(
             patientAccountId: $account->id,
             title: 'Test Title',
             body: 'Test Body',
-            data: ['category' => 'appointment_reminder']
+            data: ['category' => 'general']
         );
 
         $job->handle($fcmMock);

@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\PatientAccount;
 use App\Models\PatientDeviceToken;
 use App\Services\Messaging\FcmService;
+use App\Services\Messaging\FcmNotificationPolicy;
 use App\Services\Messaging\Firebase\FcmResult;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -19,6 +20,9 @@ use Throwable;
 class SendFcmPushNotification implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public ?string $stateSnapshot = null;
+    public ?int $expiresAt = null;
 
     public int $tries = 3;
     public int $timeout = 30;
@@ -45,6 +49,13 @@ class SendFcmPushNotification implements ShouldQueue
         public bool $validateOnly = false,
         public bool $isControlledTest = false
     ) {
+        $this->data = FcmNotificationPolicy::payload($data);
+        if (!$isControlledTest) {
+            [$this->title, $this->body] = FcmNotificationPolicy::text($this->data['category'], $body, $title);
+        }
+        $this->stateSnapshot = FcmNotificationPolicy::snapshot($patientAccountId, $this->data);
+        $this->expiresAt = ($data['category'] ?? '') === 'appointment_reminder'
+            ? now()->endOfDay()->timestamp : now()->addDay()->timestamp;
         $this->idempotencyKey = $idempotencyKey ?? (string) Str::uuid();
         $this->onConnection(config('services.firebase.queue_connection', config('messaging.queue_connection', 'database')));
         $this->onQueue(config('services.firebase.queue', 'fcm'));
@@ -61,7 +72,7 @@ class SendFcmPushNotification implements ShouldQueue
             $this->idempotencyKey = "hash_{$contentHash}";
         }
 
-        return "fcm:job:delivered:{$this->idempotencyKey}";
+        return "fcm:job:delivered:{$this->patientAccountId}:{$this->idempotencyKey}";
     }
 
     /**
@@ -69,54 +80,42 @@ class SendFcmPushNotification implements ShouldQueue
      */
     protected function loadDeliveredDevicesFromStorage(): void
     {
-        try {
-            $cached = Cache::get($this->getDeliveredCacheKey(), []);
-            if (is_array($cached)) {
-                $this->deliveredDeviceTokenIds = array_values(array_unique(array_merge(
-                    $this->deliveredDeviceTokenIds,
-                    $cached
-                )));
-            }
-        } catch (Throwable $e) {
-            Log::warning("Failed to load cached delivered FCM device IDs: " . $e->getMessage());
-        }
+        $cached = Cache::get($this->getDeliveredCacheKey(), []);
+        $this->deliveredDeviceTokenIds = array_values(array_unique(array_merge(
+            $this->deliveredDeviceTokenIds, is_array($cached) ? $cached : []
+        )));
     }
 
-    /**
-     * Record a device ID as successfully delivered both in-memory and persistently in cache.
-     */
     protected function recordDeviceDelivered(int $tokenId): void
     {
-        if ($tokenId <= 0) {
-            return;
-        }
-
-        if (!in_array($tokenId, $this->deliveredDeviceTokenIds, true)) {
-            $this->deliveredDeviceTokenIds[] = $tokenId;
-        }
-
-        try {
-            Cache::put(
-                $this->getDeliveredCacheKey(),
-                $this->deliveredDeviceTokenIds,
-                now()->addHours(24)
-            );
-        } catch (Throwable $e) {
-            Log::warning("Failed to persist delivered FCM device IDs to cache: " . $e->getMessage());
+        $this->deliveredDeviceTokenIds = array_values(array_unique([...$this->deliveredDeviceTokenIds, $tokenId]));
+        if (!Cache::put($this->getDeliveredCacheKey(), $this->deliveredDeviceTokenIds, now()->addDays(2))) {
+            throw new \RuntimeException('FCM delivery checkpoint could not be persisted.');
         }
     }
 
     public function handle(FcmService $fcmService): void
     {
-        // Revalidate queued legacy announcements at delivery time. Area advisories
-        // now require the separate review workflow and must never use this channel.
-        if (($this->data['category'] ?? null) === 'announcement' && isset($this->data['announcement_id'])) {
-            $announcement = \App\Models\Announcement::find($this->data['announcement_id']);
-            if (!$announcement || !$announcement->is_published || $announcement->target_barangay
-                || ($announcement->expires_on && $announcement->expires_on < now('Asia/Manila')->toDateString())) {
-                return;
-            }
+        // Legacy jobs have no snapshot/expiry and must be reviewed, never silently replayed.
+        if (!$this->expiresAt || now()->timestamp >= $this->expiresAt || !$this->stateSnapshot
+            || $this->stateSnapshot !== FcmNotificationPolicy::snapshot($this->patientAccountId, $this->data)) {
+            Log::info('FCM job skipped: expired, legacy, or recipient/resource state changed.');
+            return;
         }
+        $lock = Cache::lock($this->getDeliveredCacheKey().':lock', 90);
+        if (!$lock->get()) {
+            $this->release(5);
+            return;
+        }
+        try {
+            $this->deliver($fcmService);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    protected function deliver(FcmService $fcmService): void
+    {
         // 1. Recover persistent delivery state to survive worker crashes, reboots, and queue deserialization
         $this->loadDeliveredDevicesFromStorage();
 
@@ -154,6 +153,11 @@ class SendFcmPushNotification implements ShouldQueue
                 return;
             }
 
+            if (now()->timestamp >= $this->expiresAt
+                || $this->stateSnapshot !== FcmNotificationPolicy::snapshot($this->patientAccountId, $this->data)) {
+                return;
+            }
+
             $result = $fcmService->sendToDevice(
                 deviceToken: $deviceToken,
                 title: $this->title,
@@ -175,9 +179,24 @@ class SendFcmPushNotification implements ShouldQueue
         $hasRetryableFailure = false;
         $maxRetryAfter = null;
 
-        if (empty($this->deliveredDeviceTokenIds)) {
-            $results = $fcmService->sendToAccount(
-                account: $account,
+        // Persist each result before contacting the next device, including the first attempt.
+        $remainingTokens = $account->deviceTokens()
+            ->active()
+            ->whereNotIn('id', $this->deliveredDeviceTokenIds)
+            ->get();
+
+        foreach ($remainingTokens as $deviceToken) {
+            if (now()->timestamp >= $this->expiresAt
+                || $this->stateSnapshot !== FcmNotificationPolicy::snapshot($this->patientAccountId, $this->data)) {
+                return;
+            }
+            $deviceToken = $deviceToken->fresh();
+            if (!$deviceToken || !$deviceToken->is_active || $deviceToken->patient_account_id !== $account->id) {
+                continue;
+            }
+
+            $result = $fcmService->sendToDevice(
+                deviceToken: $deviceToken,
                 title: $this->title,
                 body: $this->body,
                 data: $this->data,
@@ -185,50 +204,14 @@ class SendFcmPushNotification implements ShouldQueue
                 isControlledTest: $this->isControlledTest
             );
 
-            foreach ($results as $tokenId => $result) {
-                if ($result->isSuccessful() || !$result->isRetryable()) {
-                    if (is_int($tokenId) && $tokenId > 0) {
-                        $this->recordDeviceDelivered($tokenId);
-                    }
-                }
-
-                if ($result->isRetryable()) {
-                    $hasRetryableFailure = true;
-                    if ($result->getRetryAfter() !== null) {
-                        $maxRetryAfter = max($maxRetryAfter ?? 0, $result->getRetryAfter());
-                    }
-                }
+            if ($result->isSuccessful() || !$result->isRetryable()) {
+                $this->recordDeviceDelivered($deviceToken->id);
             }
-        } else {
-            // Subsequent retry attempt: dispatch only to devices that were not yet accepted
-            $remainingTokens = $account->deviceTokens()
-                ->active()
-                ->whereNotIn('id', $this->deliveredDeviceTokenIds)
-                ->get();
 
-            foreach ($remainingTokens as $deviceToken) {
-                if ($deviceToken->patient_account_id !== $account->id) {
-                    continue;
-                }
-
-                $result = $fcmService->sendToDevice(
-                    deviceToken: $deviceToken,
-                    title: $this->title,
-                    body: $this->body,
-                    data: $this->data,
-                    validateOnly: $this->validateOnly,
-                    isControlledTest: $this->isControlledTest
-                );
-
-                if ($result->isSuccessful() || !$result->isRetryable()) {
-                    $this->recordDeviceDelivered($deviceToken->id);
-                }
-
-                if ($result->isRetryable()) {
-                    $hasRetryableFailure = true;
-                    if ($result->getRetryAfter() !== null) {
-                        $maxRetryAfter = max($maxRetryAfter ?? 0, $result->getRetryAfter());
-                    }
+            if ($result->isRetryable()) {
+                $hasRetryableFailure = true;
+                if ($result->getRetryAfter() !== null) {
+                    $maxRetryAfter = max($maxRetryAfter ?? 0, $result->getRetryAfter());
                 }
             }
         }

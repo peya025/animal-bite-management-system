@@ -483,6 +483,11 @@ export default function AddPatientModal({
       }
     }
 
+    // Nature of Visit (Required in Form 1, displayed read-only in Form 2)
+    if (!enrolment.nature_of_visit) {
+      newFieldErrors.nature_of_visit = 'Please select Nature of Visit';
+    }
+
     // Validate Registration Fees if enabled
     const rigRule = config?.field_rules?.rig_fee ?? getFieldRule('rig_fee') ?? 'hidden';
     const arRule = config?.field_rules?.anti_rabies_fee ?? getFieldRule('anti_rabies_fee') ?? 'hidden';
@@ -742,6 +747,7 @@ export default function AddPatientModal({
             onChange={handleFieldChange}
             onDirectChange={(key, value) => handleDirectChange(key, value)}
             errors={fieldErrors}
+            sectionStartNumber={3}
           />
           <RegistrationFeesSection
             data={enrolment.registration_fee}

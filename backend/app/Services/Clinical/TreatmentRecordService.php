@@ -552,6 +552,12 @@ class TreatmentRecordService
             $actionsTakenText = trim(($actionsTakenText ? $actionsTakenText . ' | ' : '') . "[Reassessment — {$decisionLabel}]: {$reassessmentNotes}");
         }
 
+        // Preserve Registration Staff's Form 1 nature_of_visit when recorded on the scheduled row;
+        // fall back to submitted/prior/default value for legacy records or direct API calls.
+        $resolvedNatureOfVisit = ($existingScheduled && !empty($existingScheduled->nature_of_visit))
+            ? $existingScheduled->nature_of_visit
+            : ($validated['nature_of_visit'] ?? ($latestPriorCompleted?->nature_of_visit ?: 'new_consultation'));
+
         $recordPayload = [
             'clinic_id' => $clinicId,
             'patient_id' => $validated['patient_id'],
@@ -578,7 +584,7 @@ class TreatmentRecordService
             'temperature' => $validated['temperature'] ?? null,
             'height' => $validated['height'] ?? null,
             'weight' => $validated['weight'] ?? null,
-            'nature_of_visit' => $validated['nature_of_visit'],
+            'nature_of_visit' => $resolvedNatureOfVisit,
             'consultation_types' => $validated['consultation_types'],
             'chief_complaints' => $validated['chief_complaints'],
             'diagnosis' => $validated['diagnosis'] ?? null,

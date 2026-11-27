@@ -163,7 +163,7 @@ export interface TreatmentRecordPayload {
   temperature?: string | null;
   height?: string | null;
   weight?: string | null;
-  nature_of_visit: string;
+  nature_of_visit?: string | null;
   consultation_types: string[];
   chief_complaints: string;
   diagnosis: string;

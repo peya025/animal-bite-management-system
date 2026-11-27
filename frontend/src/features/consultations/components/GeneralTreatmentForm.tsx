@@ -68,7 +68,6 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     fieldErrors,
     isCategory1,
     isFormDisabled,
-    isNatureOfVisitAutomatic,
     shouldHideConsultationType,
     handleFieldChange,
     handleCheckboxChange,
@@ -108,8 +107,8 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
     if (formRef.current && focusErrorsRef.current && Object.keys(fieldErrors).length) {
       focusErrorsRef.current = false;
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
+        ? ['exposure_category', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
+        : ['exposure_category', 'consultation_types', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
       const firstKey = fieldOrder.find((key) => fieldErrors[key]);
       focusFirstError(formRef.current, firstKey, summaryRef.current);
     }
@@ -309,14 +308,13 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
         />
         )}
 
-        {/* SECTION 4: Nature of Visit */}
+        {/* SECTION 4: Nature of Visit (Read-only from Form 1) & Exposure Category */}
         <NatureOfVisitSection
           natureOfVisit={formData.nature_of_visit}
+          exposureCategory={formData.exposure_category}
           isFormDisabled={isFormDisabled}
-          isAutomaticallySet={isNatureOfVisitAutomatic}
-          error={fieldErrors.nature_of_visit}
-          onChange={handleFieldChange('nature_of_visit')}
-          onBlur={handleFieldBlur('nature_of_visit')}
+          exposureCategoryError={fieldErrors.exposure_category}
+          onExposureCategoryChange={handleFieldChange('exposure_category')}
         />
 
         {/* SECTION 5: Type of Consultation (Hidden in Doctor/Triage role view) */}
@@ -465,39 +463,6 @@ export default function GeneralTreatmentForm(props: GeneralTreatmentFormProps) {
           required={isFieldRequired('bite_site')}
         />
         )}
-
-        {/* Exposure Category Selection */}
-        <div className="fm-section">
-          <FormField
-            id="field-exposure_category"
-            label="Exposure Category"
-            required
-            error={!!fieldErrors.exposure_category}
-            errorText={fieldErrors.exposure_category}
-          >
-            <div
-              role="radiogroup"
-              aria-label="Exposure Category"
-              aria-required="true"
-              className="fm-radio-group"
-              style={{ display: 'flex', gap: 24 }}
-            >
-              {(['I', 'II', 'III'] as const).map(category => (
-                <label key={category} className="fm-radio" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-                  <input
-                    type="radio"
-                    name="exposure_category"
-                    value={category}
-                    checked={formData.exposure_category === category}
-                    onChange={handleFieldChange('exposure_category')}
-                    disabled={isFormDisabled}
-                  />
-                  Category {category}
-                </label>
-              ))}
-            </div>
-          </FormField>
-        </div>
 
         {/* Transfer Out / Referral Slip */}
         <TransferReferralSection

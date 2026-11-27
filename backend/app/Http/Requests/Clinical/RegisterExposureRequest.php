@@ -47,6 +47,8 @@ class RegisterExposureRequest extends FormRequest
             'reg_weight' => 'nullable|string|max:10',
             'reg_attending_provider' => $isReferral ? 'required_without:attending_provider|string|max:255' : 'nullable|string|max:255',
             'reg_referred_by' => 'nullable|string|max:255',
+            'nature_of_visit' => 'nullable|in:new_consultation,new_admission,follow_up',
+            'reg_nature_of_visit' => 'nullable|in:new_consultation,new_admission,follow_up',
         ];
     }
 }

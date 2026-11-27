@@ -453,7 +453,7 @@ class Patient extends Model
             ? $this->latestConsultationRecord
             : $this->latestConsultationRecord()->first();
 
-        if (!$consultation || ($consultation->status !== 'completed' && empty($consultation->nature_of_visit) && empty($consultation->diagnosis))) {
+        if (!$consultation || ($consultation->status !== 'completed' && empty($consultation->diagnosis))) {
             return false;
         }
 

@@ -105,7 +105,7 @@ class StoreTreatmentRecordRequest extends FormRequest
             'weight' => 'nullable|string|max:10',
 
             // Visit and Consultation Details
-            'nature_of_visit' => 'required|in:new_consultation,new_admission,follow_up',
+            'nature_of_visit' => 'nullable|in:new_consultation,new_admission,follow_up',
             'consultation_types' => 'required|array|min:1',
             'consultation_types.*' => 'string',
 

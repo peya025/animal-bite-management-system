@@ -318,9 +318,9 @@ export function useGeneralTreatmentForm({
         setHasAdministeredVaccine(isVaccinated);
         setIsReturningNewBite(isReturning);
         setRequiresReExposureDecision(needsReExposureDecision);
-        if (needsReExposureDecision) {
+        if (needsReExposureDecision && !record?.nature_of_visit) {
           setFormData((prev) => ({ ...prev, nature_of_visit: 'new_consultation' }));
-        } else if (isReassessment) {
+        } else if (isReassessment && !record?.nature_of_visit) {
           setFormData((prev) => ({ ...prev, nature_of_visit: 'follow_up' }));
         }
         setEpisodeHistory(data?.episode_history || []);
@@ -369,7 +369,7 @@ export function useGeneralTreatmentForm({
           setIsEditing(false);
           setExistingRecord(record);
           populateFormFromRecord(record, isNewSession);
-          if (isNewSession) {
+          if (isNewSession && !record.nature_of_visit) {
             setFormData((prev) => ({ ...prev, nature_of_visit: 'new_consultation' }));
           }
         } else {
@@ -386,7 +386,7 @@ export function useGeneralTreatmentForm({
               temperature:          record.temperature || prev.temperature,
               height:               record.height || prev.height,
               weight:               record.weight || prev.weight,
-              nature_of_visit:      isReassessment ? (record.nature_of_visit || 'follow_up') : prev.nature_of_visit,
+              nature_of_visit:      record.nature_of_visit || (isReassessment ? 'follow_up' : prev.nature_of_visit),
               name_of_attending_provider: record.attending_provider || prev.name_of_attending_provider,
               referred_by:          record.referred_by || prev.referred_by,
               is_referral:          Boolean(record.transferred_to_facility || record.is_referral || prev.is_referral),
@@ -418,6 +418,7 @@ export function useGeneralTreatmentForm({
               ...(isRegistrationStaffPrefill && record ? {
                 mode_of_transaction: record.mode_of_transaction || 'walk-in',
                 referred_by: record.referred_by || '',
+                nature_of_visit: record.nature_of_visit || savedDraft.formData.nature_of_visit || '',
                 weight: record.weight || savedDraft.formData.weight || '',
                 height: record.height || savedDraft.formData.height || '',
                 temperature: record.temperature || savedDraft.formData.temperature || '',
@@ -1117,10 +1118,6 @@ export function useGeneralTreatmentForm({
   const handleSubmit = async () => {
     const newFieldErrors: Record<string, string> = {};
 
-    if (!formData.nature_of_visit) {
-      newFieldErrors.nature_of_visit = 'Please select Nature of Visit';
-    }
-
     const hasConsultationType = Object.values(formData.consultation_types).some((v) => v);
     if (!hasConsultationType) {
       if (shouldHideConsultationType) {
@@ -1263,8 +1260,8 @@ export function useGeneralTreatmentForm({
       setError(`Required: ${errorList.join(' • ')}`);
 
       const fieldOrder = shouldHideConsultationType
-        ? ['nature_of_visit', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
-        : ['nature_of_visit', 'consultation_types', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'exposure_category', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
+        ? ['exposure_category', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose']
+        : ['exposure_category', 'consultation_types', 'chief_complaints', 'transferred_to_facility', 'reassessment_decision', 'reassessment_notes', 'treatment_plan', 'place_of_exposure', 'prescribed_vaccine_type', 'tetanus_category', 'tetanus_passive', 'tetanus_notes', 'tetanus_vaccine', 'rig_weight_kg', 'tetanus_last_dose'];
       const firstErrorKey = fieldOrder.find((key) => newFieldErrors[key]);
 
       if (firstErrorKey) {
@@ -1304,7 +1301,7 @@ export function useGeneralTreatmentForm({
         temperature: formData.temperature || null,
         height: formData.height || null,
         weight: formData.weight || null,
-        nature_of_visit: formData.nature_of_visit,
+        nature_of_visit: formData.nature_of_visit || null,
         consultation_types: Object.keys(formData.consultation_types).filter(
           (key) => formData.consultation_types[key as keyof typeof formData.consultation_types]
         ),

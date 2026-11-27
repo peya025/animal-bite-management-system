@@ -113,6 +113,8 @@ export async function createPatientRecord(
     reg_weight: cleanField(enrolment.reg_weight),
     reg_attending_provider: enrolment.mode_of_transaction === 'referral' ? cleanField(enrolment.reg_attending_provider) : null,
     reg_referred_by: enrolment.mode_of_transaction === 'referral' ? cleanField(enrolment.reg_referred_by) : null,
+    nature_of_visit: cleanField(enrolment.nature_of_visit),
+    reg_nature_of_visit: cleanField(enrolment.nature_of_visit),
 
     // IV. Fees and Payment
     registration_fee: enrolment.registration_fee || undefined,

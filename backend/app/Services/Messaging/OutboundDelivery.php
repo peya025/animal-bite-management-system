@@ -141,6 +141,7 @@ class OutboundDelivery
                             title: $pushTitle,
                             body: $pushBody,
                             data: $pushData,
+                            idempotencyKey: hash('sha256', 'reminder|'.$account->id.'|'.$message->idempotency_key),
                             validateOnly: $dryRun,
                             isControlledTest: $isTest
                         );
@@ -150,6 +151,7 @@ class OutboundDelivery
                             title: $pushTitle,
                             body: $pushBody,
                             data: $pushData,
+                            idempotencyKey: hash('sha256', 'reminder|'.$account->id.'|'.$message->idempotency_key),
                             validateOnly: $dryRun,
                             isControlledTest: $isTest
                         );

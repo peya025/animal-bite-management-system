@@ -902,13 +902,14 @@ class PatientService
         }
 
         $regDate = Carbon::parse($patient->created_at)->toDateString();
-        $pastAppointment = Appointment::where('clinic_id', $clinicId)
+        $dueAppointment = Appointment::where('clinic_id', $clinicId)
             ->where('patient_id', $patient->patient_id)
             ->where(function ($q) use ($todayDate) {
-                $q->whereDate('scheduled_date', '<', $todayDate)
-                  ->orWhereDate('appointment_date', '<', $todayDate);
+                $q->whereDate('scheduled_date', '<=', $todayDate)
+                  ->orWhereDate('appointment_date', '<=', $todayDate);
             })
             ->whereIn('status', ['scheduled', 'missed'])
+            ->orderBy('scheduled_date', 'asc')
             ->first();
 
         $pastConsultationRecord = TreatmentRecord::where('clinic_id', $clinicId)
@@ -936,7 +937,7 @@ class PatientService
         );
 
         $isReturningOnLaterDate = ($regDate < $todayDate)
-            || ($pastAppointment !== null)
+            || ($dueAppointment !== null)
             || ($pastConsultationRecord !== null)
             || ($pastQueue !== null)
             || $isPendingTreatmentReassessment;
@@ -950,7 +951,7 @@ class PatientService
             ];
         }
 
-        return DB::transaction(function () use ($clinicId, $patient, $todayDate, $pastAppointment, $hasRequiresCheckinToday, $isPendingTreatmentReassessment, $pendingSummary, $payload, $user) {
+        return DB::transaction(function () use ($clinicId, $patient, $todayDate, $dueAppointment, $hasRequiresCheckinToday, $isPendingTreatmentReassessment, $pendingSummary, $payload, $user) {
             app(QueueController::class)->expireStaleTickets($clinicId, $todayDate);
 
             $lockName = "queue_checkin_{$clinicId}_{$todayDate}";
@@ -971,7 +972,7 @@ class PatientService
 
                 $patientDetail = $patient->details;
                 $category = 'regular';
-                if ($pastAppointment && $pastAppointment->booked_by_account_id) {
+                if ($dueAppointment && $dueAppointment->booked_by_account_id) {
                     $category = 'appointment';
                 } elseif ($patientDetail) {
                     if ($patientDetail->fourps_member === 'yes' || $patientDetail->has_membership === 'pwd') {
@@ -995,7 +996,7 @@ class PatientService
                         ->first();
                 }
 
-                $appointment = $pastAppointment ?? Appointment::where('clinic_id', $clinicId)
+                $appointment = $dueAppointment ?? Appointment::where('clinic_id', $clinicId)
                     ->where('patient_id', $patient->patient_id)
                     ->whereIn('status', ['scheduled', 'missed'])
                     ->orderBy('scheduled_date', 'asc')

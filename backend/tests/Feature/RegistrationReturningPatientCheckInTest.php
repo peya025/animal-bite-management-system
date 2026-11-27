@@ -410,4 +410,54 @@ class RegistrationReturningPatientCheckInTest extends TestCase
 
         $this->assertDatabaseCount('queues', 0);
     }
+
+    public function test_can_check_in_mobile_patient_with_same_day_scheduled_appointment()
+    {
+        $clinic = $this->createClinic();
+        $staff = $this->createStaff($clinic, 'registration');
+        $today = Carbon::now('Asia/Manila')->toDateString();
+
+        $patient = Patient::create([
+            'clinic_id' => $clinic->id,
+            'first_name' => 'Satoru',
+            'last_name' => 'Gojo',
+            'gender' => 'male',
+            'age' => 28,
+            'registration_source' => 'mobile',
+        ]);
+
+        $appointment = Appointment::create([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->patient_id,
+            'appointment_type' => 'vaccination',
+            'scheduled_date' => $today,
+            'appointment_date' => $today,
+            'status' => 'scheduled',
+        ]);
+
+        Sanctum::actingAs($staff);
+
+        $response = $this->postJson("/api/patients/{$patient->patient_id}/check-in", [
+            'blood_pressure' => '120/80',
+            'temperature' => '36.8',
+            'weight' => '62',
+            'height' => '165',
+            'mode_of_transaction' => 'walk-in',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('station', 'Doctor Assessment');
+
+        $this->assertDatabaseHas('appointments', [
+            'appointment_id' => $appointment->appointment_id,
+            'status' => 'confirmed',
+        ]);
+
+        $this->assertDatabaseHas('queues', [
+            'patient_id' => $patient->patient_id,
+            'appointment_id' => $appointment->appointment_id,
+            'queue_date' => $today,
+            'status' => 'waiting',
+        ]);
+    }
 }

@@ -1350,8 +1350,12 @@ class PatientService
         $isDischarged = in_array(strtolower($patient->status ?? ''), ['discharged'])
             || in_array(strtolower($patient->treatment_status ?? ''), ['completed', 'discharged']);
 
-        $hasPendingAppointments = Appointment::where('clinic_id', $clinicId)
-            ->where('patient_id', $patient->patient_id)
+        $appointmentService = app(\App\Services\AppointmentService::class);
+        $followUpQuery = Appointment::where('clinic_id', $clinicId)
+            ->where('patient_id', $patient->patient_id);
+        $appointmentService->scopeFollowUpAppointments($followUpQuery, false);
+
+        $hasPendingAppointments = (clone $followUpQuery)
             ->whereIn('status', ['scheduled', 'missed'])
             ->exists();
 
@@ -1367,7 +1371,7 @@ class PatientService
         }
 
         // 5. Transaction with atomic lock for queue number assignment
-        return DB::transaction(function () use ($clinicId, $patient, $todayDate, $user, $request, $hasCompletedDoses) {
+        return DB::transaction(function () use ($clinicId, $patient, $todayDate, $user, $request, $hasCompletedDoses, $appointmentService) {
             app(QueueController::class)->expireStaleTickets($clinicId, $todayDate);
 
             $lockName = "queue_checkin_{$clinicId}_{$todayDate}";
@@ -1379,13 +1383,54 @@ class PatientService
             }
 
             try {
-                // Find matching appointment (due today or overdue/missed)
-                $appointment = Appointment::where('clinic_id', $clinicId)
-                    ->where('patient_id', $patient->patient_id)
+                // Select ONLY due or overdue eligible follow-up appointments (never consultations, pending mobile intakes, boosters, or future doses)
+                $eligibleFollowUpBase = Appointment::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patient->patient_id);
+                $appointmentService->scopeFollowUpAppointments($eligibleFollowUpBase, false);
+
+                $appointment = (clone $eligibleFollowUpBase)
                     ->whereIn('status', ['scheduled', 'missed', 'confirmed'])
-                    ->orderByRaw("CASE WHEN DATE(scheduled_date) = '{$todayDate}' OR DATE(appointment_date) = '{$todayDate}' THEN 0 WHEN scheduled_date < '{$todayDate}' OR appointment_date < '{$todayDate}' THEN 1 ELSE 2 END")
-                    ->orderBy('scheduled_date', 'asc')
+                    ->whereRaw('DATE(COALESCE(scheduled_date, appointment_date)) <= ?', [$todayDate])
+                    ->orderByRaw("CASE WHEN DATE(COALESCE(scheduled_date, appointment_date)) = ? THEN 0 ELSE 1 END", [$todayDate])
+                    ->orderByRaw('COALESCE(scheduled_date, appointment_date) ASC')
                     ->first();
+
+                if (!$appointment && $hasCompletedDoses) {
+                    $futureFollowUp = (clone $eligibleFollowUpBase)
+                        ->where('status', 'scheduled')
+                        ->whereRaw('DATE(COALESCE(scheduled_date, appointment_date)) > ?', [$todayDate])
+                        ->orderByRaw('COALESCE(scheduled_date, appointment_date) ASC')
+                        ->first();
+
+                    if ($futureFollowUp) {
+                        $scheduledStr = Carbon::parse($futureFollowUp->scheduled_date ?? $futureFollowUp->appointment_date)->format('M j, Y');
+                        return [
+                            'status' => 422,
+                            'data' => [
+                                'success' => false,
+                                'code' => 'appointment_not_yet_due',
+                                'message' => "The next follow-up dose (Day {$futureFollowUp->dose_number}) is scheduled for {$scheduledStr} and cannot be checked in before its scheduled date.",
+                            ],
+                        ];
+                    }
+
+                    $hasPendingMobileConsultation = Appointment::where('clinic_id', $clinicId)
+                        ->where('patient_id', $patient->patient_id)
+                        ->whereIn('status', ['scheduled', 'missed', 'confirmed'])
+                        ->get()
+                        ->contains(fn(Appointment $appt) => $appointmentService->isMobileBiteConsultation($appt));
+
+                    if ($hasPendingMobileConsultation) {
+                        return [
+                            'status' => 422,
+                            'data' => [
+                                'success' => false,
+                                'code' => 'mobile_consultation_registration_required',
+                                'message' => 'Mobile bite consultations must be checked in from Registration using the submitted bite intake before they enter the Doctor queue.',
+                            ],
+                        ];
+                    }
+                }
 
                 // Find bite incident
                 $biteIncident = $appointment?->biteIncident ?? BiteIncident::where('clinic_id', $clinicId)

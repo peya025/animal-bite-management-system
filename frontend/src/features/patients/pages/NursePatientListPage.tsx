@@ -48,6 +48,15 @@ import { useAuth } from '../../../shared/contexts/AuthContext';
 import { useEcho } from '../../../shared/hooks/useEcho';
 
 import api from '../../../shared/services/api';
+import {
+  extractDateString,
+  getManilaDateString,
+  getStation2RowActionState,
+  isAppointmentDueForCheckIn,
+  isFollowUpAppointment,
+  resolveStation2CheckInEndpoint,
+  selectStation2NextAppointment,
+} from '../utils/station2FollowUpRouting';
 
 interface Patient {
   patient_id: number;
@@ -185,9 +194,31 @@ export default function NursePatientListPage() {
   }, [patientIdParam, loading, patients]);
 
   const handleCheckIn = async (patient: Patient) => {
+    const appt = getNextAppointment(patient);
+    const todayStr = getManilaDateString();
+
+    if (appt && !isFollowUpAppointment(appt)) {
+      toast(
+        'Mobile bite consultations must be checked in from Registration using the submitted bite intake before they enter the Doctor queue.',
+        'error',
+      );
+      return;
+    }
+
+    if (appt && !isAppointmentDueForCheckIn(appt, todayStr)) {
+      const scheduledLabel = new Date(appt.scheduled_date || appt.appointment_date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+      toast(`This follow-up dose is scheduled for ${scheduledLabel} and cannot be checked in before its scheduled date.`, 'error');
+      return;
+    }
+
     setCheckingInId(patient.patient_id);
     try {
-      const response = await api.post(`/appointments/patient/${patient.patient_id}/check-in`);
+      const endpoint = resolveStation2CheckInEndpoint(patient.patient_id, appt);
+      const response = await api.post(endpoint);
       const msg = response.data?.message || 'Patient checked in successfully';
       toast(msg, 'success');
 
@@ -324,16 +355,7 @@ export default function NursePatientListPage() {
   };
 
   const getNextAppointment = (patient: Patient) => {
-    if (!patient.appointments || patient.appointments.length === 0) return null;
-    const scheduledAppts = patient.appointments.filter((a: any) => a.status === 'scheduled' || a.status === 'missed' || a.status === 'confirmed');
-    if (scheduledAppts.length === 0) return null;
-    // Prefer the soonest scheduled appointment (e.g. earliest scheduled_date or appointment_date)
-    scheduledAppts.sort((a: any, b: any) => {
-      const dateA = new Date(a.scheduled_date || a.appointment_date || 0).getTime();
-      const dateB = new Date(b.scheduled_date || b.appointment_date || 0).getTime();
-      return dateA - dateB;
-    });
-    return scheduledAppts[0];
+    return selectStation2NextAppointment(patient.appointments);
   };
 
   const getVaccinationStatus = (patient: Patient): { label: string; color: string; bg: string; border: string; subtext?: string } => {
@@ -650,14 +672,13 @@ export default function NursePatientListPage() {
       header: 'ACTIONS',
       align: 'center',
       render: (patient) => {
-        const activeQueue = (patient as any).queues?.[0];
         const appt = getNextAppointment(patient);
-        const isBoosterAppt = appt?.appointment_type === 'booster' || appt?.notes?.toLowerCase()?.includes('booster');
+        const todayStr = getManilaDateString();
+        const actionState = getStation2RowActionState(patient, treatmentEnabled, todayStr);
 
-        // Defensive UI guard for old appointments that may still be returned by
-        // a saved filter: a booster must be registered and approved in Form 2,
+        // Defensive UI guard: boosters must be registered and approved in Form 2,
         // never checked in or recorded directly from Station 2.
-        if (isBoosterAppt) {
+        if (actionState === 'booster_requires_doctor') {
           return (
             <Tooltip title="Register the booster request, then wait for Doctor assessment and Form 2 approval.">
               <Chip
@@ -668,20 +689,52 @@ export default function NursePatientListPage() {
             </Tooltip>
           );
         }
-        const isCheckedIn = appt?.status === 'confirmed' || Boolean(activeQueue && ['waiting', 'called', 'serving', 'in_consultation'].includes(activeQueue.status));
-        const canCheckIn = treatmentEnabled && !isCheckedIn && (appt?.status === 'scheduled' || appt?.status === 'missed');
 
-        const record = patient.latest_treatment_record;
-        const isPrimaryComplete = record && record.dose_number >= 7 && record.dose_number < 90;
-        const isBoosterComplete = record && (record.dose_number >= 365 || (record.dose_number >= 90 && !appt));
-        const isSeriesCompleted = Boolean(
-          patient.status?.toLowerCase() === 'completed' ||
-          ((isPrimaryComplete || isBoosterComplete) && !appt)
-        );
+        // Defensive UI guard: mobile bite consultations must be checked in at Registration
+        // using the submitted bite intake before entering the Doctor queue.
+        if (actionState === 'consultation_requires_registration') {
+          return (
+            <Stack data-walkthrough="nurse-col-actions" direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center' }}>
+              <Tooltip title="Mobile bite consultations must be checked in from Registration using the submitted bite intake before entering the Doctor queue.">
+                <Chip
+                  label="Check in at Registration"
+                  size="small"
+                  sx={{ fontSize: 10.5, fontWeight: 700, bgcolor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}
+                />
+              </Tooltip>
+              <Tooltip title="View Treatment Record Card (Printable)">
+                <IconButton
+                  data-walkthrough="nurse-action-view-card"
+                  size="small"
+                  onClick={() => {
+                    setSelectedCardPatientId(patient.patient_id);
+                    setShowTreatmentCardModal(true);
+                  }}
+                  sx={{
+                    color: '#4b5563',
+                    bgcolor: '#f3f4f6',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 1.5,
+                    width: 32,
+                    height: 32,
+                    '&:hover': { bgcolor: '#e5e7eb', color: '#111827' },
+                  }}
+                >
+                  <HugeiconsIcon icon={ViewIcon} size={15} />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          );
+        }
+
+        const futureDateStr = extractDateString(appt?.scheduled_date || appt?.appointment_date);
+        const futureDateLabel = futureDateStr
+          ? new Date(`${futureDateStr}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : '';
 
         return (
           <Stack data-walkthrough="nurse-col-actions" direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center' }}>
-            {isSeriesCompleted ? (
+            {actionState === 'series_completed' ? (
               <Button
                 data-walkthrough="nurse-action-view-card"
                 size="small"
@@ -706,7 +759,7 @@ export default function NursePatientListPage() {
               >
                 Completed · View Card
               </Button>
-            ) : canCheckIn ? (
+            ) : actionState === 'check_in' ? (
               <Button
                 data-walkthrough="nurse-action-checkin"
                 size="small"
@@ -727,7 +780,15 @@ export default function NursePatientListPage() {
               >
                 {checkingInId === patient.patient_id ? 'Checking in...' : 'Check In'}
               </Button>
-            ) : (
+            ) : actionState === 'scheduled_future' ? (
+              <Tooltip title="Follow-up dose can be checked in on or after its scheduled date.">
+                <Chip
+                  label={futureDateLabel ? `Scheduled · ${futureDateLabel}` : 'Scheduled'}
+                  size="small"
+                  sx={{ fontSize: 11, fontWeight: 600, bgcolor: '#f3f4f6', color: '#4b5563', border: '1px solid #e5e7eb' }}
+                />
+              </Tooltip>
+            ) : actionState === 'checked_in' ? (
               <>
                 {treatmentEnabled && (
                   <Button
@@ -781,7 +842,7 @@ export default function NursePatientListPage() {
                   </Button>
                 </Tooltip>
               </>
-            )}
+            ) : null}
 
             <Tooltip title="View Treatment Record Card (Printable)">
               <IconButton

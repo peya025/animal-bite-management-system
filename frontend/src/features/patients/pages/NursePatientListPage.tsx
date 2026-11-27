@@ -206,11 +206,14 @@ export default function NursePatientListPage() {
     }
 
     if (appt && !isAppointmentDueForCheckIn(appt, todayStr)) {
-      const scheduledLabel = new Date(appt.scheduled_date || appt.appointment_date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
+      const scheduledDate = parseAppointmentDate(appt);
+      const scheduledLabel = scheduledDate
+        ? scheduledDate.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })
+        : 'a future date';
       toast(`This follow-up dose is scheduled for ${scheduledLabel} and cannot be checked in before its scheduled date.`, 'error');
       return;
     }
@@ -358,14 +361,21 @@ export default function NursePatientListPage() {
     return selectStation2NextAppointment(patient.appointments);
   };
 
+  const parseAppointmentDate = (appt?: { scheduled_date?: string | null; appointment_date?: string | null } | null): Date | null => {
+    const rawDate = appt?.scheduled_date || appt?.appointment_date;
+    if (!rawDate) return null;
+    const parsed = new Date(rawDate);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
   const getVaccinationStatus = (patient: Patient): { label: string; color: string; bg: string; border: string; subtext?: string } => {
     const activeQueue = (patient as any).queues?.[0];
     const appt = getNextAppointment(patient);
     if (activeQueue) {
-      const apptDate = appt ? new Date(appt.scheduled_date || appt.appointment_date) : null;
+      const apptDate = parseAppointmentDate(appt);
       const todayDate = new Date();
-      const isPastAppt = apptDate && apptDate < todayDate && apptDate.toDateString() !== todayDate.toDateString();
-      const lateDays = isPastAppt ? Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+      const isPastAppt = Boolean(apptDate && apptDate < todayDate && apptDate.toDateString() !== todayDate.toDateString());
+      const lateDays = apptDate && isPastAppt ? Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
 
       if (activeQueue.status === 'waiting') {
         if (isPastAppt) {
@@ -395,8 +405,8 @@ export default function NursePatientListPage() {
     }
 
     if (!record || record.dose_number === null || record.dose_number === undefined) {
-      if (appt) {
-        const apptDate = new Date(appt.scheduled_date || appt.appointment_date);
+      const apptDate = parseAppointmentDate(appt);
+      if (apptDate) {
         const today = new Date();
         if (apptDate < today && apptDate.toDateString() !== today.toDateString()) {
           const lateDays = Math.floor((today.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -426,12 +436,12 @@ export default function NursePatientListPage() {
     }
 
     if (appt) {
-      const apptDate = new Date(appt.scheduled_date || appt.appointment_date);
+      const apptDate = parseAppointmentDate(appt);
       const today = new Date();
-      const isToday = apptDate.toDateString() === today.toDateString();
-      const isPast = apptDate < today && !isToday;
+      const isToday = Boolean(apptDate && apptDate.toDateString() === today.toDateString());
+      const isPast = Boolean(apptDate && apptDate < today && !isToday);
 
-      if (isPast) {
+      if (apptDate && isPast) {
         const lateDays = Math.floor((today.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24));
         return { label: 'Overdue', color: '#991b1b', bg: '#fef2f2', border: '#fecaca', subtext: `${lateDays}d Past Schedule` };
       }
@@ -580,10 +590,10 @@ export default function NursePatientListPage() {
           return <Typography sx={{ fontSize: 12, color: '#9ca3af' }}>—</Typography>;
         }
 
-        const apptDate = new Date(appt.scheduled_date || appt.appointment_date);
+        const apptDate = parseAppointmentDate(appt);
         const todayDate = new Date();
-        const isToday = apptDate.toDateString() === todayDate.toDateString();
-        const isPast = apptDate < todayDate && !isToday;
+        const isToday = Boolean(apptDate && apptDate.toDateString() === todayDate.toDateString());
+        const isPast = Boolean(apptDate && apptDate < todayDate && !isToday);
 
         const doseMap: Record<number, string> = {
           0: 'Day 0 (Initial)',
@@ -636,7 +646,7 @@ export default function NursePatientListPage() {
                 {appointmentTitle}
               </Typography>
               <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: isPast ? '#d97706' : '#059669' }}>
-                {isPast 
+                {isPast && apptDate
                   ? `In Clinic Today (Queue #${activeQueue.queue_number || ''} · ${Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24))}d Late Arrival)` 
                   : `In Clinic Today (Queue #${activeQueue.queue_number || ''})`}
               </Typography>
@@ -652,9 +662,11 @@ export default function NursePatientListPage() {
             <Typography sx={{ fontSize: 11.5, fontWeight: isToday || isPast ? 700 : 400, color: isPast ? '#dc2626' : isToday ? '#059669' : '#6b7280' }}>
               {isToday
                 ? `Scheduled Today (${appt.time_slot || 'regular'})`
-                : isPast
+                : isPast && apptDate
                 ? `Missed / No Show (${Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24))}d ago)`
-                : apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                : apptDate
+                ? apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                : 'Unscheduled'}
             </Typography>
             {appt.schedule_drift_days && appt.schedule_drift_days !== 0 ? (
               <Tooltip title={appt.schedule_adjustment_reason || 'Schedule adjusted for clinic operating hours'}>

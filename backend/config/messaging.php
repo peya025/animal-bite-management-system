@@ -41,4 +41,12 @@ return [
         'url' => env('UNISMS_API_URL', 'https://unismsapi.com/api'),
         'receipts_enabled' => (bool) env('UNISMS_RECEIPTS_ENABLED', false),
     ],
+    'reminders' => [
+        'timezone' => env('REMINDER_TIMEZONE', env('APP_TIMEZONE', 'Asia/Manila')),
+        'same_day_enabled' => (bool) env('REMINDER_SAME_DAY_ENABLED', true),
+        'overdue_milestones' => array_values(array_unique(array_filter(
+            array_map('intval', explode(',', (string) env('REMINDER_OVERDUE_MILESTONES', '1,3,7'))),
+            fn (int $days) => $days > 0
+        ))),
+    ],
 ];

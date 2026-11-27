@@ -29,7 +29,7 @@ class SendAutomatedAppointmentReminders extends Command
      *
      * @var string
      */
-    protected $description = 'Automatically dispatch advance 1-day reminders and urgent missed dose recall alerts';
+    protected $description = 'Automatically dispatch 1-day advance reminders, D-Day vaccination reminders, and milestone overdue recalls';
 
     /**
      * Execute the console command.
@@ -49,6 +49,8 @@ class SendAutomatedAppointmentReminders extends Command
                 [
                     ['Eligible Tomorrow Reminders', $res['advance_reminders_eligible']],
                     ['Processed Tomorrow Reminders', $res['advance_reminders_sent']],
+                    ['Eligible Same-Day (D-Day) Reminders', $res['same_day_reminders_eligible'] ?? 0],
+                    ['Processed Same-Day (D-Day) Reminders', $res['same_day_reminders_sent'] ?? 0],
                     ['Eligible Missed Recalls', $res['missed_recalls_eligible']],
                     ['Processed Missed Recalls', $res['missed_recalls_sent']],
                     ['Total Requests Processed', $res['total_dispatched']],
@@ -156,6 +158,8 @@ class SendAutomatedAppointmentReminders extends Command
             [
                 ['Eligible Advance Reminders', $res['advance_reminders_eligible']],
                 ['Processed Advance Reminders', $res['advance_reminders_sent']],
+                ['Eligible Same-Day (D-Day) Reminders', $res['same_day_reminders_eligible'] ?? 0],
+                ['Processed Same-Day (D-Day) Reminders', $res['same_day_reminders_sent'] ?? 0],
                 ['Eligible Missed Dose Recalls', $res['missed_recalls_eligible']],
                 ['Processed Missed Dose Recalls', $res['missed_recalls_sent']],
                 ['Total Dispatched / Validated', $res['total_dispatched']],

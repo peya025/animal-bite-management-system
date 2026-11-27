@@ -31,7 +31,10 @@ class FcmNotificationPolicy
             if ($category === 'appointment_cancelled' && $appointment->status !== 'cancelled') {
                 return null;
             }
-            if ($category !== 'appointment_cancelled' && !in_array($appointment->status, ['scheduled', 'confirmed'], true)) {
+            $allowedStatuses = $category === 'appointment_reminder'
+                ? ['scheduled', 'confirmed', 'missed']
+                : ['scheduled', 'confirmed'];
+            if ($category !== 'appointment_cancelled' && !in_array($appointment->status, $allowedStatuses, true)) {
                 return null;
             }
             $patient = $appointment->patient;
@@ -137,8 +140,11 @@ class FcmNotificationPolicy
             'digital_card' => ['Vaccination Card Updated', 'Your digital vaccination card has been updated. Open the app to view your record.'],
             'announcement' => ['Clinic Announcement', 'A new clinic announcement has been posted. Open the app to view details.'],
             'appointment_reminder', 'vaccination_due', 'dose_reminder', 'vaccination_schedule' => ['Vaccination Reminder',
-                $body === 'You have an overdue appointment. Open the app to view your schedule.'
-                    ? $body : 'You have an upcoming appointment. Open the app to view your schedule.'],
+                match ($body) {
+                    'You have an overdue appointment. Open the app to view your schedule.',
+                    'Your vaccination appointment is scheduled for today. Open the app to view your schedule.' => $body,
+                    default => 'You have an upcoming appointment. Open the app to view your schedule.',
+                }],
             default => ['Account Update', 'Your account has an update. Open the app to view details.'],
         };
     }

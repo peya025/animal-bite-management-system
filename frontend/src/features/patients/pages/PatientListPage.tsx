@@ -28,6 +28,7 @@ import {
   AlertCircleIcon,
   CheckmarkCircle02Icon,
   UserMultiple02Icon,
+  CancelCircleIcon,
 } from '@hugeicons/core-free-icons';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -1130,6 +1131,10 @@ export default function PatientList() {
     );
     const hasTriage = Boolean(hasConfirmedIncident || hasCompletedConsultation || (record && record.dose_number !== null && record.dose_number !== undefined));
     if (!hasTriage) {
+      const hasOnlyCancelledAppts = appts.length > 0 && appts.every(a => a.status === 'cancelled');
+      if (hasOnlyCancelledAppts) {
+        return { label: 'Appointment Cancelled', icon: CancelCircleIcon, bg: '#fee2e2', color: '#b91c1c' };
+      }
       if (isPreRegisteredOnly(p) || p.registration_source === 'mobile' || Boolean((p as any).accounts?.length) || Boolean((p as any).is_online_registration)) {
         return { label: 'Pre-Registered (Awaiting Intake)', icon: UserMultiple02Icon, bg: '#fef3c7', color: '#92400e' };
       }

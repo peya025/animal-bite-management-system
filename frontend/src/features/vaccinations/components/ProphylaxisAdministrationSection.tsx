@@ -528,7 +528,7 @@ export default function ProphylaxisAdministrationSection({
                         </label>
                       </div>
 
-                      {((group === 'rig' || group === 'tetanus_passive') || (group === 'rig' && isFieldVisible('injection_site'))) && (
+                      {(group === 'rig' || group === 'tetanus_passive') && (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 10 }}>
                           {(group === 'rig' || group === 'tetanus_passive') && (
                             <label className="fm-field" style={{ margin: 0 }}>

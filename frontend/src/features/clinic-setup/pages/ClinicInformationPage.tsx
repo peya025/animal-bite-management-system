@@ -1,5 +1,6 @@
 import { getGlobalPrintLogos } from '../../../components/print/printHeaderHelper';
-import { lazy, Suspense, useState, useEffect, type ReactNode, type ChangeEvent } from 'react';
+import { Suspense, useState, useEffect, type ReactNode, type ChangeEvent } from 'react';
+import { lazyWithRetry } from '../../../shared/utils/lazyWithRetry';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
 import {
@@ -48,7 +49,7 @@ import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 import { PatientAppResourcesSection } from './PatientAppResourcesPage';
 
-const AnnouncementsPage = lazy(() => import('../../announcements/AnnouncementsPage'));
+const AnnouncementsPage = lazyWithRetry(() => import('../../announcements/AnnouncementsPage'));
 const clinicInformationTabs = ['general', 'accreditation', 'website', 'patient_app', 'announcements'] as const;
 
 // Clean, minimal field style matching the reference design

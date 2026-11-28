@@ -1,4 +1,5 @@
 ﻿import React, { Component, type ReactNode } from 'react';
+import { isChunkLoadError, reloadOnceForChunkError } from '../shared/utils/lazyWithRetry';
 
 interface Props {
   children: ReactNode;
@@ -21,10 +22,14 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('Unhandled React error:', error, errorInfo);
+    if (isChunkLoadError(error)) {
+      reloadOnceForChunkError();
+    }
   }
 
   public render() {
     if (this.state.hasError) {
+      const chunkError = isChunkLoadError(this.state.error);
       return (
         <div style={{
           minHeight: '100vh',
@@ -47,10 +52,12 @@ export class ErrorBoundary extends Component<Props, State> {
           }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>
-              Something went wrong
+              {chunkError ? 'Page needs a quick refresh' : 'Something went wrong'}
             </h2>
             <p style={{ fontSize: 14, color: '#64748b', marginBottom: 24, lineHeight: 1.5 }}>
-              An unexpected error occurred while rendering this page. You can try refreshing or returning to the dashboard.
+              {chunkError
+                ? 'A newer version of the app was deployed or the connection was interrupted while loading this page. Please refresh to load the latest version.'
+                : 'An unexpected error occurred while rendering this page. You can try refreshing or returning to the dashboard.'}
             </p>
             {this.state.error?.message && (
               <div style={{

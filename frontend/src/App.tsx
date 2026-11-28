@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { lazyWithRetry } from './shared/utils/lazyWithRetry';
 import LandingPage from './pages/LandingPage';
 import Login from './features/auth/pages/LoginPage';
 import InitialSetupRoute from './components/InitialSetupRoute';
@@ -25,14 +26,14 @@ import UserListPage from './features/users/pages/UserListPage';
 import UserCreatePage from './features/users/pages/UserCreatePage';
 import UserProfilePage from './features/users/pages/UserProfilePage';
 
-// Lazy-loaded secondary & heavy pages
-const StaffActivityPage = lazy(() => import('./features/audit/pages/StaffActivityPage'));
-const ReportsDashboardPage = lazy(() => import('./features/reports/pages/ReportsDashboardPage'));
-const TreatmentRecordsPage = lazy(() => import('./features/treatment-records/pages/TreatmentRecordsPage'));
-const DeveloperLandingSettingsPage = lazy(() => import('./features/developer/pages/DeveloperLandingSettingsPage'));
-const DeveloperDatabaseExplorerPage = lazy(() => import('./features/developer/pages/DeveloperDatabaseExplorerPage'));
-const AppointmentDiagnosticsPage = lazy(() => import('./features/developer/pages/AppointmentDiagnosticsPage'));
-const PredefinedTemplatesPage = lazy(() => import('./features/clinic-setup/pages/PredefinedTemplatesPage'));
+// Lazy-loaded secondary & heavy pages (auto-reloads once if a new deploy invalidated old chunk hashes)
+const StaffActivityPage = lazyWithRetry(() => import('./features/audit/pages/StaffActivityPage'));
+const ReportsDashboardPage = lazyWithRetry(() => import('./features/reports/pages/ReportsDashboardPage'));
+const TreatmentRecordsPage = lazyWithRetry(() => import('./features/treatment-records/pages/TreatmentRecordsPage'));
+const DeveloperLandingSettingsPage = lazyWithRetry(() => import('./features/developer/pages/DeveloperLandingSettingsPage'));
+const DeveloperDatabaseExplorerPage = lazyWithRetry(() => import('./features/developer/pages/DeveloperDatabaseExplorerPage'));
+const AppointmentDiagnosticsPage = lazyWithRetry(() => import('./features/developer/pages/AppointmentDiagnosticsPage'));
+const PredefinedTemplatesPage = lazyWithRetry(() => import('./features/clinic-setup/pages/PredefinedTemplatesPage'));
 
 import { AppStyleScope } from './styles/SimpleDashboard.styles';
 

@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -65,6 +66,10 @@ void main() {
       // Vaccination reminders -> Calendar / schedule view
       expect(
         service.resolveRouteFromPayload({'category': 'vaccination'}),
+        equals(AppRoutes.calendar),
+      );
+      expect(
+        service.resolveRouteFromPayload({'category': 'vaccination_schedule'}),
         equals(AppRoutes.calendar),
       );
       expect(
@@ -159,6 +164,50 @@ void main() {
       );
 
       service.broadcastNotificationReceived(payload);
+    });
+
+    test('handleForegroundMessage processes distinct vaccination_schedule notifications without false deduplication', () async {
+      final service = PushNotificationService.instance;
+      final received = <Map<String, dynamic>>[];
+      final sub = service.onNotificationReceived.listen(received.add);
+
+      final sentTime = DateTime(2026, 11, 28, 10, 0, 0);
+      final day3 = RemoteMessage(
+        sentTime: sentTime,
+        notification: const RemoteNotification(
+          title: 'Vaccination Reminder',
+          body: 'You have an upcoming appointment. Open the app to view your schedule.',
+        ),
+        data: const {
+          'category': 'vaccination_schedule',
+          'route': '/calendar',
+          'appointment_id': '101',
+        },
+      );
+      final day7 = RemoteMessage(
+        sentTime: sentTime,
+        notification: const RemoteNotification(
+          title: 'Vaccination Reminder',
+          body: 'You have an upcoming appointment. Open the app to view your schedule.',
+        ),
+        data: const {
+          'category': 'vaccination_schedule',
+          'route': '/calendar',
+          'appointment_id': '102',
+        },
+      );
+
+      await service.handleForegroundMessage(day3);
+      await service.handleForegroundMessage(day7);
+      // Duplicate of Day 3 with same appointment_id and sentTime should be suppressed
+      await service.handleForegroundMessage(day3);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(received.length, equals(2));
+      expect(received[0]['appointment_id'], equals('101'));
+      expect(received[1]['appointment_id'], equals('102'));
+
+      await sub.cancel();
     });
 
     test('clearNotificationState wipes deduplication cache on logout and account switch', () {

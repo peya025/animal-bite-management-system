@@ -186,8 +186,12 @@ class PushNotificationService {
   /// Process foreground FCM messages: check preferences, deduplicate, display banner, and broadcast.
   Future<void> handleForegroundMessage(RemoteMessage message) async {
     // 1. Deduplication check
+    final fallbackTargetId = message.data['id'] ??
+        message.data['appointment_id'] ??
+        message.data['patient_id'] ??
+        message.data['announcement_id'];
     final messageId = message.messageId ??
-        '${message.sentTime?.millisecondsSinceEpoch}_${message.data['id']}_${message.data['category']}';
+        '${message.sentTime?.millisecondsSinceEpoch}_${fallbackTargetId}_${message.data['category']}';
     if (_processedMessageIds.contains(messageId)) {
       debugPrint('ℹ️ Duplicate notification suppressed: $messageId');
       return;
@@ -212,7 +216,9 @@ class PushNotificationService {
         'You have a new update from the clinic.';
 
     // 4. Show heads-up banner via flutter_local_notifications
-    final notificationId = (message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch) & 0x7fffffff;
+    final notificationId = (message.messageId?.hashCode ??
+            '$messageId:${DateTime.now().microsecondsSinceEpoch}'.hashCode) &
+        0x7fffffff;
     await showLocalNotification(
       id: notificationId,
       title: title,

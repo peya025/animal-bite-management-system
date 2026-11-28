@@ -629,12 +629,27 @@ class VaccinationRecordService
 
             Cache::forget("web:bite-cases:map-data:clinic:{$clinicId}");
 
-            // Dispatch digital vaccination card update push notification to linked patient accounts
+            // Persist in-app digital card notification & dispatch FCM push to linked patient accounts
             $patientObj = Patient::with(['accounts' => fn ($q) => $q->where('is_active', true)])->find($patientId);
             if ($patientObj && $patientObj->accounts->isNotEmpty()) {
                 $fcmService = app(\App\Services\Messaging\FcmService::class);
+                $mobileNotificationService = app(\App\Services\Mobile\MobileNotificationService::class);
+                $cardMessage = "{$patientObj->name}'s digital vaccination card has been updated.";
+
                 foreach ($patientObj->accounts as $acc) {
                     $accId = (int) ($acc->patient_account_id ?? $acc->id);
+
+                    Notification::create([
+                        'patient_id'         => $patientId,
+                        'patient_account_id' => $accId,
+                        'appointment_id'     => null,
+                        'type'               => 'digital_card_updated',
+                        'message'            => $cardMessage,
+                        'status'             => 'pending',
+                        'send_time'          => now(),
+                    ]);
+                    $mobileNotificationService->invalidateNotificationCache($accId);
+
                     if (!$fcmService->isAccountAllowed($accId)) {
                         Log::info("Digital vaccination card FCM skipped: Patient account #{$accId} is not in the automatic FCM allowlist.");
                     } elseif ($acc->pivot?->status !== 'verified') {

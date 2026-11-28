@@ -81,10 +81,26 @@ void main() {
         equals(AppRoutes.calendar),
       );
 
-      // Vaccination card -> Menu view
+      // Vaccination card -> Menu view (and opens digital vaccination card sheet)
       expect(
         service.resolveRouteFromPayload({'category': 'digital_card'}),
         equals(AppRoutes.menu),
+      );
+      expect(
+        service.resolveRouteFromPayload({'type': 'digital_card_updated'}),
+        equals(AppRoutes.menu),
+      );
+      expect(
+        service.resolveRouteFromPayload({'type': 'vaccination_reminder'}),
+        equals(AppRoutes.calendar),
+      );
+      expect(
+        service.resolveRouteFromPayload({'type': 'upcoming_appointment_reminder'}),
+        equals(AppRoutes.calendar),
+      );
+      expect(
+        service.resolveRouteFromPayload({'type': 'booking_confirmation'}),
+        equals(AppRoutes.appointments),
       );
 
       // Clinic announcements / default -> Notifications view
@@ -145,6 +161,41 @@ void main() {
       // Since navKey is not mounted in widget tree in unit test, it safely guards and logs:
       // Authentication is required, so it directs to login.
       expect(api.isAuthenticated, isFalse);
+    });
+
+    testWidgets('tapping digital_card push redirects to menu and opens digital vaccination card', (tester) async {
+      final service = PushNotificationService.instance;
+      final navKey = GlobalKey<NavigatorState>();
+      service.navigatorKey = navKey;
+
+      await tester.runAsync(() => MockMobileApi.instance.login(
+            email: 'patient@example.com',
+            password: 'password123',
+            remember: false,
+          ));
+      expect(api.isAuthenticated, isTrue);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navKey,
+          initialRoute: AppRoutes.notifications,
+          routes: {
+            AppRoutes.notifications: (_) => const Scaffold(body: Text('Notifications Page')),
+            AppRoutes.menu: (_) => const Scaffold(body: Text('Menu Page')),
+          },
+        ),
+      );
+
+      await service.handleNotificationTap({
+        'category': 'digital_card',
+        'route': AppRoutes.menu,
+        'patient_id': '1',
+      });
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Menu Page'), findsOneWidget);
+      expect(find.text('Digital Vaccination Card'), findsOneWidget);
     });
   });
 

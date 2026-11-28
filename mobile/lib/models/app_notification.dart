@@ -32,7 +32,8 @@ class AppNotification {
     'missed_appointment_recall' ||
     'missed_triage_recall' ||
     'missed_treatment_recall' ||
-    'upcoming_appointment_reminder' =>
+    'upcoming_appointment_reminder' ||
+    'digital_card_updated' =>
       AppNotificationKind.vaccination,
     'booking_confirmation' ||
     'booking_cancelled' ||

@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSavedExposureCategory } from '../hooks/useSavedExposureCategory';
 import ProphylaxisAdministrationSection from './ProphylaxisAdministrationSection';
-import { suggestIcd10FromExposure } from '../../../shared/constants/icd10Codes';
+import { buildIcd10Options, suggestIcd10FromExposure } from '../../../shared/constants/icd10Codes';
+import { SearchableSelect } from '../../../components/forms/SearchableSelect';
+import './VaccinationRecordForm.css';
 import type { ProphylaxisRecord } from './ProphylaxisAdministrationSection';
 import type { ProphylaxisAdministration, ProphylaxisStock } from '../../../shared/types/prophylaxis';
 import { isProphylaxisInventoryName } from '../../../shared/types/prophylaxis';
@@ -448,6 +450,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [prophylaxisStock, setProphylaxisStock] = useState<ProphylaxisStock | null | undefined>(undefined);
   const [icdCode, setIcdCode] = useState('');
   const icdManuallyEditedRef = useRef(false);
+  const icd10Options = useMemo(() => buildIcd10Options(icdCode), [icdCode]);
   const handleIcdCodeChange = (val: string) => {
     icdManuallyEditedRef.current = true;
     setIcdCode(val);
@@ -1588,7 +1591,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   };
 
   const formContent = (
-    <div style={{ padding: inline ? '0' : '24px 32px' }}>
+    <div className="form3-pill-fields" style={{ padding: inline ? '0' : '24px 32px' }}>
       {/* Returning Consultation vs Previous Consultation Prescription Banner */}
       {previousConsultations.length > 1 && (
         <div style={{
@@ -1805,6 +1808,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 disabled={clinicalAssessmentLocked}
                 error={fieldErrors.animal_type}
                 onChange={(val) => {
+                  icdManuallyEditedRef.current = false;
                   setFormData(prev => ({
                     ...prev,
                     animal_type: val,
@@ -1820,14 +1824,19 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               />
               {formData.animal_type === 'other' && (
                 <div id="field-animal_type_other" style={{ marginTop: 8 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: fieldErrors.animal_type_other ? '#dc2626' : 'var(--text-secondary, #475569)', marginBottom: 4 }}>
+                    Specify other animal
+                  </label>
                   <input
                     type="text"
                     aria-label="Other species"
                     placeholder="Specify other animal"
                     value={formData.animal_type_other || ''}
                     disabled={clinicalAssessmentLocked}
+                    autoFocus={!formData.animal_type_other}
                     onChange={(e) => {
                       const val = e.target.value;
+                      icdManuallyEditedRef.current = false;
                       setFormData(prev => ({ ...prev, animal_type_other: val }));
                       if (val.trim()) {
                         setFieldErrors(fe => {
@@ -1839,12 +1848,12 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                     }}
                     style={{
                       width: '100%',
-                      padding: 10,
+                      padding: '8px 12px',
                       font: 'inherit',
                       border: fieldErrors.animal_type_other ? '1.5px solid #ef4444' : '1px solid var(--border-color, #d1d5db)',
                       borderRadius: BORDER_RADIUS,
                       fontSize: 13,
-                      backgroundColor: isFormLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+                      backgroundColor: clinicalAssessmentLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
                       color: 'var(--input-text, #111827)',
                       boxSizing: 'border-box',
                       outline: 'none',
@@ -1857,6 +1866,25 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   )}
                 </div>
               )}
+            </div>
+
+            <div id="field-icd_code">
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-h, #374151)', marginBottom: 6 }}>
+                ICD-10 Code
+              </label>
+              <SearchableSelect
+                size="sm"
+                options={icd10Options}
+                value={icdCode}
+                placeholder="Select ICD-10 code..."
+                searchPlaceholder="Search ICD-10 code..."
+                disabled={isFormLocked}
+                aria-label="ICD-10 Code"
+                onChange={handleIcdCodeChange}
+              />
+              <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary, #64748b)', marginTop: 4 }}>
+                Auto-updates based on species &amp; exposure mode
+              </span>
             </div>
 
             <div id="field-animal_status">

@@ -219,7 +219,7 @@ export function SearchableMultiSelect({
           aria-label={ariaLabel || label}
           aria-invalid={Boolean(error)}
           aria-disabled={disabled}
-          className={`ss-trigger ss-trigger--sm${isOpen ? ' ss-trigger--open' : ''}${error ? ' ss-trigger--error' : ''}`}
+          className={`ss-trigger ss-trigger--sm ss-trigger--multi${isOpen ? ' ss-trigger--open' : ''}${error ? ' ss-trigger--error' : ''}`}
           style={{
             height: 'auto',
             minHeight: 40,

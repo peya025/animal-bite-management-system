@@ -1,0 +1,58 @@
+/* ══════════════════════════════════════════════════════════════════
+   Form 3 Pill Fields — Matches Form 1 (RegistrationDialog) Pill Style
+   ══════════════════════════════════════════════════════════════════ */
+
+.form3-pill-fields input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not(.ss-search-input),
+.form3-pill-fields select,
+.form3-pill-fields .ss-trigger:not(.ss-trigger--compact):not(.ss-trigger--multi) {
+  min-height: 46px !important;
+  height: 46px !important;
+  border-radius: 9999px !important;
+  padding: 10px 18px !important;
+  font-size: 13.5px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.form3-pill-fields .ss-trigger--multi {
+  min-height: 46px !important;
+  height: auto !important;
+  border-radius: 23px !important;
+  padding: 7px 16px !important;
+  font-size: 13.5px;
+  box-sizing: border-box;
+}
+
+.form3-pill-fields .ss-trigger--compact {
+  min-height: 36px !important;
+  height: 36px !important;
+  border-radius: 9999px !important;
+  padding: 4px 14px !important;
+}
+
+.form3-pill-fields textarea {
+  border-radius: 16px !important;
+  padding: 12px 16px !important;
+}
+
+.form3-pill-fields input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not(.ss-search-input):hover:not(:disabled),
+.form3-pill-fields select:hover:not(:disabled),
+.form3-pill-fields textarea:hover:not(:disabled),
+.form3-pill-fields .ss-trigger:hover:not(:disabled) {
+  border-color: #10b981 !important;
+}
+
+.form3-pill-fields input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not(.ss-search-input):focus,
+.form3-pill-fields select:focus,
+.form3-pill-fields textarea:focus {
+  outline: 2px solid transparent !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1) !important;
+}
+
+.form3-pill-fields input[aria-invalid="true"],
+.form3-pill-fields select[aria-invalid="true"],
+.form3-pill-fields textarea[aria-invalid="true"],
+.form3-pill-fields .ss-trigger--error {
+  border-color: #ef4444 !important;
+}

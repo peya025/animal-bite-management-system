@@ -1723,8 +1723,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               border: fieldErrors.body_part_affected_text ? '1.5px solid #ef4444' : '1px solid var(--input-border, #d1d5db)',
               borderRadius: BORDER_RADIUS,
               fontSize: 13,
-              backgroundColor: isFormLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
-              color: 'var(--input-text, #111827)',
+              backgroundColor: clinicalAssessmentLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+              color: clinicalAssessmentLocked ? 'var(--text-secondary, #64748b)' : 'var(--input-text, #111827)',
+              cursor: clinicalAssessmentLocked ? 'not-allowed' : undefined,
               boxSizing: 'border-box',
               outline: 'none',
               boxShadow: fieldErrors.body_part_affected_text ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
@@ -1828,8 +1829,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                       border: fieldErrors.animal_type_other ? '1.5px solid #ef4444' : '1px solid var(--border-color, #d1d5db)',
                       borderRadius: BORDER_RADIUS,
                       fontSize: 13,
-                      backgroundColor: isFormLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
-                      color: 'var(--input-text, #111827)',
+                      backgroundColor: clinicalAssessmentLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
+                      color: clinicalAssessmentLocked ? 'var(--text-secondary, #64748b)' : 'var(--input-text, #111827)',
+                      cursor: clinicalAssessmentLocked ? 'not-allowed' : undefined,
                       boxSizing: 'border-box',
                       outline: 'none',
                     }}
@@ -1992,7 +1994,8 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 borderRadius: BORDER_RADIUS,
                 fontSize: 13,
                 backgroundColor: isFormLocked ? 'var(--bg-secondary, #f9fafb)' : 'var(--card-bg-solid, #ffffff)',
-                color: 'var(--input-text, #111827)',
+                color: isFormLocked ? 'var(--text-secondary, #64748b)' : 'var(--input-text, #111827)',
+                cursor: isFormLocked ? 'not-allowed' : undefined,
                 boxSizing: 'border-box',
                 outline: 'none',
                 boxShadow: fieldErrors.past_bite_dates ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none',
@@ -2218,6 +2221,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 type="text"
                 value={notAdministeredReason}
                 onChange={(e) => setNotAdministeredReason(e.target.value)}
+                disabled={saving}
                 placeholder="e.g., Patient left clinic before nurse administration / deferred due to elevated BP..."
                 style={{
                   width: '100%',

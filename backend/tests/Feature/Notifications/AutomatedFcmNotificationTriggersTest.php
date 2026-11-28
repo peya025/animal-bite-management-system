@@ -716,4 +716,239 @@ class AutomatedFcmNotificationTriggersTest extends TestCase
             return true;
         });
     }
+
+    public function test_pending_mobile_booking_receives_both_in_app_and_fcm_push_when_follow_up_schedules_are_generated(): void
+    {
+        config([
+            'services.firebase.allowed_patient_account_ids' => (string) $this->account->id,
+            'services.firebase.queue_connection' => 'database',
+            'services.firebase.queue' => 'fcm',
+        ]);
+        Http::fake([
+            'https://fcm.googleapis.com/v1/projects/abtc-management-system/messages:send' => Http::response([
+                'name' => 'projects/abtc-management-system/messages/live_msg_id',
+            ], 200),
+        ]);
+
+        // Mobile patient profile starts as pending before clinic verification
+        $this->account->patients()->updateExistingPivot($this->patient->patient_id, [
+            'status'      => 'pending',
+            'verified_at' => null,
+            'verified_by' => null,
+        ]);
+
+        // 1. Mobile booking creates Appointment + booking_confirmation + BiteIncidentIntake
+        $mobileService = app(MobileAppointmentService::class);
+        $booked = $mobileService->bookAppointment($this->account, [
+            'patient_id'       => $this->patient->patient_id,
+            'appointment_type' => 'consultation',
+            'scheduled_date'   => today()->toDateString(),
+            'intake'           => [
+                'bite_date'     => today()->toDateString(),
+                'exposure_type' => 'bite',
+                'animal_type'   => 'dog',
+                'animal_status' => 'owned',
+                'site_washed'   => true,
+            ],
+        ]);
+        $intake = $booked->biteIntake()->firstOrFail();
+
+        // 2. Clinic Registration checks in mobile booking -> Appointment Confirmed push fires
+        $regStaff = \App\Models\User::factory()->create([
+            'clinic_id' => $this->clinic->id,
+            'role'      => 'registration',
+        ]);
+        $checkInRes = app(\App\Services\Clinical\BiteIncidentIntakeService::class)->checkIn($intake, $regStaff);
+        $this->assertSame(201, $checkInRes['status']);
+        $biteId = (int) $checkInRes['data']['incident']->bite_id;
+
+        // Doctor approves full PEP plan
+        $doctor = \App\Models\User::factory()->create([
+            'clinic_id' => $this->clinic->id,
+            'role'      => 'triage',
+        ]);
+        $incident = \App\Models\BiteIncident::findOrFail($biteId);
+        $incident->update([
+            'exposure_category' => 'II',
+            'episode_type'      => 'primary',
+            'status'            => 'active',
+        ]);
+        \App\Models\TreatmentPlan::create([
+            'clinic_id'  => $this->clinic->id,
+            'bite_id'    => $biteId,
+            'patient_id' => $this->patient->patient_id,
+            'plan_type'  => 'full_pep',
+            'status'     => 'approved',
+            'decided_by' => $doctor->id,
+            'decided_at' => now(),
+        ]);
+
+        \App\Models\VaccineInventory::create([
+            'clinic_id'        => $this->clinic->id,
+            'vaccine_type'     => 'Speeda',
+            'batch_number'     => 'BATCH-SP-01',
+            'current_quantity' => 50,
+            'expiration_date'  => now()->addYear()->toDateString(),
+            'status'           => 'active',
+            'open_vial_status' => 'unopened',
+        ]);
+
+        // 3. Nurse records Day 0 via Form 3 -> auto-generates Day 3 & Day 7 schedules
+        $nurse = \App\Models\User::factory()->create([
+            'clinic_id' => $this->clinic->id,
+            'role'      => 'treatment',
+        ]);
+        $this->actingAs($nurse);
+
+        $doses = [
+            [
+                'period'       => 'Day 0',
+                'date'         => today()->toDateString(),
+                'vaccine_type' => 'Speeda',
+            ],
+        ];
+        $response = app(VaccinationRecordService::class)->saveVaccinationRecords(
+            actingUser: $nurse,
+            clinicId: $this->clinic->id,
+            patientId: $this->patient->patient_id,
+            biteId: $biteId,
+            validated: ['date_treatment_started' => today()->toDateString()],
+            doses: $doses,
+            signaturePath: null
+        );
+        $this->assertSame(201, $response->getStatusCode());
+
+        \Illuminate\Support\Facades\Artisan::call('queue:work', [
+            'connection'        => 'database',
+            '--queue'           => 'fcm',
+            '--stop-when-empty' => true,
+            '--sleep'           => 0,
+            '--tries'           => 1,
+        ]);
+
+        // In-app "vaccination_reminder" notifications exist for Day 3 and Day 7
+        $inAppReminders = Notification::where('patient_account_id', $this->account->id)
+            ->where('patient_id', $this->patient->patient_id)
+            ->where('type', 'vaccination_reminder')
+            ->get();
+        $this->assertCount(2, $inAppReminders);
+
+        // FCM HTTP v1 requests include Appointment Confirmed + 2 Vaccination Reminder pushes
+        $recorded = Http::recorded();
+        $schedulePayloads = collect($recorded)
+            ->map(fn ($pair) => $pair[0]->data())
+            ->filter(fn ($payload) => ($payload['message']['data']['category'] ?? null) === 'vaccination_schedule')
+            ->values();
+
+        $this->assertCount(2, $schedulePayloads);
+
+        foreach ($schedulePayloads as $payload) {
+            $this->assertSame('Vaccination Reminder', $payload['message']['notification']['title']);
+            $this->assertSame('You have an upcoming appointment. Open the app to view your schedule.', $payload['message']['notification']['body']);
+            $this->assertSame('vaccination_schedule', $payload['message']['data']['category']);
+            $this->assertSame('/calendar', $payload['message']['data']['route']);
+            $this->assertNotEmpty($payload['message']['data']['appointment_id']);
+            $this->assertSame('HIGH', $payload['message']['android']['priority']);
+            $this->assertSame('abtcare_reminders', $payload['message']['android']['notification']['channel_id']);
+            $this->assertSame('PRIORITY_HIGH', $payload['message']['android']['notification']['notification_priority']);
+
+            // Zero PHI in FCM payload
+            $serialized = json_encode($payload, JSON_THROW_ON_ERROR);
+            $this->assertStringNotContainsString('Maria', $serialized);
+            $this->assertStringNotContainsString('Santos', $serialized);
+            $this->assertStringNotContainsString('Speeda', $serialized);
+        }
+    }
+
+    public function test_unowned_lookalike_pending_link_is_not_verified_or_sent_vaccination_schedule_fcm(): void
+    {
+        Queue::fake();
+        config(['services.firebase.allowed_patient_account_ids' => '*']);
+
+        $this->account->patients()->updateExistingPivot($this->patient->patient_id, [
+            'status'      => 'pending',
+            'verified_at' => null,
+            'verified_by' => null,
+        ]);
+
+        $lookalike = PatientAccount::create([
+            'name'      => 'Lookalike Account',
+            'email'     => 'lookalike' . uniqid() . '@example.com',
+            'password'  => bcrypt('password123'),
+            'is_active' => true,
+        ]);
+        $lookalike->patients()->attach($this->patient->patient_id, [
+            'relationship' => 'dependent',
+            'is_primary'   => false,
+            'status'       => 'pending',
+        ]);
+
+        $mobileService = app(MobileAppointmentService::class);
+        $booked = $mobileService->bookAppointment($this->account, [
+            'patient_id'       => $this->patient->patient_id,
+            'appointment_type' => 'consultation',
+            'scheduled_date'   => today()->toDateString(),
+            'intake'           => [
+                'bite_date'     => today()->toDateString(),
+                'exposure_type' => 'bite',
+                'animal_type'   => 'dog',
+                'animal_status' => 'owned',
+                'site_washed'   => true,
+            ],
+        ]);
+
+        $regStaff = \App\Models\User::factory()->create(['clinic_id' => $this->clinic->id, 'role' => 'registration']);
+        $checkInRes = app(\App\Services\Clinical\BiteIncidentIntakeService::class)->checkIn($booked->biteIntake()->firstOrFail(), $regStaff);
+        $biteId = (int) $checkInRes['data']['incident']->bite_id;
+
+        $doctor = \App\Models\User::factory()->create(['clinic_id' => $this->clinic->id, 'role' => 'triage']);
+        \App\Models\BiteIncident::findOrFail($biteId)->update([
+            'exposure_category' => 'II',
+            'episode_type'      => 'primary',
+            'status'            => 'active',
+        ]);
+        \App\Models\TreatmentPlan::create([
+            'clinic_id'  => $this->clinic->id,
+            'bite_id'    => $biteId,
+            'patient_id' => $this->patient->patient_id,
+            'plan_type'  => 'full_pep',
+            'status'     => 'approved',
+            'decided_by' => $doctor->id,
+            'decided_at' => now(),
+        ]);
+        \App\Models\VaccineInventory::create([
+            'clinic_id'        => $this->clinic->id,
+            'vaccine_type'     => 'Speeda',
+            'batch_number'     => 'BATCH-SP-02',
+            'current_quantity' => 50,
+            'expiration_date'  => now()->addYear()->toDateString(),
+            'status'           => 'active',
+            'open_vial_status' => 'unopened',
+        ]);
+
+        $nurse = \App\Models\User::factory()->create(['clinic_id' => $this->clinic->id, 'role' => 'treatment']);
+        $this->actingAs($nurse);
+
+        Queue::fake();
+        app(VaccinationRecordService::class)->saveVaccinationRecords(
+            actingUser: $nurse,
+            clinicId: $this->clinic->id,
+            patientId: $this->patient->patient_id,
+            biteId: $biteId,
+            validated: ['date_treatment_started' => today()->toDateString()],
+            doses: [['period' => 'Day 0', 'date' => today()->toDateString(), 'vaccine_type' => 'Speeda']],
+            signaturePath: null
+        );
+
+        // Booking owner was verified and received vaccination_schedule pushes
+        Queue::assertPushed(SendFcmPushNotification::class, fn (SendFcmPushNotification $job) =>
+            $job->patientAccountId === $this->account->id && $job->data['category'] === 'vaccination_schedule'
+        );
+
+        // Lookalike pending account was NOT verified and received zero FCM jobs
+        $this->assertSame('pending', $lookalike->patients()->whereKey($this->patient->patient_id)->first()->pivot->status);
+        Queue::assertNotPushed(SendFcmPushNotification::class, fn (SendFcmPushNotification $job) =>
+            $job->patientAccountId === $lookalike->id
+        );
+    }
 }

@@ -23,7 +23,7 @@ class FcmNotificationPolicy
         $state = [$category];
         if (in_array($category, ['appointment', 'appointment_cancelled', 'appointment_rescheduled',
             'appointment_reminder', 'vaccination_due', 'dose_reminder', 'vaccination_schedule'], true)) {
-            $appointment = Appointment::find($data['appointment_id'] ?? 0);
+            $appointment = Appointment::with('patient')->find($data['appointment_id'] ?? 0);
             if (!$appointment || !$appointment->patient
                 || $appointment->patient->clinic_id != $appointment->clinic_id) {
                 return null;

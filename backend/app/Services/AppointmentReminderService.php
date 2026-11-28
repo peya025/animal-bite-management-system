@@ -7,6 +7,7 @@ use App\Models\Appointment;
 use App\Models\AppointmentReminder;
 use App\Models\BiteIncident;
 use App\Models\OutboundMessage;
+use App\Models\TreatmentPlan;
 use App\Models\TreatmentRecord;
 use App\Services\Messaging\DeliveryPolicy;
 use App\Services\Messaging\OutboundDelivery;
@@ -46,6 +47,12 @@ class AppointmentReminderService
         'discontinued',
     ];
 
+    public const ELIGIBLE_PEP_PLAN_TYPES = [
+        'full_pep',
+        'single_booster',
+        'two_dose_booster',
+    ];
+
     public const INELIGIBLE_PATIENT_STATUSES = [
         'inactive',
         'transferred',
@@ -69,16 +76,56 @@ class AppointmentReminderService
         }
 
         $incident->loadMissing('treatmentPlan');
-        if ($incident->treatmentPlan && in_array((string) $incident->treatmentPlan->status, self::INELIGIBLE_PLAN_STATUSES, true)) {
+        if (! $this->hasApprovedPepPlan($incident->treatmentPlan)) {
             return true;
         }
 
-        return TreatmentRecord::where('clinic_id', $incident->clinic_id)
+        $referralRecords = TreatmentRecord::where('clinic_id', $incident->clinic_id)
             ->where('patient_id', $incident->patient_id)
             ->where('bite_id', $incident->bite_id)
             ->whereNull('voided_at')
-            ->where('outcome', 'Transferred/Referred')
-            ->exists();
+            ->where(function ($query): void {
+                $query->where('outcome', 'Transferred/Referred')
+                    ->orWhereNotNull('referred_to');
+            })
+            ->get(['outcome', 'referred_to', 'actions_taken']);
+
+        foreach ($referralRecords as $record) {
+            if ($this->isBlockingReferralRecord($record)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function hasApprovedPepPlan(?TreatmentPlan $plan): bool
+    {
+        if (! $plan || in_array((string) $plan->status, self::INELIGIBLE_PLAN_STATUSES, true)) {
+            return false;
+        }
+
+        return $plan->status === 'approved'
+            && in_array((string) $plan->plan_type, self::ELIGIBLE_PEP_PLAN_TYPES, true);
+    }
+
+    /**
+     * Allow internal RHU/ABTC continuation consultations while blocking external or unlabelled referrals.
+     */
+    private function isBlockingReferralRecord(TreatmentRecord $record): bool
+    {
+        $destination = trim((string) ($record->referred_to ?? ''));
+
+        if (TreatmentRecord::isExternalReferralDestination($destination)) {
+            return true;
+        }
+
+        $actionsTaken = strtolower((string) ($record->actions_taken ?? ''));
+        if ($record->outcome === 'Transferred/Referred' || str_contains($actionsTaken, 'transferred/referred')) {
+            return $destination === '' || str_contains($actionsTaken, 'transferred/referred');
+        }
+
+        return false;
     }
 
     public function hasOutstandingDose(Appointment $appointment): bool

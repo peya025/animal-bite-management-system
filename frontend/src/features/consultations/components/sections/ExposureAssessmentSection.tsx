@@ -3,6 +3,7 @@ import {
   BODY_PART_GROUP_OPTIONS,
   EXPOSURE_MODE_OPTIONS,
 } from '../../../../shared/constants/biteIntakeContract';
+import { useClinicModuleConfig } from '../../../../hooks/useClinicModuleConfig';
 import type { PatientReportedIntake } from '../../types/consultation.types';
 
 interface Props {
@@ -29,7 +30,17 @@ const display = (value: unknown) => {
 export default function ExposureAssessmentSection({
   patientReportedIntake,
 }: Props) {
+  const { clinicalOptions } = useClinicModuleConfig();
   if (!patientReportedIntake) return null;
+
+  const resolvedExposureLabels: Record<string, string> = {
+    ...exposureLabels,
+    ...Object.fromEntries(clinicalOptions.exposure_modes.map((o) => [o.key, o.label])),
+  };
+  const resolvedBodyPartLabels: Record<string, string> = {
+    ...bodyPartLabels,
+    ...Object.fromEntries(clinicalOptions.body_part_groups.map((o) => [o.key, o.label])),
+  };
 
   const reportedMode =
     patientReportedIntake?.reported_mode_of_exposure ||
@@ -64,10 +75,10 @@ export default function ExposureAssessmentSection({
                 : ''}
             </div>
             <div><strong>Place:</strong> {display(patientReportedIntake.place_of_exposure || patientReportedIntake.bite_place)}</div>
-            <div><strong>Reported exposure:</strong> {exposureLabels[reportedMode] || display(reportedMode)}</div>
+            <div><strong>Reported exposure:</strong> {resolvedExposureLabels[reportedMode] || display(reportedMode)}</div>
             <div>
               <strong>Body site:</strong>{' '}
-              {bodyPartLabels[reportedBodyGroup] || display(reportedBodyGroup)}
+              {resolvedBodyPartLabels[reportedBodyGroup] || display(reportedBodyGroup)}
               {' - '}
               {display(patientReportedIntake.body_part_detail || patientReportedIntake.wound_location)}
               {' '}({display(patientReportedIntake.laterality)})

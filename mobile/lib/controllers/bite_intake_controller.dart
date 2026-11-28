@@ -193,6 +193,7 @@ class BiteIntakeController extends ChangeNotifier {
 
   void _applyConfig(FormConfiguration next) {
     _config = next;
+    _applyConfiguredOptionsToContract();
     final nextPolicy = ConfiguredFieldPolicy(next);
     if (!_appliedInitialDefaults) {
       _appliedInitialDefaults = true;
@@ -212,11 +213,30 @@ class BiteIntakeController extends ChangeNotifier {
     }
   }
 
+  void _applyConfiguredOptionsToContract() {
+    final cfg = _config;
+    if (cfg == null) return;
+    final configuredExposure = cfg.intake.exposureModeOptions;
+    final configuredBodyPart = cfg.intake.bodyPartGroupOptions;
+    if ((configuredExposure != null && configuredExposure.isNotEmpty) ||
+        (configuredBodyPart != null && configuredBodyPart.isNotEmpty)) {
+      contract = contract.copyWith(
+        exposureModes: (configuredExposure != null && configuredExposure.isNotEmpty)
+            ? configuredExposure
+            : null,
+        bodyPartGroups: (configuredBodyPart != null && configuredBodyPart.isNotEmpty)
+            ? configuredBodyPart
+            : null,
+      );
+    }
+  }
+
   Future<void> loadContract() async {
     try {
       final loaded = await api.biteIntakeContract() as BiteIntakeContract;
       if (_disposed) return;
       contract = loaded;
+      _applyConfiguredOptionsToContract();
       _notify();
     } catch (_) {
       // Fallback contract remains in place

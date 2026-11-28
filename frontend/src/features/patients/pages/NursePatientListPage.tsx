@@ -38,6 +38,7 @@ import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 import TagoloanTreatmentCardModal from '../../vaccinations/components/TagoloanTreatmentCardModal';
+import ReturningPatientCheckInModal from '../components/ReturningPatientCheckInModal';
 import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 import StatCard from '../../../components/common/StatCard/StatCard';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -101,6 +102,7 @@ export default function NursePatientListPage() {
   const [selectedCardPatientId, setSelectedCardPatientId] = useState<number | null>(null);
   const [showTreatmentCardModal, setShowTreatmentCardModal] = useState(false);
   const [checkingInId, setCheckingInId] = useState<number | null>(null);
+  const [checkInTarget, setCheckInTarget] = useState<{ patient: Patient; endpoint: string } | null>(null);
   const [patientToCancelCheckIn, setPatientToCancelCheckIn] = useState<Patient | null>(null);
   const [cancellingCheckInId, setCancellingCheckInId] = useState<number | null>(null);
 
@@ -193,7 +195,7 @@ export default function NursePatientListPage() {
     }
   }, [patientIdParam, loading, patients]);
 
-  const handleCheckIn = async (patient: Patient) => {
+  const handleCheckIn = (patient: Patient) => {
     const appt = getNextAppointment(patient);
     const todayStr = getManilaDateString();
 
@@ -218,24 +220,8 @@ export default function NursePatientListPage() {
       return;
     }
 
-    setCheckingInId(patient.patient_id);
-    try {
-      const endpoint = resolveStation2CheckInEndpoint(patient.patient_id, appt);
-      const response = await api.post(endpoint);
-      const msg = response.data?.message || 'Patient checked in successfully';
-      toast(msg, 'success');
-
-      // Automatically switch to Due Today tab so nurse sees the patient ready for dose
-      setTab('due_today');
-      setPage(0);
-
-      // Reload patients to reflect checked-in status and unlock Form 3
-      await loadPatients();
-    } catch (err: any) {
-      toast(err.response?.data?.message || 'Failed to check in patient', 'error');
-    } finally {
-      setCheckingInId(null);
-    }
+    const endpoint = resolveStation2CheckInEndpoint(patient.patient_id, appt);
+    setCheckInTarget({ patient, endpoint });
   };
 
   const handleCancelCheckIn = async () => {
@@ -1241,6 +1227,24 @@ export default function NursePatientListPage() {
           onClose={() => {
             setShowTreatmentCardModal(false);
             setSelectedCardPatientId(null);
+          }}
+        />
+      )}
+
+      {/* Follow-Up Check-In Vitals Modal */}
+      {checkInTarget && (
+        <ReturningPatientCheckInModal
+          open={Boolean(checkInTarget)}
+          mode="nurse"
+          patient={checkInTarget.patient as any}
+          customEndpoint={checkInTarget.endpoint}
+          onClose={() => setCheckInTarget(null)}
+          onSuccess={async (modalData) => {
+            setCheckInTarget(null);
+            toast(modalData.message || 'Patient checked in successfully', 'success');
+            setTab('due_today');
+            setPage(0);
+            await loadPatients();
           }}
         />
       )}

@@ -564,9 +564,14 @@ class AppointmentController extends Controller
             AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment->fresh(), 'confirmed'));
         }
 
+        $vitalsPayload = $request->only([
+            'blood_pressure', 'temperature', 'weight', 'height',
+            'mode_of_transaction', 'referred_by', 'consultation_date', 'consultation_time',
+        ]);
+
         return $this->appointmentService->processCheckIn(
             $clinicId, $request->user(), (int) $appointment->patient_id, $appointment,
-            $todayDate, $request->get('priority', 'normal'),
+            $todayDate, $request->get('priority', 'normal'), $vitalsPayload,
         );
     }
 
@@ -587,6 +592,11 @@ class AppointmentController extends Controller
         $followUpBase = Appointment::where('clinic_id', $clinicId)->where('patient_id', $patientId);
         $this->appointmentService->scopeFollowUpAppointments($followUpBase, false);
 
+        $vitalsPayload = $request->only([
+            'blood_pressure', 'temperature', 'weight', 'height',
+            'mode_of_transaction', 'referred_by', 'consultation_date', 'consultation_time',
+        ]);
+
         // Idempotency — already confirmed follow-up appointment only (never pick a consultation)
         $existingConfirmed = (clone $followUpBase)
             ->where('status', 'confirmed')
@@ -596,7 +606,7 @@ class AppointmentController extends Controller
             if ($denied = $this->guardStation($clinicId, $this->resolveAppointmentCheckInStation($existingConfirmed), 'check in this appointment')) {
                 return $denied;
             }
-            return $this->appointmentService->processCheckIn($clinicId, $request->user(), $patientId, $existingConfirmed, $todayDate, $request->get('priority', 'normal'));
+            return $this->appointmentService->processCheckIn($clinicId, $request->user(), $patientId, $existingConfirmed, $todayDate, $request->get('priority', 'normal'), $vitalsPayload);
         }
 
         // Select ONLY due or overdue eligible follow-up appointments (excluding consultations, pending intakes, boosters, and future doses)
@@ -613,7 +623,7 @@ class AppointmentController extends Controller
             }
             $appointment->update(['status' => 'confirmed']);
             AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appointment->fresh(), 'confirmed'));
-            return $this->appointmentService->processCheckIn($clinicId, $request->user(), $patientId, $appointment, $todayDate, $request->get('priority', 'normal'));
+            return $this->appointmentService->processCheckIn($clinicId, $request->user(), $patientId, $appointment, $todayDate, $request->get('priority', 'normal'), $vitalsPayload);
         }
 
         // Preserve future follow-up schedule eligibility — never prematurely confirm a future Day 3 / Day 7 dose

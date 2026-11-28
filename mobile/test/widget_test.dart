@@ -364,5 +364,24 @@ void main() {
 
     expect(find.text('User'), findsOneWidget);
     expect(find.text('Animal Bite Center'), findsNothing);
+    expect(find.byKey(const ValueKey('notification-unread-dot')), findsNothing);
+
+    // Shows red dot only when unread notifications exist
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MenuSearchHeader(
+            hasUnreadNotifications: true,
+            onSearchPressed: () {},
+            onNotificationsPressed: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('notification-unread-dot')),
+      findsOneWidget,
+    );
   });
 }

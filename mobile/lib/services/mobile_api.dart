@@ -379,9 +379,14 @@ class MobileApi {
         .toList();
   }
 
-  Future<BiteIntakeContract> biteIntakeContract() async {
-    final data =
-        await _send('GET', '/bite-intake-schema') as Map<String, dynamic>;
+  Future<BiteIntakeContract> biteIntakeContract({int? clinicIdOverride}) async {
+    final targetClinicId = clinicIdOverride ?? clinicId;
+    final query = <String, String>{
+      if (targetClinicId != null && targetClinicId > 0)
+        'clinic_id': '$targetClinicId',
+    };
+    final path = Uri(path: '/bite-intake-schema', queryParameters: query.isEmpty ? null : query).toString();
+    final data = await _send('GET', path) as Map<String, dynamic>;
     return BiteIntakeContract.fromJson(data);
   }
 

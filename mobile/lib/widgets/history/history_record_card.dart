@@ -629,8 +629,15 @@ class _HistoryTimelineItemState extends State<HistoryTimelineItem> {
 
   String _formatExposureMode(String? raw) {
     return switch (raw?.toLowerCase()) {
-      'bite' => 'Bite',
-      'scratch' || 'scratch_abrasion' => 'Scratch / Abrasion',
+      'nibbling_uncovered_skin' || 'nibbling_uncovered' || 'lick' =>
+        'Saliva or licking on intact skin',
+      'nibbling_broken_skin' || 'nibbling_wounded' =>
+        'Saliva or licking on broken skin',
+      'scratch' || 'scratch_abrasion' => 'Scratch or abrasion',
+      'bite' || 'transdermal_bite' => 'Transdermal bite',
+      'handling_ingestion_raw_meat' || 'handling_ingestion' =>
+        'Handling or ingestion of raw animal tissue',
+      'unsure' => 'Unsure',
       'non_bite' => 'Non-bite exposure',
       _ => raw ?? 'Not specified',
     };
@@ -660,6 +667,7 @@ class _HistoryTimelineItemState extends State<HistoryTimelineItem> {
       'head_neck' => 'Head and neck',
       'trunk_torso' => 'Trunk or torso',
       'multiple_sites' => 'Multiple sites',
+      'na_ingestion' => 'Not applicable for ingestion or handling',
       _ => raw ?? 'Not specified',
     };
   }

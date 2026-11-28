@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSavedExposureCategory } from '../hooks/useSavedExposureCategory';
 import ProphylaxisAdministrationSection from './ProphylaxisAdministrationSection';
-import { suggestIcd10FromExposure } from '../../../shared/constants/icd10Codes';
+import { buildIcd10Options, suggestIcd10FromExposure } from '../../../shared/constants/icd10Codes';
+import { SearchableSelect } from '../../../components/forms/SearchableSelect';
+import './VaccinationRecordForm.css';
 import type { ProphylaxisRecord } from './ProphylaxisAdministrationSection';
 import type { ProphylaxisAdministration, ProphylaxisStock } from '../../../shared/types/prophylaxis';
 import { isProphylaxisInventoryName } from '../../../shared/types/prophylaxis';
@@ -23,7 +25,7 @@ import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 import {
   SegmentedControl,
-  ChipGroup,
+  SearchableMultiSelect,
   FormSection,
   DoseCard,
   DoseRow,
@@ -38,20 +40,20 @@ import {
 const BORDER_RADIUS = 8;
 
 const MODE_OF_EXPOSURE_CHIPS = [
-  { key: 'nibbling_uncovered', label: 'Lick, intact skin' },
-  { key: 'nibbling_wounded', label: 'Lick, broken skin' },
-  { key: 'scratch_abrasion', label: 'Scratch' },
-  { key: 'transdermal_bite', label: 'Bite' },
-  { key: 'handling_ingestion', label: 'Raw meat contact' },
+  { key: 'nibbling_uncovered', label: 'Saliva or licking on intact skin' },
+  { key: 'nibbling_wounded', label: 'Saliva or licking on broken skin' },
+  { key: 'scratch_abrasion', label: 'Scratch or abrasion' },
+  { key: 'transdermal_bite', label: 'Transdermal bite' },
+  { key: 'handling_ingestion', label: 'Handling or ingestion of raw animal tissue' },
 ] as const;
 
 const BODY_PART_CHIPS = [
-  { key: 'head_neck', label: 'Head & neck' },
-  { key: 'upper_extremities', label: 'Arm / hand' },
-  { key: 'lower_extremities', label: 'Leg / foot' },
-  { key: 'trunk_torso', label: 'Trunk' },
-  { key: 'multiple_sites', label: 'Multiple' },
-  { key: 'na_ingestion', label: 'Ingestion' },
+  { key: 'head_neck', label: 'Head and neck' },
+  { key: 'upper_extremities', label: 'Upper extremities (arm or hand)' },
+  { key: 'lower_extremities', label: 'Lower extremities (leg or foot)' },
+  { key: 'trunk_torso', label: 'Trunk or torso' },
+  { key: 'multiple_sites', label: 'Multiple sites' },
+  { key: 'na_ingestion', label: 'Not applicable for ingestion or handling' },
 ] as const;
 
 export function cleanPurok(val: string): string {
@@ -102,22 +104,8 @@ interface TreatmentFormData {
   date_of_exposure: string;
   date_treatment_started: string;
   place_of_exposure: string;
-  mode_of_exposure: {
-    nibbling_uncovered: boolean;
-    nibbling_wounded: boolean;
-    scratch_abrasion: boolean;
-    transdermal_bite: boolean;
-    handling_ingestion: boolean;
-  };
-  body_part_affected: {
-    head_neck: boolean;
-    upper_extremities: boolean;
-    lower_extremities: boolean;
-    trunk_torso: boolean;
-    multiple_sites: boolean;
-    other_parts: boolean;
-    na_ingestion: boolean;
-  };
+  mode_of_exposure: Record<string, boolean>;
+  body_part_affected: Record<string, boolean>;
   body_part_affected_text: string;
   animal_type: string;
   animal_type_other: string;
@@ -406,7 +394,27 @@ const hasAnyProphylaxisOrder = (orders: any): boolean => {
 };
 
 export default function VaccinationRecordForm({ open, entry, onClose, onSave, readOnly = false, inline = false }: VaccinationRecordFormProps) {
-  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
+  const { isFieldVisible, isFieldRequired, isSectionEnabled, clinicalOptions } = useClinicModuleConfig();
+
+  const CANONICAL_TO_FORM3_EXPOSURE_KEY: Record<string, string> = {
+    nibbling_uncovered_skin: 'nibbling_uncovered',
+    nibbling_broken_skin: 'nibbling_wounded',
+    scratch_abrasion: 'scratch_abrasion',
+    transdermal_bite: 'transdermal_bite',
+    handling_ingestion_raw_meat: 'handling_ingestion',
+  };
+
+  const configuredExposureOptions = clinicalOptions.exposure_modes
+    .map((opt) => ({
+      key: CANONICAL_TO_FORM3_EXPOSURE_KEY[opt.key] || opt.key,
+      label: opt.label,
+      enabled: opt.enabled,
+    }))
+    .filter((opt) => opt.enabled || Boolean((formData.mode_of_exposure as Record<string, boolean>)[opt.key]));
+
+  const configuredBodyPartOptions = clinicalOptions.body_part_groups
+    .filter((opt) => opt.enabled || Boolean((formData.body_part_affected as Record<string, boolean>)[opt.key]))
+    .map((opt) => ({ key: opt.key, label: opt.label }));
   const { user: currentUser } = useAuth();
 
   // Draft key is scoped to patient + bite episode so each case has an isolated draft
@@ -442,6 +450,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   const [prophylaxisStock, setProphylaxisStock] = useState<ProphylaxisStock | null | undefined>(undefined);
   const [icdCode, setIcdCode] = useState('');
   const icdManuallyEditedRef = useRef(false);
+  const icd10Options = useMemo(() => buildIcd10Options(icdCode), [icdCode]);
   const handleIcdCodeChange = (val: string) => {
     icdManuallyEditedRef.current = true;
     setIcdCode(val);
@@ -688,6 +697,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           scratch_abrasion: mode === 'scratch_abrasion',
           transdermal_bite: mode === 'transdermal_bite',
           handling_ingestion: mode === 'handling_ingestion_raw_meat',
+          ...(mode && !['nibbling_uncovered_skin', 'nibbling_broken_skin', 'scratch_abrasion', 'transdermal_bite', 'handling_ingestion_raw_meat', 'unsure'].includes(mode)
+            ? { [mode]: true }
+            : {}),
         },
         body_part_affected: {
           head_neck:         bodyPart === 'head_neck',
@@ -697,6 +709,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           multiple_sites:    bodyPart === 'multiple_sites',
           other_parts:       bodyPart === 'other_parts',
           na_ingestion:      bodyPart === 'na_ingestion',
+          ...(bodyPart && !['head_neck', 'upper_extremities', 'lower_extremities', 'trunk_torso', 'multiple_sites', 'other_parts', 'na_ingestion'].includes(bodyPart)
+            ? { [bodyPart]: true }
+            : {}),
         },
         body_part_affected_text: bodyPartDetail || '',
         animal_type: FORM3_ANIMAL_SPECIES_OPTIONS.some((option) => option.value === animal.toLowerCase())
@@ -1576,7 +1591,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
   };
 
   const formContent = (
-    <div style={{ padding: inline ? '0' : '24px 32px' }}>
+    <div className="form3-pill-fields" style={{ padding: inline ? '0' : '24px 32px' }}>
       {/* Returning Consultation vs Previous Consultation Prescription Banner */}
       {previousConsultations.length > 1 && (
         <div style={{
@@ -1685,22 +1700,26 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       <FormSection title="Exposure">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 12 }}>
           <div id="field-mode_of_exposure">
-            <ChipGroup
+            <SearchableMultiSelect
               label="Mode of exposure"
-              options={MODE_OF_EXPOSURE_CHIPS}
+              options={configuredExposureOptions.length > 0 ? configuredExposureOptions : MODE_OF_EXPOSURE_CHIPS}
               selectedKeys={formData.mode_of_exposure}
               onToggle={handleToggleExposureMode}
+              placeholder="Select mode of exposure..."
+              searchPlaceholder="Search mode of exposure..."
               disabled={clinicalAssessmentLocked}
               error={fieldErrors.mode_of_exposure}
             />
           </div>
 
           <div id="field-body_part_affected">
-            <ChipGroup
+            <SearchableMultiSelect
               label="Body part"
-              options={BODY_PART_CHIPS}
+              options={configuredBodyPartOptions.length > 0 ? configuredBodyPartOptions : BODY_PART_CHIPS}
               selectedKeys={formData.body_part_affected}
               onToggle={handleToggleBodyPart}
+              placeholder="Select body part..."
+              searchPlaceholder="Search body part..."
               disabled={clinicalAssessmentLocked}
               error={fieldErrors.body_part_affected}
             />
@@ -1790,6 +1809,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                 disabled={clinicalAssessmentLocked}
                 error={fieldErrors.animal_type}
                 onChange={(val) => {
+                  icdManuallyEditedRef.current = false;
                   setFormData(prev => ({
                     ...prev,
                     animal_type: val,
@@ -1805,14 +1825,19 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
               />
               {formData.animal_type === 'other' && (
                 <div id="field-animal_type_other" style={{ marginTop: 8 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: fieldErrors.animal_type_other ? '#dc2626' : 'var(--text-secondary, #475569)', marginBottom: 4 }}>
+                    Specify other animal
+                  </label>
                   <input
                     type="text"
                     aria-label="Other species"
                     placeholder="Specify other animal"
                     value={formData.animal_type_other || ''}
                     disabled={clinicalAssessmentLocked}
+                    autoFocus={!formData.animal_type_other}
                     onChange={(e) => {
                       const val = e.target.value;
+                      icdManuallyEditedRef.current = false;
                       setFormData(prev => ({ ...prev, animal_type_other: val }));
                       if (val.trim()) {
                         setFieldErrors(fe => {
@@ -1824,7 +1849,7 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                     }}
                     style={{
                       width: '100%',
-                      padding: 10,
+                      padding: '8px 12px',
                       font: 'inherit',
                       border: fieldErrors.animal_type_other ? '1.5px solid #ef4444' : '1px solid var(--border-color, #d1d5db)',
                       borderRadius: BORDER_RADIUS,
@@ -1843,6 +1868,25 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
                   )}
                 </div>
               )}
+            </div>
+
+            <div id="field-icd_code">
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-h, #374151)', marginBottom: 6 }}>
+                ICD-10 Code
+              </label>
+              <SearchableSelect
+                size="sm"
+                options={icd10Options}
+                value={icdCode}
+                placeholder="Select ICD-10 code..."
+                searchPlaceholder="Search ICD-10 code..."
+                disabled={isFormLocked}
+                aria-label="ICD-10 Code"
+                onChange={handleIcdCodeChange}
+              />
+              <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary, #64748b)', marginTop: 4 }}>
+                Auto-updates based on species &amp; exposure mode
+              </span>
             </div>
 
             <div id="field-animal_status">

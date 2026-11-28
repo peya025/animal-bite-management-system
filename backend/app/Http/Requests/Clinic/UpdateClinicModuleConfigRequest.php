@@ -81,6 +81,17 @@ class UpdateClinicModuleConfigRequest extends FormRequest
             'triage_section_enabled'        => 'sometimes|boolean',
             'treatment_section_enabled'     => 'sometimes|boolean',
             'field_rules'                   => 'required|array',
+            'clinical_options'              => 'sometimes|array',
+            'clinical_options.exposure_modes'            => 'sometimes|array|min:1',
+            'clinical_options.exposure_modes.*.key'      => 'required_with:clinical_options.exposure_modes|string|max:64',
+            'clinical_options.exposure_modes.*.label'    => 'required_with:clinical_options.exposure_modes|string|min:1|max:120',
+            'clinical_options.exposure_modes.*.enabled'  => 'required_with:clinical_options.exposure_modes|boolean',
+            'clinical_options.exposure_modes.*.is_custom'=> 'sometimes|boolean',
+            'clinical_options.body_part_groups'          => 'sometimes|array|min:1',
+            'clinical_options.body_part_groups.*.key'    => 'required_with:clinical_options.body_part_groups|string|max:64',
+            'clinical_options.body_part_groups.*.label'  => 'required_with:clinical_options.body_part_groups|string|min:1|max:120',
+            'clinical_options.body_part_groups.*.enabled'=> 'required_with:clinical_options.body_part_groups|boolean',
+            'clinical_options.body_part_groups.*.is_custom' => 'sometimes|boolean',
         ];
 
         $newFeeKeys = ['rig_fee', 'anti_rabies_fee', 'additional_fees'];
@@ -119,6 +130,7 @@ class UpdateClinicModuleConfigRequest extends FormRequest
                 'triage_section_enabled',
                 'treatment_section_enabled',
                 'field_rules',
+                'clinical_options',
             ];
 
             // 1. Reject unsupported / unknown top-level keys
@@ -173,6 +185,52 @@ class UpdateClinicModuleConfigRequest extends FormRequest
                         'field_rules.exposure_category',
                         "The 'exposure_category' field is an essential clinical safeguard and must be 'required'."
                     );
+                }
+            }
+
+            // 4b. Validate clinical_options keys (canonical or valid custom snake_case) & at-least-one-enabled invariant
+            if (is_array($this->input('clinical_options'))) {
+                $clinicalOptions = $this->input('clinical_options');
+
+                foreach (['exposure_modes', 'body_part_groups'] as $groupKey) {
+                    if (isset($clinicalOptions[$groupKey]) && is_array($clinicalOptions[$groupKey])) {
+                        $enabledCount = 0;
+                        $seenKeys = [];
+                        foreach ($clinicalOptions[$groupKey] as $idx => $item) {
+                            if (! is_array($item)) {
+                                continue;
+                            }
+                            $k = is_string($item['key'] ?? null) ? strtolower(trim($item['key'])) : '';
+                            if ($k === '' || $k === 'unsure' || ! preg_match('/^[a-z][a-z0-9_]{1,63}$/', $k)) {
+                                $validator->errors()->add(
+                                    "clinical_options.{$groupKey}.{$idx}.key",
+                                    "The option key '{$k}' must be a valid snake_case identifier (letters, numbers, underscores, 2-64 chars)."
+                                );
+                            } elseif (isset($seenKeys[$k])) {
+                                $validator->errors()->add(
+                                    "clinical_options.{$groupKey}.{$idx}.key",
+                                    "Duplicate option key '{$k}' in {$groupKey}."
+                                );
+                            }
+                            $seenKeys[$k] = true;
+
+                            if (isset($item['label']) && is_string($item['label']) && trim($item['label']) === '') {
+                                $validator->errors()->add(
+                                    "clinical_options.{$groupKey}.{$idx}.label",
+                                    'Option label cannot be empty.'
+                                );
+                            }
+                            if (! empty($item['enabled'])) {
+                                $enabledCount++;
+                            }
+                        }
+                        if ($enabledCount === 0) {
+                            $validator->errors()->add(
+                                "clinical_options.{$groupKey}",
+                                "At least one option must remain enabled for {$groupKey}."
+                            );
+                        }
+                    }
                 }
             }
 

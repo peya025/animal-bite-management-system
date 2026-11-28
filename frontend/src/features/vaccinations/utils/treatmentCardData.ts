@@ -83,7 +83,7 @@ export function deriveTreatmentCard(record?: PrintableFormRecord | null) {
   // Mode of Animal Exposure
   const rawMode = (record?.modeOfExposure || bite?.mode_of_exposure || '').toLowerCase();
   const isMode = (type: string) => {
-    if (type === 'nibbling_uncovered') return rawMode.includes('uncovered') || rawMode.includes('nibbling');
+    if (type === 'nibbling_uncovered') return rawMode.includes('uncovered') || (rawMode.includes('nibbling') && !rawMode.includes('broken') && !rawMode.includes('wounded'));
     if (type === 'nibbling_wounded') return rawMode.includes('broken') || rawMode.includes('wounded');
     if (type === 'scratch_abrasion') return rawMode.includes('scratch') || rawMode.includes('abrasion');
     if (type === 'transdermal_bite') return rawMode.includes('transdermal') || rawMode.includes('bite');
@@ -92,11 +92,11 @@ export function deriveTreatmentCard(record?: PrintableFormRecord | null) {
   };
 
   const chosenModes: string[] = [];
-  if (isMode('nibbling_uncovered')) chosenModes.push('Nibbling/Licking of uncovered skin');
-  if (isMode('nibbling_wounded')) chosenModes.push('Nibbling/Licking of wounded/broken skin');
-  if (isMode('scratch_abrasion')) chosenModes.push('Scratch / Abrasion');
-  if (isMode('transdermal_bite')) chosenModes.push('Transdermal Bite');
-  if (isMode('handling_ingestion')) chosenModes.push('Handling / Ingestion of raw infected meat');
+  if (isMode('nibbling_uncovered')) chosenModes.push('Saliva or licking on intact skin');
+  if (isMode('nibbling_wounded')) chosenModes.push('Saliva or licking on broken skin');
+  if (isMode('scratch_abrasion')) chosenModes.push('Scratch or abrasion');
+  if (isMode('transdermal_bite')) chosenModes.push('Transdermal bite');
+  if (isMode('handling_ingestion')) chosenModes.push('Handling or ingestion of raw animal tissue');
 
   // Body Part Affected Exposed
   const rawPart = (record?.bodyPartExposed || bite?.body_part_exposed || '').toLowerCase();

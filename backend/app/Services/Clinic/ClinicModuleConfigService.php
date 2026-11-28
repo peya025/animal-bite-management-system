@@ -5,6 +5,7 @@ namespace App\Services\Clinic;
 use App\Exceptions\ClinicModuleConfigConflictException;
 use App\Models\AuditLog;
 use App\Models\ClinicModuleConfig;
+use App\Support\BiteIntakeContract;
 use Closure;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -208,6 +209,252 @@ class ClinicModuleConfigService
     }
 
     /**
+     * Default clinical dropdown options for Mode of Exposure and Body-Part Group.
+     *
+     * @return array{
+     *   exposure_modes: list<array{key: string, label: string, enabled: bool}>,
+     *   body_part_groups: list<array{key: string, label: string, enabled: bool}>
+     * }
+     */
+    public function getDefaultClinicalOptions(): array
+    {
+        $exposureModes = [];
+        foreach (BiteIntakeContract::EXPOSURE_MODES as $key => $label) {
+            if ($key === 'unsure') {
+                continue;
+            }
+            $exposureModes[] = [
+                'key'       => $key,
+                'label'     => $label,
+                'enabled'   => true,
+                'is_custom' => false,
+            ];
+        }
+
+        $bodyPartGroups = [];
+        foreach (BiteIntakeContract::BODY_PART_GROUPS as $key => $label) {
+            $bodyPartGroups[] = [
+                'key'       => $key,
+                'label'     => $label,
+                'enabled'   => true,
+                'is_custom' => false,
+            ];
+        }
+
+        return [
+            'exposure_modes'   => $exposureModes,
+            'body_part_groups' => $bodyPartGroups,
+        ];
+    }
+
+    /**
+     * Normalize clinical options while preserving canonical keys, custom clinic options, and fallback customizations.
+     *
+     * @param array<string, mixed>|null $options
+     * @param array<string, mixed>|null $fallback
+     * @return array{
+     *   exposure_modes: list<array{key: string, label: string, enabled: bool, is_custom: bool}>,
+     *   body_part_groups: list<array{key: string, label: string, enabled: bool, is_custom: bool}>
+     * }
+     */
+    public function normalizeClinicalOptions(?array $options, ?array $fallback = null): array
+    {
+        $defaults = $this->getDefaultClinicalOptions();
+        $hasSubmitted = is_array($options);
+        $source = $hasSubmitted ? $options : (is_array($fallback) ? $fallback : []);
+        $fallbackSource = is_array($fallback) ? $fallback : [];
+
+        $normalizeGroup = static function (array $defaultItems, mixed $submittedItems, mixed $fallbackItems, bool $replaceCustomFromSubmitted): array {
+            $defaultKeySet = array_flip(array_column($defaultItems, 'key'));
+
+            $byKey = [];
+            if (is_array($fallbackItems)) {
+                foreach ($fallbackItems as $item) {
+                    if (is_array($item) && isset($item['key']) && is_string($item['key'])) {
+                        $byKey[$item['key']] = $item;
+                    }
+                }
+            }
+            if (is_array($submittedItems)) {
+                foreach ($submittedItems as $item) {
+                    if (is_array($item) && isset($item['key']) && is_string($item['key'])) {
+                        $byKey[$item['key']] = $item;
+                    }
+                }
+            }
+
+            $result = [];
+            foreach ($defaultItems as $defaultItem) {
+                $key = $defaultItem['key'];
+                $custom = $byKey[$key] ?? null;
+                $label = is_array($custom) && isset($custom['label']) && is_string($custom['label']) && trim($custom['label']) !== ''
+                    ? mb_substr(trim($custom['label']), 0, 120)
+                    : $defaultItem['label'];
+                $enabled = is_array($custom) && array_key_exists('enabled', $custom)
+                    ? (bool) $custom['enabled']
+                    : true;
+
+                $result[] = [
+                    'key'       => $key,
+                    'label'     => $label,
+                    'enabled'   => $enabled,
+                    'is_custom' => false,
+                ];
+            }
+
+            // Append clinic-created custom options
+            $customSource = $replaceCustomFromSubmitted
+                ? (is_array($submittedItems) ? $submittedItems : [])
+                : (is_array($fallbackItems) ? $fallbackItems : []);
+
+            $seenCustom = [];
+            foreach ($customSource as $item) {
+                if (! is_array($item) || ! isset($item['key']) || ! is_string($item['key'])) {
+                    continue;
+                }
+                $key = strtolower(trim($item['key']));
+                if (
+                    isset($defaultKeySet[$key]) ||
+                    isset($seenCustom[$key]) ||
+                    $key === 'unsure' ||
+                    ! preg_match('/^[a-z][a-z0-9_]{1,63}$/', $key)
+                ) {
+                    continue;
+                }
+                $label = isset($item['label']) && is_string($item['label']) ? mb_substr(trim($item['label']), 0, 120) : '';
+                if ($label === '') {
+                    continue;
+                }
+                $seenCustom[$key] = true;
+                $result[] = [
+                    'key'       => $key,
+                    'label'     => $label,
+                    'enabled'   => array_key_exists('enabled', $item) ? (bool) $item['enabled'] : true,
+                    'is_custom' => true,
+                ];
+            }
+
+            // Guarantee at least one enabled option per list
+            $hasEnabled = false;
+            foreach ($result as $item) {
+                if ($item['enabled']) {
+                    $hasEnabled = true;
+                    break;
+                }
+            }
+            if (! $hasEnabled && ! empty($result)) {
+                $result[0]['enabled'] = true;
+            }
+
+            return $result;
+        };
+
+        return [
+            'exposure_modes'   => $normalizeGroup(
+                $defaults['exposure_modes'],
+                $source['exposure_modes'] ?? null,
+                $fallbackSource['exposure_modes'] ?? null,
+                $hasSubmitted && array_key_exists('exposure_modes', $source)
+            ),
+            'body_part_groups' => $normalizeGroup(
+                $defaults['body_part_groups'],
+                $source['body_part_groups'] ?? null,
+                $fallbackSource['body_part_groups'] ?? null,
+                $hasSubmitted && array_key_exists('body_part_groups', $source)
+            ),
+        ];
+    }
+
+    /**
+     * Return all allowed keys (canonical + legacy aliases + clinic custom keys) for validation.
+     *
+     * @return array{exposure_modes: list<string>, body_part_groups: list<string>}
+     */
+    public function getAllowedClinicalOptionKeysForConfig(ClinicModuleConfig $config): array
+    {
+        $options = $this->normalizeClinicalOptions($config->clinical_options);
+
+        $exposureKeys = array_values(array_unique(array_merge(
+            array_keys(BiteIntakeContract::EXPOSURE_MODES),
+            ['nibbling_uncovered', 'nibbling_wounded', 'handling_ingestion'],
+            array_column($options['exposure_modes'], 'key')
+        )));
+
+        $bodyPartKeys = array_values(array_unique(array_merge(
+            array_keys(BiteIntakeContract::BODY_PART_GROUPS),
+            ['other_parts'],
+            array_column($options['body_part_groups'], 'key')
+        )));
+
+        return [
+            'exposure_modes'   => $exposureKeys,
+            'body_part_groups' => $bodyPartKeys,
+        ];
+    }
+
+    /**
+     * Convenience wrapper resolving allowed keys by clinic ID.
+     *
+     * @return array{exposure_modes: list<string>, body_part_groups: list<string>}
+     */
+    public function getAllowedClinicalOptionKeysForClinic(?int $clinicId): array
+    {
+        if ($clinicId && $clinicId > 0) {
+            try {
+                return $this->getAllowedClinicalOptionKeysForConfig($this->getOrCreateConfigForClinic($clinicId));
+            } catch (\Throwable) {
+                // Fall back to canonical defaults
+            }
+        }
+
+        return [
+            'exposure_modes' => array_values(array_unique(array_merge(
+                array_keys(BiteIntakeContract::EXPOSURE_MODES),
+                ['nibbling_uncovered', 'nibbling_wounded', 'handling_ingestion']
+            ))),
+            'body_part_groups' => array_values(array_unique(array_merge(
+                array_keys(BiteIntakeContract::BODY_PART_GROUPS),
+                ['other_parts']
+            ))),
+        ];
+    }
+
+    /**
+     * Build key => label maps of enabled clinical options for mobile & schema endpoints.
+     *
+     * @return array{
+     *   reported_mode_of_exposure: array<string, string>,
+     *   body_part_group: array<string, string>
+     * }
+     */
+    public function getEnabledClinicalOptionMaps(ClinicModuleConfig $config, bool $includeUnsureExposure = false): array
+    {
+        $options = $this->normalizeClinicalOptions($config->clinical_options);
+
+        $exposureMap = [];
+        foreach ($options['exposure_modes'] as $item) {
+            if ($item['enabled']) {
+                $exposureMap[$item['key']] = $item['label'];
+            }
+        }
+        if ($includeUnsureExposure) {
+            $exposureMap['unsure'] = BiteIntakeContract::EXPOSURE_MODES['unsure'];
+        }
+
+        $bodyPartMap = [];
+        foreach ($options['body_part_groups'] as $item) {
+            if ($item['enabled']) {
+                $bodyPartMap[$item['key']] = $item['label'];
+            }
+        }
+
+        return [
+            'reported_mode_of_exposure' => $exposureMap,
+            'body_part_group'           => $bodyPartMap,
+        ];
+    }
+
+    /**
      * Get or initialize configuration for a clinic.
      * Strict clinic scoping: requires a valid positive clinic ID.
      */
@@ -304,13 +551,18 @@ class ClinicModuleConfigService
                 }
             }
 
-            // 2. Normalize field rules
+            // 2. Normalize field rules and clinical options
             $existingRules = $config->field_rules ?: $this->getDefaultFieldRules();
             $submittedRules = $data['field_rules'] ?? $existingRules;
             $normalizedRules = $this->normalizeFieldRules($submittedRules, $existingRules);
 
+            $existingClinicalOptions = $this->normalizeClinicalOptions($config->clinical_options);
+            $normalizedClinicalOptions = array_key_exists('clinical_options', $data)
+                ? $this->normalizeClinicalOptions($data['clinical_options'], $existingClinicalOptions)
+                : $existingClinicalOptions;
+
             // 3. Calculate diff
-            $diff = $this->calculateDiff($config, $data, $normalizedRules);
+            $diff = $this->calculateDiff($config, $data, $normalizedRules, $normalizedClinicalOptions);
 
             // 4. No-op detection: if no values changed, do not increment revision or create audit log
             if (! $diff['has_changes']) {
@@ -326,8 +578,9 @@ class ClinicModuleConfigService
 
             // 5. Update configuration model
             $updates = array_merge($diff['updates'], [
-                'field_rules' => $normalizedRules,
-                'revision'    => $newRevision,
+                'field_rules'      => $normalizedRules,
+                'clinical_options' => $normalizedClinicalOptions,
+                'revision'         => $newRevision,
             ]);
 
             $config->fill($updates);
@@ -362,7 +615,7 @@ class ClinicModuleConfigService
     /**
      * Calculate exact diff between current configuration and proposed updates.
      */
-    protected function calculateDiff(ClinicModuleConfig $config, array $data, array $newFieldRules): array
+    protected function calculateDiff(ClinicModuleConfig $config, array $data, array $newFieldRules, ?array $newClinicalOptions = null): array
     {
         $before = [];
         $after = [];
@@ -418,6 +671,16 @@ class ClinicModuleConfigService
             $after['field_rules'] = $fieldRuleDiffAfter;
         }
 
+        // Clinical options diff
+        if ($newClinicalOptions !== null) {
+            $currentClinicalOptions = $this->normalizeClinicalOptions($config->clinical_options);
+            if ($currentClinicalOptions !== $newClinicalOptions) {
+                $before['clinical_options'] = $currentClinicalOptions;
+                $after['clinical_options'] = $newClinicalOptions;
+                $hasChanges = true;
+            }
+        }
+
         return [
             'has_changes' => $hasChanges,
             'before'      => $before,
@@ -447,6 +710,7 @@ class ClinicModuleConfigService
             'triage_section_enabled'        => (bool) ($config->triage_section_enabled ?? true),
             'treatment_section_enabled'     => (bool) ($config->treatment_section_enabled ?? true),
             'field_rules'                   => $config->field_rules ?: $this->getDefaultFieldRules(),
+            'clinical_options'              => $this->normalizeClinicalOptions($config->clinical_options),
             'created_at'                    => $config->created_at?->toISOString(),
             'updated_at'                    => $config->updated_at?->toISOString(),
         ];

@@ -247,6 +247,36 @@ export interface ClinicStationModules {
 
 export type ClinicStationKey = keyof ClinicStationModules;
 
+export interface ClinicalOptionItem {
+  key: string;
+  label: string;
+  enabled: boolean;
+  is_custom?: boolean;
+}
+
+export interface ClinicClinicalOptions {
+  exposure_modes: ClinicalOptionItem[];
+  body_part_groups: ClinicalOptionItem[];
+}
+
+export const DEFAULT_CLINICAL_OPTIONS: ClinicClinicalOptions = {
+  exposure_modes: [
+    { key: 'nibbling_uncovered_skin', label: 'Saliva or licking on intact skin', enabled: true },
+    { key: 'nibbling_broken_skin', label: 'Saliva or licking on broken skin', enabled: true },
+    { key: 'scratch_abrasion', label: 'Scratch or abrasion', enabled: true },
+    { key: 'transdermal_bite', label: 'Transdermal bite', enabled: true },
+    { key: 'handling_ingestion_raw_meat', label: 'Handling or ingestion of raw animal tissue', enabled: true },
+  ],
+  body_part_groups: [
+    { key: 'head_neck', label: 'Head and neck', enabled: true },
+    { key: 'upper_extremities', label: 'Upper extremities (arm or hand)', enabled: true },
+    { key: 'lower_extremities', label: 'Lower extremities (leg or foot)', enabled: true },
+    { key: 'trunk_torso', label: 'Trunk or torso', enabled: true },
+    { key: 'multiple_sites', label: 'Multiple sites', enabled: true },
+    { key: 'na_ingestion', label: 'Not applicable for ingestion or handling', enabled: true },
+  ],
+};
+
 export interface ClinicModuleConfig extends ClinicModuleSections, ClinicStationModules {
   id?: number;
   schema_version: number;
@@ -257,6 +287,7 @@ export interface ClinicModuleConfig extends ClinicModuleSections, ClinicStationM
   google_sso_roles?: string[];
   google_sso_domain?: string | null;
   field_rules: FieldRules;
+  clinical_options?: ClinicClinicalOptions;
   created_at?: string;
   updated_at?: string;
 }
@@ -264,6 +295,7 @@ export interface ClinicModuleConfig extends ClinicModuleSections, ClinicStationM
 export interface ClinicModuleConfigUpdatePayload extends ClinicModuleSections, ClinicStationModules {
   revision: number;
   field_rules: FieldRules;
+  clinical_options?: ClinicClinicalOptions;
 }
 
 export interface ClinicModuleConfigUpdateResponse {

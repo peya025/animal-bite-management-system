@@ -41,6 +41,7 @@ interface ProphylaxisAdministrationSectionProps {
   onChange: (value: ProphylaxisAdministration[]) => void;
   disabled: boolean;
   today: string;
+  defaultInfiltrationSite?: string;
   icdCode?: string;
   onIcdCodeChange?: (val: string) => void;
 }
@@ -53,12 +54,22 @@ export default function ProphylaxisAdministrationSection({
   onChange,
   disabled,
   today,
-  icdCode,
-  onIcdCodeChange,
+  defaultInfiltrationSite,
 }: ProphylaxisAdministrationSectionProps) {
   const { isFieldVisible } = useClinicModuleConfig();
   const hasAutoInitializedRef = useRef<Record<string, boolean>>({});
-  const icd10Options = useMemo(() => buildIcd10Options(icdCode), [icdCode]);
+
+  const rigWeightKg = Number(orders?.rig_weight_kg || 0);
+  const rigMaxIu = rigWeightKg > 0 ? Math.round(rigWeightKg * 40) : 0;
+  const computeRigVials = (doseIuValue: number | string, maxStock?: number): string => {
+    const iu = Number(doseIuValue || 0);
+    const needed = iu > 0 ? Math.max(1, Math.ceil(iu / 1000)) : 1;
+    if (maxStock && maxStock > 0) {
+      return String(Math.min(needed, maxStock));
+    }
+    return String(needed);
+  };
+  const resolvedInfiltrationSite = (defaultInfiltrationSite || '').trim() || 'Around bite wound';
 
   const update = (medication: string, field: keyof ProphylaxisAdministration, next: string) =>
     onChange(value.map((item) => (item.medication === medication ? { ...item, [field]: next } : item)));
@@ -102,16 +113,24 @@ export default function ProphylaxisAdministrationSection({
           status: 'administered',
           date: today,
           inventory_id: firstBatch ? String(firstBatch.inventory_id) : '',
-          inventory_units_used: '1',
+          inventory_units_used:
+            group === 'rig'
+              ? computeRigVials(rigMaxIu, Number(firstBatch?.current_quantity || 0))
+              : '1',
           route: group === 'rig' ? 'wound_infiltration' : 'IM',
-          injection_site: group === 'rig' ? 'Wound infiltration sites' : 'Right deltoid',
+          injection_site: group === 'rig' ? resolvedInfiltrationSite : 'Right deltoid',
           dosage_ml: group === 'tetanus_vaccine' ? '0.5' : group === 'rig' ? '' : '1.0',
-          dose_iu: group === 'tetanus_passive' ? '1500' : '',
+          dose_iu:
+            group === 'tetanus_passive'
+              ? '1500'
+              : group === 'rig' && rigMaxIu > 0
+              ? String(rigMaxIu)
+              : '',
         };
         onChange([...value, newItem]);
       }
     });
-  }, [orders, stock, records, disabled, today, value, onChange]);
+  }, [orders, stock, records, disabled, today, value, onChange, rigMaxIu, resolvedInfiltrationSite]);
 
   // If item exists in value but inventory_id is missing, auto-select FIFO batch when stock arrives
   useEffect(() => {
@@ -142,56 +161,24 @@ export default function ProphylaxisAdministrationSection({
   return (
     <ConsultationDialog>
       <section className="fm-section" style={{ marginTop: 14 }}>
-        {/* Section Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              backgroundColor: '#e6f4f1',
-              color: '#0d9488',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <HugeiconsIcon icon={Medicine01Icon} size={16} />
-          </div>
-          <div>
-            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
-              Doctor's Prescription Tetanus
+        {/* Compact Section Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 24, height: 24, borderRadius: 6, background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <HugeiconsIcon icon={Medicine01Icon} size={14} />
+            </div>
+            <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
+              Prescribed Prophylaxis
             </h4>
-            <p style={{ margin: '1px 0 0', fontSize: 12, color: '#64748b' }}>
-              Confirm only injections actually given — orders do not mark as administered
-            </p>
           </div>
-        </div>
-
-        {/* Warning Alert Banner */}
-        <div
-          style={{
-            background: '#fffdf2',
-            border: '1px solid #fef08a',
-            borderRadius: 8,
-            padding: '8px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            color: '#854d0e',
-            fontSize: 12,
-            fontWeight: 500,
-            marginBottom: 12,
-          }}
-        >
-          <HugeiconsIcon icon={AlertCircleIcon} size={16} color="#b45309" style={{ flexShrink: 0 }} />
-          <span>Check the box below only after physically administering the vaccine. Inventory will be deducted automatically.</span>
+          <span style={{ fontSize: 11.5, color: '#64748b' }}>
+            Confirm injections actually given · stock auto-deducts
+          </span>
         </div>
 
         {orders?.notes && (
-          <p style={{ fontSize: 12, color: '#334155', marginBottom: 12, background: '#f8fafc', padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-            <strong>Doctor's instructions:</strong> {orders.notes}
+          <p style={{ fontSize: 12, color: '#334155', margin: '0 0 8px', background: '#f8fafc', padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <strong>Notes:</strong> {orders.notes}
           </p>
         )}
 
@@ -226,37 +213,143 @@ export default function ProphylaxisAdministrationSection({
           return (
             <div
               key={group}
+              className="prophylaxis-minimal"
               style={{
                 background: '#ffffff',
                 border: '1px solid #e2e8f0',
-                borderRadius: 10,
-                padding: '12px 14px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                marginTop: 10,
+                borderRadius: 12,
+                padding: '10px 14px',
+                marginTop: 8,
               }}
             >
-              {/* Card Title Header with Inline Stock */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <HugeiconsIcon icon={Medicine01Icon} size={16} color="#0f172a" />
-                  <strong style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
+              {/* Compact Card Header: Title + Stock + Inline Administered / Not Administered Pills */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: (item || previous.length > 0) ? 10 : 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <strong style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
                     {PROPHYLAXIS_LABELS[group]}: {isOrdered ? displayProduct : orderedProduct === 'none' ? 'Not ordered' : 'Awaiting doctor assessment'}
                   </strong>
+                  {isOrdered && stock !== undefined && stock !== null && (
+                    <span style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', display: 'inline-flex', alignItems: 'center', gap: 5, background: '#f8fafc', padding: '2px 8px', borderRadius: 999, border: '1px solid #e2e8f0' }}>
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          backgroundColor: totalVials === 0 ? '#dc2626' : totalVials <= 10 ? '#d97706' : '#16a34a',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span>{totalVials} {totalVials === 1 ? 'vial' : 'vials'}</span>
+                    </span>
+                  )}
                 </div>
-                {isOrdered && stock !== undefined && stock !== null && (
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#111827', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: '50%',
-                        backgroundColor: totalVials === 0 ? '#dc2626' : totalVials <= 10 ? '#d97706' : '#16a34a',
-                        flexShrink: 0,
+
+                {isOrdered && previous.length === 0 && (
+                  <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      disabled={disabled || batches.length === 0}
+                      onClick={() => {
+                        if (disabled || batches.length === 0) return;
+                        const key = `${group}_${product}`;
+                        hasAutoInitializedRef.current[key] = true;
+                        if (isChecked) {
+                          onChange(value.filter((record) => record.medication !== product));
+                        } else {
+                          const firstBatch = batches[0];
+                          const nextItem: ProphylaxisAdministration = {
+                            medication: product,
+                            status: 'administered',
+                            not_administered_reason: '',
+                            date: today,
+                            inventory_id: firstBatch ? String(firstBatch.inventory_id) : '',
+                            inventory_units_used:
+                              group === 'rig'
+                                ? computeRigVials(rigMaxIu, Number(firstBatch?.current_quantity || 0))
+                                : '1',
+                            route: group === 'rig' ? 'wound_infiltration' : 'IM',
+                            injection_site: group === 'rig' ? resolvedInfiltrationSite : 'Right deltoid',
+                            dosage_ml: group === 'tetanus_vaccine' ? '0.5' : group === 'rig' ? '' : '1.0',
+                            dose_iu:
+                              group === 'tetanus_passive'
+                                ? '1500'
+                                : group === 'rig' && rigMaxIu > 0
+                                ? String(rigMaxIu)
+                                : '',
+                          };
+                          onChange([
+                            ...value.filter((record) => record.medication !== product),
+                            nextItem,
+                          ]);
+                        }
                       }}
-                    />
-                    <span>{totalVials} {totalVials === 1 ? 'vial' : 'vials'} in stock</span>
-                  </span>
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '4px 12px',
+                        minHeight: 30,
+                        borderRadius: 9999,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        background: isChecked ? '#ecfdf5' : '#f8fafc',
+                        border: `1.5px solid ${isChecked ? '#10b981' : '#cbd5e1'}`,
+                        color: isChecked ? '#047857' : '#475569',
+                        cursor: disabled || batches.length === 0 ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {isChecked && <HugeiconsIcon icon={Tick02Icon} size={12} strokeWidth={3} />}
+                      <span>Administered</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => {
+                        if (disabled) return;
+                        const key = `${group}_${product}`;
+                        hasAutoInitializedRef.current[key] = true;
+                        if (isNotAdministered) {
+                          onChange(value.filter((record) => record.medication !== product));
+                        } else {
+                          const nextItem: ProphylaxisAdministration = {
+                            medication: product,
+                            status: 'not_administered',
+                            not_administered_reason: item?.not_administered_reason || '',
+                            date: item?.date || today,
+                            inventory_id: '',
+                            inventory_units_used: '0',
+                            route: group === 'rig' ? 'wound_infiltration' : 'IM',
+                            injection_site: '',
+                            dosage_ml: '',
+                            dose_iu: '',
+                          };
+                          onChange([
+                            ...value.filter((record) => record.medication !== product),
+                            nextItem,
+                          ]);
+                        }
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '4px 12px',
+                        minHeight: 30,
+                        borderRadius: 9999,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        background: isNotAdministered ? '#fffbeb' : '#f8fafc',
+                        border: `1.5px solid ${isNotAdministered ? '#f59e0b' : '#cbd5e1'}`,
+                        color: isNotAdministered ? '#b45309' : '#475569',
+                        cursor: disabled ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {isNotAdministered && <HugeiconsIcon icon={Tick02Icon} size={12} strokeWidth={3} />}
+                      <span>Not administered</span>
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -311,150 +404,17 @@ export default function ProphylaxisAdministrationSection({
                   )}
 
                   {product === 'ATS' && (
-                    <p className="registration-field-hint" style={{ marginBottom: 8, fontSize: 11.5 }}>
-                      Equine ATS can cause anaphylaxis and serum sickness. Check doctor's instructions before injection.
-                    </p>
-                  )}
-
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: item ? 12 : 0 }}>
-                    {/* Soft Green Administered Checkbox Container */}
-                    <div
-                      onClick={() => {
-                        if (disabled || batches.length === 0) return;
-                        const key = `${group}_${product}`;
-                        hasAutoInitializedRef.current[key] = true;
-                        if (isChecked) {
-                          onChange(value.filter((record) => record.medication !== product));
-                        } else {
-                          const firstBatch = batches[0];
-                          const nextItem: ProphylaxisAdministration = {
-                            medication: product,
-                            status: 'administered',
-                            not_administered_reason: '',
-                            date: today,
-                            inventory_id: firstBatch ? String(firstBatch.inventory_id) : '',
-                            inventory_units_used: '1',
-                            route: group === 'rig' ? 'wound_infiltration' : 'IM',
-                            injection_site: group === 'rig' ? 'Wound infiltration sites' : 'Right deltoid',
-                            dosage_ml: group === 'tetanus_vaccine' ? '0.5' : group === 'rig' ? '' : '1.0',
-                            dose_iu: group === 'tetanus_passive' ? '1500' : '',
-                          };
-                          onChange([
-                            ...value.filter((record) => record.medication !== product),
-                            nextItem,
-                          ]);
-                        }
-                      }}
-                      style={{
-                        flex: 1,
-                        minWidth: 210,
-                        background: isChecked ? '#ecfdf5' : '#f8fafc',
-                        border: `1.5px solid ${isChecked ? '#10b981' : '#cbd5e1'}`,
-                        borderRadius: 8,
-                        padding: '8px 12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        cursor: disabled || batches.length === 0 ? 'not-allowed' : 'pointer',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 18,
-                          height: 18,
-                          borderRadius: 4,
-                          background: isChecked ? '#059669' : '#ffffff',
-                          border: `1.5px solid ${isChecked ? '#059669' : '#94a3b8'}`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#ffffff',
-                          flexShrink: 0,
-                        }}
-                      >
-                        {isChecked && <HugeiconsIcon icon={Tick02Icon} size={13} strokeWidth={3} />}
-                      </div>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: isChecked ? '#047857' : '#334155' }}>
-                        Record {product} as administered
-                      </span>
-                    </div>
-
-                    {/* Soft Amber Not Administered Checkbox Container */}
-                    <div
-                      onClick={() => {
-                        if (disabled) return;
-                        const key = `${group}_${product}`;
-                        hasAutoInitializedRef.current[key] = true;
-                        if (isNotAdministered) {
-                          onChange(value.filter((record) => record.medication !== product));
-                        } else {
-                          const nextItem: ProphylaxisAdministration = {
-                            medication: product,
-                            status: 'not_administered',
-                            not_administered_reason: item?.not_administered_reason || '',
-                            date: item?.date || today,
-                            inventory_id: '',
-                            inventory_units_used: '0',
-                            route: group === 'rig' ? 'wound_infiltration' : 'IM',
-                            injection_site: '',
-                            dosage_ml: '',
-                            dose_iu: '',
-                          };
-                          onChange([
-                            ...value.filter((record) => record.medication !== product),
-                            nextItem,
-                          ]);
-                        }
-                      }}
-                      style={{
-                        flex: 1,
-                        minWidth: 210,
-                        background: isNotAdministered ? '#fffbeb' : '#f8fafc',
-                        border: `1.5px solid ${isNotAdministered ? '#f59e0b' : '#cbd5e1'}`,
-                        borderRadius: 8,
-                        padding: '8px 12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        cursor: disabled ? 'not-allowed' : 'pointer',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 18,
-                          height: 18,
-                          borderRadius: 4,
-                          background: isNotAdministered ? '#d97706' : '#ffffff',
-                          border: `1.5px solid ${isNotAdministered ? '#d97706' : '#94a3b8'}`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#ffffff',
-                          flexShrink: 0,
-                        }}
-                      >
-                        {isNotAdministered && <HugeiconsIcon icon={Tick02Icon} size={13} strokeWidth={3} />}
-                      </div>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: isNotAdministered ? '#b45309' : '#334155' }}>
-                        Record {product} as not administered
-                      </span>
-                    </div>
-                  </div>
-
-                  {group === 'rig' && (
-                    <p className="registration-field-hint" style={{ marginBottom: 12, fontSize: 11.5 }}>
-                      One administration per episode; through day 7 after rabies D0. Maximum {Number(orders?.rig_weight_kg) * 40} IU.
+                    <p style={{ margin: '0 0 8px', fontSize: 11.5, color: '#b45309' }}>
+                      Equine ATS: check skin test &amp; doctor instructions before injection.
                     </p>
                   )}
 
                   {/* Not Administered Inputs */}
                   {item && isNotAdministered && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-                      <label className="fm-field" style={{ margin: 0, gridColumn: '1 / -1' }}>
-                        <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
-                          Reason not administered / Remarks <span style={{ color: '#ef4444' }}>*</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
+                      <label className="fm-field" style={{ margin: 0 }}>
+                        <span className="fm-label" style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', marginBottom: 2, display: 'block' }}>
+                          Reason <span style={{ color: '#ef4444' }}>*</span>
                         </span>
                         <input
                           className="fm-input"
@@ -462,15 +422,14 @@ export default function ProphylaxisAdministrationSection({
                           value={item.not_administered_reason || ''}
                           disabled={disabled}
                           required
-                          placeholder="e.g. Patient declined, prior TT booster verified, positive ATS skin test, deferred..."
+                          placeholder="Reason not administered..."
                           onChange={(e) => update(product, 'not_administered_reason', e.target.value)}
-                          style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
                         />
                       </label>
 
                       <label className="fm-field" style={{ margin: 0 }}>
-                        <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
-                          Date documented
+                        <span className="fm-label" style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', marginBottom: 2, display: 'block' }}>
+                          Date
                         </span>
                         <input
                           className="fm-input"
@@ -481,163 +440,153 @@ export default function ProphylaxisAdministrationSection({
                           min="1000-01-01"
                           max={today}
                           onChange={(e) => update(product, 'date', sanitizeDateInput(e.target.value))}
-                          style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
                         />
                       </label>
-
-                      {onIcdCodeChange ? (
-                        <div className="fm-field" style={{ margin: 0 }}>
-                          <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
-                            ICD-10 Code
-                          </span>
-                          <SearchableSelect
-                            name="icd_code"
-                            value={icdCode || ''}
-                            options={icd10Options}
-                            onChange={onIcdCodeChange}
-                            disabled={disabled}
-                            clearable
-                            placeholder="Select ICD-10 code (e.g. W54.0)"
-                            searchPlaceholder="Search W54, W55, Z20.3, dog, cat..."
-                            noResultsText="No matching ICD-10 code"
-                            menuMinWidth={320}
-                            aria-label="ICD-10 Code"
-                          />
-                        </div>
-                      ) : null}
                     </div>
                   )}
 
-                  {/* 2-Column Administered Inputs Grid */}
+                  {/* Compact Administered Inputs Grid */}
                   {item && !isNotAdministered && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-                      <label className="fm-field" style={{ margin: 0 }}>
-                        <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
-                          Inventory batch
-                        </span>
-                        <select
-                          className="fm-select"
-                          value={item.inventory_id}
-                          disabled={disabled}
-                          required
-                          onChange={(e) => update(product, 'inventory_id', e.target.value)}
-                          style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
-                        >
-                          <option value="">Select an active batch</option>
-                          {batches.map((batch) => (
-                            <option key={batch.inventory_id} value={batch.inventory_id}>
-                              {batch.vaccine_type} · {batch.batch_number} · {batch.current_quantity} vials · exp {batch.expiration_date.slice(0, 10)}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label className="fm-field" style={{ margin: 0 }}>
-                        <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
-                          Vials used
-                        </span>
-                        <input
-                          className="fm-input"
-                          type="number"
-                          readOnly
-                          disabled
-                          value={item.inventory_units_used || '1'}
-                          style={{
-                            width: '100%',
-                            borderRadius: 6,
-                            padding: '5px 8px',
-                            fontSize: 12.5,
-                            height: 34,
-                            backgroundColor: '#f8fafc',
-                            color: '#475569',
-                            cursor: 'not-allowed',
-                          }}
-                        />
-                        <span className="registration-field-hint" style={{ fontSize: 11, color: '#64748b', marginTop: 2, display: 'block' }}>
-                          Confirm vial count on package. System stores vial count, not mL/IU.
-                        </span>
-                      </label>
-
-                      <label className="fm-field" style={{ margin: 0 }}>
-                        <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
-                          Administration date
-                        </span>
-                        <input
-                          className="fm-input"
-                          type="date"
-                          value={item.date}
-                          disabled={disabled}
-                          required
-                          min="1000-01-01"
-                          max={today}
-                          onInput={(e) => {
-                            const target = e.currentTarget;
-                            const val = sanitizeDateInput(target.value);
-                            if (val !== target.value) {
-                              target.value = val;
-                              update(product, 'date', val);
-                            }
-                          }}
-                          onChange={(e) => update(product, 'date', sanitizeDateInput(e.target.value))}
-                          style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
-                        />
-                      </label>
-
-                      {onIcdCodeChange ? (
-                        <div className="fm-field" style={{ margin: 0 }}>
-                          <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
-                            ICD-10 Code
-                          </span>
-                          <SearchableSelect
-                            name="icd_code"
-                            value={icdCode || ''}
-                            options={icd10Options}
-                            onChange={onIcdCodeChange}
-                            disabled={disabled}
-                            clearable
-                            placeholder="Select ICD-10 code (e.g. W54.0)"
-                            searchPlaceholder="Search W54, W55, Z20.3, dog, cat..."
-                            noResultsText="No matching ICD-10 code"
-                            menuMinWidth={320}
-                            aria-label="ICD-10 Code"
-                          />
-                        </div>
-                      ) : null}
-
-                      {(group === 'rig' || group === 'tetanus_passive') && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 78px', gap: 10 }}>
                         <label className="fm-field" style={{ margin: 0 }}>
-                          <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
-                            Administered dose (IU)
+                          <span className="fm-label" style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', marginBottom: 2, display: 'block' }}>
+                            Batch
+                          </span>
+                          <select
+                            className="fm-select"
+                            value={item.inventory_id}
+                            disabled={disabled}
+                            required
+                            onChange={(e) => update(product, 'inventory_id', e.target.value)}
+                          >
+                            <option value="">Select batch</option>
+                            {batches.map((batch) => (
+                              <option key={batch.inventory_id} value={batch.inventory_id}>
+                                {batch.vaccine_type} · {batch.batch_number} ({batch.current_quantity}) · exp {batch.expiration_date.slice(0, 10)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="fm-field" style={{ margin: 0 }}>
+                          <span className="fm-label" style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', marginBottom: 2, display: 'block' }}>
+                            Date
+                          </span>
+                          <input
+                            className="fm-input"
+                            type="date"
+                            value={item.date}
+                            disabled={disabled}
+                            required
+                            min="1000-01-01"
+                            max={today}
+                            onInput={(e) => {
+                              const target = e.currentTarget;
+                              const val = sanitizeDateInput(target.value);
+                              if (val !== target.value) {
+                                target.value = val;
+                                update(product, 'date', val);
+                              }
+                            }}
+                            onChange={(e) => update(product, 'date', sanitizeDateInput(e.target.value))}
+                          />
+                        </label>
+
+                        <label className="fm-field" style={{ margin: 0 }}>
+                          <span className="fm-label" style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', marginBottom: 2, display: 'block' }}>
+                            Vials
                           </span>
                           <input
                             className="fm-input"
                             type="number"
-                            step="0.01"
-                            min="0.01"
-                            value={item.dose_iu}
-                            disabled={disabled}
-                            required
-                            onChange={(e) => update(product, 'dose_iu', e.target.value)}
-                            style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
+                            min={1}
+                            max={
+                              group === 'rig'
+                                ? Math.max(
+                                    1,
+                                    Number(
+                                      batches.find((b) => String(b.inventory_id) === String(item.inventory_id))
+                                        ?.current_quantity || 10
+                                    )
+                                  )
+                                : 1
+                            }
+                            readOnly={group !== 'rig'}
+                            disabled={disabled || group !== 'rig'}
+                            value={item.inventory_units_used || '1'}
+                            onChange={(e) => {
+                              if (group !== 'rig') return;
+                              update(product, 'inventory_units_used', e.target.value);
+                            }}
+                            style={
+                              group !== 'rig'
+                                ? { textAlign: 'center', backgroundColor: '#f8fafc', color: '#475569', cursor: 'not-allowed' }
+                                : { textAlign: 'center' }
+                            }
                           />
                         </label>
-                      )}
+                      </div>
 
-                      {group === 'rig' && isFieldVisible('injection_site') && (
-                        <label className="fm-field" style={{ margin: 0 }}>
-                          <span className="fm-label" style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 3, display: 'block' }}>
-                            Wound infiltration sites
-                          </span>
-                          <input
-                            className="fm-input"
-                            type="text"
-                            value={item.injection_site}
-                            disabled={disabled}
-                            required
-                            onChange={(e) => update(product, 'injection_site', e.target.value)}
-                            style={{ width: '100%', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, height: 34 }}
-                          />
-                        </label>
+                      {((group === 'rig' || group === 'tetanus_passive') || (group === 'rig' && isFieldVisible('injection_site'))) && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 10 }}>
+                          {(group === 'rig' || group === 'tetanus_passive') && (
+                            <label className="fm-field" style={{ margin: 0 }}>
+                              <span className="fm-label" style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', marginBottom: 2, display: 'block' }}>
+                                Dose (IU){group === 'rig' && rigMaxIu > 0 ? ` · max ${rigMaxIu}` : ''}
+                              </span>
+                              <input
+                                className="fm-input"
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                max={group === 'rig' && rigMaxIu > 0 ? rigMaxIu : undefined}
+                                placeholder="IU"
+                                value={item.dose_iu}
+                                disabled={disabled}
+                                required
+                                onChange={(e) => {
+                                  const nextIu = e.target.value;
+                                  if (group === 'rig') {
+                                    const selectedBatch = batches.find(
+                                      (b) => String(b.inventory_id) === String(item.inventory_id)
+                                    );
+                                    const autoVials = computeRigVials(
+                                      nextIu,
+                                      Number(selectedBatch?.current_quantity || 0)
+                                    );
+                                    onChange(
+                                      value.map((r) =>
+                                        r.medication === product
+                                          ? { ...r, dose_iu: nextIu, inventory_units_used: autoVials }
+                                          : r
+                                      )
+                                    );
+                                  } else {
+                                    update(product, 'dose_iu', nextIu);
+                                  }
+                                }}
+                              />
+                            </label>
+                          )}
+
+                          {group === 'rig' && isFieldVisible('injection_site') && (
+                            <label className="fm-field" style={{ margin: 0 }}>
+                              <span className="fm-label" style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', marginBottom: 2, display: 'block' }}>
+                                Infiltration site
+                              </span>
+                              <input
+                                className="fm-input"
+                                type="text"
+                                placeholder="e.g. Around wound margins"
+                                value={item.injection_site}
+                                disabled={disabled}
+                                required
+                                onChange={(e) => update(product, 'injection_site', e.target.value)}
+                              />
+                            </label>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}

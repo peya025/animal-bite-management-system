@@ -2227,60 +2227,14 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
             onChange={setProphylaxisAdministrations}
             disabled={readOnly || saving || !form3Ready}
             today={getLocalDateString()}
-            icdCode={icdCode}
-            onIcdCodeChange={handleIcdCodeChange}
+            defaultInfiltrationSite={
+              formData.body_part_affected_text.trim() ||
+              configuredBodyPartOptions
+                .filter((opt) => Boolean((formData.body_part_affected as Record<string, boolean>)[opt.key]))
+                .map((opt) => opt.label)
+                .join(', ')
+            }
           />
-        </div>
-      )}
-
-      {/* UNADMINISTERED VISIT OUTCOME OPTION (Patient Left / Deferred Treatment) */}
-      {!readOnly && !hasCompletedDoseInCurrentIncident && form3Ready && (
-        <div
-          style={{
-            marginTop: 20,
-            padding: '12px 16px',
-            borderRadius: BORDER_RADIUS,
-            border: visitOutcome === 'not_administered' ? '1.5px solid #dc2626' : '1px solid var(--border-color, #e5e7eb)',
-            backgroundColor: visitOutcome === 'not_administered' ? '#fef2f2' : 'var(--bg-secondary, #f8fafc)',
-          }}
-        >
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: visitOutcome === 'not_administered' ? '#b91c1c' : '#334155' }}>
-            <input
-              type="checkbox"
-              checked={visitOutcome === 'not_administered'}
-              onChange={(e) => {
-                setVisitOutcome(e.target.checked ? 'not_administered' : 'administered');
-                if (!e.target.checked) setNotAdministeredReason('');
-              }}
-              disabled={saving}
-            />
-            Record Visit Outcome as Not Administered (Patient left clinic / deferred injection without receiving any dose today)
-          </label>
-          {visitOutcome === 'not_administered' && (
-            <div style={{ marginTop: 10 }}>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#991b1b', marginBottom: 4 }}>
-                Reason Treatment Was Not Administered *
-              </label>
-              <input
-                type="text"
-                value={notAdministeredReason}
-                onChange={(e) => setNotAdministeredReason(e.target.value)}
-                disabled={saving}
-                placeholder="e.g., Patient left clinic before nurse administration / deferred due to elevated BP..."
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  fontSize: 13,
-                  borderRadius: 6,
-                  border: '1px solid #fca5a5',
-                  backgroundColor: '#ffffff',
-                }}
-              />
-              <div style={{ fontSize: 11.5, color: '#7f1d1d', marginTop: 4 }}>
-                Saving this outcome preserves the visit record and marks the prescribed treatment as Not Administered without deducting inventory stock.
-              </div>
-            </div>
-          )}
         </div>
       )}
 

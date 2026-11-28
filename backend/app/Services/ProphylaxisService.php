@@ -311,7 +311,11 @@ class ProphylaxisService
             }
 
             $unitsUsed = (int) ($item['inventory_units_used'] ?? 0);
-            if ($unitsUsed !== 1) {
+            if ($isRig) {
+                if ($unitsUsed < 1 || $unitsUsed > 10) {
+                    $this->fail("The vials used for {$medication} must be between 1 and 10.");
+                }
+            } elseif ($unitsUsed !== 1) {
                 $this->fail("The vials used for {$medication} must be 1.");
             }
 

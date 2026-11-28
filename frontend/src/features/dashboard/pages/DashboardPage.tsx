@@ -120,7 +120,7 @@ function TriageDashboard({ stats }: { stats: DashboardStats | null }) {
   const dateLabel = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <StyledDashboardLayout pageTitle="Triage Dashboard">
+    <StyledDashboardLayout pageTitle="Doctor's Dashboard">
       <div className="dashboard-container">
 
         {/* Header */}

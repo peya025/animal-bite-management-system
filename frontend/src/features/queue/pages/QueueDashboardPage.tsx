@@ -452,7 +452,7 @@ export default function QueueDashboard() {
   const calledEntry: QueueEntry | null =
     roleScopedQueue.find(e => e.status === 'called') ?? null;
   const pageTitle = isTriageDoctor
-    ? 'Triage Dashboard'
+    ? "Doctor's Dashboard"
     : hasIntakeNurseRole && !hasFollowUpNurseRole
       ? 'Station 1 · Day 0 & New Episode Queue'
       : hasFollowUpNurseRole && !hasIntakeNurseRole

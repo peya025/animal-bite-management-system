@@ -142,7 +142,9 @@ class FcmNotificationPolicy
             'appointment_reminder', 'vaccination_due', 'dose_reminder', 'vaccination_schedule' => ['Vaccination Reminder',
                 match ($body) {
                     'You have an overdue appointment. Open the app to view your schedule.',
-                    'Your vaccination appointment is scheduled for today. Open the app to view your schedule.' => $body,
+                    'Your vaccination appointment is scheduled for today. Open the app to view your schedule.',
+                    'Your vaccination appointment is in 2 days. Open the app to view your schedule.',
+                    'Your vaccination appointment is in 3 days. Open the app to view your schedule.' => $body,
                     default => 'You have an upcoming appointment. Open the app to view your schedule.',
                 }],
             default => ['Account Update', 'Your account has an update. Open the app to view details.'],

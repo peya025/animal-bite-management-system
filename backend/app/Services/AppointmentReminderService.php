@@ -27,6 +27,8 @@ class AppointmentReminderService
 
     public const RECALL_ELIGIBLE_STATUSES = ['scheduled', 'missed'];
 
+    public const DEFAULT_ADVANCE_DAYS = [1, 2, 3];
+
     public const DEFAULT_OVERDUE_MILESTONES = [1, 3, 7];
 
     public const INELIGIBLE_EPISODE_STATUSES = [
@@ -208,6 +210,42 @@ class AppointmentReminderService
     /**
      * @return list<int>
      */
+    public function advanceDays(): array
+    {
+        $configured = config('messaging.reminders.advance_days', self::DEFAULT_ADVANCE_DAYS);
+        if (is_string($configured)) {
+            $configured = explode(',', $configured);
+        }
+        if (! is_array($configured)) {
+            return self::DEFAULT_ADVANCE_DAYS;
+        }
+
+        $days = array_values(array_unique(array_filter(
+            array_map('intval', $configured),
+            fn (int $day) => $day > 0
+        )));
+        sort($days);
+
+        return $days !== [] ? $days : self::DEFAULT_ADVANCE_DAYS;
+    }
+
+    public function advanceDaysUntil(Appointment $appointment, ?CarbonInterface $today = null): int
+    {
+        $date = $appointment->scheduled_date ?? $appointment->appointment_date;
+        if (! $date) {
+            return 0;
+        }
+
+        $tz = $this->reminderTimezone();
+        $todayStart = ($today ? Carbon::instance($today)->copy()->setTimezone($tz) : today($tz))->startOfDay();
+        $appointmentDay = Carbon::parse($date->toDateString(), $tz)->startOfDay();
+
+        return (int) $todayStart->diffInDays($appointmentDay, false);
+    }
+
+    /**
+     * @return list<int>
+     */
     public function overdueMilestones(): array
     {
         $configured = config('messaging.reminders.overdue_milestones', self::DEFAULT_OVERDUE_MILESTONES);
@@ -287,8 +325,8 @@ class AppointmentReminderService
             if ($purpose === 'same_day' && ! $appointmentDay->equalTo($todayStart)) {
                 return 'appointment_not_today';
             }
-            if ($purpose === 'advance' && ! $appointmentDay->equalTo($todayStart->copy()->addDay())) {
-                return 'appointment_not_tomorrow';
+            if ($purpose === 'advance' && ! in_array((int) $todayStart->diffInDays($appointmentDay, false), $this->advanceDays(), true)) {
+                return 'appointment_not_in_advance_window';
             }
         }
 
@@ -364,7 +402,11 @@ class AppointmentReminderService
 
         if ($purpose === 'advance') {
             $subject = 'Upcoming vaccination appointment';
-            $body = "{$clinicName} Reminder: Your scheduled vaccination is tomorrow, {$date->format('M j, Y')}.";
+            $daysBefore = max(1, $this->advanceDaysUntil($appointment));
+            $whenPhrase = $daysBefore === 1
+                ? "tomorrow, {$date->format('M j, Y')}"
+                : "in {$daysBefore} days ({$date->format('M j, Y')})";
+            $body = "{$clinicName} Reminder: Your scheduled vaccination is {$whenPhrase}.";
             if ($timeText) {
                 $body .= " Time: {$timeText}.";
             }
@@ -516,6 +558,8 @@ class AppointmentReminderService
                     continue;
                 }
 
+                $advanceDaysBefore = $purpose === 'advance' ? max(1, $this->advanceDaysUntil($appointment)) : null;
+
                 $fcmResults = [];
                 if ($account && $isAllowed && $prefAllowed && $deviceTokens->isNotEmpty()) {
                     $pushData = [
@@ -529,7 +573,9 @@ class AppointmentReminderService
                         'Vaccination Reminder',
                         match ($purpose) {
                             'same_day' => 'Your vaccination appointment is scheduled for today. Open the app to view your schedule.',
-                            'advance' => 'You have an upcoming appointment. Open the app to view your schedule.',
+                            'advance' => in_array($advanceDaysBefore, [2, 3], true)
+                                ? "Your vaccination appointment is in {$advanceDaysBefore} days. Open the app to view your schedule."
+                                : 'You have an upcoming appointment. Open the app to view your schedule.',
                             default => 'You have an overdue appointment. Open the app to view your schedule.',
                         },
                         $pushData,
@@ -554,9 +600,12 @@ class AppointmentReminderService
 
             $keyPrefix = $isTest ? 'test|' : '';
             $doseToken = 'dose:'.($appointment->dose_number !== null ? (string) $appointment->dose_number : 'none');
-            $milestoneToken = $purpose === 'recall'
-                ? 'day_'.($resolvedMilestone ?? $daysOverdue ?? 1)
-                : $purpose;
+            $advanceDaysBefore = $purpose === 'advance' ? max(1, $this->advanceDaysUntil($appointment)) : null;
+            $milestoneToken = match ($purpose) {
+                'recall' => 'day_'.($resolvedMilestone ?? $daysOverdue ?? 1),
+                'advance' => $advanceDaysBefore === 1 ? 'advance' : 'advance_d'.$advanceDaysBefore,
+                default => $purpose,
+            };
             $key = hash('sha256', $keyPrefix . implode('|', [
                 $appointment->clinic_id,
                 $appointment->appointment_id,
@@ -569,7 +618,7 @@ class AppointmentReminderService
 
             $wasRecentlyCreated = false;
             try {
-                $message = DB::transaction(function () use ($key, $appointment, $patient, $selected, $recipient, $subject, $body, $provider, $purpose, $date, $todayString, $resolvedMilestone, $daysOverdue, $senderUserId, $isTest, $dryRun, $sync, &$wasRecentlyCreated) {
+                $message = DB::transaction(function () use ($key, $appointment, $patient, $selected, $recipient, $subject, $body, $provider, $purpose, $date, $todayString, $resolvedMilestone, $daysOverdue, $advanceDaysBefore, $senderUserId, $isTest, $dryRun, $sync, &$wasRecentlyCreated) {
                     $message = OutboundMessage::firstOrCreate(['idempotency_key' => $key], [
                         'clinic_id' => $appointment->clinic_id, 'appointment_id' => $appointment->appointment_id,
                         'patient_id' => $patient->patient_id, 'channel' => $selected, 'purpose' => $purpose,
@@ -578,6 +627,7 @@ class AppointmentReminderService
                             'scheduled_date' => $date->toDateString(),
                             'occurrence_date' => $todayString,
                             'dose_number' => $appointment->dose_number,
+                            'advance_days_before' => $advanceDaysBefore,
                             'milestone_day' => $resolvedMilestone,
                             'days_overdue' => $daysOverdue,
                             'template_version' => 2,
@@ -858,7 +908,9 @@ class AppointmentReminderService
         try {
             $tz = $this->reminderTimezone();
             $todayStart = today($tz)->startOfDay();
-            $tomorrowStart = $todayStart->copy()->addDay();
+            $advanceDays = $this->advanceDays();
+            $maxAdvanceDays = max($advanceDays);
+            $maxAdvanceStart = $todayStart->copy()->addDays($maxAdvanceDays);
             $milestones = $this->overdueMilestones();
             $maxMilestone = max($milestones);
             $sameDayEnabled = (bool) config('messaging.reminders.same_day_enabled', true);
@@ -869,17 +921,18 @@ class AppointmentReminderService
                 ->when($isTest, fn ($q) => $q->whereIn('patient_id', $authorizedPatientIds ?? []))
                 ->whereRaw(
                     'DATE(COALESCE(scheduled_date, appointment_date)) BETWEEN ? AND ?',
-                    [$todayStart->copy()->subDays($maxMilestone)->toDateString(), $tomorrowStart->toDateString()]
+                    [$todayStart->copy()->subDays($maxMilestone)->toDateString(), $maxAdvanceStart->toDateString()]
                 )
-                ->chunkById(100, function ($appointments) use ($channel, $isTest, $dryRun, $sync, $tz, $todayStart, $tomorrowStart, $sameDayEnabled, &$counts) {
+                ->chunkById(100, function ($appointments) use ($channel, $isTest, $dryRun, $sync, $tz, $todayStart, $advanceDays, $sameDayEnabled, &$counts) {
                     foreach ($appointments as $appointment) {
                         $date = $appointment->scheduled_date ?? $appointment->appointment_date;
                         if (! $date) {
                             continue;
                         }
                         $appointmentDay = Carbon::parse($date->toDateString(), $tz)->startOfDay();
+                        $daysUntil = (int) $todayStart->diffInDays($appointmentDay, false);
 
-                        if ($appointmentDay->equalTo($tomorrowStart)) {
+                        if ($daysUntil > 0 && in_array($daysUntil, $advanceDays, true)) {
                             if ($this->ineligibilityReason($appointment, 'advance', $todayStart) !== null) {
                                 continue;
                             }

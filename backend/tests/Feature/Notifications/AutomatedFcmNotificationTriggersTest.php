@@ -826,21 +826,23 @@ class AutomatedFcmNotificationTriggersTest extends TestCase
             '--tries'           => 1,
         ]);
 
-        // In-app "vaccination_reminder" notifications exist for Day 3 and Day 7
+        // Consolidated in-app "vaccination_reminder" notification exists combining Day 3 and Day 7
         $inAppReminders = Notification::where('patient_account_id', $this->account->id)
             ->where('patient_id', $this->patient->patient_id)
             ->where('type', 'vaccination_reminder')
             ->get();
-        $this->assertCount(2, $inAppReminders);
+        $this->assertCount(1, $inAppReminders);
+        $this->assertStringContainsString('Day 3', $inAppReminders->first()->message);
+        $this->assertStringContainsString('Day 7', $inAppReminders->first()->message);
 
-        // FCM HTTP v1 requests include Appointment Confirmed + 2 Vaccination Reminder pushes
+        // FCM HTTP v1 requests include Appointment Confirmed + 1 consolidated Vaccination Reminder push
         $recorded = Http::recorded();
         $schedulePayloads = collect($recorded)
             ->map(fn ($pair) => $pair[0]->data())
             ->filter(fn ($payload) => ($payload['message']['data']['category'] ?? null) === 'vaccination_schedule')
             ->values();
 
-        $this->assertCount(2, $schedulePayloads);
+        $this->assertCount(1, $schedulePayloads);
 
         foreach ($schedulePayloads as $payload) {
             $this->assertSame('Vaccination Reminder', $payload['message']['notification']['title']);

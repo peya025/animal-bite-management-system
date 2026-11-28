@@ -764,6 +764,7 @@ class VaccinationRecordService
         }
 
         $previousResolvedDate = $day0Date->copy();
+        $createdFollowUps     = [];
 
         foreach ($schedule as $followUp) {
             $doseNum          = $followUp['dose_number'];
@@ -845,70 +846,117 @@ class VaccinationRecordService
 
             app(\App\Services\NotificationService::class)->notifyAppointmentEvent($appt, 'scheduled', request()->user());
 
-            $this->autoVerifyEligiblePendingAccount($clinicId, $patientId, $biteId, $userId);
+            $createdFollowUps[] = [
+                'appointment'       => $appt,
+                'period'            => $followUp['period'],
+                'resolved_date'     => $resolvedDate,
+                'drift_days'        => $resolution['drift_days'],
+                'adjustment_reason' => $resolution['adjustment_reason'],
+            ];
+        }
 
-            $firstAccId = null;
-            $patient = Patient::with(['accounts' => fn ($q) => $q->where('is_active', true)])->find($patientId);
-            if ($patient && $patient->accounts->isNotEmpty()) {
-                $verifiedAccounts = $patient->accounts->filter(fn ($a) => $a->pivot?->status === 'verified');
-                $primaryAcc = $verifiedAccounts->first(fn ($a) => $a->pivot?->is_primary)
-                    ?? $verifiedAccounts->first()
-                    ?? $patient->accounts->first();
-                $firstAccId = $primaryAcc ? (int) ($primaryAcc->patient_account_id ?? $primaryAcc->id) : null;
+        if ($createdFollowUps === []) {
+            return;
+        }
 
-                $fcmService = app(\App\Services\Messaging\FcmService::class);
-                $mobileNotificationService = app(\App\Services\Mobile\MobileNotificationService::class);
+        $this->autoVerifyEligiblePendingAccount($clinicId, $patientId, $biteId, $userId);
 
-                foreach ($patient->accounts as $account) {
-                    $accId = (int) ($account->patient_account_id ?? $account->id);
-                    $msg   = $resolution['drift_days'] !== 0
-                        ? "{$followUp['period']} vaccination scheduled for {$patient->name} on " . $resolvedDate->format('M d, Y') . " ({$resolution['adjustment_reason']})."
-                        : "{$followUp['period']} vaccination scheduled for {$patient->name} on " . $resolvedDate->format('M d, Y') . ".";
+        $firstAccId = null;
+        $patient = Patient::with(['accounts' => fn ($q) => $q->where('is_active', true)])->find($patientId);
+        $primaryAppt = $createdFollowUps[0]['appointment'];
+        $appointmentIds = array_map(fn ($item) => $item['appointment']->appointment_id, $createdFollowUps);
 
-                    Notification::create([
-                        'patient_id'         => $patientId,
-                        'patient_account_id' => $accId,
-                        'appointment_id'     => $appt->appointment_id,
-                        'type'               => 'vaccination_reminder',
-                        'message'            => $msg,
-                        'status'             => 'pending',
-                        'send_time'          => now(),
-                    ]);
-                    $mobileNotificationService->invalidateNotificationCache($accId);
+        if ($patient && $patient->accounts->isNotEmpty()) {
+            $verifiedAccounts = $patient->accounts->filter(fn ($a) => $a->pivot?->status === 'verified');
+            $primaryAcc = $verifiedAccounts->first(fn ($a) => $a->pivot?->is_primary)
+                ?? $verifiedAccounts->first()
+                ?? $patient->accounts->first();
+            $firstAccId = $primaryAcc ? (int) ($primaryAcc->patient_account_id ?? $primaryAcc->id) : null;
 
-                    if (!$fcmService->isAccountAllowed($accId)) {
-                        Log::info("Follow-up appointment FCM skipped: Patient account #{$accId} is not in the automatic FCM allowlist.");
-                    } elseif ($account->pivot?->status !== 'verified') {
-                        Log::info("Follow-up appointment FCM skipped: Patient account #{$accId} linkage is not verified (status: " . ($account->pivot?->status ?? 'none') . ').');
-                    } elseif (!$account->allowsNotificationCategory('vaccination_schedule')) {
-                        Log::info("Follow-up appointment FCM skipped: Category 'vaccination_schedule' is disabled for patient account #{$accId}.");
-                    } elseif (!\App\Services\Messaging\FcmNotificationPolicy::snapshot($accId, [
-                        'category'       => 'vaccination_schedule',
-                        'appointment_id' => $appt->appointment_id,
-                    ])) {
-                        Log::info("Follow-up appointment FCM skipped: Policy check failed for patient account #{$accId} and appointment #{$appt->appointment_id}.");
-                    } else {
-                        SendFcmPushNotification::dispatch(
-                            patientAccountId: $accId,
-                            title: 'Vaccination Reminder',
-                            body: 'You have an upcoming appointment. Open the app to view your schedule.',
-                            data: [
-                                'category'       => 'vaccination_schedule',
-                                'route'          => '/calendar',
-                                'appointment_id' => (string) $appt->appointment_id,
-                            ],
-                            idempotencyKey: hash('sha256', 'vaccination_schedule|'.$accId.'|'.$appt->appointment_id)
-                        );
+            $fcmService = app(\App\Services\Messaging\FcmService::class);
+            $mobileNotificationService = app(\App\Services\Mobile\MobileNotificationService::class);
+            $msg = $this->buildFollowUpScheduleNotificationMessage($patient->name, $createdFollowUps);
+            $batchKey = implode(',', $appointmentIds);
 
-                        Log::info("Enqueued FCM push notification for follow-up appointment #{$appt->appointment_id} [Category: vaccination_schedule] to patient account #{$accId}.");
-                    }
+            foreach ($patient->accounts as $account) {
+                $accId = (int) ($account->patient_account_id ?? $account->id);
+
+                Notification::create([
+                    'patient_id'         => $patientId,
+                    'patient_account_id' => $accId,
+                    'appointment_id'     => $primaryAppt->appointment_id,
+                    'type'               => 'vaccination_reminder',
+                    'message'            => $msg,
+                    'status'             => 'pending',
+                    'send_time'          => now(),
+                ]);
+                $mobileNotificationService->invalidateNotificationCache($accId);
+
+                if (!$fcmService->isAccountAllowed($accId)) {
+                    Log::info("Follow-up appointment FCM skipped: Patient account #{$accId} is not in the automatic FCM allowlist.");
+                } elseif ($account->pivot?->status !== 'verified') {
+                    Log::info("Follow-up appointment FCM skipped: Patient account #{$accId} linkage is not verified (status: " . ($account->pivot?->status ?? 'none') . ').');
+                } elseif (!$account->allowsNotificationCategory('vaccination_schedule')) {
+                    Log::info("Follow-up appointment FCM skipped: Category 'vaccination_schedule' is disabled for patient account #{$accId}.");
+                } elseif (!\App\Services\Messaging\FcmNotificationPolicy::snapshot($accId, [
+                    'category'       => 'vaccination_schedule',
+                    'appointment_id' => $primaryAppt->appointment_id,
+                ])) {
+                    Log::info("Follow-up appointment FCM skipped: Policy check failed for patient account #{$accId} and appointment #{$primaryAppt->appointment_id}.");
+                } else {
+                    SendFcmPushNotification::dispatch(
+                        patientAccountId: $accId,
+                        title: 'Vaccination Reminder',
+                        body: 'You have an upcoming appointment. Open the app to view your schedule.',
+                        data: [
+                            'category'       => 'vaccination_schedule',
+                            'route'          => '/calendar',
+                            'appointment_id' => (string) $primaryAppt->appointment_id,
+                        ],
+                        idempotencyKey: hash('sha256', 'vaccination_schedule|'.$accId.'|'.$batchKey)
+                    );
+
+                    Log::info("Enqueued consolidated FCM push notification for follow-up appointments [{$batchKey}] [Category: vaccination_schedule] to patient account #{$accId}.");
                 }
             }
-
-            AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appt, 'created', $firstAccId));
-
-            Log::info("Created follow-up appointment for Patient #{$patientId}: {$followUp['period']} on {$resolvedDate->toDateString()} (Ideal: {$idealDate->toDateString()}, Drift: {$resolution['drift_days']})");
         }
+
+        foreach ($createdFollowUps as $item) {
+            $appt = $item['appointment'];
+            AppointmentStatusChanged::dispatch(AppointmentStatusChanged::fromModel($appt, 'created', $firstAccId));
+            Log::info("Created follow-up appointment for Patient #{$patientId}: {$item['period']} on {$item['resolved_date']->toDateString()} (Drift: {$item['drift_days']})");
+        }
+    }
+
+    /**
+     * Build one consolidated in-app notification message for all newly scheduled follow-up doses.
+     *
+     * @param  list<array{appointment: Appointment, period: string, resolved_date: Carbon, drift_days: int, adjustment_reason: ?string}>  $createdFollowUps
+     */
+    private function buildFollowUpScheduleNotificationMessage(string $patientName, array $createdFollowUps): string
+    {
+        if (count($createdFollowUps) === 1) {
+            $item = $createdFollowUps[0];
+            $dateStr = $item['resolved_date']->format('M d, Y');
+
+            return $item['drift_days'] !== 0
+                ? "{$item['period']} vaccination scheduled for {$patientName} on {$dateStr} ({$item['adjustment_reason']})."
+                : "{$item['period']} vaccination scheduled for {$patientName} on {$dateStr}.";
+        }
+
+        $parts = array_map(function (array $item): string {
+            $dateStr = $item['resolved_date']->format('M d, Y');
+            $driftNote = $item['drift_days'] !== 0 ? " - {$item['adjustment_reason']}" : '';
+
+            return "{$item['period']} ({$dateStr}{$driftNote})";
+        }, $createdFollowUps);
+
+        $last = array_pop($parts);
+        $joined = count($parts) === 1
+            ? "{$parts[0]} and {$last}"
+            : implode(', ', $parts) . ", and {$last}";
+
+        return "{$joined} vaccinations scheduled for {$patientName}.";
     }
 
     /**

@@ -625,4 +625,61 @@ class Phase2DdayAndMilestoneRemindersTest extends TestCase
         $this->assertDatabaseCount('outbound_messages', 0);
         Queue::assertNothingPushed();
     }
+
+    public function test_follow_up_dose_notifies_daily_from_three_days_before_until_scheduled_day(): void
+    {
+        config([
+            'services.firebase.fcm_enabled' => true,
+            'services.firebase.fcm_test_mode' => false,
+            'messaging.reminders.advance_days' => [1, 2, 3],
+        ]);
+
+        // Seed Day 3 follow-up 4 days from today
+        $ctx = $this->seedAppointmentForDayOffset(4, smsConsent: false, emailConsent: false, linkAccount: true);
+        $service = app(AppointmentReminderService::class);
+        $baseNow = now('Asia/Manila')->copy();
+
+        // 4 days before: outside 3-day window -> no reminder
+        $dayMinus4 = $service->runAutomatedSweep('in_app', $ctx['clinic']->id, referenceDate: $baseNow);
+        $this->assertSame(0, $dayMinus4['advance_reminders_sent']);
+        $this->assertSame(0, $dayMinus4['same_day_reminders_sent']);
+
+        // 3 days before, 2 days before, 1 day before, and same day -> 1 notification + 1 FCM push each day
+        foreach ([1 => 3, 2 => 2, 3 => 1, 4 => 0] as $daysElapsed => $expectedDaysUntil) {
+            $refDate = $baseNow->copy()->addDays($daysElapsed);
+            $res = $service->runAutomatedSweep('in_app', $ctx['clinic']->id, referenceDate: $refDate);
+
+            if ($expectedDaysUntil > 0) {
+                $this->assertSame(1, $res['advance_reminders_sent'], "Expected advance reminder at -{$expectedDaysUntil}d");
+                $this->assertSame(0, $res['same_day_reminders_sent']);
+            } else {
+                $this->assertSame(0, $res['advance_reminders_sent']);
+                $this->assertSame(1, $res['same_day_reminders_sent'], 'Expected D-Day reminder');
+            }
+
+            // Duplicate sweep on the same day must not create another message
+            $dup = $service->runAutomatedSweep('in_app', $ctx['clinic']->id, referenceDate: $refDate);
+            $this->assertSame($daysElapsed, OutboundMessage::count());
+            $this->assertSame($expectedDaysUntil > 0 ? 1 : 0, $dup['advance_reminders_eligible']);
+
+            $latestMsg = OutboundMessage::latest('id')->firstOrFail();
+            Carbon::setTestNow($refDate);
+            try {
+                app(OutboundDelivery::class)->deliver($latestMsg->id);
+            } finally {
+                Carbon::setTestNow();
+            }
+            $this->assertSame('delivered', $latestMsg->fresh()->status);
+        }
+
+        $this->assertSame(4, OutboundMessage::count());
+        $this->assertSame(4, \App\Models\Notification::where('patient_account_id', $ctx['account']->id)->count());
+        Queue::assertPushed(SendFcmPushNotification::class, 4);
+
+        $bodies = OutboundMessage::orderBy('id')->pluck('body')->all();
+        $this->assertStringContainsString('in 3 days', $bodies[0]);
+        $this->assertStringContainsString('in 2 days', $bodies[1]);
+        $this->assertStringContainsString('tomorrow', $bodies[2]);
+        $this->assertStringContainsString('today', $bodies[3]);
+    }
 }

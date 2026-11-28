@@ -44,6 +44,10 @@ return [
     'reminders' => [
         'timezone' => env('REMINDER_TIMEZONE', env('APP_TIMEZONE', 'Asia/Manila')),
         'same_day_enabled' => (bool) env('REMINDER_SAME_DAY_ENABLED', true),
+        'advance_days' => array_values(array_unique(array_filter(
+            array_map('intval', explode(',', (string) env('REMINDER_ADVANCE_DAYS', '3,2,1'))),
+            fn (int $days) => $days > 0
+        ))),
         'overdue_milestones' => array_values(array_unique(array_filter(
             array_map('intval', explode(',', (string) env('REMINDER_OVERDUE_MILESTONES', '1,3,7'))),
             fn (int $days) => $days > 0

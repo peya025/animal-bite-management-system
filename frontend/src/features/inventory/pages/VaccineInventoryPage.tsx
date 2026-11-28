@@ -31,7 +31,6 @@ import {
   WarningAmberOutlined as ExpiringIcon,
   AccessTime as OpenedIcon,
   ArrowBack as ArrowBackIcon,
-  EventNoteOutlined as ForecastIcon,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { useAuth } from '../../../shared/contexts/AuthContext';
@@ -582,38 +581,6 @@ export default function VaccineInventory({ initialTab }: VaccineInventoryProps =
                   {!isNurseRole && <Tab label="FIFO Report" value="fifo" />}
                 </Tabs>
               )}
-
-              <Button
-                data-walkthrough="vax-inv-btn-forecast"
-                data-tour="vax-inv-btn-forecast"
-                variant="outlined"
-                startIcon={<ForecastIcon sx={{ fontSize: 17 }} />}
-                onClick={() => {
-                  setView('forecast');
-                  navigate('/inventory?tab=forecast');
-                }}
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: 13,
-                  borderRadius: 2,
-                  px: 2,
-                  minHeight: 36,
-                  border: '1.5px solid #0f766e',
-                  borderColor: '#0f766e',
-                  color: '#0f766e',
-                  bgcolor: 'transparent',
-                  transition: 'all 0.2s ease-in-out',
-                  '&:hover': {
-                    bgcolor: '#0f766e',
-                    color: '#ffffff',
-                    borderColor: '#0f766e',
-                    boxShadow: '0 2px 8px rgba(15, 118, 110, 0.25)',
-                  },
-                }}
-              >
-                Vial Forecast
-              </Button>
 
               {/* Stock Card Button: only with stroke, turns green on hover */}
               <Button

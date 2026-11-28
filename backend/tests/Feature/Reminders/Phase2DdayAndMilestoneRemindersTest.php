@@ -488,4 +488,198 @@ class Phase2DdayAndMilestoneRemindersTest extends TestCase
         $this->assertStringNotContainsString('Schedule nimo karon', $bisaya);
         $this->assertStringContainsString('Nalapas na ang imong naka-schedule', $bisaya);
     }
+
+    public function test_internal_rhu_referral_with_active_approved_pep_is_eligible_for_reminders_and_fcm(): void
+    {
+        config([
+            'services.firebase.fcm_enabled' => true,
+            'services.firebase.fcm_test_mode' => false,
+            'services.firebase.allowed_patient_account_ids' => '*',
+        ]);
+
+        $ctx = $this->seedAppointmentForDayOffset(1, smsConsent: false, emailConsent: false, linkAccount: true);
+
+        TreatmentRecord::create([
+            'clinic_id' => $ctx['clinic']->id,
+            'bite_id' => $ctx['incident']->bite_id,
+            'patient_id' => $ctx['patient']->patient_id,
+            'consultation_date' => today('Asia/Manila')->subDays(2)->toDateString(),
+            'treatment_date' => today('Asia/Manila')->subDays(2)->toDateString(),
+            'mode_of_transaction' => 'referral',
+            'referred_to' => TreatmentRecord::LOCAL_RECEIVING_FACILITY,
+            'outcome' => 'Transferred/Referred',
+            'prescribed_vaccine_type' => 'vaxirab',
+            'status' => 'completed',
+            'administered_by' => $ctx['nurse']->id,
+        ]);
+
+        $service = app(AppointmentReminderService::class);
+        $this->assertNull($service->ineligibilityReason($ctx['appointment'], 'advance'));
+
+        // Dry-run identifies eligibility without mutating outbox or dispatching FCM
+        $dryRun = $service->runAutomatedSweep('in_app', $ctx['clinic']->id, dryRun: true);
+        $this->assertSame(1, $dryRun['advance_reminders_eligible']);
+        $this->assertSame(1, $dryRun['advance_reminders_sent']);
+        $this->assertDatabaseCount('outbound_messages', 0);
+        Queue::assertNothingPushed();
+
+        // Live sweep queues OutboundMessage once, worker delivers in_app + FCM push once, and duplicate sweep reuses cleanly
+        $sweep = $service->runAutomatedSweep('in_app', $ctx['clinic']->id);
+        $this->assertSame(1, $sweep['advance_reminders_eligible']);
+        $this->assertSame(1, $sweep['advance_reminders_sent']);
+        $this->assertDatabaseCount('outbound_messages', 1);
+
+        $duplicateSweep = $service->runAutomatedSweep('in_app', $ctx['clinic']->id);
+        $this->assertSame(1, $duplicateSweep['advance_reminders_eligible']);
+        $this->assertDatabaseCount('outbound_messages', 1);
+
+        $msg = OutboundMessage::firstOrFail();
+        app(OutboundDelivery::class)->deliver($msg->id);
+        $this->assertSame('delivered', $msg->fresh()->status);
+
+        Queue::assertPushed(SendFcmPushNotification::class, function (SendFcmPushNotification $job) use ($ctx) {
+            return $job->patientAccountId === $ctx['account']->id
+                && $job->data['category'] === 'appointment_reminder'
+                && $job->stateSnapshot !== null;
+        });
+    }
+
+    public function test_external_transfer_completed_cancelled_and_missing_or_invalid_pep_plans_remain_ineligible(): void
+    {
+        $service = app(AppointmentReminderService::class);
+
+        // 1. Genuine external transfer consultation even while episode status is active
+        $externalCtx = $this->seedAppointmentForDayOffset(1, smsConsent: false, emailConsent: false, linkAccount: true);
+        TreatmentRecord::create([
+            'clinic_id' => $externalCtx['clinic']->id,
+            'bite_id' => $externalCtx['incident']->bite_id,
+            'patient_id' => $externalCtx['patient']->patient_id,
+            'treatment_date' => today('Asia/Manila')->toDateString(),
+            'mode_of_transaction' => 'referral',
+            'referred_to' => 'Northern Mindanao Medical Center',
+            'outcome' => 'Transferred/Referred',
+            'status' => 'completed',
+            'administered_by' => $externalCtx['nurse']->id,
+        ]);
+        $this->assertSame('episode_ineligible', $service->ineligibilityReason($externalCtx['appointment'], 'advance'));
+
+        // 2. Completed or cancelled episodes remain ineligible even with internal clinic destination
+        foreach (['completed', 'cancelled'] as $terminalStatus) {
+            $terminalCtx = $this->seedAppointmentForDayOffset(1, episodeStatus: $terminalStatus);
+            TreatmentRecord::create([
+                'clinic_id' => $terminalCtx['clinic']->id,
+                'bite_id' => $terminalCtx['incident']->bite_id,
+                'patient_id' => $terminalCtx['patient']->patient_id,
+                'treatment_date' => today('Asia/Manila')->toDateString(),
+                'mode_of_transaction' => 'referral',
+                'referred_to' => TreatmentRecord::LOCAL_RECEIVING_FACILITY,
+                'outcome' => 'Transferred/Referred',
+                'status' => 'completed',
+                'administered_by' => $terminalCtx['nurse']->id,
+            ]);
+            $this->assertSame('episode_ineligible', $service->ineligibilityReason($terminalCtx['appointment'], 'advance'));
+        }
+
+        // 3. Missing PEP plan is ineligible even with internal RHU destination
+        $missingPlanCtx = $this->seedAppointmentForDayOffset(1);
+        TreatmentPlan::where('bite_id', $missingPlanCtx['incident']->bite_id)->delete();
+        TreatmentRecord::create([
+            'clinic_id' => $missingPlanCtx['clinic']->id,
+            'bite_id' => $missingPlanCtx['incident']->bite_id,
+            'patient_id' => $missingPlanCtx['patient']->patient_id,
+            'treatment_date' => today('Asia/Manila')->toDateString(),
+            'mode_of_transaction' => 'referral',
+            'referred_to' => TreatmentRecord::LOCAL_RECEIVING_FACILITY,
+            'outcome' => 'Transferred/Referred',
+            'status' => 'completed',
+            'administered_by' => $missingPlanCtx['nurse']->id,
+        ]);
+        $this->assertSame('episode_ineligible', $service->ineligibilityReason($missingPlanCtx['appointment']->fresh('biteIncident.treatmentPlan'), 'advance'));
+
+        // 4. Invalid PEP plans (no_vaccine, pending, or cancelled) remain ineligible
+        $invalidPlans = [
+            ['plan_type' => 'no_vaccine', 'status' => 'approved'],
+            ['plan_type' => 'full_pep', 'status' => 'pending'],
+            ['plan_type' => 'full_pep', 'status' => 'cancelled'],
+        ];
+        foreach ($invalidPlans as $planAttrs) {
+            $invalidPlanCtx = $this->seedAppointmentForDayOffset(1);
+            TreatmentPlan::where('bite_id', $invalidPlanCtx['incident']->bite_id)->update($planAttrs);
+            TreatmentRecord::create([
+                'clinic_id' => $invalidPlanCtx['clinic']->id,
+                'bite_id' => $invalidPlanCtx['incident']->bite_id,
+                'patient_id' => $invalidPlanCtx['patient']->patient_id,
+                'treatment_date' => today('Asia/Manila')->toDateString(),
+                'mode_of_transaction' => 'referral',
+                'referred_to' => TreatmentRecord::LOCAL_RECEIVING_FACILITY,
+                'outcome' => 'Transferred/Referred',
+                'status' => 'completed',
+                'administered_by' => $invalidPlanCtx['nurse']->id,
+            ]);
+            $this->assertSame('episode_ineligible', $service->ineligibilityReason($invalidPlanCtx['appointment']->fresh('biteIncident.treatmentPlan'), 'advance'));
+        }
+
+        $dryRun = $service->runAutomatedSweep('in_app', dryRun: true);
+        $this->assertSame(0, $dryRun['advance_reminders_eligible']);
+        $this->assertSame(0, $dryRun['advance_reminders_sent']);
+        $this->assertDatabaseCount('outbound_messages', 0);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_follow_up_dose_notifies_daily_from_three_days_before_until_scheduled_day(): void
+    {
+        config([
+            'services.firebase.fcm_enabled' => true,
+            'services.firebase.fcm_test_mode' => false,
+            'messaging.reminders.advance_days' => [1, 2, 3],
+        ]);
+
+        // Seed Day 3 follow-up 4 days from today
+        $ctx = $this->seedAppointmentForDayOffset(4, smsConsent: false, emailConsent: false, linkAccount: true);
+        $service = app(AppointmentReminderService::class);
+        $baseNow = now('Asia/Manila')->copy();
+
+        // 4 days before: outside 3-day window -> no reminder
+        $dayMinus4 = $service->runAutomatedSweep('in_app', $ctx['clinic']->id, referenceDate: $baseNow);
+        $this->assertSame(0, $dayMinus4['advance_reminders_sent']);
+        $this->assertSame(0, $dayMinus4['same_day_reminders_sent']);
+
+        // 3 days before, 2 days before, 1 day before, and same day -> 1 notification + 1 FCM push each day
+        foreach ([1 => 3, 2 => 2, 3 => 1, 4 => 0] as $daysElapsed => $expectedDaysUntil) {
+            $refDate = $baseNow->copy()->addDays($daysElapsed);
+            $res = $service->runAutomatedSweep('in_app', $ctx['clinic']->id, referenceDate: $refDate);
+
+            if ($expectedDaysUntil > 0) {
+                $this->assertSame(1, $res['advance_reminders_sent'], "Expected advance reminder at -{$expectedDaysUntil}d");
+                $this->assertSame(0, $res['same_day_reminders_sent']);
+            } else {
+                $this->assertSame(0, $res['advance_reminders_sent']);
+                $this->assertSame(1, $res['same_day_reminders_sent'], 'Expected D-Day reminder');
+            }
+
+            // Duplicate sweep on the same day must not create another message
+            $dup = $service->runAutomatedSweep('in_app', $ctx['clinic']->id, referenceDate: $refDate);
+            $this->assertSame($daysElapsed, OutboundMessage::count());
+            $this->assertSame($expectedDaysUntil > 0 ? 1 : 0, $dup['advance_reminders_eligible']);
+
+            $latestMsg = OutboundMessage::latest('id')->firstOrFail();
+            Carbon::setTestNow($refDate);
+            try {
+                app(OutboundDelivery::class)->deliver($latestMsg->id);
+            } finally {
+                Carbon::setTestNow();
+            }
+            $this->assertSame('delivered', $latestMsg->fresh()->status);
+        }
+
+        $this->assertSame(4, OutboundMessage::count());
+        $this->assertSame(4, \App\Models\Notification::where('patient_account_id', $ctx['account']->id)->count());
+        Queue::assertPushed(SendFcmPushNotification::class, 4);
+
+        $bodies = OutboundMessage::orderBy('id')->pluck('body')->all();
+        $this->assertStringContainsString('in 3 days', $bodies[0]);
+        $this->assertStringContainsString('in 2 days', $bodies[1]);
+        $this->assertStringContainsString('tomorrow', $bodies[2]);
+        $this->assertStringContainsString('today', $bodies[3]);
+    }
 }

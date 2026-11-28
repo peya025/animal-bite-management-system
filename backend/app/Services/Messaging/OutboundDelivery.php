@@ -160,13 +160,16 @@ class OutboundDelivery
                     ]);
                     $this->finish($message, new SmsResult('delivered'));
                 });
-                Cache::forget("mobile:notifications:account:{$account->id}:page:1");
+                app(\App\Services\Mobile\MobileNotificationService::class)->invalidateNotificationCache((int) $account->id);
 
                 // Enqueue automated FCM push notification to the patient account if allowlisted
                 $pushTitle = 'Vaccination Reminder';
+                $advanceDaysBefore = (int) ($message->context['advance_days_before'] ?? 1);
                 $pushBody = match ($message->purpose) {
                     'same_day' => 'Your vaccination appointment is scheduled for today. Open the app to view your schedule.',
-                    'advance' => 'You have an upcoming appointment. Open the app to view your schedule.',
+                    'advance' => in_array($advanceDaysBefore, [2, 3], true)
+                        ? "Your vaccination appointment is in {$advanceDaysBefore} days. Open the app to view your schedule."
+                        : 'You have an upcoming appointment. Open the app to view your schedule.',
                     default => 'You have an overdue appointment. Open the app to view your schedule.',
                 };
 

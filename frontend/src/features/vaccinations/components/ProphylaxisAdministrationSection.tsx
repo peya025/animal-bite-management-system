@@ -540,8 +540,7 @@ export default function ProphylaxisAdministrationSection({
                           className="fm-input"
                           type="number"
                           readOnly
-                          required
-                          disabled={disabled}
+                          disabled
                           value={item.inventory_units_used || '1'}
                           style={{
                             width: '100%',
@@ -551,7 +550,7 @@ export default function ProphylaxisAdministrationSection({
                             height: 34,
                             backgroundColor: '#f8fafc',
                             color: '#475569',
-                            cursor: 'default',
+                            cursor: 'not-allowed',
                           }}
                         />
                         <span className="registration-field-hint" style={{ fontSize: 11, color: '#64748b', marginTop: 2, display: 'block' }}>

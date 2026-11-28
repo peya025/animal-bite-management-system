@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../shared/contexts/AuthContext';
 import { ROUTES } from '../../shared/config/routes';
@@ -10,6 +10,38 @@ import WalkthroughWelcomeModal from './WalkthroughWelcomeModal';
 import WalkthroughCompletionModal from './WalkthroughCompletionModal';
 import { getDashboardModuleInfoForRole, getDashboardStepsForRole } from './dashboardWalkthroughSteps';
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Returns true if this is the very first time this user ID has been seen on
+ * this browser. We store a persistent set of known user IDs separately from
+ * walkthrough progress so that clearing progress data doesn't re-trigger the
+ * welcome modal for existing accounts.
+ */
+function isFirstTimeUser(userId: number | string): boolean {
+  try {
+    const raw = localStorage.getItem('abtc_known_users') || '[]';
+    const knownUsers: (number | string)[] = JSON.parse(raw);
+    return !knownUsers.includes(userId);
+  } catch {
+    return false;
+  }
+}
+
+/** Mark a user ID as known (seen before) so they won't get the auto-welcome again. */
+function markUserAsKnown(userId: number | string): void {
+  try {
+    const raw = localStorage.getItem('abtc_known_users') || '[]';
+    const knownUsers: (number | string)[] = JSON.parse(raw);
+    if (!knownUsers.includes(userId)) {
+      knownUsers.push(userId);
+      localStorage.setItem('abtc_known_users', JSON.stringify(knownUsers));
+    }
+  } catch { /* ignore */ }
+}
+
+// ─── Context defaults ─────────────────────────────────────────────────────────
+
 const noop = () => {};
 export const defaultWalkthroughContext: WalkthroughContextType = {
   isActive: false, isWelcomeModalOpen: false, currentStepIndex: 0, currentStep: null,
@@ -20,26 +52,37 @@ export const defaultWalkthroughContext: WalkthroughContextType = {
 };
 const WalkthroughContext = createContext<WalkthroughContextType>(defaultWalkthroughContext);
 
+// ─── Provider ─────────────────────────────────────────────────────────────────
+
 export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const modules = useMemo(() => getGuideModules(user?.role), [user?.role]);
+
+  // Per-user progress storage key (v3)
   const storageKey = user?.id ? `abtc_guides_v3_${user.id}` : null;
+
   const [progress, setProgress] = useState<Record<string, GuideProgress>>({});
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
   const [reachedRoute, setReachedRoute] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+
+  // welcomeModuleId tracks WHICH module the Welcome modal represents
   const [welcomeModuleId, setWelcomeModuleId] = useState<string>(ROUTES.DASHBOARD);
+
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
   const [completedModuleName, setCompletedModuleName] = useState<string>('Dashboard');
 
+  // Track whether we've already attempted new-account auto-open for this session
+  const autoWelcomeAttemptedRef = useRef(false);
+
   const activeModule = useMemo(() => modules.find(module => module.id === activeModuleId), [modules, activeModuleId]);
   const currentStep = activeModule?.steps[currentStepIndex] || null;
-
   const dashboardModule = useMemo(() => modules.find(m => m.id === ROUTES.DASHBOARD || m.route === ROUTES.DASHBOARD), [modules]);
 
+  // ── Inject walkthrough CSS once ─────────────────────────────────────────────
   useEffect(() => {
     let style = document.getElementById('abtc-walkthrough-styles');
     if (!style) {
@@ -50,34 +93,79 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     style.textContent = walkthroughStyles;
   }, []);
 
+  // ── Load persisted progress when user changes ────────────────────────────────
   useEffect(() => {
     setActiveModuleId(null);
     setCurrentStepIndex(0);
+    setIsWelcomeModalOpen(false);
+    autoWelcomeAttemptedRef.current = false;
+
     if (!storageKey) { setProgress({}); return; }
     try { setProgress(JSON.parse(localStorage.getItem(storageKey) || '{}')); }
     catch { setProgress({}); }
   }, [storageKey]);
 
-  // Clean up any legacy welcome flag without auto-opening modal
+  // ── Clean up any legacy session flags ───────────────────────────────────────
   useEffect(() => {
-    try {
-      sessionStorage.removeItem('abtc_show_welcome_on_login');
-    } catch { /* ignore */ }
+    try { sessionStorage.removeItem('abtc_show_welcome_on_login'); } catch { /* ignore */ }
   }, []);
 
-  // Welcome modal is strictly user-initiated. Only close if navigating to public/landing pages.
+  // ── Close welcome modal on navigation to public pages ───────────────────────
   useEffect(() => {
-    const isLandingOrPublic = location.pathname === '/' || location.pathname === ROUTES.HOME || location.pathname === ROUTES.LOGIN;
-    if (isLandingOrPublic) {
-      setIsWelcomeModalOpen(false);
-    }
+    const isPublic = location.pathname === '/' || location.pathname === ROUTES.HOME || location.pathname === ROUTES.LOGIN;
+    if (isPublic) setIsWelcomeModalOpen(false);
   }, [location.pathname]);
 
-  const openWelcomeModal = useCallback((moduleId: string = ROUTES.DASHBOARD) => {
-    setWelcomeModuleId(moduleId);
-    setIsWelcomeModalOpen(true);
-  }, []);
+  // ── Auto-show Welcome modal for brand-new accounts (first ever login) ────────
+  //
+  // Triggers once per user ID after progress has loaded, only if:
+  //   - The user is on the dashboard
+  //   - No progress has been recorded for the dashboard module yet
+  //   - This is the first time this user ID has appeared in this browser
+  useEffect(() => {
+    if (!user?.id || autoWelcomeAttemptedRef.current) return;
 
+    const isPublic = location.pathname === '/' || location.pathname === ROUTES.HOME || location.pathname === ROUTES.LOGIN;
+    if (isPublic) return;
+
+    // Only attempt once per login session even if the effect re-runs
+    autoWelcomeAttemptedRef.current = true;
+
+    const isNew = isFirstTimeUser(user.id);
+    if (!isNew) return; // Existing account — no auto-welcome
+
+    // Mark as known immediately so subsequent logins don't re-trigger
+    markUserAsKnown(user.id);
+
+    // Only auto-open if the dashboard module has no prior progress.
+    // Read directly from localStorage to get the most current value,
+    // since the `progress` state may still be loading when this effect runs.
+    let dashboardProgress: GuideProgress | undefined;
+    try {
+      const stored = localStorage.getItem(`abtc_guides_v3_${user.id}`) || '{}';
+      const allProgress: Record<string, GuideProgress> = JSON.parse(stored);
+      dashboardProgress = allProgress[ROUTES.DASHBOARD];
+    } catch { /* ignore */ }
+
+    const noPriorProgress =
+      !dashboardProgress ||
+      (dashboardProgress.status === 'skipped' && dashboardProgress.step === 0);
+
+    if (!noPriorProgress) return; // User already interacted with the walkthrough
+
+    // Schedule the auto-open slightly after render so the UI is settled
+    const timer = setTimeout(() => {
+      setWelcomeModuleId(ROUTES.DASHBOARD);
+      setIsWelcomeModalOpen(true);
+    }, 800);
+
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, location.pathname]);
+  // Note: We intentionally omit `progress` from deps here because we only want
+  // this effect to run once after initial load (autoWelcomeAttemptedRef guards it).
+
+  // ── Save progress helper ─────────────────────────────────────────────────────
   const saveProgress = useCallback((id: string, value: GuideProgress) => {
     setProgress(previous => {
       const next = { ...previous, [id]: value };
@@ -86,34 +174,44 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     });
   }, [storageKey]);
 
+  // ── Open Welcome modal (user-initiated) ──────────────────────────────────────
+  //
+  // The Welcome modal's "Start Tour" button always starts from step 0 (restart=true).
+  // For resuming, callers should use startGuide(id, false) directly instead.
+  const openWelcomeModal = useCallback((moduleId: string = ROUTES.DASHBOARD) => {
+    setWelcomeModuleId(moduleId);
+    setIsWelcomeModalOpen(true);
+  }, []);
+
+  // ── startGuide: core function that activates a module at the correct step ────
   const startGuide = useCallback((id: string, restart = false) => {
     const module = modules.find(item => item.id === id);
     if (!module?.steps.length) return;
+
     const saved = progress[id];
     let index = 0;
 
     if (!restart) {
+      // Resume: use saved step if valid
       if (saved && typeof saved.step === 'number' && saved.step > 0 && saved.step < module.steps.length) {
         index = saved.step;
       } else {
+        // Fall back to step matching current route
         const currentRouteIndex = module.steps.findIndex(step => step.route === location.pathname);
-        if (currentRouteIndex > 0) {
-          index = currentRouteIndex;
-        }
+        if (currentRouteIndex > 0) index = currentRouteIndex;
       }
-    } else {
-      // Explicit restart: start from beginning of module
-      index = 0;
     }
+    // restart=true → index stays 0
 
     const targetStep = module.steps[index];
     const stepRoute = targetStep?.route || module.route;
+
     setCurrentStepIndex(index);
     setActiveModuleId(id);
     setIsWelcomeModalOpen(false);
     setIsCompletionModalOpen(false);
 
-    // Reset scroll to top before highlighting the first element
+    // Scroll to top for a clean start
     window.scrollTo({ top: 0, behavior: 'auto' });
     const pageContent = document.querySelector<HTMLElement>('.page-content');
     if (pageContent) pageContent.scrollTop = 0;
@@ -124,6 +222,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!matchesCurrent) navigate(stepRoute);
   }, [modules, progress, saveProgress, location.pathname, navigate]);
 
+  // ── skipGuide: pause/stop the active guide ───────────────────────────────────
   const skipGuide = useCallback(() => {
     if (activeModuleId) {
       saveProgress(activeModuleId, {
@@ -138,6 +237,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setActiveModuleId(null);
   }, [activeModuleId, currentStepIndex, saveProgress, user?.id]);
 
+  // ── finishGuide: complete the active guide ───────────────────────────────────
   const finishGuide = useCallback(() => {
     if (activeModuleId) {
       const isDashboard = activeModuleId === ROUTES.DASHBOARD;
@@ -152,6 +252,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [activeModuleId, activeModule, saveProgress, user?.id]);
 
+  // ── goToStep / nextStep / prevStep ───────────────────────────────────────────
   const goToStep = useCallback((index: number) => {
     if (!activeModule || index < 0 || index >= activeModule.steps.length) return;
     const targetStep = activeModule.steps[index];
@@ -171,15 +272,19 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const prevStep = useCallback(() => goToStep(currentStepIndex - 1), [goToStep, currentStepIndex]);
 
+  // ── dismissWelcomeModal: user chose "Skip Tour" ──────────────────────────────
   const dismissWelcomeModal = useCallback(() => {
     setIsWelcomeModalOpen(false);
-    saveProgress(ROUTES.DASHBOARD, { status: 'skipped', step: 0 });
+    // Record a skipped status for the specific module that was shown
+    const targetId = welcomeModuleId || ROUTES.DASHBOARD;
+    saveProgress(targetId, { status: 'skipped', step: 0 });
     if (user?.id) {
       localStorage.setItem(`abtc_walkthrough_status_${user.id}`, 'skipped');
       localStorage.setItem(`abtc_walkthrough_status_admin_${user.id}`, 'skipped');
     }
-  }, [saveProgress, user?.id]);
+  }, [welcomeModuleId, saveProgress, user?.id]);
 
+  // ── Route-change guard: keep walkthrough in sync with navigation ─────────────
   useEffect(() => {
     if (!currentStep || !activeModule) return;
     if (location.pathname !== currentStep.route) {
@@ -197,6 +302,7 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [currentStep, activeModule, location.pathname, navigate, reachedRoute, skipGuide]);
 
+  // ── Context value ─────────────────────────────────────────────────────────────
   const value = useMemo<WalkthroughContextType>(() => ({
     isActive: !!activeModule, isWelcomeModalOpen, currentStepIndex, currentStep,
     totalSteps: activeModule?.steps.length || 0, isRegistrationStaff: user?.role === 'registration',
@@ -214,24 +320,19 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }), [activeModuleId, activeModule, isWelcomeModalOpen, currentStepIndex, currentStep, user?.role, modules, progress,
     startGuide, skipGuide, finishGuide, nextStep, prevStep, goToStep, dismissWelcomeModal, openWelcomeModal, location.pathname]);
 
+  // ── Derived display values ────────────────────────────────────────────────────
   const welcomeModule = useMemo(() => {
     return modules.find(m => m.id === welcomeModuleId) || dashboardModule || null;
   }, [modules, welcomeModuleId, dashboardModule]);
 
   const isWelcomeDashboard = welcomeModuleId === ROUTES.DASHBOARD || !welcomeModule || welcomeModule.id === ROUTES.DASHBOARD;
-
-  const roleLabel = user?.role === 'admin' ? 'Administrator'
-    : user?.role === 'registration' ? 'Registration Staff'
-    : user?.role === 'treatment' ? 'Treatment Nurse'
-    : user?.role === 'triage' ? 'Triage Doctor' : '';
-
   const isLandingOrPublic = location.pathname === '/' || location.pathname === ROUTES.HOME || location.pathname === ROUTES.LOGIN;
 
   return (
     <WalkthroughContext.Provider value={value}>
       {children}
 
-      {/* Centered Welcome Modal (User-Initiated Only) */}
+      {/* Welcome Modal — shown for new accounts (auto) or via help menu (user-initiated) */}
       <WalkthroughWelcomeModal
         open={isWelcomeModalOpen && !isLandingOrPublic}
         roleName={
@@ -256,6 +357,8 @@ export const WalkthroughProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
         onStart={() => {
           setIsWelcomeModalOpen(false);
+          // The Welcome modal always starts from step 0 (restart=true).
+          // Resume is handled directly via startGuide(id, false) without opening this modal.
           startGuide(welcomeModuleId || ROUTES.DASHBOARD, true);
         }}
         onDismiss={dismissWelcomeModal}

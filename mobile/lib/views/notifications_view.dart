@@ -135,6 +135,32 @@ class _NotificationsViewState extends State<NotificationsView> {
     }
   }
 
+  void _handleNotificationTap(AppNotification notification) {
+    unawaited(_markRead(notification));
+
+    switch (notification.type) {
+      case 'booking_confirmation':
+      case 'booking_cancelled':
+      case 'missed_consultation_recall':
+        Navigator.of(context).pushNamed(AppRoutes.appointments);
+      case 'vaccination_reminder':
+      case 'upcoming_appointment_reminder':
+      case 'missed_appointment_recall':
+      case 'missed_triage_recall':
+      case 'missed_treatment_recall':
+        Navigator.of(context).pushNamed(AppRoutes.calendar);
+      case 'digital_card_updated':
+        showDigitalVaccinationCard(
+          context,
+          initialPatientId: notification.patientId,
+        );
+      case 'awareness':
+        Navigator.of(context).pushNamed(AppRoutes.menu);
+      default:
+        Navigator.of(context).pushNamed(AppRoutes.settings);
+    }
+  }
+
   void _showError(Object error) {
     AppToast.error(context, error.toString());
   }
@@ -347,7 +373,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                           for (final notification in visible) ...[
                             NotificationCard(
                               notification: notification,
-                              onTap: () => _markRead(notification),
+                              onTap: () => _handleNotificationTap(notification),
                             ),
                             const SizedBox(height: 10),
                           ],

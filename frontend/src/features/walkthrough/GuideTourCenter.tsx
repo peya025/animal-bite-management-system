@@ -42,6 +42,8 @@ export const GuideTourCenter: React.FC = () => {
   const { user } = useAuth();
   const location = useLocation();
   const { modules, progress, startGuide, isActive, stopWalkthrough, activeModuleId, openWelcomeModal, isWelcomeModalOpen } = useWalkthrough();
+  // startGuide(id, false) = Resume from saved step
+  // startGuide(id, true)  = Restart from step 0
   const [open, setOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const isMenuOpen = Boolean(anchorEl);
@@ -291,11 +293,24 @@ export const GuideTourCenter: React.FC = () => {
 
       {/* ── Actions List ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        {/* Explore Your Dashboard */}
+        {/* Explore Your Dashboard — resume from saved step if progress exists, else show welcome intro */}
         <MenuItem
           onClick={() => {
             setAnchorEl(null);
-            openWelcomeModal(ROUTES.DASHBOARD);
+            const dashboardSaved = progress[ROUTES.DASHBOARD];
+            const dashboardHasProgress = Boolean(
+              dashboardSaved &&
+              (dashboardSaved.status === 'in_progress' ||
+                (typeof dashboardSaved.step === 'number' && dashboardSaved.step > 0) ||
+                dashboardSaved.status === 'completed')
+            );
+            if (dashboardHasProgress) {
+              // Resume or restart from guide center — go directly, skip Welcome modal
+              startGuide(ROUTES.DASHBOARD, false);
+            } else {
+              // No prior progress — show Welcome intro modal first
+              openWelcomeModal(ROUTES.DASHBOARD);
+            }
           }}
           data-testid="menu-start-dashboard-tour"
           sx={{
@@ -351,7 +366,9 @@ export const GuideTourCenter: React.FC = () => {
           <MenuItem
             onClick={() => {
               setAnchorEl(null);
-              openWelcomeModal(activeOrRelevantModule.id);
+              // "Resume Guide" directly continues from saved step — no Welcome modal shown
+              // "Start Guide" (no saved progress) also starts directly
+              startGuide(activeOrRelevantModule.id, false);
             }}
             data-testid="menu-start-module-tour"
             sx={{
@@ -573,6 +590,7 @@ export const GuideTourCenter: React.FC = () => {
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                 {hasProgress ? (
                   <>
+                    {/* Resume: continue from the last saved step — no Welcome modal */}
                     <button
                       type="button"
                       className="guide-card-btn-resume"
@@ -580,18 +598,19 @@ export const GuideTourCenter: React.FC = () => {
                       aria-label={`Resume Guide: ${module.name}`}
                       onClick={() => {
                         setOpen(false);
-                        openWelcomeModal(module.id);
+                        startGuide(module.id, false); // resume = no restart
                       }}
                     >
                       Resume
                     </button>
+                    {/* Restart: reset progress and start from step 1 */}
                     <button
                       type="button"
                       className="guide-card-btn-restart"
                       aria-label={`Restart Guide: ${module.name}`}
                       onClick={() => {
                         setOpen(false);
-                        startGuide(module.id, true);
+                        startGuide(module.id, true); // restart = from step 0
                       }}
                     >
                       Restart

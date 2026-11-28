@@ -23,6 +23,7 @@ import EncounterFeesView from './EncounterFeesView';
 import OnlineReferralPhoto from './OnlineReferralPhoto';
 import { RegistrationDialog } from './AddPatientModal/RegistrationDialog.styles';
 import { RegistrationErrors } from './AddPatientModal/registrationAccessibility';
+import { validateTemperatureValue } from '../../../shared/utils/temperature';
 import ConfirmationDialog, { SuccessModal } from '../../../components/feedback/ConfirmationDialog';
 import PatientEditModal from './PatientEditModal';
 import TagoloanTreatmentCardModal from '../../vaccinations/components/TagoloanTreatmentCardModal';
@@ -644,14 +645,9 @@ export default function PatientDetailsModal({
     }
 
     // Temperature (°C)
-    const tempStr = newExposure.reg_temperature ? newExposure.reg_temperature.trim() : '';
-    if (!tempStr) {
-      errors.reg_temperature = 'Temperature is required.';
-    } else {
-      const temp = Number(tempStr);
-      if (isNaN(temp) || temp < 30 || temp > 45) {
-        errors.reg_temperature = 'Please enter a valid temperature between 30°C and 45°C.';
-      }
+    const tempError = validateTemperatureValue(newExposure.reg_temperature, { required: true });
+    if (tempError) {
+      errors.reg_temperature = tempError;
     }
 
     // Height (cm)

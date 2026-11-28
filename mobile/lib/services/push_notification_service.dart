@@ -10,6 +10,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../app/app_routes.dart';
+import '../widgets/vaccination/digital_vaccination_card.dart';
 import 'api.dart';
 
 /// Top-level background message handler required by Firebase on Android.
@@ -186,8 +187,12 @@ class PushNotificationService {
   /// Process foreground FCM messages: check preferences, deduplicate, display banner, and broadcast.
   Future<void> handleForegroundMessage(RemoteMessage message) async {
     // 1. Deduplication check
+    final fallbackTargetId = message.data['id'] ??
+        message.data['appointment_id'] ??
+        message.data['patient_id'] ??
+        message.data['announcement_id'];
     final messageId = message.messageId ??
-        '${message.sentTime?.millisecondsSinceEpoch}_${message.data['id']}_${message.data['category']}';
+        '${message.sentTime?.millisecondsSinceEpoch}_${fallbackTargetId}_${message.data['category']}';
     if (_processedMessageIds.contains(messageId)) {
       debugPrint('ℹ️ Duplicate notification suppressed: $messageId');
       return;
@@ -212,7 +217,9 @@ class PushNotificationService {
         'You have a new update from the clinic.';
 
     // 4. Show heads-up banner via flutter_local_notifications
-    final notificationId = (message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch) & 0x7fffffff;
+    final notificationId = (message.messageId?.hashCode ??
+            '$messageId:${DateTime.now().microsecondsSinceEpoch}'.hashCode) &
+        0x7fffffff;
     await showLocalNotification(
       id: notificationId,
       title: title,
@@ -328,7 +335,15 @@ class PushNotificationService {
 
     try {
       debugPrint('🧭 Navigating from notification tap to: $targetRoute');
+      final category =
+          (data['category'] ?? data['type'] ?? '').toString().toLowerCase();
+      final isDigitalCard = category == 'digital_card' ||
+          category == 'digital_card_updated' ||
+          category == 'vaccination_card' ||
+          category == 'card';
       final advisoryId = int.tryParse((data['advisory_id'] ?? '').toString());
+      final patientId = int.tryParse((data['patient_id'] ?? '').toString());
+
       if (targetRoute == AppRoutes.communityAdvisory &&
           advisoryId != null &&
           advisoryId > 0) {
@@ -338,6 +353,19 @@ class PushNotificationService {
         );
       } else {
         navigatorKey?.currentState?.pushNamed(targetRoute);
+      }
+
+      if (isDigitalCard) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final ctx = navigatorKey?.currentContext;
+          if (ctx != null && ctx.mounted) {
+            showDigitalVaccinationCard(
+              ctx,
+              initialPatientId:
+                  patientId != null && patientId > 0 ? patientId : null,
+            );
+          }
+        });
       }
     } catch (e) {
       debugPrint('⚠️ Navigation error on notification tap: $e');
@@ -383,11 +411,17 @@ class PushNotificationService {
       case 'appointment_reminder':
       case 'appointment_status':
       case 'appointment_changed':
+      case 'appointment_cancelled':
+      case 'appointment_rescheduled':
       case 'booking':
+      case 'booking_confirmation':
+      case 'booking_cancelled':
         return AppRoutes.appointments;
 
       case 'vaccination':
       case 'vaccination_schedule':
+      case 'vaccination_reminder':
+      case 'upcoming_appointment_reminder':
       case 'dose_reminder':
       case 'pep_reminder':
       case 'pep_schedule':
@@ -396,9 +430,10 @@ class PushNotificationService {
         return AppRoutes.calendar;
 
       case 'digital_card':
+      case 'digital_card_updated':
       case 'vaccination_card':
       case 'card':
-        // Routed to menu where the patient card and action buttons are immediately accessible
+        // Routed to menu where the digital vaccination card opens automatically
         return AppRoutes.menu;
 
       case 'community_advisory':

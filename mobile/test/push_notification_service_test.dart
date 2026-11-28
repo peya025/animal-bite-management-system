@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -68,6 +69,10 @@ void main() {
         equals(AppRoutes.calendar),
       );
       expect(
+        service.resolveRouteFromPayload({'category': 'vaccination_schedule'}),
+        equals(AppRoutes.calendar),
+      );
+      expect(
         service.resolveRouteFromPayload({'type': 'dose_reminder'}),
         equals(AppRoutes.calendar),
       );
@@ -76,10 +81,26 @@ void main() {
         equals(AppRoutes.calendar),
       );
 
-      // Vaccination card -> Menu view
+      // Vaccination card -> Menu view (and opens digital vaccination card sheet)
       expect(
         service.resolveRouteFromPayload({'category': 'digital_card'}),
         equals(AppRoutes.menu),
+      );
+      expect(
+        service.resolveRouteFromPayload({'type': 'digital_card_updated'}),
+        equals(AppRoutes.menu),
+      );
+      expect(
+        service.resolveRouteFromPayload({'type': 'vaccination_reminder'}),
+        equals(AppRoutes.calendar),
+      );
+      expect(
+        service.resolveRouteFromPayload({'type': 'upcoming_appointment_reminder'}),
+        equals(AppRoutes.calendar),
+      );
+      expect(
+        service.resolveRouteFromPayload({'type': 'booking_confirmation'}),
+        equals(AppRoutes.appointments),
       );
 
       // Clinic announcements / default -> Notifications view
@@ -141,6 +162,41 @@ void main() {
       // Authentication is required, so it directs to login.
       expect(api.isAuthenticated, isFalse);
     });
+
+    testWidgets('tapping digital_card push redirects to menu and opens digital vaccination card', (tester) async {
+      final service = PushNotificationService.instance;
+      final navKey = GlobalKey<NavigatorState>();
+      service.navigatorKey = navKey;
+
+      await tester.runAsync(() => MockMobileApi.instance.login(
+            email: 'patient@example.com',
+            password: 'password123',
+            remember: false,
+          ));
+      expect(api.isAuthenticated, isTrue);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navKey,
+          initialRoute: AppRoutes.notifications,
+          routes: {
+            AppRoutes.notifications: (_) => const Scaffold(body: Text('Notifications Page')),
+            AppRoutes.menu: (_) => const Scaffold(body: Text('Menu Page')),
+          },
+        ),
+      );
+
+      await service.handleNotificationTap({
+        'category': 'digital_card',
+        'route': AppRoutes.menu,
+        'patient_id': '1',
+      });
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Menu Page'), findsOneWidget);
+      expect(find.text('Digital Vaccination Card'), findsOneWidget);
+    });
   });
 
   group('Phase 3 - Task 3.3: Foreground Notification Handling & Deduplication', () {
@@ -159,6 +215,50 @@ void main() {
       );
 
       service.broadcastNotificationReceived(payload);
+    });
+
+    test('handleForegroundMessage processes distinct vaccination_schedule notifications without false deduplication', () async {
+      final service = PushNotificationService.instance;
+      final received = <Map<String, dynamic>>[];
+      final sub = service.onNotificationReceived.listen(received.add);
+
+      final sentTime = DateTime(2026, 11, 28, 10, 0, 0);
+      final day3 = RemoteMessage(
+        sentTime: sentTime,
+        notification: const RemoteNotification(
+          title: 'Vaccination Reminder',
+          body: 'You have an upcoming appointment. Open the app to view your schedule.',
+        ),
+        data: const {
+          'category': 'vaccination_schedule',
+          'route': '/calendar',
+          'appointment_id': '101',
+        },
+      );
+      final day7 = RemoteMessage(
+        sentTime: sentTime,
+        notification: const RemoteNotification(
+          title: 'Vaccination Reminder',
+          body: 'You have an upcoming appointment. Open the app to view your schedule.',
+        ),
+        data: const {
+          'category': 'vaccination_schedule',
+          'route': '/calendar',
+          'appointment_id': '102',
+        },
+      );
+
+      await service.handleForegroundMessage(day3);
+      await service.handleForegroundMessage(day7);
+      // Duplicate of Day 3 with same appointment_id and sentTime should be suppressed
+      await service.handleForegroundMessage(day3);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(received.length, equals(2));
+      expect(received[0]['appointment_id'], equals('101'));
+      expect(received[1]['appointment_id'], equals('102'));
+
+      await sub.cancel();
     });
 
     test('clearNotificationState wipes deduplication cache on logout and account switch', () {

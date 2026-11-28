@@ -81,21 +81,25 @@ export const ConsultationDialog = styled('div')({
     color: 'var(--text-secondary, #94a3b8)',
     opacity: 1,
   },
-  '&& .fm-input:hover:not(:disabled), && .fm-select:hover:not(:disabled), && .fm-textarea:hover:not(:disabled), && .ss-trigger:hover:not(:disabled), && :is(input:not([type="checkbox"]):not([type="radio"]):not(.ss-search-input):not(.diagnosis-search-input), select, textarea):hover:not(:disabled)': {
+  '&& .fm-input:hover:not(:disabled):not([readonly]), && .fm-select:hover:not(:disabled), && .fm-textarea:hover:not(:disabled):not([readonly]), && .ss-trigger:hover:not(:disabled), && :is(input:not([type="checkbox"]):not([type="radio"]):not(.ss-search-input):not(.diagnosis-search-input), select, textarea):hover:not(:disabled):not([readonly])': {
     borderColor: '#10b981 !important',
   },
-  '&& .fm-input:focus, && .fm-select:focus, && .fm-textarea:focus, && .ss-trigger:focus, && .ss-trigger:focus-visible, && .ss-trigger--open, && :is(input:not([type="checkbox"]):not([type="radio"]):not(.ss-search-input):not(.diagnosis-search-input), select, textarea):focus, && :is(input:not([type="checkbox"]):not([type="radio"]):not(.ss-search-input):not(.diagnosis-search-input), select, textarea):focus-visible': {
+  '&& .fm-input:focus:not(:disabled):not([readonly]), && .fm-select:focus:not(:disabled), && .fm-textarea:focus:not(:disabled):not([readonly]), && .ss-trigger:focus:not(:disabled), && .ss-trigger:focus-visible:not(:disabled), && .ss-trigger--open:not(:disabled), && :is(input:not([type="checkbox"]):not([type="radio"]):not(.ss-search-input):not(.diagnosis-search-input), select, textarea):focus:not(:disabled):not([readonly]), && :is(input:not([type="checkbox"]):not([type="radio"]):not(.ss-search-input):not(.diagnosis-search-input), select, textarea):focus-visible:not(:disabled):not([readonly])': {
     outline: '2px solid transparent !important',
     outlineStyle: 'solid !important',
     borderColor: '#10b981 !important',
     boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.1) !important',
   },
-  '&& .fm-input:disabled, && .fm-select:disabled, && .fm-textarea:disabled, && .ss-trigger:disabled, && :is(input:not([type="checkbox"]):not([type="radio"]):not(.ss-search-input):not(.diagnosis-search-input), select, textarea):disabled': {
-    background: 'var(--bg-secondary, #f1f5f9)',
-    color: 'var(--text-secondary, #64748b)',
+  '&& .fm-input:disabled, && .fm-input[readonly], && .fm-select:disabled, && .fm-textarea:disabled, && .fm-textarea[readonly], && .ss-trigger:disabled, && :is(input:not([type="checkbox"]):not([type="radio"]):not(.ss-search-input):not(.diagnosis-search-input), select, textarea):disabled, && :is(input:not([type="checkbox"]):not([type="radio"]):not(.ss-search-input):not(.diagnosis-search-input), textarea)[readonly]': {
+    background: 'var(--bg-secondary, #f1f5f9) !important',
+    color: 'var(--text-secondary, #64748b) !important',
     opacity: 1,
-    cursor: 'not-allowed',
+    cursor: 'not-allowed !important',
+    caretColor: 'transparent !important',
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
     borderColor: 'var(--input-border, #d7e3da) !important',
+    boxShadow: 'none !important',
   },
   '&& .fm-field--error :is(input:not(.ss-search-input):not(.diagnosis-search-input), select, textarea, .ss-trigger), && :is(input:not(.ss-search-input):not(.diagnosis-search-input), select, textarea, .ss-trigger)[aria-invalid="true"], && .ss-trigger--error': {
     borderColor: '#ef4444 !important',

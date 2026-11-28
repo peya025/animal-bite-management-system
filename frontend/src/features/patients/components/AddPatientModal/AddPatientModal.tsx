@@ -3,7 +3,7 @@ import { RegistrationDialog } from './RegistrationDialog.styles';
 import { RegistrationAddressSection } from './RegistrationAddressSection';
 import { RegistrationErrors, advanceOnEnter, focusFirstError, registrationServerErrors } from './registrationAccessibility';
 import FormModal from '../../../../components/forms/FormModal';
-import { formatPhilHealthNumber, formatPWDNumber } from '../../../../shared/utils';
+import { formatPhilHealthNumber, formatPWDNumber, validateTemperatureValue } from '../../../../shared/utils';
 import { isValidFourDigitYearDate, sanitizeDateInput, getManilaDateString } from '../../../../shared/utils/date';
 import { PatientFormContent } from '../../styles/AddPatientModal.styles';
 import type { AddPatientModalProps, DuplicatePatientMatch, EnrolmentFormData, RegistrationFeePayload } from '../../types';
@@ -438,22 +438,19 @@ export default function AddPatientModal({
       const hasDia = Boolean(dia && dia.trim());
       if (!hasSys || !hasDia) {
         newFieldErrors.reg_blood_pressure = 'Blood pressure (both systolic and diastolic) is required.';
+      } else if (!/^\d{1,3}\/\d{1,3}$/.test(bp)) {
+        newFieldErrors.reg_blood_pressure = 'Blood pressure must be numeric in 000/000 format (max 3 digits each, e.g. 120/080).';
       } else {
         const s = Number(sys);
         const d = Number(dia);
         if (isNaN(s) || isNaN(d) || s < 40 || s > 300 || d < 20 || d > 200) {
-          newFieldErrors.reg_blood_pressure = 'Please enter a valid blood pressure (e.g. 120/80).';
+          newFieldErrors.reg_blood_pressure = 'Please enter a valid blood pressure (e.g. 120/080).';
         }
       }
 
-      const tempStr = enrolment.reg_temperature ? enrolment.reg_temperature.trim() : '';
-      if (!tempStr) {
-        newFieldErrors.reg_temperature = 'Temperature is required.';
-      } else {
-        const temp = Number(tempStr);
-        if (isNaN(temp) || temp < 30 || temp > 45) {
-          newFieldErrors.reg_temperature = 'Please enter a valid temperature between 30°C and 45°C.';
-        }
+      const tempError = validateTemperatureValue(enrolment.reg_temperature, { required: true });
+      if (tempError) {
+        newFieldErrors.reg_temperature = tempError;
       }
 
       const heightStr = enrolment.reg_height ? enrolment.reg_height.trim() : '';
@@ -748,6 +745,7 @@ export default function AddPatientModal({
             onDirectChange={(key, value) => handleDirectChange(key, value)}
             errors={fieldErrors}
             sectionStartNumber={3}
+            strictBpFormat
           />
           <RegistrationFeesSection
             data={enrolment.registration_fee}

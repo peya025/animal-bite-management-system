@@ -5,6 +5,12 @@ import { useAuth } from '../../../shared/contexts/AuthContext';
 import type { Patient, DuplicatePatientMatch, PsgcItem } from '../types';
 import { checkDuplicatePatients } from '../services';
 import {
+  formatTemperatureInput,
+  handleTemperatureKeyDown,
+  normalizeTemperatureOnBlur,
+  validateTemperatureValue,
+} from '../../../shared/utils/temperature';
+import {
   MISAMIS_ORIENTAL_MUNICIPALITIES,
   FALLBACK_BARANGAYS,
   suggestReferralFacility,
@@ -299,7 +305,11 @@ export default function OnlineIntakeCheckInModal({
         setBloodPressure('');
       }
 
-      setTemperature(intake?.referral_temperature || '');
+      setTemperature(
+        intake?.referral_temperature
+          ? normalizeTemperatureOnBlur(formatTemperatureInput(String(intake.referral_temperature), ''))
+          : '',
+      );
       setWeight(intake?.referral_weight || '');
       setHeight(intake?.referral_height || '');
       setAttendingProvider(intake?.referral_provider_name || user?.name || '');
@@ -375,12 +385,10 @@ export default function OnlineIntakeCheckInModal({
       }
     }
 
-    if (temperature.trim()) {
-      const tempNum = Number(temperature.trim());
-      if (isNaN(tempNum) || tempNum < 30 || tempNum > 45) {
-        setError('Temperature must be a valid number between 30 and 45 °C.');
-        return;
-      }
+    const tempError = validateTemperatureValue(temperature, { required: false });
+    if (tempError) {
+      setError(tempError);
+      return;
     }
 
     if (height.trim()) {
@@ -455,12 +463,10 @@ export default function OnlineIntakeCheckInModal({
       }
     }
 
-    if (temperature.trim()) {
-      const tempNum = Number(temperature.trim());
-      if (isNaN(tempNum) || tempNum < 30 || tempNum > 45) {
-        setError('Temperature must be a valid number between 30 and 45 °C.');
-        return;
-      }
+    const tempError = validateTemperatureValue(temperature, { required: false });
+    if (tempError) {
+      setError(tempError);
+      return;
     }
 
     if (height.trim()) {
@@ -1179,9 +1185,13 @@ export default function OnlineIntakeCheckInModal({
                 <input
                   className="fm-input"
                   type="text"
+                  inputMode="decimal"
+                  maxLength={4}
                   placeholder="36.5"
                   value={temperature}
-                  onChange={(e) => setTemperature(e.target.value)}
+                  onChange={(e) => setTemperature((prev) => formatTemperatureInput(e.target.value, prev))}
+                  onBlur={(e) => setTemperature(normalizeTemperatureOnBlur(e.target.value))}
+                  onKeyDown={handleTemperatureKeyDown}
                   disabled={submitting}
                   style={{ width: '100%', boxSizing: 'border-box' }}
                 />

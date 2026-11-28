@@ -58,6 +58,7 @@ export default function ReferralSection({ formData }: ReferralSectionProps) {
               type="text"
               value={formData.referred_by || '—'}
               readOnly
+              disabled
             />
           </FormField>
         </div>

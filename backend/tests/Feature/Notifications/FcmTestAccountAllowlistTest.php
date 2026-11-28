@@ -346,8 +346,13 @@ class FcmTestAccountAllowlistTest extends TestCase
             validated: []
         );
 
-        // In-app Notifications were created for all follow-up doses (clinical records intact)
-        $this->assertEquals(4, Notification::where('patient_id', $this->blockedPatient->patient_id)->count());
+        // 2 clinic-side appointment_event notifications + 1 consolidated patient vaccination_reminder notification
+        $this->assertEquals(3, Notification::where('patient_id', $this->blockedPatient->patient_id)->count());
+        $patientReminder = Notification::where('patient_id', $this->blockedPatient->patient_id)
+            ->where('type', 'vaccination_reminder')
+            ->firstOrFail();
+        $this->assertStringContainsString('Day 3', $patientReminder->message);
+        $this->assertStringContainsString('Day 7', $patientReminder->message);
 
         // But FCM was NOT enqueued because account is not allowlisted
         Queue::assertNotPushed(SendFcmPushNotification::class, function (SendFcmPushNotification $job) {

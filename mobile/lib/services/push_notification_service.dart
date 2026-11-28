@@ -10,6 +10,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../app/app_routes.dart';
+import '../widgets/vaccination/digital_vaccination_card.dart';
 import 'api.dart';
 
 /// Top-level background message handler required by Firebase on Android.
@@ -334,7 +335,15 @@ class PushNotificationService {
 
     try {
       debugPrint('🧭 Navigating from notification tap to: $targetRoute');
+      final category =
+          (data['category'] ?? data['type'] ?? '').toString().toLowerCase();
+      final isDigitalCard = category == 'digital_card' ||
+          category == 'digital_card_updated' ||
+          category == 'vaccination_card' ||
+          category == 'card';
       final advisoryId = int.tryParse((data['advisory_id'] ?? '').toString());
+      final patientId = int.tryParse((data['patient_id'] ?? '').toString());
+
       if (targetRoute == AppRoutes.communityAdvisory &&
           advisoryId != null &&
           advisoryId > 0) {
@@ -344,6 +353,19 @@ class PushNotificationService {
         );
       } else {
         navigatorKey?.currentState?.pushNamed(targetRoute);
+      }
+
+      if (isDigitalCard) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final ctx = navigatorKey?.currentContext;
+          if (ctx != null && ctx.mounted) {
+            showDigitalVaccinationCard(
+              ctx,
+              initialPatientId:
+                  patientId != null && patientId > 0 ? patientId : null,
+            );
+          }
+        });
       }
     } catch (e) {
       debugPrint('⚠️ Navigation error on notification tap: $e');
@@ -389,11 +411,17 @@ class PushNotificationService {
       case 'appointment_reminder':
       case 'appointment_status':
       case 'appointment_changed':
+      case 'appointment_cancelled':
+      case 'appointment_rescheduled':
       case 'booking':
+      case 'booking_confirmation':
+      case 'booking_cancelled':
         return AppRoutes.appointments;
 
       case 'vaccination':
       case 'vaccination_schedule':
+      case 'vaccination_reminder':
+      case 'upcoming_appointment_reminder':
       case 'dose_reminder':
       case 'pep_reminder':
       case 'pep_schedule':
@@ -402,9 +430,10 @@ class PushNotificationService {
         return AppRoutes.calendar;
 
       case 'digital_card':
+      case 'digital_card_updated':
       case 'vaccination_card':
       case 'card':
-        // Routed to menu where the patient card and action buttons are immediately accessible
+        // Routed to menu where the digital vaccination card opens automatically
         return AppRoutes.menu;
 
       case 'community_advisory':

@@ -835,14 +835,27 @@ class AutomatedFcmNotificationTriggersTest extends TestCase
         $this->assertStringContainsString('Day 3', $inAppReminders->first()->message);
         $this->assertStringContainsString('Day 7', $inAppReminders->first()->message);
 
-        // FCM HTTP v1 requests include Appointment Confirmed + 1 consolidated Vaccination Reminder push
+        // In-app "digital_card_updated" notification is also created alongside the digital_card FCM push
+        $cardInAppNotifications = Notification::where('patient_account_id', $this->account->id)
+            ->where('patient_id', $this->patient->patient_id)
+            ->where('type', 'digital_card_updated')
+            ->get();
+        $this->assertCount(1, $cardInAppNotifications);
+        $this->assertStringContainsString('digital vaccination card has been updated', $cardInAppNotifications->first()->message);
+
+        // FCM HTTP v1 requests include Appointment Confirmed + 1 consolidated Vaccination Reminder push + Digital Card push
         $recorded = Http::recorded();
         $schedulePayloads = collect($recorded)
             ->map(fn ($pair) => $pair[0]->data())
             ->filter(fn ($payload) => ($payload['message']['data']['category'] ?? null) === 'vaccination_schedule')
             ->values();
+        $cardPayloads = collect($recorded)
+            ->map(fn ($pair) => $pair[0]->data())
+            ->filter(fn ($payload) => ($payload['message']['data']['category'] ?? null) === 'digital_card')
+            ->values();
 
         $this->assertCount(1, $schedulePayloads);
+        $this->assertCount(1, $cardPayloads);
 
         foreach ($schedulePayloads as $payload) {
             $this->assertSame('Vaccination Reminder', $payload['message']['notification']['title']);

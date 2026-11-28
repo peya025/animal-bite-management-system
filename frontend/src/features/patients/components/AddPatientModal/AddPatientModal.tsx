@@ -3,7 +3,7 @@ import { RegistrationDialog } from './RegistrationDialog.styles';
 import { RegistrationAddressSection } from './RegistrationAddressSection';
 import { RegistrationErrors, advanceOnEnter, focusFirstError, registrationServerErrors } from './registrationAccessibility';
 import FormModal from '../../../../components/forms/FormModal';
-import { formatPhilHealthNumber, formatPWDNumber } from '../../../../shared/utils';
+import { formatPhilHealthNumber, formatPWDNumber, validateTemperatureValue } from '../../../../shared/utils';
 import { isValidFourDigitYearDate, sanitizeDateInput, getManilaDateString } from '../../../../shared/utils/date';
 import { PatientFormContent } from '../../styles/AddPatientModal.styles';
 import type { AddPatientModalProps, DuplicatePatientMatch, EnrolmentFormData, RegistrationFeePayload } from '../../types';
@@ -448,14 +448,9 @@ export default function AddPatientModal({
         }
       }
 
-      const tempStr = enrolment.reg_temperature ? enrolment.reg_temperature.trim() : '';
-      if (!tempStr) {
-        newFieldErrors.reg_temperature = 'Temperature is required.';
-      } else {
-        const temp = Number(tempStr);
-        if (isNaN(temp) || temp < 30 || temp > 45) {
-          newFieldErrors.reg_temperature = 'Please enter a valid temperature between 30°C and 45°C.';
-        }
+      const tempError = validateTemperatureValue(enrolment.reg_temperature, { required: true });
+      if (tempError) {
+        newFieldErrors.reg_temperature = tempError;
       }
 
       const heightStr = enrolment.reg_height ? enrolment.reg_height.trim() : '';

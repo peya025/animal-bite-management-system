@@ -4,6 +4,12 @@ import FormModal from '../../../components/forms/FormModal';
 import '../../../components/forms/SearchableSelect/SearchableSelect.css';
 import { ALL_HEALTH_FACILITIES } from '../../../shared/constants/healthFacilities';
 import api from '../../../shared/services/api';
+import {
+  formatTemperatureInput,
+  handleTemperatureKeyDown,
+  normalizeTemperatureOnBlur,
+  validateTemperatureValue,
+} from '../../../shared/utils/temperature';
 import type { Patient } from '../types';
 
 interface ReturningPatientCheckInModalProps {
@@ -543,9 +549,9 @@ export default function ReturningPatientCheckInModal({
       return;
     }
 
-    const tempNum = Number(temperature.trim());
-    if (isNaN(tempNum) || tempNum < 30 || tempNum > 45) {
-      setError('Temperature must be a valid number between 30 and 45 °C.');
+    const tempError = validateTemperatureValue(temperature, { required: true });
+    if (tempError) {
+      setError(tempError);
       return;
     }
 
@@ -884,10 +890,13 @@ export default function ReturningPatientCheckInModal({
               <input
                 type="text"
                 inputMode="decimal"
+                maxLength={4}
                 className="fm-input"
                 placeholder="e.g. 36.8"
                 value={temperature}
-                onChange={(e) => setTemperature(sanitizeDecimalInput(e.target.value))}
+                onChange={(e) => setTemperature((prev) => formatTemperatureInput(e.target.value, prev))}
+                onBlur={(e) => setTemperature(normalizeTemperatureOnBlur(e.target.value))}
+                onKeyDown={handleTemperatureKeyDown}
                 disabled={submitting}
                 style={pillInputStyle}
               />

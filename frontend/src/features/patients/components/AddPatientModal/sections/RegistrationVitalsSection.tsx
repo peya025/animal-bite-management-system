@@ -7,6 +7,11 @@ import type { EnrolmentFormData } from '../../../types';
 import { useClinicModuleConfig } from '../../../../../hooks/useClinicModuleConfig';
 import { NATURE_OF_VISIT_OPTIONS } from '../../../../consultations/constants/consultation.constants';
 import {
+  formatTemperatureInput,
+  handleTemperatureKeyDown,
+  normalizeTemperatureOnBlur,
+} from '../../../../../shared/utils/temperature';
+import {
   MISAMIS_ORIENTAL_MUNICIPALITIES,
   FALLBACK_BARANGAYS,
   suggestReferralFacility,
@@ -757,9 +762,18 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               <input
                 className="fm-input"
                 type="text"
+                inputMode="decimal"
+                maxLength={4}
                 name="reg_temperature"
                 value={data.reg_temperature}
-                onChange={onChange('reg_temperature')}
+                onChange={(e) => onDirectChange('reg_temperature', formatTemperatureInput(e.target.value, data.reg_temperature))}
+                onBlur={(e) => {
+                  const normalized = normalizeTemperatureOnBlur(e.target.value);
+                  if (normalized !== data.reg_temperature) {
+                    onDirectChange('reg_temperature', normalized);
+                  }
+                }}
+                onKeyDown={handleTemperatureKeyDown}
                 placeholder="36.5"
                 style={{ width: '100%', boxSizing: 'border-box' }}
               />
@@ -989,9 +1003,18 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
               <input
                 className="fm-input"
                 type="text"
+                inputMode="decimal"
+                maxLength={4}
                 name="reg_temperature"
                 value={data.reg_temperature}
-                onChange={onChange('reg_temperature')}
+                onChange={(e) => onDirectChange('reg_temperature', formatTemperatureInput(e.target.value, data.reg_temperature))}
+                onBlur={(e) => {
+                  const normalized = normalizeTemperatureOnBlur(e.target.value);
+                  if (normalized !== data.reg_temperature) {
+                    onDirectChange('reg_temperature', normalized);
+                  }
+                }}
+                onKeyDown={handleTemperatureKeyDown}
                 placeholder="36.5"
               />
             </FormField>

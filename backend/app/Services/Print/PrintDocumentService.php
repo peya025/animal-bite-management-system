@@ -2,8 +2,11 @@
 
 namespace App\Services\Print;
 
+use App\Models\BiteIncident;
 use App\Models\Clinic;
 use App\Models\Patient;
+use App\Models\TagoloanTreatmentCard;
+use App\Models\TreatmentPlan;
 use App\Models\TreatmentRecord;
 use App\Models\User;
 use App\Services\DohReportService;
@@ -77,6 +80,136 @@ class PrintDocumentService
             ->first();
 
         return compact('patient', 'latestConsultation');
+    }
+
+    /**
+     * Prepare data payload for Form 2 Individual Treatment Record (Doctor Consultation) printout.
+     */
+    public function getForm2Data(Request $request, Patient $patient): array
+    {
+        [$user, $clinicId] = $this->authorizePrintRequest(
+            $request,
+            $patient->clinic_id ? (int) $patient->clinic_id : null
+        );
+
+        $patient->load(['clinic', 'details']);
+
+        if (!$patient->clinic) {
+            $clinic = Clinic::find($clinicId);
+            if ($clinic) {
+                $patient->setRelation('clinic', $clinic);
+            }
+        }
+
+        $biteId = $request->query('bite_id') ? (int) $request->query('bite_id') : null;
+
+        $incidentQuery = BiteIncident::where('patient_id', $patient->patient_id);
+        $incident = $biteId
+            ? (clone $incidentQuery)->where('bite_id', $biteId)->first()
+            : null;
+        if (!$incident) {
+            $incident = $incidentQuery->latest('bite_id')->first();
+        }
+
+        $consultationQuery = TreatmentRecord::where('patient_id', $patient->patient_id)
+            ->whereNull('dose_number')
+            ->whereNull('medication_given')
+            ->whereNull('voided_at');
+
+        if ($incident) {
+            $consultationQuery->where(function ($q) use ($incident) {
+                $q->where('bite_id', $incident->bite_id)
+                  ->orWhereNull('bite_id');
+            });
+        }
+
+        $allConsultations = $consultationQuery
+            ->orderByDesc('consultation_date')
+            ->orderByDesc('treatment_id')
+            ->get();
+
+        $consultation = $allConsultations->first(function ($r) {
+            return $r->status === 'completed'
+                && (!empty($r->diagnosis) || !empty($r->chief_complaints) || !empty($r->prescribed_vaccine_type) || !empty($r->prophylaxis_orders));
+        }) ?? $allConsultations->first();
+
+        $previousConsultations = $allConsultations
+            ->filter(fn ($r) => $consultation && (int) $r->treatment_id !== (int) $consultation->treatment_id && (!empty($r->diagnosis) || !empty($r->chief_complaints)))
+            ->values();
+
+        $treatmentPlan = $incident
+            ? TreatmentPlan::where('bite_id', $incident->bite_id)->latest('treatment_plan_id')->first()
+            : null;
+
+        return compact('patient', 'incident', 'consultation', 'previousConsultations', 'treatmentPlan');
+    }
+
+    /**
+     * Prepare data payload for Form 3 Animal Bite Treatment & Vaccination Record (Nurse) printout.
+     */
+    public function getForm3Data(Request $request, Patient $patient): array
+    {
+        [$user, $clinicId] = $this->authorizePrintRequest(
+            $request,
+            $patient->clinic_id ? (int) $patient->clinic_id : null
+        );
+
+        $patient->load(['clinic', 'details', 'memberships']);
+
+        if (!$patient->clinic) {
+            $clinic = Clinic::find($clinicId);
+            if ($clinic) {
+                $patient->setRelation('clinic', $clinic);
+            }
+        }
+
+        $biteId = $request->query('bite_id') ? (int) $request->query('bite_id') : null;
+
+        $incidentQuery = BiteIncident::where('patient_id', $patient->patient_id);
+        $incident = $biteId
+            ? (clone $incidentQuery)->where('bite_id', $biteId)->first()
+            : null;
+        if (!$incident) {
+            $incident = $incidentQuery->latest('bite_id')->first();
+        }
+
+        $treatmentCard = $incident
+            ? TagoloanTreatmentCard::where('patient_id', $patient->patient_id)
+                ->where('bite_id', $incident->bite_id)
+                ->latest('card_id')
+                ->first()
+            : TagoloanTreatmentCard::where('patient_id', $patient->patient_id)
+                ->latest('card_id')
+                ->first();
+
+        $recordsQuery = TreatmentRecord::where('patient_id', $patient->patient_id)
+            ->whereNull('voided_at');
+
+        if ($incident) {
+            $recordsQuery->where('bite_id', $incident->bite_id);
+        }
+
+        $episodeRecords = $recordsQuery
+            ->orderBy('dose_number')
+            ->orderBy('treatment_id')
+            ->get();
+
+        $consultation = $episodeRecords
+            ->filter(fn ($r) => $r->dose_number === null && empty($r->medication_given))
+            ->sortByDesc('treatment_id')
+            ->first();
+
+        $vaccineDoses = $episodeRecords
+            ->filter(fn ($r) => $r->dose_number !== null && (int) $r->dose_number < 200)
+            ->sortBy(['dose_number', 'treatment_id'])
+            ->values();
+
+        $prophylaxisRecords = $episodeRecords
+            ->filter(fn ($r) => !empty($r->medication_given) || in_array((int) ($r->dose_number ?? -1), [200, 201, 300, 400, 401], true))
+            ->sortBy('treatment_id')
+            ->values();
+
+        return compact('patient', 'incident', 'treatmentCard', 'consultation', 'vaccineDoses', 'prophylaxisRecords');
     }
 
     /**

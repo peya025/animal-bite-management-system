@@ -351,8 +351,12 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
         Route::post('/{id}/cancel', [StaffInvitationController::class, 'cancel']);
     });
 
-    // Form 1 Printout (Protected and clinic-scoped by PatientPolicy)
+    // Form 1, Form 2 & Form 3 Printouts (Protected and clinic-scoped by PatientPolicy)
     Route::get('/print/patient/{patient}/enrolment', [PrintController::class, 'enrolment'])
+        ->middleware('can:printEnrolment,patient');
+    Route::get('/print/patient/{patient}/form2', [PrintController::class, 'form2'])
+        ->middleware('can:printEnrolment,patient');
+    Route::get('/print/patient/{patient}/form3', [PrintController::class, 'form3'])
         ->middleware('can:printEnrolment,patient');
 
     // DOH Official Reports & Bite Summary Print Endpoints

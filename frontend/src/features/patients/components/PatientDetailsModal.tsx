@@ -926,14 +926,21 @@ export default function PatientDetailsModal({
     status: 'completed',
   };
 
-  const handleDirectPrint = async () => {
+  const handleDirectPrint = async (formType: 'form1' | 'form2' | 'form3' = 'form1') => {
     if (!patient || printing) return;
     setPrinting(true);
     try {
       const token = localStorage.getItem('authToken') || '';
       const patientId = (patient as any).patient_id || (patient as any).id;
       const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-      const printUrl = `${API_BASE}/print/patient/${patientId}/enrolment`;
+      const biteQuery = currentEp?.bite_id ? `?bite_id=${currentEp.bite_id}` : '';
+      const endpoint =
+        formType === 'form1'
+          ? `enrolment`
+          : formType === 'form2'
+            ? `form2${biteQuery}`
+            : `form3${biteQuery}`;
+      const printUrl = `${API_BASE}/print/patient/${patientId}/${endpoint}`;
 
       const response = await fetch(printUrl, {
         headers: {
@@ -1167,10 +1174,10 @@ export default function PatientDetailsModal({
         })()}
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {activeTab === 'form1' && (
+          {(activeTab === 'form1' || activeTab === 'form2' || activeTab === 'form3') && (
             <Button
               variant="outlined"
-              onClick={handleDirectPrint}
+              onClick={() => handleDirectPrint(activeTab)}
               disabled={printing}
               startIcon={printing ? <CircularProgress size={14} sx={{ color: '#059669' }} /> : <Icon name="print" size={15} color="#059669" />}
               sx={{
@@ -1179,7 +1186,13 @@ export default function PatientDetailsModal({
                 '&:hover': { bgcolor: 'rgba(16, 185, 129, 0.1)', borderColor: '#059669' },
               }}
             >
-              {printing ? 'Opening Printer…' : 'Print Form 1 (Enrolment)'}
+              {printing
+                ? 'Opening Printer…'
+                : activeTab === 'form1'
+                  ? 'Print Form 1 (Enrolment)'
+                  : activeTab === 'form2'
+                    ? 'Print Form 2 (Doctor)'
+                    : 'Print Form 3 (Nurse)'}
             </Button>
           )}
           <Button

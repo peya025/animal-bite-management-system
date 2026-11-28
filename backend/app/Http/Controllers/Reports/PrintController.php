@@ -29,6 +29,28 @@ class PrintController extends Controller
     }
 
     /**
+     * Display DOH iCLINICSYS Individual Treatment Record (Form 2 — Doctor Consultation Printout)
+     * GET /print/patient/{patient}/form2
+     */
+    public function form2(Request $request, Patient $patient): View
+    {
+        $data = $this->printDocumentService->getForm2Data($request, $patient);
+
+        return view('prints.patient-form2', $data);
+    }
+
+    /**
+     * Display DOH iCLINICSYS Animal Bite Treatment & Vaccination Record (Form 3 — Nurse Printout)
+     * GET /print/patient/{patient}/form3
+     */
+    public function form3(Request $request, Patient $patient): View
+    {
+        $data = $this->printDocumentService->getForm3Data($request, $patient);
+
+        return view('prints.patient-form3', $data);
+    }
+
+    /**
      * REPORT 1 — Rabies Exposure Registry (Weekly)
      * GET /print/reports/exposure-registry
      */

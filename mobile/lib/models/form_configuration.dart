@@ -33,11 +33,13 @@ class FormSurfaceConfiguration {
     required this.sections,
     required this.fieldRules,
     required this.payloadAliases,
+    this.options = const {},
   });
 
   final Map<String, bool> sections;
   final Map<String, String> fieldRules;
   final Map<String, String> payloadAliases;
+  final Map<String, Map<String, String>> options;
 
   bool isSectionEnabled(String sectionKey) => sections[sectionKey] ?? true;
 
@@ -45,16 +47,34 @@ class FormSurfaceConfiguration {
 
   String aliasFor(String fieldKey) => payloadAliases[fieldKey] ?? fieldKey;
 
-  factory FormSurfaceConfiguration.fromJson(Map<String, dynamic> json) =>
-      FormSurfaceConfiguration(
-        sections: (json['sections'] as Map<String, dynamic>).map(
-          (key, value) => MapEntry(key, value == true),
-        ),
-        fieldRules: (json['field_rules'] as Map<String, dynamic>).map(
-          (key, value) => MapEntry(key, value as String),
-        ),
-        payloadAliases: ((json['payload_aliases'] as Map<String, dynamic>?) ??
-                const <String, dynamic>{})
-            .map((key, value) => MapEntry(key, value as String)),
-      );
+  Map<String, String>? get exposureModeOptions =>
+      options['reported_mode_of_exposure'];
+
+  Map<String, String>? get bodyPartGroupOptions => options['body_part_group'];
+
+  factory FormSurfaceConfiguration.fromJson(Map<String, dynamic> json) {
+    final rawOptions = json['options'] as Map<String, dynamic>? ?? const {};
+    final parsedOptions = <String, Map<String, String>>{};
+    for (final entry in rawOptions.entries) {
+      if (entry.value is Map) {
+        parsedOptions[entry.key] = (entry.value as Map).map(
+          (k, v) => MapEntry(k.toString(), v.toString()),
+        );
+      }
+    }
+
+    return FormSurfaceConfiguration(
+      sections: (json['sections'] as Map<String, dynamic>).map(
+        (key, value) => MapEntry(key, value == true),
+      ),
+      fieldRules: (json['field_rules'] as Map<String, dynamic>).map(
+        (key, value) => MapEntry(key, value as String),
+      ),
+      payloadAliases:
+          ((json['payload_aliases'] as Map<String, dynamic>?) ??
+                  const <String, dynamic>{})
+              .map((key, value) => MapEntry(key, value as String)),
+      options: parsedOptions,
+    );
+  }
 }

@@ -3,6 +3,8 @@ import { clinicConfigApi } from '../api/clinicConfigApi';
 import { useAuth } from '../shared/contexts/AuthContext';
 import type {
   ClinicModuleConfig,
+  ClinicClinicalOptions,
+  ClinicalOptionItem,
   FieldRules,
   FieldRuleValue,
   ClinicModuleSections,
@@ -10,6 +12,7 @@ import type {
 } from '../types';
 import {
   DEFAULT_CANONICAL_FIELD_RULES,
+  DEFAULT_CLINICAL_OPTIONS,
 } from '../types';
 import {
   type FieldPolicyContext,
@@ -40,6 +43,10 @@ export interface ClinicModuleConfigContextValue {
   isTriageModuleEnabled: () => boolean;
   isRegistrationModuleEnabled: () => boolean;
   isTreatmentModuleEnabled: () => boolean;
+  // Clinical dropdown options (Mode of Exposure & Body Part)
+  clinicalOptions: ClinicClinicalOptions;
+  exposureModeOptions: ClinicalOptionItem[];
+  bodyPartGroupOptions: ClinicalOptionItem[];
 }
 
 export const MOCK_CLINIC_MODULE_CONFIG: Readonly<ClinicModuleConfig> = Object.freeze({
@@ -240,6 +247,30 @@ export const ClinicModuleConfigProvider: React.FC<ClinicModuleConfigProviderProp
     return isModuleEnabled('treatment_module_enabled');
   }, [isModuleEnabled]);
 
+  const clinicalOptions = useMemo<ClinicClinicalOptions>(() => {
+    const raw = config?.clinical_options;
+    return {
+      exposure_modes:
+        Array.isArray(raw?.exposure_modes) && raw.exposure_modes.length > 0
+          ? raw.exposure_modes
+          : DEFAULT_CLINICAL_OPTIONS.exposure_modes,
+      body_part_groups:
+        Array.isArray(raw?.body_part_groups) && raw.body_part_groups.length > 0
+          ? raw.body_part_groups
+          : DEFAULT_CLINICAL_OPTIONS.body_part_groups,
+    };
+  }, [config?.clinical_options]);
+
+  const exposureModeOptions = useMemo<ClinicalOptionItem[]>(
+    () => clinicalOptions.exposure_modes.filter((o) => o.enabled),
+    [clinicalOptions.exposure_modes]
+  );
+
+  const bodyPartGroupOptions = useMemo<ClinicalOptionItem[]>(
+    () => clinicalOptions.body_part_groups.filter((o) => o.enabled),
+    [clinicalOptions.body_part_groups]
+  );
+
   const value = useMemo<ClinicModuleConfigContextValue>(() => ({
     config,
     loading,
@@ -257,6 +288,9 @@ export const ClinicModuleConfigProvider: React.FC<ClinicModuleConfigProviderProp
     isTriageModuleEnabled,
     isRegistrationModuleEnabled,
     isTreatmentModuleEnabled,
+    clinicalOptions,
+    exposureModeOptions,
+    bodyPartGroupOptions,
   }), [
     config,
     loading,
@@ -273,6 +307,9 @@ export const ClinicModuleConfigProvider: React.FC<ClinicModuleConfigProviderProp
     isTriageModuleEnabled,
     isRegistrationModuleEnabled,
     isTreatmentModuleEnabled,
+    clinicalOptions,
+    exposureModeOptions,
+    bodyPartGroupOptions,
   ]);
 
   return (
@@ -310,6 +347,9 @@ export function useClinicModuleConfig(): ClinicModuleConfigContextValue {
     isTriageModuleEnabled: () => true,
     isRegistrationModuleEnabled: () => true,
     isTreatmentModuleEnabled: () => true,
+    clinicalOptions: DEFAULT_CLINICAL_OPTIONS,
+    exposureModeOptions: DEFAULT_CLINICAL_OPTIONS.exposure_modes,
+    bodyPartGroupOptions: DEFAULT_CLINICAL_OPTIONS.body_part_groups,
   };
 }
 

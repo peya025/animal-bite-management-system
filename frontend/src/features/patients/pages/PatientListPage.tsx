@@ -101,7 +101,7 @@ export default function PatientList() {
   // Returning Patient Vitals & Referral Check-In / Reassessment state
   const [reassessmentCheckInPatient, setReassessmentCheckInPatient] = useState<{
     patient: Patient;
-    mode: 'reassess' | 'checkin';
+    mode: 'reassess' | 'checkin' | 'nurse';
   } | null>(null);
 
   // Online Mobile Booking Intake Check-In state
@@ -484,11 +484,11 @@ export default function PatientList() {
     }
   };
 
-  const handleOpenReassessmentCheckIn = (patient: Patient, mode: 'reassess' | 'checkin' = 'reassess') => {
+  const handleOpenReassessmentCheckIn = (patient: Patient, mode: 'reassess' | 'checkin' | 'nurse' = 'reassess') => {
     setReassessmentCheckInPatient({ patient, mode });
   };
 
-  const handleNurseCheckIn = async (patient: Patient) => {
+  const handleNurseCheckIn = (patient: Patient) => {
     if (isPreRegisteredOnly(patient)) {
       setCheckInError('This patient is only pre-registered from the mobile app and has not booked an appointment or submitted an intake.');
       return;
@@ -500,27 +500,7 @@ export default function PatientList() {
       return;
     }
 
-    setCheckingInNursePatientId(patientId);
-    try {
-      const response = await api.post(`/patients/${patientId}/check-in-nurse`);
-      const queue = response.data?.queue;
-      setCheckInModalData({
-        patientName: fullName(patient),
-        patientNumber: patient.patient_number || '',
-        queueNumber: response.data?.queue_number || queue?.queue_number || '',
-        station: response.data?.station || 'Treatment Room (Station 2)',
-      });
-      fetchPatients();
-    } catch (err: any) {
-      if (err.response?.status === 404) {
-        setCheckInError('This patient is no longer available in your clinic. The patient list has been refreshed. Please select an available patient.');
-        await fetchPatients();
-        return;
-      }
-      setCheckInError(err.response?.data?.message || 'Unable to check in this patient for the Nurse queue.');
-    } finally {
-      setCheckingInNursePatientId(null);
-    }
+    handleOpenReassessmentCheckIn(patient, 'nurse');
   };
 
   const isEligibleForNurseCheckIn = (p: Patient) => {

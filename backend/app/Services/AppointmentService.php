@@ -177,8 +177,9 @@ class AppointmentService
         ?Appointment    $appointment,
         string          $todayDate,
         string          $priority = 'normal',
+        array           $vitalsPayload = [],
     ): JsonResponse {
-        return DB::transaction(function () use ($clinicId, $user, $patientId, $appointment, $todayDate, $priority) {
+        return DB::transaction(function () use ($clinicId, $user, $patientId, $appointment, $todayDate, $priority, $vitalsPayload) {
             $patient = Patient::where('clinic_id', $clinicId)->findOrFail($patientId);
 
             // Guard: mobile bite consultation
@@ -268,6 +269,69 @@ class AppointmentService
                 ? "Day {$appointment->dose_number} Dose"
                 : null;
             $noteText = $doseInfo ? "Checked in for {$doseInfo}" : 'Checked in via patient list';
+
+            // Persist follow-up visit vital signs when provided
+            $bp = trim((string) ($vitalsPayload['blood_pressure'] ?? ''));
+            $temp = trim((string) ($vitalsPayload['temperature'] ?? ''));
+            $weight = trim((string) ($vitalsPayload['weight'] ?? ''));
+            $height = trim((string) ($vitalsPayload['height'] ?? ''));
+            if ($bp !== '' || $temp !== '' || $weight !== '' || $height !== '') {
+                if ($bp !== '' && !preg_match('/^\d{2,3}\/\d{2,3}$/', $bp)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Blood Pressure must be formatted as systolic/diastolic (e.g. 120/80).',
+                    ], 422);
+                }
+                $checkInDate = !empty($vitalsPayload['consultation_date']) ? $vitalsPayload['consultation_date'] : $todayDate;
+                $checkInTime = !empty($vitalsPayload['consultation_time']) ? $vitalsPayload['consultation_time'] : Carbon::now('Asia/Manila')->format('H:i');
+                $modeOfTx = in_array($vitalsPayload['mode_of_transaction'] ?? '', ['walk-in', 'visited', 'referral'], true)
+                    ? $vitalsPayload['mode_of_transaction']
+                    : 'walk-in';
+                $referredByVal = trim((string) ($vitalsPayload['referred_by'] ?? ''));
+                $biteId = $appointment?->bite_id ?? $patient->biteIncidents()->latest('bite_id')->value('bite_id');
+                $vitalsLabel = $doseInfo ?: 'Follow-up Visit';
+
+                $vitalsData = [
+                    'clinic_id'           => $clinicId,
+                    'patient_id'          => $patientId,
+                    'bite_id'             => $biteId,
+                    'appointment_id'      => $appointment?->appointment_id,
+                    'dose_number'         => $appointment?->dose_number,
+                    'status'              => 'scheduled',
+                    'scheduled_date'      => $checkInDate,
+                    'consultation_date'   => $checkInDate,
+                    'consultation_time'   => $checkInTime,
+                    'blood_pressure'      => $bp !== '' ? $bp : null,
+                    'temperature'         => $temp !== '' ? $temp : null,
+                    'weight'              => $weight !== '' ? $weight : null,
+                    'height'              => $height !== '' ? $height : null,
+                    'mode_of_transaction' => $modeOfTx,
+                    'referred_by'         => $referredByVal !== '' ? $referredByVal : null,
+                    'attending_provider'  => $user->name ?? null,
+                    'scheduled_by'        => $user->id,
+                    'remarks'             => "Follow-up check-in vitals ({$vitalsLabel})",
+                ];
+
+                $existingScheduledVitals = TreatmentRecord::where('clinic_id', $clinicId)
+                    ->where('patient_id', $patientId)
+                    ->when($biteId, fn ($q) => $q->where('bite_id', $biteId))
+                    ->when($appointment && $appointment->dose_number !== null,
+                        fn ($q) => $q->where('dose_number', $appointment->dose_number),
+                        fn ($q) => $q->whereNull('dose_number')
+                    )
+                    ->where('status', 'scheduled')
+                    ->whereNull('treatment_date')
+                    ->whereNull('voided_at')
+                    ->whereDate('scheduled_date', $checkInDate)
+                    ->latest('treatment_id')
+                    ->first();
+
+                if ($existingScheduledVitals) {
+                    $existingScheduledVitals->update($vitalsData);
+                } else {
+                    TreatmentRecord::create($vitalsData);
+                }
+            }
 
             // Resolve station record
             $stationQuery = \App\Models\Station::where('clinic_id', $clinicId)->where('is_active', true);

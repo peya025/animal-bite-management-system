@@ -1517,6 +1517,70 @@ class PatientService
                     : ($isBooster ? 'Booster Dose' : 'Vaccination Dose');
                 $checkInNotes = "Re-checked in to Nurse queue by Registration staff ({$doseInfo})";
 
+                // Persist follow-up visit vital signs when provided
+                $bp = trim((string) ($request->input('blood_pressure') ?? ''));
+                $temp = trim((string) ($request->input('temperature') ?? ''));
+                $weight = trim((string) ($request->input('weight') ?? ''));
+                $height = trim((string) ($request->input('height') ?? ''));
+                if ($bp !== '' || $temp !== '' || $weight !== '' || $height !== '') {
+                    if ($bp !== '' && !preg_match('/^\d{2,3}\/\d{2,3}$/', $bp)) {
+                        return [
+                            'status' => 422,
+                            'data' => [
+                                'success' => false,
+                                'message' => 'Blood Pressure must be formatted as systolic/diastolic (e.g. 120/80).',
+                            ],
+                        ];
+                    }
+                    $checkInDate = $request->input('consultation_date') ?: $todayDate;
+                    $checkInTime = $request->input('consultation_time') ?: Carbon::now('Asia/Manila')->format('H:i');
+                    $modeOfTx = in_array($request->input('mode_of_transaction'), ['walk-in', 'visited', 'referral'], true)
+                        ? $request->input('mode_of_transaction')
+                        : 'walk-in';
+                    $referredByVal = trim((string) ($request->input('referred_by') ?? ''));
+
+                    $vitalsData = [
+                        'clinic_id'           => $clinicId,
+                        'patient_id'          => $patient->patient_id,
+                        'bite_id'             => $biteIncident?->bite_id,
+                        'appointment_id'      => $appointment?->appointment_id,
+                        'dose_number'         => $appointment?->dose_number,
+                        'status'              => 'scheduled',
+                        'scheduled_date'      => $checkInDate,
+                        'consultation_date'   => $checkInDate,
+                        'consultation_time'   => $checkInTime,
+                        'blood_pressure'      => $bp !== '' ? $bp : null,
+                        'temperature'         => $temp !== '' ? $temp : null,
+                        'weight'              => $weight !== '' ? $weight : null,
+                        'height'              => $height !== '' ? $height : null,
+                        'mode_of_transaction' => $modeOfTx,
+                        'referred_by'         => $referredByVal !== '' ? $referredByVal : null,
+                        'attending_provider'  => $user->name,
+                        'scheduled_by'        => $user->id,
+                        'remarks'             => "Follow-up check-in vitals ({$doseInfo})",
+                    ];
+
+                    $existingScheduledVitals = TreatmentRecord::where('clinic_id', $clinicId)
+                        ->where('patient_id', $patient->patient_id)
+                        ->when($biteIncident, fn ($q) => $q->where('bite_id', $biteIncident->bite_id))
+                        ->when($appointment && $appointment->dose_number !== null,
+                            fn ($q) => $q->where('dose_number', $appointment->dose_number),
+                            fn ($q) => $q->whereNull('dose_number')
+                        )
+                        ->where('status', 'scheduled')
+                        ->whereNull('treatment_date')
+                        ->whereNull('voided_at')
+                        ->whereDate('scheduled_date', $checkInDate)
+                        ->latest('treatment_id')
+                        ->first();
+
+                    if ($existingScheduledVitals) {
+                        $existingScheduledVitals->update($vitalsData);
+                    } else {
+                        TreatmentRecord::create($vitalsData);
+                    }
+                }
+
                 $queue = Queue::create([
                     'clinic_id'      => $clinicId,
                     'patient_id'     => $patient->patient_id,

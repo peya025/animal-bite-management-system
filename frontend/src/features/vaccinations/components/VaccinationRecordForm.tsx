@@ -23,7 +23,7 @@ import { useFormDraft } from '../../../shared/hooks/useFormDraft';
 import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 import {
   SegmentedControl,
-  ChipGroup,
+  SearchableMultiSelect,
   FormSection,
   DoseCard,
   DoseRow,
@@ -38,20 +38,20 @@ import {
 const BORDER_RADIUS = 8;
 
 const MODE_OF_EXPOSURE_CHIPS = [
-  { key: 'nibbling_uncovered', label: 'Lick, intact skin' },
-  { key: 'nibbling_wounded', label: 'Lick, broken skin' },
-  { key: 'scratch_abrasion', label: 'Scratch' },
-  { key: 'transdermal_bite', label: 'Bite' },
-  { key: 'handling_ingestion', label: 'Raw meat contact' },
+  { key: 'nibbling_uncovered', label: 'Saliva or licking on intact skin' },
+  { key: 'nibbling_wounded', label: 'Saliva or licking on broken skin' },
+  { key: 'scratch_abrasion', label: 'Scratch or abrasion' },
+  { key: 'transdermal_bite', label: 'Transdermal bite' },
+  { key: 'handling_ingestion', label: 'Handling or ingestion of raw animal tissue' },
 ] as const;
 
 const BODY_PART_CHIPS = [
-  { key: 'head_neck', label: 'Head & neck' },
-  { key: 'upper_extremities', label: 'Arm / hand' },
-  { key: 'lower_extremities', label: 'Leg / foot' },
-  { key: 'trunk_torso', label: 'Trunk' },
-  { key: 'multiple_sites', label: 'Multiple' },
-  { key: 'na_ingestion', label: 'Ingestion' },
+  { key: 'head_neck', label: 'Head and neck' },
+  { key: 'upper_extremities', label: 'Upper extremities (arm or hand)' },
+  { key: 'lower_extremities', label: 'Lower extremities (leg or foot)' },
+  { key: 'trunk_torso', label: 'Trunk or torso' },
+  { key: 'multiple_sites', label: 'Multiple sites' },
+  { key: 'na_ingestion', label: 'Not applicable for ingestion or handling' },
 ] as const;
 
 export function cleanPurok(val: string): string {
@@ -102,22 +102,8 @@ interface TreatmentFormData {
   date_of_exposure: string;
   date_treatment_started: string;
   place_of_exposure: string;
-  mode_of_exposure: {
-    nibbling_uncovered: boolean;
-    nibbling_wounded: boolean;
-    scratch_abrasion: boolean;
-    transdermal_bite: boolean;
-    handling_ingestion: boolean;
-  };
-  body_part_affected: {
-    head_neck: boolean;
-    upper_extremities: boolean;
-    lower_extremities: boolean;
-    trunk_torso: boolean;
-    multiple_sites: boolean;
-    other_parts: boolean;
-    na_ingestion: boolean;
-  };
+  mode_of_exposure: Record<string, boolean>;
+  body_part_affected: Record<string, boolean>;
   body_part_affected_text: string;
   animal_type: string;
   animal_type_other: string;
@@ -406,7 +392,27 @@ const hasAnyProphylaxisOrder = (orders: any): boolean => {
 };
 
 export default function VaccinationRecordForm({ open, entry, onClose, onSave, readOnly = false, inline = false }: VaccinationRecordFormProps) {
-  const { isFieldVisible, isFieldRequired, isSectionEnabled } = useClinicModuleConfig();
+  const { isFieldVisible, isFieldRequired, isSectionEnabled, clinicalOptions } = useClinicModuleConfig();
+
+  const CANONICAL_TO_FORM3_EXPOSURE_KEY: Record<string, string> = {
+    nibbling_uncovered_skin: 'nibbling_uncovered',
+    nibbling_broken_skin: 'nibbling_wounded',
+    scratch_abrasion: 'scratch_abrasion',
+    transdermal_bite: 'transdermal_bite',
+    handling_ingestion_raw_meat: 'handling_ingestion',
+  };
+
+  const configuredExposureOptions = clinicalOptions.exposure_modes
+    .map((opt) => ({
+      key: CANONICAL_TO_FORM3_EXPOSURE_KEY[opt.key] || opt.key,
+      label: opt.label,
+      enabled: opt.enabled,
+    }))
+    .filter((opt) => opt.enabled || Boolean((formData.mode_of_exposure as Record<string, boolean>)[opt.key]));
+
+  const configuredBodyPartOptions = clinicalOptions.body_part_groups
+    .filter((opt) => opt.enabled || Boolean((formData.body_part_affected as Record<string, boolean>)[opt.key]))
+    .map((opt) => ({ key: opt.key, label: opt.label }));
   const { user: currentUser } = useAuth();
 
   // Draft key is scoped to patient + bite episode so each case has an isolated draft
@@ -688,6 +694,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           scratch_abrasion: mode === 'scratch_abrasion',
           transdermal_bite: mode === 'transdermal_bite',
           handling_ingestion: mode === 'handling_ingestion_raw_meat',
+          ...(mode && !['nibbling_uncovered_skin', 'nibbling_broken_skin', 'scratch_abrasion', 'transdermal_bite', 'handling_ingestion_raw_meat', 'unsure'].includes(mode)
+            ? { [mode]: true }
+            : {}),
         },
         body_part_affected: {
           head_neck:         bodyPart === 'head_neck',
@@ -697,6 +706,9 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
           multiple_sites:    bodyPart === 'multiple_sites',
           other_parts:       bodyPart === 'other_parts',
           na_ingestion:      bodyPart === 'na_ingestion',
+          ...(bodyPart && !['head_neck', 'upper_extremities', 'lower_extremities', 'trunk_torso', 'multiple_sites', 'other_parts', 'na_ingestion'].includes(bodyPart)
+            ? { [bodyPart]: true }
+            : {}),
         },
         body_part_affected_text: bodyPartDetail || '',
         animal_type: FORM3_ANIMAL_SPECIES_OPTIONS.some((option) => option.value === animal.toLowerCase())
@@ -1685,22 +1697,26 @@ export default function VaccinationRecordForm({ open, entry, onClose, onSave, re
       <FormSection title="Exposure">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 12 }}>
           <div id="field-mode_of_exposure">
-            <ChipGroup
+            <SearchableMultiSelect
               label="Mode of exposure"
-              options={MODE_OF_EXPOSURE_CHIPS}
+              options={configuredExposureOptions.length > 0 ? configuredExposureOptions : MODE_OF_EXPOSURE_CHIPS}
               selectedKeys={formData.mode_of_exposure}
               onToggle={handleToggleExposureMode}
+              placeholder="Select mode of exposure..."
+              searchPlaceholder="Search mode of exposure..."
               disabled={clinicalAssessmentLocked}
               error={fieldErrors.mode_of_exposure}
             />
           </div>
 
           <div id="field-body_part_affected">
-            <ChipGroup
+            <SearchableMultiSelect
               label="Body part"
-              options={BODY_PART_CHIPS}
+              options={configuredBodyPartOptions.length > 0 ? configuredBodyPartOptions : BODY_PART_CHIPS}
               selectedKeys={formData.body_part_affected}
               onToggle={handleToggleBodyPart}
+              placeholder="Select body part..."
+              searchPlaceholder="Search body part..."
               disabled={clinicalAssessmentLocked}
               error={fieldErrors.body_part_affected}
             />

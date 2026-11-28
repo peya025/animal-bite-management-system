@@ -17,6 +17,8 @@ class StoreVaccinationRecordRequest extends FormRequest
         $composer = app(EffectiveFieldRuleComposer::class);
         $clinicId = $this->user()?->clinic_id;
         $dynamicRules = $composer->composeVaccinationRecordRules($clinicId, $this->all());
+        $allowedClinical = app(\App\Services\Clinic\ClinicModuleConfigService::class)
+            ->getAllowedClinicalOptionKeysForClinic($clinicId ? (int) $clinicId : null);
 
         return array_merge([
             'patient_id'                                    => 'required|exists:patients,patient_id',
@@ -26,9 +28,9 @@ class StoreVaccinationRecordRequest extends FormRequest
             'date_treatment_started'                        => 'nullable|date',
             'place_of_exposure'                             => 'nullable|string|max:255',
             'mode_of_exposure'                              => 'nullable|array',
-            'mode_of_exposure.*'                            => 'in:nibbling_uncovered,nibbling_wounded,scratch_abrasion,transdermal_bite,handling_ingestion',
+            'mode_of_exposure.*'                            => 'in:'.implode(',', $allowedClinical['exposure_modes']),
             'body_part_affected'                            => 'nullable|array',
-            'body_part_affected.*'                          => 'in:head_neck,upper_extremities,lower_extremities,trunk_torso,multiple_sites,other_parts,na_ingestion',
+            'body_part_affected.*'                          => 'in:'.implode(',', $allowedClinical['body_part_groups']),
             'body_part_detail'                              => 'nullable|string|max:255',
             'animal_type'                                   => 'nullable|string|max:100',
             'animal_type_other'                             => 'nullable|required_if:animal_type,other|string|max:255',

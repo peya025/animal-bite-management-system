@@ -25,6 +25,25 @@ class BiteIntakeContract {
   final Map<String, String> pastBiteHistory;
   final Map<String, String> priorPepStatuses;
 
+  BiteIntakeContract copyWith({
+    Map<String, String>? exposureModes,
+    Map<String, String>? bodyPartGroups,
+  }) {
+    return BiteIntakeContract(
+      version: version,
+      notice: notice,
+      exposureModes: exposureModes ?? this.exposureModes,
+      bodyPartGroups: bodyPartGroups ?? this.bodyPartGroups,
+      animalSpecies: animalSpecies,
+      animalOwnership: animalOwnership,
+      animalConditions: animalConditions,
+      laterality: laterality,
+      washMethods: washMethods,
+      pastBiteHistory: pastBiteHistory,
+      priorPepStatuses: priorPepStatuses,
+    );
+  }
+
   static const fallback = BiteIntakeContract(
     version: '1.0',
     notice: 'Patient-reported - clinic verification required',

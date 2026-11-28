@@ -151,12 +151,18 @@ function formatPatientName(patient: Patient | null): string {
 function formatExposureType(type?: string | null): string {
   if (!type) return 'Bite Exposure';
   const map: Record<string, string> = {
+    nibbling_uncovered_skin: 'Saliva or licking on intact skin',
+    nibbling_uncovered: 'Saliva or licking on intact skin',
+    nibbling_broken_skin: 'Saliva or licking on broken skin',
+    nibbling_wounded: 'Saliva or licking on broken skin',
+    scratch_abrasion: 'Scratch or abrasion',
     transdermal_bite: 'Transdermal bite',
-    scratch_abrasion: 'Scratch / abrasion',
-    nibbling_uncovered_skin: 'Nibbling on uncovered skin',
-    nibbling_broken_skin: 'Licking on broken skin / mucous',
-    bite: 'Bite',
-    scratch: 'Scratch',
+    handling_ingestion_raw_meat: 'Handling or ingestion of raw animal tissue',
+    handling_ingestion: 'Handling or ingestion of raw animal tissue',
+    unsure: 'Unsure',
+    bite: 'Transdermal bite',
+    scratch: 'Scratch or abrasion',
+    lick: 'Saliva or licking on intact skin',
   };
   return map[type] || type.replace(/_/g, ' ');
 }

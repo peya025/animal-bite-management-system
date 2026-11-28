@@ -14,6 +14,7 @@ import { Icon } from '../../shared/components/ui/Icon';
 import ConfirmationDialog from '../../components/feedback/ConfirmationDialog';
 import type {
   ClinicModuleConfig,
+  ClinicClinicalOptions,
   ClinicStationModules,
   ClinicModuleSections,
   FieldRules,
@@ -26,6 +27,7 @@ import {
   DEFAULT_CANONICAL_FIELD_RULES,
   DEFAULT_CANONICAL_SECTIONS,
   DEFAULT_CANONICAL_MODULES,
+  DEFAULT_CLINICAL_OPTIONS,
 } from '../../types';
 
 interface FieldMeta {
@@ -209,6 +211,15 @@ interface DraftState {
   stations: ClinicStationModules;
   sections: ClinicModuleSections;
   fieldRules: FieldRules;
+  clinicalOptions: ClinicClinicalOptions;
+}
+
+function cloneClinicalOptions(source?: ClinicClinicalOptions | null): ClinicClinicalOptions {
+  const base = source ?? DEFAULT_CLINICAL_OPTIONS;
+  return {
+    exposure_modes: (base.exposure_modes?.length ? base.exposure_modes : DEFAULT_CLINICAL_OPTIONS.exposure_modes).map((o) => ({ ...o })),
+    body_part_groups: (base.body_part_groups?.length ? base.body_part_groups : DEFAULT_CLINICAL_OPTIONS.body_part_groups).map((o) => ({ ...o })),
+  };
 }
 
 export default function ModuleConfigPage() {
@@ -221,6 +232,7 @@ export default function ModuleConfigPage() {
     stations: { ...DEFAULT_CANONICAL_MODULES },
     sections: { ...DEFAULT_CANONICAL_SECTIONS },
     fieldRules: { ...DEFAULT_CANONICAL_FIELD_RULES },
+    clinicalOptions: cloneClinicalOptions(DEFAULT_CLINICAL_OPTIONS),
   });
 
   const [loading, setLoading] = useState(true);
@@ -250,6 +262,10 @@ export default function ModuleConfigPage() {
   // Leave page guard
   const [showLeaveConfirmDialog, setShowLeaveConfirmDialog] = useState(false);
   const [pendingNavigationPath, setPendingNavigationPath] = useState<string | null>(null);
+
+  // Add custom option inputs for Mode of Exposure & Body-Part Group
+  const [newExposureLabel, setNewExposureLabel] = useState('');
+  const [newBodyPartLabel, setNewBodyPartLabel] = useState('');
 
   const canEdit = savedBaseline?.can_edit ?? true;
 
@@ -285,6 +301,7 @@ export default function ModuleConfigPage() {
           ...data.field_rules,
           exposure_category: 'required', // Permanently locked invariant
         },
+        clinicalOptions: cloneClinicalOptions(data.clinical_options),
       });
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Failed to load module configuration from server.';
@@ -335,6 +352,12 @@ export default function ModuleConfigPage() {
       if (draftRule !== baselineRule) {
         return true;
       }
+    }
+
+    // 4. Clinical dropdown option changes (Mode of Exposure & Body Part)
+    const baselineOptions = cloneClinicalOptions(savedBaseline.clinical_options);
+    if (JSON.stringify(draft.clinicalOptions) !== JSON.stringify(baselineOptions)) {
+      return true;
     }
 
     return false;
@@ -392,6 +415,7 @@ export default function ModuleConfigPage() {
         ...savedBaseline.field_rules,
         exposure_category: 'required',
       },
+      clinicalOptions: cloneClinicalOptions(savedBaseline.clinical_options),
     });
   };
 
@@ -421,6 +445,7 @@ export default function ModuleConfigPage() {
           ...draft.fieldRules,
           exposure_category: 'required', // Permanently locked invariant
         },
+        clinical_options: draft.clinicalOptions,
       });
 
       // Synchronize saved baseline and update provider cache
@@ -444,6 +469,7 @@ export default function ModuleConfigPage() {
           ...updatedConfig.field_rules,
           exposure_category: 'required',
         },
+        clinicalOptions: cloneClinicalOptions(updatedConfig.clinical_options),
       });
 
       setShowSuccessModal(true);
@@ -1125,6 +1151,7 @@ export default function ModuleConfigPage() {
                   {CANONICAL_SECTIONS.filter((s) => s.moduleKey === 'registration_module_enabled').map((section) =>
                     renderSectionCard(section)
                   )}
+                  {renderClinicalOptionsCard()}
                   {renderFeesAndPaymentCard()}
                 </div>
               )}
@@ -1188,6 +1215,7 @@ export default function ModuleConfigPage() {
                   {CANONICAL_SECTIONS.filter((s) => s.moduleKey === 'treatment_module_enabled').map((section) =>
                     renderSectionCard(section)
                   )}
+                  {renderClinicalOptionsCard()}
                 </div>
               )}
             </Paper>
@@ -2148,6 +2176,307 @@ export default function ModuleConfigPage() {
                 );
               })}
             </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderClinicalOptionsCard() {
+    const isExpanded = expandedSections.includes('clinical_options');
+    const exposureEnabledCount = draft.clinicalOptions.exposure_modes.filter((o) => o.enabled).length;
+    const bodyPartEnabledCount = draft.clinicalOptions.body_part_groups.filter((o) => o.enabled).length;
+
+    const updateOption = (
+      group: 'exposure_modes' | 'body_part_groups',
+      key: string,
+      patch: { label?: string; enabled?: boolean }
+    ) => {
+      setDraft((prev) => {
+        const list = prev.clinicalOptions[group];
+        if (patch.enabled === false) {
+          const remainingEnabled = list.filter((o) => (o.key === key ? false : o.enabled)).length;
+          if (remainingEnabled === 0) return prev;
+        }
+        return {
+          ...prev,
+          clinicalOptions: {
+            ...prev.clinicalOptions,
+            [group]: list.map((o) => (o.key === key ? { ...o, ...patch } : o)),
+          },
+        };
+      });
+    };
+
+    const removeCustomOption = (group: 'exposure_modes' | 'body_part_groups', key: string) => {
+      setDraft((prev) => {
+        const list = prev.clinicalOptions[group];
+        const nextList = list.filter((o) => !(o.key === key && o.is_custom));
+        if (nextList.length === 0 || !nextList.some((o) => o.enabled)) {
+          return prev;
+        }
+        return {
+          ...prev,
+          clinicalOptions: {
+            ...prev.clinicalOptions,
+            [group]: nextList,
+          },
+        };
+      });
+    };
+
+    const addCustomOption = (group: 'exposure_modes' | 'body_part_groups') => {
+      const rawLabel = (group === 'exposure_modes' ? newExposureLabel : newBodyPartLabel).trim();
+      if (!rawLabel) return;
+
+      let slug = rawLabel
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 56);
+      if (!slug || !/^[a-z]/.test(slug) || slug.length < 2 || slug === 'unsure') {
+        slug = `custom_${slug || 'option'}`;
+      }
+
+      setDraft((prev) => {
+        const existingKeys = new Set(prev.clinicalOptions[group].map((o) => o.key));
+        let candidate = slug;
+        let counter = 2;
+        while (existingKeys.has(candidate)) {
+          candidate = `${slug.slice(0, 52)}_${counter++}`;
+        }
+        return {
+          ...prev,
+          clinicalOptions: {
+            ...prev.clinicalOptions,
+            [group]: [
+              ...prev.clinicalOptions[group],
+              { key: candidate, label: rawLabel.slice(0, 120), enabled: true, is_custom: true },
+            ],
+          },
+        };
+      });
+
+      if (group === 'exposure_modes') setNewExposureLabel('');
+      else setNewBodyPartLabel('');
+    };
+
+    const renderGroup = (
+      title: string,
+      group: 'exposure_modes' | 'body_part_groups',
+      enabledCount: number
+    ) => {
+      const newLabel = group === 'exposure_modes' ? newExposureLabel : newBodyPartLabel;
+      const setNewLabel = group === 'exposure_modes' ? setNewExposureLabel : setNewBodyPartLabel;
+      return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#0f172a' }}>{title}</span>
+          <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+            {enabledCount} of {draft.clinicalOptions[group].length} enabled
+          </span>
+        </div>
+        {draft.clinicalOptions[group].map((opt) => {
+          const isLastEnabled = opt.enabled && enabledCount <= 1;
+          return (
+            <div
+              key={opt.key}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.6rem',
+                padding: '0.5rem 0.75rem',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0',
+                background: opt.enabled ? '#ffffff' : '#f8fafc',
+                opacity: opt.enabled ? 1 : 0.72,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={opt.enabled}
+                disabled={!canEdit || isLastEnabled}
+                title={isLastEnabled ? 'At least one option must remain enabled' : 'Toggle option visibility'}
+                onChange={(e) => updateOption(group, opt.key, { enabled: e.target.checked })}
+                style={{ width: 16, height: 16, accentColor: '#10b981', cursor: !canEdit || isLastEnabled ? 'not-allowed' : 'pointer' }}
+              />
+              <input
+                type="text"
+                value={opt.label}
+                disabled={!canEdit}
+                maxLength={120}
+                onChange={(e) => updateOption(group, opt.key, { label: e.target.value })}
+                aria-label={`${title} label for ${opt.key}`}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  padding: '6px 10px',
+                  fontSize: '0.8125rem',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  background: canEdit ? '#ffffff' : '#f1f5f9',
+                  color: '#0f172a',
+                  outline: 'none',
+                }}
+              />
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontFamily: 'monospace',
+                  color: opt.is_custom ? '#047857' : '#64748b',
+                  background: opt.is_custom ? '#ecfdf5' : '#f1f5f9',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  flexShrink: 0,
+                }}
+              >
+                {opt.key}
+              </span>
+              {canEdit && opt.is_custom && (
+                <button
+                  type="button"
+                  disabled={isLastEnabled}
+                  title={isLastEnabled ? 'At least one option must remain enabled' : `Delete custom option "${opt.label}"`}
+                  onClick={() => removeCustomOption(group, opt.key)}
+                  style={{
+                    border: '1px solid #fecaca',
+                    background: '#fef2f2',
+                    color: '#dc2626',
+                    borderRadius: '6px',
+                    padding: '4px 8px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    cursor: isLastEnabled ? 'not-allowed' : 'pointer',
+                    flexShrink: 0,
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
+
+        {canEdit && (
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+            <input
+              type="text"
+              value={newLabel}
+              maxLength={120}
+              placeholder={group === 'exposure_modes' ? 'Add new exposure option...' : 'Add new body part option...'}
+              onChange={(e) => setNewLabel(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addCustomOption(group);
+                }
+              }}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                padding: '7px 10px',
+                fontSize: '0.8125rem',
+                borderRadius: '8px',
+                border: '1px dashed #94a3b8',
+                background: '#f8fafc',
+                color: '#0f172a',
+                outline: 'none',
+              }}
+            />
+            <button
+              type="button"
+              disabled={!newLabel.trim()}
+              onClick={() => addCustomOption(group)}
+              style={{
+                padding: '7px 12px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                borderRadius: '8px',
+                border: '1px solid #10b981',
+                background: newLabel.trim() ? '#10b981' : '#e2e8f0',
+                color: newLabel.trim() ? '#ffffff' : '#64748b',
+                cursor: newLabel.trim() ? 'pointer' : 'not-allowed',
+                flexShrink: 0,
+              }}
+            >
+              + Add Option
+            </button>
+          </div>
+        )}
+      </div>
+      );
+    };
+
+    return (
+      <div
+        data-testid="module-config-clinical-options"
+        style={{
+          border: '1px solid var(--border-glow, #e0eae3)',
+          borderRadius: '12px',
+          background: 'var(--card-bg-solid, #ffffff)',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          onClick={() => toggleAccordion('clinical_options')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.9rem 1.15rem',
+            cursor: 'pointer',
+            background: isExpanded ? '#f0fdf4' : 'transparent',
+            borderBottom: isExpanded ? '1px solid #dcfce7' : 'none',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>Mode of Exposure &amp; Body Part Dropdown Options</span>
+              <span style={{ fontSize: '0.7rem', fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: '#dcfce7', color: '#166534' }}>
+                Mobile + Web Form 2 &amp; Form 3
+              </span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
+              Customize display labels and enable/disable dropdown choices synced across the mobile intake app and web clinical forms.
+            </div>
+          </div>
+          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#059669' }}>
+            {isExpanded ? 'Hide ▲' : 'Configure ▼'}
+          </span>
+        </div>
+
+        {isExpanded && (
+          <div style={{ padding: '1rem 1.15rem', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+              {renderGroup('Mode of Exposure Options', 'exposure_modes', exposureEnabledCount)}
+              {renderGroup('Body-Part Group Options', 'body_part_groups', bodyPartEnabledCount)}
+            </div>
+
+            {canEdit && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.25rem' }}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      clinicalOptions: cloneClinicalOptions(DEFAULT_CLINICAL_OPTIONS),
+                    }))
+                  }
+                  style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    color: '#059669',
+                    background: '#ecfdf5',
+                    border: '1px solid #a7f3d0',
+                    borderRadius: '8px',
+                    padding: '6px 12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Reset to DOH/WHO Defaults
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

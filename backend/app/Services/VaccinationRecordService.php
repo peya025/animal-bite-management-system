@@ -170,14 +170,17 @@ class VaccinationRecordService
             ];
 
             $selectedModes = collect($validated['mode_of_exposure'] ?? [])
-                ->filter(fn($v) => is_string($v) && isset($modeMap[$v]))->values();
-            $verifiedMode = $selectedModes->isNotEmpty() ? $modeMap[$selectedModes->first()] : null;
+                ->filter(fn($v) => is_string($v) && trim($v) !== '')
+                ->map(fn($v) => $modeMap[$v] ?? trim($v))
+                ->unique()
+                ->values();
+            $verifiedMode = $selectedModes->isNotEmpty() ? $selectedModes->first() : null;
 
             $selectedBodyParts = collect($validated['body_part_affected'] ?? [])
-                ->filter(fn($v) => is_string($v) && in_array($v, [
-                    'head_neck','upper_extremities','lower_extremities',
-                    'trunk_torso','multiple_sites','other_parts','na_ingestion',
-                ], true))->unique()->values();
+                ->filter(fn($v) => is_string($v) && trim($v) !== '')
+                ->map(fn($v) => trim($v))
+                ->unique()
+                ->values();
             $verifiedBodyPart = $selectedBodyParts->count() > 1 ? 'multiple_sites' : $selectedBodyParts->first();
 
             $animalType = isset($validated['animal_type']) ? strtolower(trim((string) $validated['animal_type'])) : null;
@@ -379,6 +382,16 @@ class VaccinationRecordService
                         ->orWhereNull('scheduled_by'))
                     ->whereNull('voided_at')
                     ->latest('treatment_id')->lockForUpdate()->first();
+
+                if (!$existing) {
+                    $existing = TreatmentRecord::where('clinic_id', $clinicId)
+                        ->where('patient_id', $patientId)->where('bite_id', $biteId)
+                        ->where('dose_number', $doseNumber)
+                        ->where('status', 'scheduled')
+                        ->whereNull('treatment_date')
+                        ->whereNull('voided_at')
+                        ->latest('treatment_id')->lockForUpdate()->first();
+                }
 
                 $isExternal       = !empty($doseData['is_external']);
                 $externalFacility = trim((string) ($doseData['external_facility_name'] ?? ''));

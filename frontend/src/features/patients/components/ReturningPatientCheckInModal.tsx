@@ -8,8 +8,9 @@ import type { Patient } from '../types';
 
 interface ReturningPatientCheckInModalProps {
   open: boolean;
-  mode?: 'reassess' | 'checkin';
+  mode?: 'reassess' | 'checkin' | 'nurse';
   patient: Patient | null;
+  customEndpoint?: string;
   onClose: () => void;
   onSuccess: (data: {
     patientName: string;
@@ -17,6 +18,7 @@ interface ReturningPatientCheckInModalProps {
     queueNumber: number | string;
     station: string;
     alreadyInQueue?: boolean;
+    message?: string;
   }) => void;
 }
 
@@ -443,6 +445,7 @@ export default function ReturningPatientCheckInModal({
   open,
   mode = 'reassess',
   patient,
+  customEndpoint,
   onClose,
   onSuccess,
 }: ReturningPatientCheckInModalProps) {
@@ -463,6 +466,8 @@ export default function ReturningPatientCheckInModal({
   const [submitting, setSubmitting] = useState(false);
 
   const isReassess = mode === 'reassess';
+  const isNurse = mode === 'nurse';
+  const lockPriorAnthropometrics = isReassess || isNurse;
 
   useEffect(() => {
     if (open && patient) {
@@ -480,8 +485,8 @@ export default function ReturningPatientCheckInModal({
       setTemperature('');
       setWeight(priorWeight ? String(priorWeight) : '');
       setHeight(priorHeight ? String(priorHeight) : '');
-      setIsEditingWeight(!isReassess || !priorWeight);
-      setIsEditingHeight(!isReassess || !priorHeight);
+      setIsEditingWeight(!lockPriorAnthropometrics || !priorWeight);
+      setIsEditingHeight(!lockPriorAnthropometrics || !priorHeight);
       setReferredBy(priorReferredBy ? String(priorReferredBy) : '');
       setModeOfTransaction(
         priorMode === 'referral' || Boolean(priorReferredBy)
@@ -532,6 +537,8 @@ export default function ReturningPatientCheckInModal({
       setError(
         isReassess
           ? 'Updated vital signs (Blood Pressure, Temperature, Weight, and Height) are required before checking in a returning patient for Doctor Reassessment.'
+          : isNurse
+          ? 'Updated vital signs (Blood Pressure, Temperature, Weight, and Height) are required before checking in the patient for Follow-up / Treatment.'
           : 'Updated vital signs (Blood Pressure, Temperature, Weight, and Height) are required before checking in the patient for Doctor Triage.'
       );
       return;
@@ -571,8 +578,8 @@ export default function ReturningPatientCheckInModal({
     setError('');
 
     try {
-      const response = await api.post(`/patients/${patientId}/check-in`, {
-        is_reassessment: isReassess,
+      const endpoint = customEndpoint || (isNurse ? `/patients/${patientId}/check-in-nurse` : `/patients/${patientId}/check-in`);
+      const payload: Record<string, any> = {
         blood_pressure: finalBloodPressure,
         temperature: temperature.trim(),
         weight: weight.trim(),
@@ -581,21 +588,33 @@ export default function ReturningPatientCheckInModal({
         referred_by: referredBy.trim() || null,
         consultation_date: getManilaDateString(),
         consultation_time: getManilaTimeString(),
-      });
+      };
+      if (!isNurse) {
+        payload.is_reassessment = isReassess;
+      }
+
+      const response = await api.post(endpoint, payload);
 
       const queue = response.data?.queue;
       onSuccess({
         patientName: patientDisplayName,
         patientNumber: patient.patient_number || '',
         queueNumber: response.data?.queue_number || queue?.queue_number || '',
-        station: isReassess ? 'Doctor Reassessment Queue' : 'Doctor Assessment',
-        alreadyInQueue: response.data?.code === 'ALREADY_IN_QUEUE',
+        station: isNurse
+          ? (response.data?.station || 'Treatment Room (Station 2)')
+          : isReassess
+          ? 'Doctor Reassessment Queue'
+          : 'Doctor Assessment',
+        alreadyInQueue: response.data?.code === 'ALREADY_IN_QUEUE' || Boolean(response.data?.already_checked_in),
+        message: response.data?.message,
       });
     } catch (err: any) {
       setError(
         err.response?.data?.message ||
         (isReassess
           ? 'Unable to check in this returning patient for Doctor Reassessment. Please try again.'
+          : isNurse
+          ? 'Unable to check in this patient for the Nurse / Treatment queue. Please try again.'
           : 'Unable to check in this patient for Doctor Triage. Please try again.')
       );
       setSubmitting(false);
@@ -614,6 +633,8 @@ export default function ReturningPatientCheckInModal({
       title={
         isReassess
           ? 'Patient Reassessment — Vital Signs & Referral'
+          : isNurse
+          ? 'Follow-Up / Treatment Check-In — Vital Signs'
           : 'Patient Check-In — Vital Signs & Referral'
       }
       onClose={onClose}
@@ -638,6 +659,8 @@ export default function ReturningPatientCheckInModal({
               ? 'Checking In…'
               : isReassess
               ? 'Check In to Doctor Reassessment'
+              : isNurse
+              ? 'Check In to Treatment Queue'
               : 'Check In to Doctor Triage'}
           </button>
         </>
@@ -727,7 +750,9 @@ export default function ReturningPatientCheckInModal({
               gap: '6px',
             }}
           >
-            <span style={{ fontWeight: 700, color: '#166534' }}>Doctor Triage Check-In</span>
+            <span style={{ fontWeight: 700, color: '#166534' }}>
+              {isNurse ? 'Follow-Up / Treatment Queue Check-In' : 'Doctor Triage Check-In'}
+            </span>
             <span style={{ fontSize: '12px', fontWeight: 600, color: '#15803d' }}>
               {patientDisplayName} • {patient.patient_number || 'P-Record'}
             </span>
@@ -746,6 +771,8 @@ export default function ReturningPatientCheckInModal({
           >
             {isReassess
               ? 'Updated Vital Signs (Required Before Doctor Reassessment)'
+              : isNurse
+              ? 'Current Vital Signs (Required Before Treatment / Follow-Up)'
               : 'Current Vital Signs (Required Before Doctor Triage)'}
           </div>
 
@@ -904,14 +931,14 @@ export default function ReturningPatientCheckInModal({
                 className="fm-input"
                 placeholder="e.g. 62"
                 value={weight}
-                readOnly={isReassess && !isEditingWeight}
+                readOnly={lockPriorAnthropometrics && !isEditingWeight}
                 onChange={(e) => {
-                  if (isReassess && !isEditingWeight) return;
+                  if (lockPriorAnthropometrics && !isEditingWeight) return;
                   setWeight(sanitizeDecimalInput(e.target.value));
                 }}
                 disabled={submitting}
                 style={
-                  isReassess && !isEditingWeight
+                  lockPriorAnthropometrics && !isEditingWeight
                     ? {
                         ...pillInputStyle,
                         backgroundColor: 'var(--bg-secondary, #f1f5f9)',
@@ -921,7 +948,7 @@ export default function ReturningPatientCheckInModal({
                     : pillInputStyle
                 }
               />
-              {isReassess && (
+              {lockPriorAnthropometrics && (
                 <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 11, color: 'var(--text-secondary, #64748b)' }}>
                     {!isEditingWeight ? 'Locked from previous record' : 'Editing weight'}
@@ -964,14 +991,14 @@ export default function ReturningPatientCheckInModal({
                 className="fm-input"
                 placeholder="e.g. 165"
                 value={height}
-                readOnly={isReassess && !isEditingHeight}
+                readOnly={lockPriorAnthropometrics && !isEditingHeight}
                 onChange={(e) => {
-                  if (isReassess && !isEditingHeight) return;
+                  if (lockPriorAnthropometrics && !isEditingHeight) return;
                   setHeight(sanitizeDecimalInput(e.target.value));
                 }}
                 disabled={submitting}
                 style={
-                  isReassess && !isEditingHeight
+                  lockPriorAnthropometrics && !isEditingHeight
                     ? {
                         ...pillInputStyle,
                         backgroundColor: 'var(--bg-secondary, #f1f5f9)',
@@ -981,7 +1008,7 @@ export default function ReturningPatientCheckInModal({
                     : pillInputStyle
                 }
               />
-              {isReassess && (
+              {lockPriorAnthropometrics && (
                 <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 11, color: 'var(--text-secondary, #64748b)' }}>
                     {!isEditingHeight ? 'Locked from previous record' : 'Editing height'}
@@ -1088,6 +1115,8 @@ export default function ReturningPatientCheckInModal({
           <strong style={{ color: '#334155' }}>Workflow Note:</strong>{' '}
           {isReassess
             ? "This check-in links to the existing bite case without creating a duplicate bite incident, updates today's vital signs and referral details, and routes the patient directly to the Doctor Triage / Reassessment Queue."
+            : isNurse
+            ? "This check-in records today's vital signs (BP, temperature, weight, height) for this follow-up visit and places the patient in the Nurse / Treatment queue."
             : "This check-in records today's vital signs and referral details and queues the patient for Doctor Triage assessment."}
         </div>
       </form>

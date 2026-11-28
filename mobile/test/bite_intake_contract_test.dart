@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/models/bite_intake_contract.dart';
 import 'package:mobile/models/bite_intake_draft.dart';
+import 'package:mobile/models/form_configuration.dart';
 
 void main() {
   test('fallback contract matches the versioned clinic field vocabulary', () {
@@ -47,5 +48,44 @@ void main() {
     expect(json, isNot(contains('diagnosis')));
     expect(json, isNot(contains('exposure_category')));
     expect(json, isNot(contains('treatment_plan')));
+  });
+
+  test('form configuration parses clinic clinical_options and overrides contract options', () {
+    final config = FormConfiguration.fromJson({
+      'schema_version': 1,
+      'revision': 2,
+      'clinic_id': 1,
+      'profile': {
+        'sections': {'patient_registration_enabled': true},
+        'field_rules': {'blood_type': 'optional'},
+      },
+      'intake': {
+        'sections': {'bite_intake_section_enabled': true},
+        'field_rules': {'exposure_type': 'required'},
+        'options': {
+          'reported_mode_of_exposure': {
+            'transdermal_bite': 'Deep Transdermal Bite',
+            'unsure': 'Unsure',
+          },
+          'body_part_group': {
+            'upper_extremities': 'Arm / Hand (Upper Extremities)',
+          },
+        },
+      },
+    });
+
+    expect(config.intake.exposureModeOptions?['transdermal_bite'], 'Deep Transdermal Bite');
+    expect(config.intake.exposureModeOptions?.containsKey('handling_ingestion_raw_meat'), isFalse);
+    expect(config.intake.bodyPartGroupOptions?['upper_extremities'], 'Arm / Hand (Upper Extremities)');
+
+    final overridden = BiteIntakeContract.fallback.copyWith(
+      exposureModes: config.intake.exposureModeOptions,
+      bodyPartGroups: config.intake.bodyPartGroupOptions,
+    );
+
+    expect(overridden.exposureModes.keys, containsAll(['transdermal_bite', 'unsure']));
+    expect(overridden.exposureModes.length, 2);
+    expect(overridden.bodyPartGroups['upper_extremities'], 'Arm / Hand (Upper Extremities)');
+    expect(overridden.bodyPartGroups.length, 1);
   });
 }

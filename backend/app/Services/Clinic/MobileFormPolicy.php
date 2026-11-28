@@ -138,6 +138,9 @@ class MobileFormPolicy
             return [];
         }
         $rules = BiteIntakeContract::validationRules();
+        $allowedClinical = app(ClinicModuleConfigService::class)->getAllowedClinicalOptionKeysForConfig($this->config);
+        $rules['intake.exposure_type'] = ['required', 'in:'.implode(',', $allowedClinical['exposure_modes'])];
+        $rules['intake.body_part_exposed'] = ['nullable', 'in:'.implode(',', $allowedClinical['body_part_groups'])];
         foreach (FormFieldCatalog::INTAKE_FIELDS as $field) {
             $key = 'intake.'.$field;
             if (! $this->visible($field)) {

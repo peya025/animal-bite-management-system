@@ -152,6 +152,7 @@ class Patient extends Model
             $r->dose_number === null &&
             $r->medication_given === null &&
             $r->status === 'scheduled' &&
+            !str_starts_with((string) ($r->remarks ?? ''), 'Follow-up check-in vitals') &&
             (int) $r->treatment_id > (int) $latestConsultation->treatment_id
         );
 
@@ -219,6 +220,7 @@ class Patient extends Model
         );
         $hasAdministeredRig = $administeredProphylaxis->contains(fn ($r) =>
             in_array(strtoupper((string) $r->medication_given), ['ERIG', 'HRIG'], true) ||
+            \App\Services\ProphylaxisService::isRigBrand((string) ($r->medication_given ?? $r->vaccine_brand ?? ''), array_filter([$prescribedRig])) ||
             in_array((int) $r->dose_number, [200, 201], true)
         );
 

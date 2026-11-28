@@ -18,7 +18,9 @@ class FormConfigurationProjector
             'clinic_id' => $clinicId,
             'profile' => $this->surface($config, FormFieldCatalog::PROFILE_SECTIONS, FormFieldCatalog::PROFILE_FIELDS),
             'intake' => $this->surface($config, FormFieldCatalog::INTAKE_SECTIONS, FormFieldCatalog::INTAKE_FIELDS)
-                + ['payload_aliases' => FormFieldCatalog::MOBILE_INTAKE_ALIASES],
+                + ['payload_aliases' => FormFieldCatalog::MOBILE_INTAKE_ALIASES]
+                + ['options' => $this->configs->getEnabledClinicalOptionMaps($config, true)],
+            'clinical_options' => $this->configs->normalizeClinicalOptions($config->clinical_options),
         ];
     }
 

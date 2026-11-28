@@ -23,14 +23,17 @@ export function formatDate(dateInput?: string | Date | null): string {
 export function formatBodyPart(raw?: string | null): string {
   if (!raw || !String(raw).trim()) return '—';
   const dictionary: Record<string, string> = {
-    head_neck: 'Head & Neck',
-    upper_extremities: 'Upper Extremities',
-    lower_extremities: 'Lower Extremities',
-    trunk: 'Trunk',
-    multiple: 'Multiple',
+    head_neck: 'Head and neck',
+    upper_extremities: 'Upper extremities (arm or hand)',
+    lower_extremities: 'Lower extremities (leg or foot)',
+    trunk_torso: 'Trunk or torso',
+    trunk: 'Trunk or torso',
+    multiple_sites: 'Multiple sites',
+    multiple: 'Multiple sites',
+    na_ingestion: 'Not applicable for ingestion or handling',
     other_parts: 'Other parts',
-    na: 'N/A',
-    'n/a': 'N/A',
+    na: 'Not applicable for ingestion or handling',
+    'n/a': 'Not applicable for ingestion or handling',
   };
 
   const parts = String(raw).split(',').map((p) => p.trim()).filter(Boolean);
@@ -46,16 +49,18 @@ export function formatBodyPart(raw?: string | null): string {
 export function formatModeOfExposure(raw?: string | null): string {
   if (!raw || !String(raw).trim()) return '—';
   const dictionary: Record<string, string> = {
-    nibbling_uncovered_skin: 'Nibbling / licking uncovered skin',
-    nibbling_uncovered: 'Nibbling / licking uncovered skin',
-    nibbling_broken_skin: 'Nibbling / licking wounded skin',
-    nibbling_wounded: 'Nibbling / licking wounded skin',
-    scratch_abrasion: 'Scratch / abrasion',
-    scratch: 'Scratch / abrasion',
+    nibbling_uncovered_skin: 'Saliva or licking on intact skin',
+    nibbling_uncovered: 'Saliva or licking on intact skin',
+    nibbling_broken_skin: 'Saliva or licking on broken skin',
+    nibbling_wounded: 'Saliva or licking on broken skin',
+    scratch_abrasion: 'Scratch or abrasion',
+    scratch: 'Scratch or abrasion',
     transdermal_bite: 'Transdermal bite',
     bite: 'Transdermal bite',
-    handling_ingestion_raw_meat: 'Handling / ingestion raw meat',
-    handling_ingestion: 'Handling / ingestion raw meat',
+    handling_ingestion_raw_meat: 'Handling or ingestion of raw animal tissue',
+    handling_ingestion: 'Handling or ingestion of raw animal tissue',
+    unsure: 'Unsure',
+    lick: 'Saliva or licking on intact skin',
   };
   const lower = String(raw).toLowerCase().trim().replace(/[\s-]+/g, '_');
   return dictionary[lower] || String(raw).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());

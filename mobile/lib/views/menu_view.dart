@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../app/app_routes.dart';
 import '../app/app_theme.dart';
+import '../models/app_notification.dart';
 import '../models/patient_account_profile.dart';
 import '../models/clinic_faq.dart';
 import '../services/faqs_repository.dart';
 import '../services/api.dart';
+import '../services/push_notification_service.dart';
 import '../services/walkthrough_service.dart';
 import '../widgets/learn_more_section.dart';
 import '../widgets/menu/campaign_banner.dart';
@@ -33,12 +37,14 @@ class MenuView extends StatefulWidget {
   State<MenuView> createState() => _MenuViewState();
 }
 
-class _MenuViewState extends State<MenuView> {
+class _MenuViewState extends State<MenuView> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   int _resourcesRefreshTrigger = 0;
   String? _userName;
   String? _userBarangay;
   bool _hasCompletedPEP = false;
+  bool _hasUnreadNotifications = false;
+  StreamSubscription<Map<String, dynamic>>? _pushSubscription;
 
   final GlobalKey _guideButtonKey = GlobalKey();
   final _heroKey = GlobalKey<AnnouncementCarouselState>();
@@ -60,13 +66,35 @@ class _MenuViewState extends State<MenuView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.hasCompletedPEP != null) {
       _hasCompletedPEP = widget.hasCompletedPEP!;
     }
     _loadUser();
+    _loadUnreadNotifications();
+    _pushSubscription =
+        PushNotificationService.instance.onNotificationReceived.listen((_) {
+      if (mounted) {
+        _loadUnreadNotifications();
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndShowWalkthrough();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pushSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _loadUnreadNotifications();
+    }
   }
 
   @override
@@ -116,7 +144,28 @@ class _MenuViewState extends State<MenuView> {
         _resourcesRefreshTrigger++;
       });
     }
-    await _loadUser();
+    await Future.wait([
+      _loadUser(),
+      _loadUnreadNotifications(),
+    ]);
+  }
+
+  Future<void> _loadUnreadNotifications() async {
+    if (!api.isAuthenticated) {
+      if (mounted && _hasUnreadNotifications) {
+        setState(() => _hasUnreadNotifications = false);
+      }
+      return;
+    }
+    try {
+      final notifications = (await api.notifications()) as List<AppNotification>;
+      final hasUnread = notifications.any((n) => !n.isRead);
+      if (mounted && _hasUnreadNotifications != hasUnread) {
+        setState(() => _hasUnreadNotifications = hasUnread);
+      }
+    } catch (_) {
+      // Preserve current indicator state on transient fetch errors
+    }
   }
 
   Future<void> _loadUser() async {
@@ -191,9 +240,14 @@ class _MenuViewState extends State<MenuView> {
               children: [
                 MenuSearchHeader(
                   userName: _userName,
+                  hasUnreadNotifications: _hasUnreadNotifications,
                   onSearchPressed: _openSearch,
-                  onNotificationsPressed: () =>
-                      Navigator.of(context).pushNamed(AppRoutes.notifications),
+                  onNotificationsPressed: () async {
+                    await Navigator.of(context).pushNamed(AppRoutes.notifications);
+                    if (mounted) {
+                      _loadUnreadNotifications();
+                    }
+                  },
                 ),
                 Expanded(
                   child: RefreshIndicator(

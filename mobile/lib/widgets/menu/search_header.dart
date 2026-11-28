@@ -8,12 +8,14 @@ class MenuSearchHeader extends StatelessWidget {
     required this.onNotificationsPressed,
     this.userName,
     this.greeting,
+    this.hasUnreadNotifications = false,
   });
 
   final VoidCallback onSearchPressed;
   final VoidCallback onNotificationsPressed;
   final String? userName;
   final String? greeting;
+  final bool hasUnreadNotifications;
 
   String _getGreeting() {
     if (greeting != null && greeting!.trim().isNotEmpty) {
@@ -92,7 +94,7 @@ class MenuSearchHeader extends StatelessWidget {
             onTap: onSearchPressed,
           ),
           const SizedBox(width: 8),
-          // Right: Bell icon button with red dot
+          // Right: Bell icon button with unread indicator dot
           Stack(
             clipBehavior: Clip.none,
             children: [
@@ -100,18 +102,20 @@ class MenuSearchHeader extends StatelessWidget {
                 icon: LucideIcons.bell,
                 onTap: onNotificationsPressed,
               ),
-              Positioned(
-                top: 4,
-                right: 4,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEF4444),
-                    shape: BoxShape.circle,
+              if (hasUnreadNotifications)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    key: const ValueKey('notification-unread-dot'),
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ],

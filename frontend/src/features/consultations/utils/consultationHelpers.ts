@@ -1,3 +1,5 @@
+import { focusFirstError } from '../accessibility/consultationAccessibility';
+
 export function asText(val: unknown): string {
   if (!val) return '';
   if (Array.isArray(val)) return val.join('\n');
@@ -69,48 +71,13 @@ export function getDoctorName(userCandidate?: any): string {
 }
 
 export function resolveAttendingProvider(entry?: any, record?: any, fetchedPatient?: any): string {
-  // 1. For existing saved Form 2 records, always retrieve and display the Doctor who completed Form 2
+  // 1. For existing saved Form 2 records, preserve the saved attending provider from referral/doctor
   if (record?.attending_provider && typeof record.attending_provider === 'string' && record.attending_provider.trim()) {
     return record.attending_provider.trim();
   }
-  if (record?.administered_by_user?.name && isDoctorRole(record?.administered_by_user?.role)) {
-    return record.administered_by_user.name.trim();
-  }
-  if (record?.administered_by?.name && isDoctorRole(record?.administered_by?.role)) {
-    return record.administered_by.name.trim();
-  }
-  if (record?.provider_name && typeof record.provider_name === 'string' && record.provider_name.trim()) {
-    return record.provider_name.trim();
-  }
 
-  // 2. Check if the patient or queue entry has an assigned / handling doctor
-  const p = entry?.patient || fetchedPatient;
-  const handledByDoc =
-    getDoctorName(entry?.handled_by_user) ||
-    getDoctorName(entry?.handled_by) ||
-    getDoctorName(entry?.handledBy) ||
-    getDoctorName(entry?.doctor) ||
-    getDoctorName(entry?.attending_doctor) ||
-    getDoctorName(entry?.attending_provider) ||
-    getDoctorName(p?.attending_doctor) ||
-    getDoctorName(p?.attending_provider) ||
-    getDoctorName(p?.assigned_doctor) ||
-    getDoctorName(fetchedPatient?.attending_doctor) ||
-    getDoctorName(fetchedPatient?.attending_provider) ||
-    getDoctorName(fetchedPatient?.assigned_doctor);
-
-  if (handledByDoc) {
-    return handledByDoc;
-  }
-
-  // 3. For a new Form 2 assessment, only use the currently logged-in user IF they are a Doctor
-  const currentRole = getCurrentUserRole();
-  const currentName = getCurrentUserName();
-  if (isDoctorRole(currentRole) && currentName) {
-    return currentName;
-  }
-
-  // Under NO circumstances should a Nurse, Registration Staff, or Admin name be used
+  // Name of Attending Provider is free text entered from the referral paper form
+  // submitted by the patient. Do not auto-populate with the logged-in user or clinic account.
   return '';
 }
 
@@ -176,21 +143,52 @@ export function syncChecklistWithText(
 }
 
 export function scrollToFirstError(firstErrorKey: string): void {
-  setTimeout(() => {
-    const el = document.getElementById(`field-${firstErrorKey}`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const scrollParent = el.closest('[class*="Body"]') || el.closest('.fm-body');
-    if (scrollParent) {
-      const rect = el.getBoundingClientRect();
-      const parentRect = scrollParent.getBoundingClientRect();
-      if (rect.top < parentRect.top || rect.bottom > parentRect.bottom) {
-        scrollParent.scrollBy({ top: rect.top - parentRect.top - 40, behavior: 'smooth' });
-      }
-    }
-    const focusable = el.querySelector('input, textarea, select') as HTMLElement | null;
-    if (focusable) {
-      focusable.focus({ preventScroll: true });
-    }
-  }, 50);
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      focusFirstError(document.body, firstErrorKey);
+    }, 40);
+  });
+}
+
+/**
+ * Validates that a date string contains exactly a 4-digit year (YYYY-MM-DD),
+ * and is a legitimate calendar date.
+ */
+export function isValidFourDigitYearDate(dateStr: string | null | undefined): boolean {
+  if (!dateStr || !dateStr.trim()) return true;
+  const trimmed = dateStr.trim();
+  const match = trimmed.match(/^(\d{4,})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    // Check if it's in another format or invalid year length
+    const parts = trimmed.split('-');
+    if (parts.length === 3 && parts[0].length !== 4) return false;
+    return false;
+  }
+
+  const yearStr = match[1];
+  if (yearStr.length !== 4) return false;
+
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(match[2], 10);
+  const day = parseInt(match[3], 10);
+
+  if (isNaN(year) || year < 1000 || year > 9999) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+
+  const d = new Date(year, month - 1, day);
+  return (
+    d.getFullYear() === year &&
+    d.getMonth() === month - 1 &&
+    d.getDate() === day
+  );
+}
+
+export function cleanPurok(val: string): string {
+  if (!val) return '';
+  let cleaned = val.trim().replace(/\s+/g, ' ');
+  cleaned = cleaned.replace(/\b(purok|zone|sitio|block|blk|street|st|phase|prk)\b/gi, (match) => {
+    return match.charAt(0).toUpperCase() + match.slice(1).toLowerCase();
+  });
+  return cleaned;
 }

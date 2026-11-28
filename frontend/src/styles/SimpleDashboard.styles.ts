@@ -172,57 +172,182 @@ export const AppStyleScope = styled('div')`
   }
   .sd-cards-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
     margin-bottom: 24px;
   }
   .sd-card {
-    border-radius: 20px;
-    padding: 16px 16px 14px;
-    background: radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%);
-    border: 1px solid rgba(16, 185, 129, 0.32);
-    box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.15), 0 0 18px -3px rgba(132, 204, 22, 0.15), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(16, 185, 129, 0.12);
+    border-radius: 18px;
+    padding: 16px 18px 14px;
+    background: #ffffff;
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     position: relative;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 116px;
+    min-height: 106px;
     cursor: default;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow 0.22s ease, transform 0.18s ease, border-color 0.2s ease;
+  }
+  .sd-card--link {
+    cursor: pointer;
+  }
+  .sd-card--link:active {
+    transform: translateY(0) scale(0.985);
+  }
+  .sd-card--link:focus-visible {
+    outline: 2px solid #059669;
+    outline-offset: 2px;
+  }
+  [data-theme='dark'] .sd-card--link:focus-visible {
+    outline-color: #34d399;
   }
   [data-theme='dark'] .sd-card {
-    background: radial-gradient(ellipse at 30% 0%, #1e2e22 0%, #121c15 55%, #0a110d 100%);
-    border: 1px solid rgba(163, 230, 53, 0.3);
-    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px -4px rgba(163, 230, 53, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(163, 230, 53, 0.12);
+    background: #111827;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
   .sd-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(16, 185, 129, 0.55);
-    box-shadow: 0 12px 28px -4px rgba(16, 185, 129, 0.25), 0 0 25px -2px rgba(132, 204, 22, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 1);
+    transform: translateY(-2px);
+    border-color: rgba(16, 185, 129, 0.45);
+    box-shadow: 0 8px 22px rgba(16, 185, 129, 0.22), 0 2px 8px rgba(16, 185, 129, 0.12);
   }
   [data-theme='dark'] .sd-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(163, 230, 53, 0.55);
-    box-shadow: 0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 0 35px -2px rgba(163, 230, 53, 0.35), inset 0 1px 3px 0 rgba(255, 255, 255, 0.3);
+    border-color: rgba(52, 211, 153, 0.5);
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.32), 0 0 16px rgba(16, 185, 129, 0.2);
   }
+  .sd-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .sd-card-arrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #059669;
+    opacity: 0.72;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+  [data-theme='dark'] .sd-card-arrow {
+    color: #34d399;
+  }
+  .sd-card--link:hover .sd-card-arrow,
+  .sd-card--link:focus-visible .sd-card-arrow {
+    opacity: 1;
+    transform: translateX(2px);
+  }
+  .sd-card-link-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #047857;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 7px;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+    line-height: 1.4;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  }
+  .sd-card-link-pill:hover {
+    background: #d1fae5;
+    border-color: #6ee7b7;
+    color: #065f46;
+  }
+  .sd-card-link-pill:active {
+    transform: scale(0.97);
+  }
+  .sd-card-link-pill:focus-visible {
+    outline: 2px solid #059669;
+    outline-offset: 2px;
+  }
+  .sd-card-link-pill svg {
+    transition: transform 0.15s ease;
+  }
+  .sd-card-link-pill:hover svg {
+    transform: translateX(2px);
+  }
+  [data-theme='dark'] .sd-card-link-pill {
+    background: rgba(16, 185, 129, 0.14);
+    border-color: rgba(16, 185, 129, 0.35);
+    color: #6ee7b7;
+  }
+  [data-theme='dark'] .sd-card-link-pill:hover {
+    background: rgba(16, 185, 129, 0.24);
+    border-color: rgba(52, 211, 153, 0.6);
+    color: #a7f3d0;
+  }
+  [data-theme='dark'] .sd-card-link-pill:focus-visible {
+    outline-color: #34d399;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sd-card,
+    .sd-card-arrow,
+    .sd-card-link-pill,
+    .sd-card-link-pill svg {
+      transition: none;
+    }
+    .sd-card:hover,
+    .sd-card--link:active,
+    .sd-card--link:hover .sd-card-arrow,
+    .sd-card-link-pill:active,
+    .sd-card-link-pill:hover svg {
+      transform: none;
+    }
+  }
+  .sd-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .sd-card-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .sd-card-icon--patients { background: #ecfdf5; color: #059669; }
+  .sd-card-icon--cases { background: #eff6ff; color: #2563eb; }
+  .sd-card-icon--completed { background: #f0fdf4; color: #16a34a; }
+  .sd-card-icon--pending { background: #fffbeb; color: #d97706; }
+  [data-theme='dark'] .sd-card-icon--patients { background: rgba(16, 185, 129, 0.16); color: #6ee7b7; }
+  [data-theme='dark'] .sd-card-icon--cases { background: rgba(59, 130, 246, 0.16); color: #93c5fd; }
+  [data-theme='dark'] .sd-card-icon--completed { background: rgba(34, 197, 94, 0.16); color: #86efac; }
+  [data-theme='dark'] .sd-card-icon--pending { background: rgba(245, 158, 11, 0.16); color: #fcd34d; }
   .sd-card-label {
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    margin: 0 0 8px;
+    margin: 0;
     color: #047857;
   }
   [data-theme='dark'] .sd-card-label {
     color: #a7f3d0;
   }
   .sd-card-value {
-    font-size: 26px;
+    font-size: 30px;
     font-weight: 800;
     margin: 0 0 4px;
-    line-height: 1;
-    letter-spacing: -0.5px;
+    line-height: 1.05;
+    letter-spacing: -0.6px;
     color: #064e3b;
   }
   [data-theme='dark'] .sd-card-value {
@@ -236,6 +361,35 @@ export const AppStyleScope = styled('div')`
   }
   [data-theme='dark'] .sd-card-sub {
     color: #94a3b8;
+  }
+
+  /* Compact KPI cards when stacked under the landscape Announcement banner */
+  .sd-overview-kpi-grid--compact .sd-card {
+    min-height: 76px;
+    padding: 10px 13px;
+    border-radius: 15px;
+  }
+  .sd-overview-kpi-grid--compact .sd-card-head {
+    margin-bottom: 4px;
+  }
+  .sd-overview-kpi-grid--compact .sd-card-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+  }
+  .sd-overview-kpi-grid--compact .sd-card-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+  .sd-overview-kpi-grid--compact .sd-card-label {
+    font-size: 10px;
+  }
+  .sd-overview-kpi-grid--compact .sd-card-value {
+    font-size: 22px;
+    margin-bottom: 2px;
+  }
+  .sd-overview-kpi-grid--compact .sd-card-sub {
+    font-size: 10.5px;
   }
 
   .sd-charts-row, .sd-charts-bottom {
@@ -399,7 +553,7 @@ export const AppStyleScope = styled('div')`
 
   @media (max-width: 1200px) {
     .sd-top-arrangement { grid-template-columns: 1fr !important; }
-    .sd-cards-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .sd-overview-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   }
   @media (max-width: 900px) {
     .sd-filters-bar-grid { grid-template-columns: repeat(2, 1fr) !important; }
@@ -408,7 +562,7 @@ export const AppStyleScope = styled('div')`
   }
   @media (max-width: 600px) {
     .sd-filters-bar-grid { grid-template-columns: 1fr !important; }
-    .sd-cards-grid { grid-template-columns: 1fr !important; }
+    .sd-cards-grid, .sd-overview-kpi-grid { grid-template-columns: 1fr !important; }
     .sd-content { padding: 16px; }
     .sd-topbar { padding: 0 16px; }
   }

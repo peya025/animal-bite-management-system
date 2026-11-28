@@ -230,7 +230,7 @@ export default function DeveloperDatabaseExplorerPage() {
             <span className="db-kpi-label">Database Engine</span>
             <Icon name="developerSettings" size={16} color="#17653a" />
           </div>
-          <div className="db-kpi-value">{totalSystemRows.toLocaleString()}</div>
+          <div className="db-kpi-value">{(totalSystemRows ?? 0).toLocaleString()}</div>
           <div className="db-kpi-sub">System Records</div>
         </div>
 
@@ -332,7 +332,7 @@ export default function DeveloperDatabaseExplorerPage() {
                             color: t.row_count > 0 ? '#15803d' : '#6b7280',
                           }}
                         >
-                          {t.row_count.toLocaleString()} rows
+                          {(t.row_count ?? 0).toLocaleString()} rows
                         </span>
                       </td>
                       <td>

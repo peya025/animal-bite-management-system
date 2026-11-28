@@ -2,473 +2,1048 @@
 
 namespace App\Services;
 
+use App\Jobs\DeliverOutboundMessage;
 use App\Models\Appointment;
 use App\Models\AppointmentReminder;
-use App\Models\Clinic;
-use App\Models\Notification;
-use App\Models\Patient;
+use App\Models\BiteIncident;
+use App\Models\OutboundMessage;
+use App\Models\TreatmentPlan;
+use App\Models\TreatmentRecord;
+use App\Services\Messaging\DeliveryPolicy;
+use App\Services\Messaging\OutboundDelivery;
+use App\Services\Messaging\Sms\SmsLength;
+use App\Services\Messaging\Sms\SmsManager;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
+use Carbon\CarbonInterface;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AppointmentReminderService
 {
-    /**
-     * Helper to resolve detailed clinical context for an appointment.
-     * Distinguishes whether the patient missed Doctor Triage (Day 0 / Form 2) or Nurse Treatment (Day 3/7/28).
-     */
-    protected function resolveClinicalContext(Appointment $appointment, Patient $patient): array
+    public const ADVANCE_ELIGIBLE_STATUSES = ['scheduled'];
+
+    public const SAME_DAY_ELIGIBLE_STATUSES = ['scheduled'];
+
+    public const RECALL_ELIGIBLE_STATUSES = ['scheduled', 'missed'];
+
+    public const DEFAULT_ADVANCE_DAYS = [1, 2, 3];
+
+    public const DEFAULT_OVERDUE_MILESTONES = [1, 3, 7];
+
+    public const INELIGIBLE_EPISODE_STATUSES = [
+        'completed',
+        'completed_no_pep',
+        'cancelled',
+        'abandoned',
+        'transferred_out',
+        'discontinued',
+        'void',
+        'voided',
+        'duplicate',
+    ];
+
+    public const INELIGIBLE_PLAN_STATUSES = [
+        'completed',
+        'cancelled',
+        'discontinued',
+    ];
+
+    public const ELIGIBLE_PEP_PLAN_TYPES = [
+        'full_pep',
+        'single_booster',
+        'two_dose_booster',
+    ];
+
+    public const INELIGIBLE_PATIENT_STATUSES = [
+        'inactive',
+        'transferred',
+        'transferred_out',
+        'deceased',
+        'archived',
+    ];
+
+    public function isEpisodeIneligible(?BiteIncident $incident): bool
     {
-        $hasBiteIncident = (bool) $appointment->bite_id || $patient->biteIncidents()->exists();
-        $doseNum = $appointment->dose_number;
-
-        $isInitialTriage = false;
-        $station = 'Treatment / Nurse Desk';
-        $doseLabel = 'Vaccine Dose';
-        $notifType = 'missed_appointment_recall';
-        $title = 'Urgent: Missed Vaccination Recall';
-
-        if ($appointment->appointment_type === 'consultation') {
-            $station = 'Doctor Consultation Desk';
-            $doseLabel = 'General Consultation';
-            $notifType = 'missed_consultation_recall';
-            $title = 'Missed Medical Consultation';
-        } elseif (!$hasBiteIncident || $doseNum === 0 || is_null($doseNum)) {
-            $isInitialTriage = true;
-            $station = 'Doctor Triage & Assessment (Form 2)';
-            $doseLabel = 'Initial Assessment & Day 0 Dose';
-            $notifType = 'missed_triage_recall';
-            $title = 'Urgent: Missed Doctor Triage & Day 0 Dose';
-        } else {
-            $station = 'Treatment / Nurse Desk (Form 3)';
-            $doseLabel = "Rabies Dose (Day {$doseNum})";
-            $notifType = 'missed_treatment_recall';
-            $title = "Urgent: Missed Rabies Dose (Day {$doseNum})";
+        if (! $incident) {
+            return false;
         }
 
-        return [
-            'is_initial_triage' => $isInitialTriage,
-            'station' => $station,
-            'dose_label' => $doseLabel,
-            'dose_number' => $doseNum ?? ($isInitialTriage ? 0 : 3),
-            'notif_type' => $notifType,
-            'title' => $title,
-        ];
+        if ($incident->isTransferredOut()) {
+            return true;
+        }
+
+        if (in_array((string) $incident->status, self::INELIGIBLE_EPISODE_STATUSES, true)) {
+            return true;
+        }
+
+        $incident->loadMissing('treatmentPlan');
+        if (! $this->hasApprovedPepPlan($incident->treatmentPlan)) {
+            return true;
+        }
+
+        $referralRecords = TreatmentRecord::where('clinic_id', $incident->clinic_id)
+            ->where('patient_id', $incident->patient_id)
+            ->where('bite_id', $incident->bite_id)
+            ->whereNull('voided_at')
+            ->where(function ($query): void {
+                $query->where('outcome', 'Transferred/Referred')
+                    ->orWhereNotNull('referred_to');
+            })
+            ->get(['outcome', 'referred_to', 'actions_taken']);
+
+        foreach ($referralRecords as $record) {
+            if ($this->isBlockingReferralRecord($record)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function hasApprovedPepPlan(?TreatmentPlan $plan): bool
+    {
+        if (! $plan || in_array((string) $plan->status, self::INELIGIBLE_PLAN_STATUSES, true)) {
+            return false;
+        }
+
+        return $plan->status === 'approved'
+            && in_array((string) $plan->plan_type, self::ELIGIBLE_PEP_PLAN_TYPES, true);
     }
 
     /**
-     * Dispatch a multi-channel recall alert for a missed/overdue appointment.
+     * Allow internal RHU/ABTC continuation consultations while blocking external or unlabelled referrals.
      */
+    private function isBlockingReferralRecord(TreatmentRecord $record): bool
+    {
+        $destination = trim((string) ($record->referred_to ?? ''));
+
+        if (TreatmentRecord::isExternalReferralDestination($destination)) {
+            return true;
+        }
+
+        $actionsTaken = strtolower((string) ($record->actions_taken ?? ''));
+        if ($record->outcome === 'Transferred/Referred' || str_contains($actionsTaken, 'transferred/referred')) {
+            return $destination === '' || str_contains($actionsTaken, 'transferred/referred');
+        }
+
+        return false;
+    }
+
+    public function hasOutstandingDose(Appointment $appointment): bool
+    {
+        $date = $appointment->scheduled_date ?? $appointment->appointment_date;
+
+        $completedByAppointment = TreatmentRecord::where('clinic_id', $appointment->clinic_id)
+            ->where('patient_id', $appointment->patient_id)
+            ->where('appointment_id', $appointment->appointment_id)
+            ->whereNull('voided_at')
+            ->whereIn('status', ['completed', 'administered'])
+            ->exists();
+
+        if ($completedByAppointment) {
+            return false;
+        }
+
+        if ($appointment->dose_number === null) {
+            return true;
+        }
+
+        $doseNumber = (int) $appointment->dose_number;
+        $isBooster = $appointment->appointment_type === 'booster' || $doseNumber >= 90;
+
+        $query = TreatmentRecord::where('clinic_id', $appointment->clinic_id)
+            ->where('patient_id', $appointment->patient_id)
+            ->whereNull('voided_at')
+            ->whereIn('status', ['completed', 'administered'])
+            ->whereNotNull('dose_number');
+
+        if ($appointment->bite_id !== null) {
+            $query->where('bite_id', $appointment->bite_id);
+            if ($isBooster || $doseNumber === 0) {
+                $query->where('dose_number', $doseNumber);
+            } else {
+                $query->where('dose_number', '>=', $doseNumber)
+                    ->where('dose_number', '<', 90);
+            }
+        } else {
+            $query->where('dose_number', $doseNumber);
+            if ($date !== null) {
+                $query->where(function ($q) use ($date, $appointment) {
+                    $q->whereDate('treatment_date', '>=', $date->toDateString())
+                        ->orWhere('created_at', '>=', $appointment->created_at ?? $date);
+                });
+            }
+        }
+
+        return ! $query->exists();
+    }
+
+    public function isEpisodeDoseOutstanding(BiteIncident $incident, ?int $doseDay): bool
+    {
+        if ($doseDay === null) {
+            return true;
+        }
+
+        $query = TreatmentRecord::where('clinic_id', $incident->clinic_id)
+            ->where('patient_id', $incident->patient_id)
+            ->where('bite_id', $incident->bite_id)
+            ->whereNull('voided_at')
+            ->whereIn('status', ['completed', 'administered'])
+            ->whereNotNull('dose_number');
+
+        if ($doseDay >= 90 || $doseDay === 0) {
+            $query->where('dose_number', $doseDay);
+        } else {
+            $query->where('dose_number', '>=', $doseDay)
+                ->where('dose_number', '<', 90);
+        }
+
+        return ! $query->exists();
+    }
+
+    public function reminderTimezone(): string
+    {
+        return (string) config('messaging.reminders.timezone', config('app.timezone', 'Asia/Manila'));
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function advanceDays(): array
+    {
+        $configured = config('messaging.reminders.advance_days', self::DEFAULT_ADVANCE_DAYS);
+        if (is_string($configured)) {
+            $configured = explode(',', $configured);
+        }
+        if (! is_array($configured)) {
+            return self::DEFAULT_ADVANCE_DAYS;
+        }
+
+        $days = array_values(array_unique(array_filter(
+            array_map('intval', $configured),
+            fn (int $day) => $day > 0
+        )));
+        sort($days);
+
+        return $days !== [] ? $days : self::DEFAULT_ADVANCE_DAYS;
+    }
+
+    public function advanceDaysUntil(Appointment $appointment, ?CarbonInterface $today = null): int
+    {
+        $date = $appointment->scheduled_date ?? $appointment->appointment_date;
+        if (! $date) {
+            return 0;
+        }
+
+        $tz = $this->reminderTimezone();
+        $todayStart = ($today ? Carbon::instance($today)->copy()->setTimezone($tz) : today($tz))->startOfDay();
+        $appointmentDay = Carbon::parse($date->toDateString(), $tz)->startOfDay();
+
+        return (int) $todayStart->diffInDays($appointmentDay, false);
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function overdueMilestones(): array
+    {
+        $configured = config('messaging.reminders.overdue_milestones', self::DEFAULT_OVERDUE_MILESTONES);
+        if (is_string($configured)) {
+            $configured = explode(',', $configured);
+        }
+        if (! is_array($configured)) {
+            return self::DEFAULT_OVERDUE_MILESTONES;
+        }
+
+        $milestones = array_values(array_unique(array_filter(
+            array_map('intval', $configured),
+            fn (int $days) => $days > 0
+        )));
+        sort($milestones);
+
+        return $milestones !== [] ? $milestones : self::DEFAULT_OVERDUE_MILESTONES;
+    }
+
+    public function overdueDaysFor(Appointment $appointment, ?CarbonInterface $today = null): int
+    {
+        $date = $appointment->scheduled_date ?? $appointment->appointment_date;
+        if (! $date) {
+            return 0;
+        }
+
+        $tz = $this->reminderTimezone();
+        $todayStart = ($today ? Carbon::instance($today)->copy()->setTimezone($tz) : today($tz))->startOfDay();
+        $appointmentDay = Carbon::parse($date->toDateString(), $tz)->startOfDay();
+
+        return (int) $appointmentDay->diffInDays($todayStart, false);
+    }
+
+    public function matchingOverdueMilestone(Appointment $appointment, ?CarbonInterface $today = null): ?int
+    {
+        $daysOverdue = $this->overdueDaysFor($appointment, $today);
+
+        return in_array($daysOverdue, $this->overdueMilestones(), true) ? $daysOverdue : null;
+    }
+
+    public function ineligibilityReason(
+        Appointment $appointment,
+        string $purpose,
+        ?CarbonInterface $today = null,
+        bool $checkDateWindow = true
+    ): ?string {
+        $tz = $this->reminderTimezone();
+        $todayStart = ($today ? Carbon::instance($today)->copy()->setTimezone($tz) : today($tz))->startOfDay();
+        $appointment->loadMissing(['patient', 'clinic', 'biteIncident.treatmentPlan']);
+        $patient = $appointment->patient;
+        $clinic = $appointment->clinic;
+        $date = $appointment->scheduled_date ?? $appointment->appointment_date;
+
+        if (! $patient || ! $clinic || $patient->clinic_id != $appointment->clinic_id || ! $date) {
+            return 'appointment_ineligible';
+        }
+
+        if (in_array((string) ($patient->status ?? ''), self::INELIGIBLE_PATIENT_STATUSES, true)) {
+            return 'patient_ineligible';
+        }
+
+        $allowedStatuses = match ($purpose) {
+            'recall' => self::RECALL_ELIGIBLE_STATUSES,
+            'same_day' => self::SAME_DAY_ELIGIBLE_STATUSES,
+            default => self::ADVANCE_ELIGIBLE_STATUSES,
+        };
+
+        if (! in_array((string) $appointment->status, $allowedStatuses, true)) {
+            return 'appointment_status_ineligible';
+        }
+
+        if ($checkDateWindow) {
+            $appointmentDay = Carbon::parse($date->toDateString(), $tz)->startOfDay();
+            if ($purpose === 'recall' && ! $appointmentDay->lt($todayStart)) {
+                return 'appointment_not_overdue';
+            }
+            if ($purpose === 'same_day' && ! $appointmentDay->equalTo($todayStart)) {
+                return 'appointment_not_today';
+            }
+            if ($purpose === 'advance' && ! in_array((int) $todayStart->diffInDays($appointmentDay, false), $this->advanceDays(), true)) {
+                return 'appointment_not_in_advance_window';
+            }
+        }
+
+        if ($this->isEpisodeIneligible($appointment->biteIncident)) {
+            return 'episode_ineligible';
+        }
+
+        if (! $this->hasOutstandingDose($appointment)) {
+            return 'dose_already_administered';
+        }
+
+        return null;
+    }
+
     public function sendRecallAlert(
         Appointment $appointment,
         string $channel = 'all',
         ?int $senderUserId = null,
-        ?string $customMessage = null
+        ?string $customMessage = null,
+        bool $isTest = false,
+        bool $dryRun = false,
+        bool $sync = false,
+        ?int $overdueMilestone = null
     ): array {
-        $appointment->loadMissing(['patient.accounts', 'clinic']);
-        $patient = $appointment->patient;
-        $clinic = $appointment->clinic ?? Clinic::find(1);
-
-        if (!$patient) {
-            return [
-                'success' => false,
-                'message' => 'Patient record not found for appointment #' . $appointment->appointment_id,
-                'channels_dispatched' => [],
-            ];
-        }
-
-        $clinicName = $clinic?->name ?? 'Tagoloan Animal Bite Treatment Center';
-        $clinicPhone = $clinic?->phone ?? '09123456789';
-        $patientName = "{$patient->first_name} {$patient->last_name}";
-        $scheduledDate = Carbon::parse($appointment->scheduled_date ?? $appointment->appointment_date)->format('M j, Y');
-
-        $ctx = $this->resolveClinicalContext($appointment, $patient);
-        $station = $ctx['station'];
-        $doseLabel = $ctx['dose_label'];
-        $title = $ctx['title'];
-        $notifType = $ctx['notif_type'];
-
-        $dispatched = [];
-        $errors = [];
-
-        // 1. IN-APP PUSH NOTIFICATION
-        if (in_array($channel, ['all', 'in_app'])) {
-            if ($customMessage) {
-                $inAppMsg = $customMessage;
-            } elseif ($ctx['is_initial_triage']) {
-                $inAppMsg = "URGENT CLINICAL ADVISORY: {$patientName}, you missed your Doctor Triage & Initial Assessment (Day 0) scheduled on {$scheduledDate}. Prompt bite evaluation and immediate first dose are critical for rabies prevention. Please proceed to Doctor Triage at {$clinicName}.";
-            } else {
-                $inAppMsg = "URGENT REMINDER: {$patientName}, you missed your scheduled Rabies Vaccination ({$doseLabel}) at the {$station} on {$scheduledDate}. Rabies is 100% fatal without complete PEP. Please visit {$clinicName} immediately for your catch-up injection.";
-            }
-
-            $accountId = $appointment->booked_by_account_id;
-            if (!$accountId && $patient->accounts && $patient->accounts->isNotEmpty()) {
-                $accountId = $patient->accounts->first()->id;
-            }
-
-            try {
-                Notification::create([
-                    'patient_id' => $patient->patient_id,
-                    'patient_account_id' => $accountId,
-                    'appointment_id' => $appointment->appointment_id,
-                    'type' => $notifType,
-                    'message' => $inAppMsg,
-                    'status' => 'sent',
-                    'send_time' => now(),
-                ]);
-
-                if ($accountId) {
-                    Cache::forget("mobile:notifications:account:{$accountId}:page:1");
-                }
-
-                AppointmentReminder::create([
-                    'clinic_id' => $appointment->clinic_id ?? 1,
-                    'appointment_id' => $appointment->appointment_id,
-                    'patient_id' => $patient->patient_id,
-                    'channel' => 'in_app',
-                    'recipient' => $accountId ? "Account #{$accountId}" : "Patient #{$patient->patient_number}",
-                    'subject' => $title,
-                    'message' => $inAppMsg,
-                    'status' => 'sent',
-                    'sent_by_user_id' => $senderUserId,
-                ]);
-
-                $dispatched[] = 'in_app';
-            } catch (\Exception $e) {
-                Log::error('In-App Recall dispatch failed: ' . $e->getMessage());
-                $errors['in_app'] = $e->getMessage();
-            }
-        }
-
-        // 2. SMS NOTIFICATION
-        if (in_array($channel, ['all', 'sms'])) {
-            $phone = $patient->contact_number ?? $patient->phone;
-
-            if ($customMessage) {
-                $smsMsg = $customMessage;
-            } elseif ($ctx['is_initial_triage']) {
-                $smsMsg = "ABTC ALERT: {$patientName}, you missed your Doctor Triage & Day 0 Dose on {$scheduledDate}. Please proceed to Doctor Triage at {$clinicName} immediately for wound evaluation & first dose. Hotline: {$clinicPhone}";
-            } else {
-                $smsMsg = "ABTC ALERT: {$patientName}, you missed your {$doseLabel} on {$scheduledDate}. Please proceed to {$clinicName} Treatment Desk immediately for catch-up dose. Hotline: {$clinicPhone}";
-            }
-
-            if (!empty($phone)) {
-                try {
-                    AppointmentReminder::create([
-                        'clinic_id' => $appointment->clinic_id ?? 1,
-                        'appointment_id' => $appointment->appointment_id,
-                        'patient_id' => $patient->patient_id,
-                        'channel' => 'sms',
-                        'recipient' => $phone,
-                        'subject' => null,
-                        'message' => $smsMsg,
-                        'status' => 'sent',
-                        'sent_by_user_id' => $senderUserId,
-                    ]);
-
-                    $dispatched[] = 'sms';
-                } catch (\Exception $e) {
-                    Log::error('SMS Recall dispatch failed: ' . $e->getMessage());
-                    $errors['sms'] = $e->getMessage();
-                }
-            } else {
-                $errors['sms'] = 'No contact number on file for patient.';
-            }
-        }
-
-        // 3. EMAIL NOTIFICATION
-        if (in_array($channel, ['all', 'email'])) {
-            $email = $patient->email;
-            if (!$email && $patient->accounts && $patient->accounts->isNotEmpty()) {
-                $email = $patient->accounts->first()->email;
-            }
-
-            $emailSubject = "CRITICAL MEDICAL ADVISORY: Missed {$doseLabel} at {$station}";
-            if ($customMessage) {
-                $emailBody = $customMessage;
-            } elseif ($ctx['is_initial_triage']) {
-                $emailBody = "Dear {$patientName},\n\nOur records at {$clinicName} indicate that you missed your scheduled Doctor Triage & Initial Assessment (Day 0) on {$scheduledDate}.\n\nAnimal bite wounds carry severe rabies risk and require urgent clinical categorization, wound disinfection, and prompt initiation of Post-Exposure Prophylaxis (PEP).\n\nPlease proceed directly to Doctor Triage at {$clinicName} for your physical evaluation.\n\nClinic Hotline: {$clinicPhone}\n\nTagoloan Animal Bite Treatment Center";
-            } else {
-                $emailBody = "Dear {$patientName},\n\nOur records at {$clinicName} indicate that you missed your scheduled follow-up {$doseLabel} on {$scheduledDate}.\n\nRabies is an incurable, fatal infection once symptoms manifest, but it is 100% preventable by completing your full prescribed vaccine series without interruption.\n\nPlease proceed directly to the Treatment / Nurse Desk at {$clinicName} for your catch-up dose.\n\nClinic Hotline: {$clinicPhone}\n\nTagoloan Animal Bite Treatment Center";
-            }
-
-            if (!empty($email)) {
-                try {
-                    AppointmentReminder::create([
-                        'clinic_id' => $appointment->clinic_id ?? 1,
-                        'appointment_id' => $appointment->appointment_id,
-                        'patient_id' => $patient->patient_id,
-                        'channel' => 'email',
-                        'subject' => $emailSubject,
-                        'message' => $emailBody,
-                        'status' => 'sent',
-                        'sent_by_user_id' => $senderUserId,
-                    ]);
-
-                    $dispatched[] = 'email';
-                } catch (\Exception $e) {
-                    Log::error('Email Recall dispatch failed: ' . $e->getMessage());
-                    $errors['email'] = $e->getMessage();
-                }
-            } else {
-                $errors['email'] = 'No email address on file for patient.';
-            }
-        }
-
-        // Update appointment reminder tracking stats
-        if (!empty($dispatched)) {
-            $appointment->reminder_sent_count = ($appointment->reminder_sent_count ?? 0) + 1;
-            $appointment->last_reminded_at = now();
-            if (!$appointment->missed_at) {
-                $appointment->missed_at = now();
-            }
-            $appointment->save();
-        }
-
-        return [
-            'success' => !empty($dispatched),
-            'appointment_id' => $appointment->appointment_id,
-            'patient_name' => $patientName,
-            'station' => $station,
-            'dose_label' => $doseLabel,
-            'channels_dispatched' => $dispatched,
-            'errors' => $errors,
-            'reminder_sent_count' => $appointment->reminder_sent_count,
-            'last_reminded_at' => $appointment->last_reminded_at?->toIso8601String(),
-        ];
+        return $this->prepare($appointment, 'recall', $channel, $senderUserId, $customMessage, $isTest, $dryRun, $sync, $overdueMilestone);
     }
 
-    /**
-     * Dispatch recall alerts in bulk to multiple appointments.
-     */
-    public function sendBulkRecall(array $appointmentIds, string $channel = 'all', ?int $senderUserId = null): array
-    {
-        $appointments = Appointment::with(['patient.accounts', 'clinic'])
-            ->whereIn('appointment_id', $appointmentIds)
-            ->get();
-
-        $results = [];
-        $totalSent = 0;
-        $totalFailed = 0;
-
-        foreach ($appointments as $appt) {
-            $res = $this->sendRecallAlert($appt, $channel, $senderUserId);
-            $results[] = $res;
-            if ($res['success']) {
-                $totalSent++;
-            } else {
-                $totalFailed++;
-            }
-        }
-
-        return [
-            'total_requested' => count($appointmentIds),
-            'total_sent' => $totalSent,
-            'total_failed' => $totalFailed,
-            'details' => $results,
-        ];
+    public function sendSameDayReminder(
+        Appointment $appointment,
+        string $channel = 'all',
+        ?int $senderUserId = null,
+        bool $isTest = false,
+        bool $dryRun = false,
+        bool $sync = false
+    ): array {
+        return $this->prepare($appointment, 'same_day', $channel, $senderUserId, null, $isTest, $dryRun, $sync);
     }
 
-    /**
-     * Dispatch an advance 1-day reminder for an upcoming appointment.
-     */
     public function sendAdvanceReminder(
         Appointment $appointment,
         string $channel = 'all',
-        ?int $senderUserId = null
+        ?int $senderUserId = null,
+        bool $isTest = false,
+        bool $dryRun = false,
+        bool $sync = false
     ): array {
-        $appointment->loadMissing(['patient.accounts', 'clinic']);
-        $patient = $appointment->patient;
-        $clinic = $appointment->clinic ?? Clinic::find(1);
+        return $this->prepare($appointment, 'advance', $channel, $senderUserId, null, $isTest, $dryRun, $sync);
+    }
 
-        if (!$patient) {
-            return ['success' => false, 'message' => 'Patient record not found', 'channels_dispatched' => []];
+    private function buildReminderMessage(
+        Appointment $appointment,
+        string $purpose,
+        CarbonInterface $date,
+        ?int $overdueMilestone = null
+    ): array {
+        $clinic = $appointment->clinic;
+        $clinicName = trim((string) ($clinic?->name ?: 'Tagoloan ABTC'));
+        $phone = trim((string) ($clinic?->contact_number ?: $clinic?->phone ?: ''));
+        $timeText = $appointment->appointment_time ? $appointment->appointment_time->format('g:i A') : null;
+
+        if ($purpose === 'same_day') {
+            $subject = 'Vaccination appointment today';
+            $body = "{$clinicName} Reminder: Your scheduled vaccination is today. Please visit the clinic during your scheduled time.";
+            if ($timeText) {
+                $body .= " Time: {$timeText}.";
+            }
+            $body .= $phone !== ''
+                ? " Contact {$phone} if you need assistance."
+                : ' Contact the clinic if you need assistance.';
+
+            return [$subject, $body];
         }
 
-        $clinicName = $clinic?->name ?? 'Tagoloan Animal Bite Treatment Center';
-        $clinicPhone = $clinic?->phone ?? '09123456789';
-        $patientName = "{$patient->first_name} {$patient->last_name}";
-        $scheduledDate = Carbon::parse($appointment->scheduled_date ?? $appointment->appointment_date)->format('M j, Y');
-
-        $ctx = $this->resolveClinicalContext($appointment, $patient);
-        $station = $ctx['station'];
-        $doseLabel = $ctx['dose_label'];
-
-        $dispatched = [];
-        $errors = [];
-
-        // 1. In-App
-        if (in_array($channel, ['all', 'in_app'])) {
-            $msg = $ctx['is_initial_triage']
-                ? "UPCOMING SCHEDULE: {$patientName}, your Doctor Triage & Initial Bite Assessment (Day 0) is scheduled for TOMORROW, {$scheduledDate} at {$clinicName}. Please proceed to Doctor Triage on arrival."
-                : "UPCOMING SCHEDULE: {$patientName}, your {$doseLabel} is scheduled for TOMORROW, {$scheduledDate} at {$clinicName}. Please proceed directly to the Treatment Desk.";
-
-            $accountId = $appointment->booked_by_account_id;
-            if (!$accountId && $patient->accounts && $patient->accounts->isNotEmpty()) {
-                $accountId = $patient->accounts->first()->id;
+        if ($purpose === 'advance') {
+            $subject = 'Upcoming vaccination appointment';
+            $daysBefore = max(1, $this->advanceDaysUntil($appointment));
+            $whenPhrase = $daysBefore === 1
+                ? "tomorrow, {$date->format('M j, Y')}"
+                : "in {$daysBefore} days ({$date->format('M j, Y')})";
+            $body = "{$clinicName} Reminder: Your scheduled vaccination is {$whenPhrase}.";
+            if ($timeText) {
+                $body .= " Time: {$timeText}.";
+            }
+            $body .= ' Please visit the clinic on schedule.';
+            if ($phone !== '') {
+                $body .= " Contact: {$phone}.";
             }
 
-            try {
-                Notification::create([
-                    'patient_id' => $patient->patient_id,
-                    'patient_account_id' => $accountId,
-                    'appointment_id' => $appointment->appointment_id,
-                    'type' => 'upcoming_appointment_reminder',
-                    'message' => $msg,
-                    'status' => 'sent',
-                    'send_time' => now(),
-                ]);
+            return [$subject, $body];
+        }
 
-                if ($accountId) {
-                    Cache::forget("mobile:notifications:account:{$accountId}:page:1");
+        $subject = 'Missed vaccination appointment';
+        $finalMilestone = max($this->overdueMilestones());
+        if ($overdueMilestone !== null && $overdueMilestone >= $finalMilestone) {
+            $body = "{$clinicName} Reminder: Your vaccination scheduled on {$date->format('M j, Y')} is still overdue. Please visit or contact the clinic as soon as possible for guidance.";
+        } else {
+            $body = "{$clinicName} Reminder: You missed your scheduled vaccination on {$date->format('M j, Y')}. Please visit or contact the clinic to continue your follow-up.";
+        }
+        if ($phone !== '') {
+            $body .= " Contact: {$phone}.";
+        }
+
+        return [$subject, $body];
+    }
+
+    private function prepare(
+        Appointment $appointment,
+        string $purpose,
+        string $channel,
+        ?int $senderUserId,
+        ?string $customMessage = null,
+        bool $isTest = false,
+        bool $dryRun = false,
+        bool $sync = false,
+        ?int $overdueMilestone = null
+    ): array {
+        if ($isTest) {
+            if (! in_array($channel, ['all', 'in_app', 'fcm', 'push'])) {
+                throw ValidationException::withMessages(['channel' => 'In test mode, only in-app and FCM push notifications are permitted. SMS and email dispatch are prohibited.']);
+            }
+            $resolvedChannels = ['in_app'];
+        } else {
+            if (! in_array($channel, ['all', 'sms', 'email', 'in_app', 'fcm', 'push'])) {
+                throw ValidationException::withMessages(['channel' => 'Invalid channel.']);
+            }
+            $resolvedChannels = match ($channel) {
+                'all' => ['in_app', 'sms', 'email'],
+                'push', 'fcm' => ['in_app'],
+                default => [$channel],
+            };
+        }
+
+        if ($customMessage !== null && mb_strlen($customMessage) > 1000) {
+            throw ValidationException::withMessages(['message' => 'Maximum 1000 characters.']);
+        }
+        $appointment->loadMissing(['patient.accounts', 'clinic', 'biteIncident.treatmentPlan']);
+        $patient = $appointment->patient;
+        $clinic = $appointment->clinic;
+        $date = $appointment->scheduled_date ?? $appointment->appointment_date;
+        $result = ['success' => false, 'appointment_id' => $appointment->appointment_id, 'patient_name' => $patient ? trim($patient->first_name.' '.$patient->last_name) : '', 'channels_dispatched' => [], 'channel_results' => [], 'errors' => []];
+        if ($this->ineligibilityReason($appointment, $purpose) !== null) {
+            $result['errors']['appointment'] = 'Appointment is not eligible for this reminder.';
+
+            return $result;
+        }
+
+        $tz = $this->reminderTimezone();
+        $todayString = today($tz)->toDateString();
+        $daysOverdue = $purpose === 'recall' ? max(1, $this->overdueDaysFor($appointment)) : null;
+        $resolvedMilestone = $purpose === 'recall'
+            ? ($overdueMilestone ?? $this->matchingOverdueMilestone($appointment))
+            : null;
+
+        [$subject, $defaultBody] = $this->buildReminderMessage($appointment, $purpose, $date, $resolvedMilestone);
+        $body = $customMessage ?: $defaultBody;
+
+        // Account resolution: prioritize verified booking account, primary self, or any verified linked guardian/parent
+        $account = null;
+        if ($appointment->booked_by_account_id) {
+            $account = $patient->accounts->first(fn ($a) => $a->id == $appointment->booked_by_account_id && $a->is_active && $a->pivot->status === 'verified');
+        }
+        if (! $account) {
+            $account = $patient->accounts->first(fn ($a) => $a->is_active && $a->pivot->status === 'verified' && $a->pivot->is_primary && $a->pivot->relationship === 'self')
+                ?? $patient->accounts->first(fn ($a) => $a->is_active && $a->pivot->status === 'verified');
+        }
+
+        if ($isTest && (! $account || (int) $account->id !== 1)) {
+            $result['errors']['account'] = 'Testing is strictly restricted to Patient Account ID 1 and its authorized linked test profiles.';
+
+            return $result;
+        }
+
+        $preferences = DB::table('communication_preferences')->where('patient_id', $patient->patient_id)->first();
+
+        foreach ($resolvedChannels as $selected) {
+            $recipient = match ($selected) {
+                'sms' => (string) $patient->contact_number,
+                'email' => trim((string) $patient->email),
+                default => (string) $account?->id,
+            };
+            $provider = match ($selected) {
+                'sms' => config('messaging.sms_provider'), 'email' => DeliveryPolicy::emailProvider(), default => 'database'
+            };
+            $error = null;
+            if ($selected === 'sms') {
+                try {
+                    $recipient = SmsManager::normalize($recipient);
+                } catch (\InvalidArgumentException) {
+                    $error = 'invalid_mobile_number';
+                }
+            }
+            if (! $recipient) {
+                $error = 'recipient_missing';
+            }
+            if ($selected !== 'in_app' && ! ($preferences?->{$selected} ?? false)) {
+                $error = 'communication_consent_required';
+            }
+            $error ??= app(DeliveryPolicy::class)->error($selected, $recipient, $provider);
+            if ($error) {
+                $result['channel_results'][$selected] = ['status' => 'skipped', 'error' => $error];
+                $result['errors'][$selected] = $error;
+
+                continue;
+            }
+
+            if ($dryRun) {
+                $deviceTokens = $account ? $account->deviceTokens()->active()->get() : collect();
+                $isAllowed = $account ? app(\App\Services\Messaging\FcmService::class)->isAccountAllowed($account) : false;
+                $prefAllowed = $account ? $account->allowsNotificationCategory('appointment_reminder') : true;
+
+                if (! $prefAllowed) {
+                    $reason = (! ($account?->notificationPreferences()['reminders'] ?? true))
+                        ? 'Vaccination reminders disabled'
+                        : 'Push notifications disabled';
+
+                    $result['channel_results'][$selected] = [
+                        'status'              => 'skipped',
+                        'error'               => 'vaccination_reminders_disabled',
+                        'skip_reason'         => $reason,
+                        'recipient'           => (string) $account?->id,
+                        'device_count'        => $deviceTokens->count(),
+                        'allowlisted'         => $isAllowed,
+                        'preferences_allowed' => false,
+                        'fcm_results'         => [],
+                        'dry_run'             => true,
+                    ];
+                    $result['errors'][$selected] = 'vaccination_reminders_disabled';
+
+                    continue;
                 }
 
-                AppointmentReminder::create([
-                    'clinic_id' => $appointment->clinic_id ?? 1,
-                    'appointment_id' => $appointment->appointment_id,
-                    'patient_id' => $patient->patient_id,
-                    'channel' => 'in_app',
-                    'recipient' => $accountId ? "Account #{$accountId}" : "Patient #{$patient->patient_number}",
-                    'subject' => "Upcoming {$doseLabel} Tomorrow ({$station})",
-                    'message' => $msg,
-                    'status' => 'sent',
-                    'sent_by_user_id' => $senderUserId,
-                ]);
+                $advanceDaysBefore = $purpose === 'advance' ? max(1, $this->advanceDaysUntil($appointment)) : null;
 
-                $dispatched[] = 'in_app';
-            } catch (\Exception $e) {
-                $errors['in_app'] = $e->getMessage();
+                $fcmResults = [];
+                if ($account && $isAllowed && $prefAllowed && $deviceTokens->isNotEmpty()) {
+                    $pushData = [
+                        'category'       => 'appointment_reminder',
+                        'route'          => '/calendar',
+                        'appointment_id' => (string) $appointment->appointment_id,
+                        'is_test'        => 'true',
+                    ];
+                    $fcmResults = app(\App\Services\Messaging\FcmService::class)->sendToAccount(
+                        $account,
+                        'Vaccination Reminder',
+                        match ($purpose) {
+                            'same_day' => 'Your vaccination appointment is scheduled for today. Open the app to view your schedule.',
+                            'advance' => in_array($advanceDaysBefore, [2, 3], true)
+                                ? "Your vaccination appointment is in {$advanceDaysBefore} days. Open the app to view your schedule."
+                                : 'You have an upcoming appointment. Open the app to view your schedule.',
+                            default => 'You have an overdue appointment. Open the app to view your schedule.',
+                        },
+                        $pushData,
+                        validateOnly: true,
+                        isControlledTest: true
+                    );
+                }
+
+                $result['channel_results'][$selected] = [
+                    'status'              => 'validated',
+                    'recipient'           => (string) $account?->id,
+                    'device_count'        => $deviceTokens->count(),
+                    'allowlisted'         => $isAllowed,
+                    'preferences_allowed' => true,
+                    'fcm_results'         => $fcmResults,
+                    'dry_run'             => true,
+                ];
+                $result['channels_dispatched'][] = $selected;
+
+                continue;
+            }
+
+            $keyPrefix = $isTest ? 'test|' : '';
+            $doseToken = 'dose:'.($appointment->dose_number !== null ? (string) $appointment->dose_number : 'none');
+            $advanceDaysBefore = $purpose === 'advance' ? max(1, $this->advanceDaysUntil($appointment)) : null;
+            $milestoneToken = match ($purpose) {
+                'recall' => 'day_'.($resolvedMilestone ?? $daysOverdue ?? 1),
+                'advance' => $advanceDaysBefore === 1 ? 'advance' : 'advance_d'.$advanceDaysBefore,
+                default => $purpose,
+            };
+            $key = hash('sha256', $keyPrefix . implode('|', [
+                $appointment->clinic_id,
+                $appointment->appointment_id,
+                $date->toDateString(),
+                $doseToken,
+                $purpose,
+                $milestoneToken,
+                $selected,
+            ]));
+
+            $wasRecentlyCreated = false;
+            try {
+                $message = DB::transaction(function () use ($key, $appointment, $patient, $selected, $recipient, $subject, $body, $provider, $purpose, $date, $todayString, $resolvedMilestone, $daysOverdue, $advanceDaysBefore, $senderUserId, $isTest, $dryRun, $sync, &$wasRecentlyCreated) {
+                    $message = OutboundMessage::firstOrCreate(['idempotency_key' => $key], [
+                        'clinic_id' => $appointment->clinic_id, 'appointment_id' => $appointment->appointment_id,
+                        'patient_id' => $patient->patient_id, 'channel' => $selected, 'purpose' => $purpose,
+                        'provider' => $provider, 'recipient' => $recipient, 'subject' => $subject, 'body' => $body,
+                        'status' => 'queued', 'context' => [
+                            'scheduled_date' => $date->toDateString(),
+                            'occurrence_date' => $todayString,
+                            'dose_number' => $appointment->dose_number,
+                            'advance_days_before' => $advanceDaysBefore,
+                            'milestone_day' => $resolvedMilestone,
+                            'days_overdue' => $daysOverdue,
+                            'template_version' => 2,
+                            'sms_estimate' => $selected === 'sms' ? SmsLength::estimate($body) : null,
+                            'is_test' => $isTest,
+                            'dry_run' => $dryRun,
+                            'sync' => $sync,
+                        ],
+                    ]);
+                    $wasRecentlyCreated = $message->wasRecentlyCreated;
+                    if ($wasRecentlyCreated) {
+                        $reminder = AppointmentReminder::create([
+                            'clinic_id' => $appointment->clinic_id, 'appointment_id' => $appointment->appointment_id,
+                            'patient_id' => $patient->patient_id, 'channel' => $selected, 'recipient' => $recipient,
+                            'subject' => $subject, 'message' => $body, 'status' => 'pending', 'sent_by_user_id' => $senderUserId,
+                        ]);
+                        $message->update(['reminder_id' => $reminder->id]);
+                    }
+
+                    return $message;
+                });
+            } catch (UniqueConstraintViolationException) {
+                $wasRecentlyCreated = false;
+                $message = OutboundMessage::where('idempotency_key', $key)->firstOrFail();
+            }
+            if ($wasRecentlyCreated || $message->status === 'queued') {
+                if ($selected === 'in_app') {
+                    app(OutboundDelivery::class)->deliver($message->id);
+                } else {
+                    DeliverOutboundMessage::dispatch($message->id);
+                }
+            }
+            $message->refresh();
+            $prefAllowed = $account ? $account->allowsNotificationCategory('appointment_reminder') : true;
+            $skipReason = (! ($account?->notificationPreferences()['reminders'] ?? true))
+                ? 'Vaccination reminders disabled'
+                : 'Push notifications disabled';
+
+            $result['channel_results'][$selected] = [
+                'status'              => $message->status,
+                'message_id'          => $message->id,
+                'error'               => $message->error_code,
+                'reused'              => ! $wasRecentlyCreated,
+                'preferences_allowed' => $prefAllowed,
+                'skip_reason'         => $prefAllowed ? null : $skipReason,
+            ];
+            if (in_array($message->status, ['queued', 'processing', 'accepted', 'delivered', 'simulated'])) {
+                $result['channels_dispatched'][] = $selected;
+            } else {
+                $result['errors'][$selected] = $message->error_code ?? $message->status;
             }
         }
+        $result['success'] = count($result['channels_dispatched']) > 0;
+        $appointment->refresh();
+        $result['reminder_sent_count'] = $appointment->reminder_sent_count;
+        $result['last_reminded_at'] = $appointment->last_reminded_at?->toIso8601String();
 
-        // 2. SMS
-        if (in_array($channel, ['all', 'sms'])) {
-            $phone = $patient->contact_number ?? $patient->phone;
-            $msg = $ctx['is_initial_triage']
-                ? "ABTC REMINDER: {$patientName}, your Doctor Triage & Day 0 Dose is scheduled for TOMORROW, {$scheduledDate} at {$clinicName}. Hotline: {$clinicPhone}"
-                : "ABTC REMINDER: {$patientName}, your {$doseLabel} is scheduled for TOMORROW, {$scheduledDate} at {$clinicName} Treatment Desk. Hotline: {$clinicPhone}";
+        return $result;
+    }
 
-            if (!empty($phone)) {
-                try {
-                    AppointmentReminder::create([
-                        'clinic_id' => $appointment->clinic_id ?? 1,
+    public function sendEpisodeFollowupSms(
+        BiteIncident $incident,
+        ?Appointment $appointment,
+        string $recipient,
+        string $recipientType,
+        string $body,
+        ?int $senderUserId = null,
+        ?int $doseDay = null
+    ): array {
+        if ($appointment && $recipientType === 'patient') {
+            $recallResult = $this->sendRecallAlert($appointment, 'sms', $senderUserId, $body);
+            $smsResult = $recallResult['channel_results']['sms'] ?? [];
+
+            return [
+                'success' => $recallResult['success'],
+                'status' => $smsResult['status'] ?? 'skipped',
+                'message_id' => $smsResult['message_id'] ?? null,
+                'error' => $smsResult['error'] ?? ($recallResult['errors']['sms'] ?? ($recallResult['errors']['appointment'] ?? null)),
+                'reused' => (bool) ($smsResult['reused'] ?? false),
+            ];
+        }
+
+        $incident->loadMissing(['patient', 'clinic', 'treatmentPlan']);
+        $patient = $incident->patient;
+        $clinic = $incident->clinic;
+
+        if (! $patient || ! $clinic || $patient->clinic_id != $incident->clinic_id
+            || in_array((string) ($patient->status ?? ''), self::INELIGIBLE_PATIENT_STATUSES, true)
+            || $this->isEpisodeIneligible($incident)) {
+            return [
+                'success' => false,
+                'status' => 'skipped',
+                'message_id' => null,
+                'error' => 'episode_ineligible',
+                'reused' => false,
+            ];
+        }
+
+        if ($appointment && $this->ineligibilityReason($appointment, 'recall') !== null) {
+            return [
+                'success' => false,
+                'status' => 'skipped',
+                'message_id' => null,
+                'error' => 'appointment_ineligible',
+                'reused' => false,
+            ];
+        }
+
+        if (! $appointment && ! $this->isEpisodeDoseOutstanding($incident, $doseDay)) {
+            return [
+                'success' => false,
+                'status' => 'skipped',
+                'message_id' => null,
+                'error' => 'dose_already_administered',
+                'reused' => false,
+            ];
+        }
+
+        $provider = (string) config('messaging.sms_provider');
+        $error = null;
+        try {
+            $normalizedRecipient = SmsManager::normalize($recipient);
+        } catch (\InvalidArgumentException) {
+            $normalizedRecipient = '';
+            $error = 'invalid_mobile_number';
+        }
+
+        if ($normalizedRecipient === '') {
+            $error ??= 'recipient_missing';
+        }
+
+        $preferences = DB::table('communication_preferences')->where('patient_id', $patient->patient_id)->first();
+        if (! ($preferences?->sms ?? false)) {
+            $error ??= 'communication_consent_required';
+        }
+
+        $error ??= app(DeliveryPolicy::class)->error('sms', $normalizedRecipient, $provider);
+        if ($error) {
+            return [
+                'success' => false,
+                'status' => 'skipped',
+                'message_id' => null,
+                'error' => $error,
+                'reused' => false,
+            ];
+        }
+
+        $todayString = today($this->reminderTimezone())->toDateString();
+        $date = $appointment ? ($appointment->scheduled_date ?? $appointment->appointment_date) : null;
+        $keyParts = $appointment
+            ? [$incident->clinic_id, 'episode_followup', $incident->bite_id, $appointment->appointment_id, $normalizedRecipient, $todayString]
+            : [$incident->clinic_id, 'episode_followup', $incident->bite_id, 'dose:'.($doseDay ?? 'any'), $normalizedRecipient, $todayString];
+        $key = hash('sha256', implode('|', $keyParts));
+
+        $subject = 'Missed vaccination appointment';
+        $wasRecentlyCreated = false;
+        try {
+            $message = DB::transaction(function () use ($key, $incident, $appointment, $patient, $provider, $normalizedRecipient, $subject, $body, $recipientType, $doseDay, $date, $todayString, $senderUserId, &$wasRecentlyCreated) {
+                $message = OutboundMessage::firstOrCreate(['idempotency_key' => $key], [
+                    'clinic_id' => $incident->clinic_id,
+                    'appointment_id' => $appointment?->appointment_id,
+                    'patient_id' => $patient->patient_id,
+                    'channel' => 'sms',
+                    'purpose' => 'episode_followup',
+                    'provider' => $provider,
+                    'recipient' => $normalizedRecipient,
+                    'subject' => $subject,
+                    'body' => $body,
+                    'status' => 'queued',
+                    'context' => [
+                        'bite_id' => $incident->bite_id,
+                        'dose_day' => $doseDay,
+                        'recipient_type' => $recipientType,
+                        'scheduled_date' => $date?->toDateString(),
+                        'occurrence_date' => $todayString,
+                        'template_version' => 2,
+                        'sms_estimate' => SmsLength::estimate($body),
+                    ],
+                ]);
+                $wasRecentlyCreated = $message->wasRecentlyCreated;
+
+                if ($wasRecentlyCreated && $appointment) {
+                    $reminder = AppointmentReminder::create([
+                        'clinic_id' => $incident->clinic_id,
                         'appointment_id' => $appointment->appointment_id,
                         'patient_id' => $patient->patient_id,
                         'channel' => 'sms',
-                        'recipient' => $phone,
-                        'subject' => null,
-                        'message' => $msg,
-                        'status' => 'sent',
-                        'sent_by_user_id' => $senderUserId,
-                    ]);
-                    $dispatched[] = 'sms';
-                } catch (\Exception $e) {
-                    $errors['sms'] = $e->getMessage();
-                }
-            }
-        }
-
-        // 3. Email
-        if (in_array($channel, ['all', 'email'])) {
-            $email = $patient->email;
-            if (!$email && $patient->accounts && $patient->accounts->isNotEmpty()) {
-                $email = $patient->accounts->first()->email;
-            }
-
-            if (!empty($email)) {
-                try {
-                    $subject = "Reminder: Your {$doseLabel} is Scheduled for Tomorrow ({$station})";
-                    $body = "Dear {$patientName},\n\nThis is a friendly reminder from {$clinicName} that your appointment for {$doseLabel} is scheduled for TOMORROW, {$scheduledDate}.\n\nStation: {$station}\n\nMaintaining your vaccination schedule on time is essential for complete rabies protection.\n\nClinic Hotline: {$clinicPhone}\n\nTagoloan Animal Bite Treatment Center";
-
-                    AppointmentReminder::create([
-                        'clinic_id' => $appointment->clinic_id ?? 1,
-                        'appointment_id' => $appointment->appointment_id,
-                        'patient_id' => $patient->patient_id,
-                        'channel' => 'email',
+                        'recipient' => $normalizedRecipient,
                         'subject' => $subject,
                         'message' => $body,
-                        'status' => 'sent',
+                        'status' => 'pending',
                         'sent_by_user_id' => $senderUserId,
                     ]);
-                    $dispatched[] = 'email';
-                } catch (\Exception $e) {
-                    $errors['email'] = $e->getMessage();
+                    $message->update(['reminder_id' => $reminder->id]);
                 }
+
+                return $message;
+            });
+        } catch (UniqueConstraintViolationException) {
+            $wasRecentlyCreated = false;
+            $message = OutboundMessage::where('idempotency_key', $key)->firstOrFail();
+        }
+
+        if ($wasRecentlyCreated || $message->status === 'queued') {
+            DeliverOutboundMessage::dispatch($message->id);
+        }
+
+        $message->refresh();
+        $success = in_array($message->status, ['queued', 'processing', 'accepted', 'delivered', 'simulated'], true);
+
+        return [
+            'success' => $success,
+            'status' => $message->status,
+            'message_id' => $message->id,
+            'error' => $success ? null : ($message->error_code ?? $message->status),
+            'reused' => ! $wasRecentlyCreated,
+        ];
+    }
+
+    public function sendBulkRecall(array $appointmentIds, string $channel = 'all', ?int $senderUserId = null, ?int $clinicId = null): array
+    {
+        $results = [];
+        $appointments = Appointment::with(['patient.accounts', 'clinic'])->whereIn('appointment_id', array_unique($appointmentIds))
+            ->when($clinicId !== null, fn ($q) => $q->where('clinic_id', $clinicId))->get();
+        foreach ($appointments as $appointment) {
+            $results[] = $this->sendRecallAlert($appointment, $channel, $senderUserId);
+        }
+        $processed = count(array_filter($results, fn ($r) => $r['success']));
+
+        return ['total_requested' => count(array_unique($appointmentIds)), 'total_processed' => $processed,
+            'total_failed' => count(array_unique($appointmentIds)) - $processed, 'details' => $results];
+    }
+
+    public function runAutomatedSweep(
+        string $channel = 'all',
+        ?int $clinicId = null,
+        bool $isTest = false,
+        ?int $targetAccountId = null,
+        bool $dryRun = false,
+        bool $sync = false,
+        ?\Carbon\CarbonInterface $referenceDate = null
+    ): array {
+        if ($isTest) {
+            if (! in_array($channel, ['all', 'in_app', 'fcm', 'push'])) {
+                throw ValidationException::withMessages(['channel' => 'In test mode, only in-app and FCM push channels are permitted. SMS and email are strictly prohibited.']);
+            }
+            $channel = 'in_app';
+            $targetAccountId = $targetAccountId ?? 1;
+            if ((int) $targetAccountId !== 1) {
+                throw ValidationException::withMessages(['account' => 'Controlled testing is strictly restricted to Patient Account ID 1.']);
+            }
+            $targetAccount = \App\Models\PatientAccount::findOrFail(1);
+            $authorizedPatientIds = $targetAccount->patients()
+                ->wherePivot('status', 'verified')
+                ->pluck('patients.patient_id')
+                ->all();
+        } else {
+            if (! in_array($channel, ['all', 'sms', 'email', 'in_app', 'fcm', 'push'])) {
+                throw ValidationException::withMessages(['channel' => 'Invalid channel.']);
+            }
+            $authorizedPatientIds = null;
+        }
+
+        $counts = [
+            'advance_reminders_eligible' => 0,
+            'advance_reminders_sent' => 0,
+            'same_day_reminders_eligible' => 0,
+            'same_day_reminders_sent' => 0,
+            'missed_recalls_eligible' => 0,
+            'missed_recalls_sent' => 0,
+            'details' => [],
+        ];
+
+        if ($referenceDate !== null) {
+            \Carbon\Carbon::setTestNow($referenceDate);
+        }
+
+        try {
+            $tz = $this->reminderTimezone();
+            $todayStart = today($tz)->startOfDay();
+            $advanceDays = $this->advanceDays();
+            $maxAdvanceDays = max($advanceDays);
+            $maxAdvanceStart = $todayStart->copy()->addDays($maxAdvanceDays);
+            $milestones = $this->overdueMilestones();
+            $maxMilestone = max($milestones);
+            $sameDayEnabled = (bool) config('messaging.reminders.same_day_enabled', true);
+
+            Appointment::with(['patient.accounts', 'clinic', 'biteIncident.treatmentPlan'])
+                ->whereIn('status', self::RECALL_ELIGIBLE_STATUSES)
+                ->when($clinicId !== null, fn ($q) => $q->where('clinic_id', $clinicId))
+                ->when($isTest, fn ($q) => $q->whereIn('patient_id', $authorizedPatientIds ?? []))
+                ->whereRaw(
+                    'DATE(COALESCE(scheduled_date, appointment_date)) BETWEEN ? AND ?',
+                    [$todayStart->copy()->subDays($maxMilestone)->toDateString(), $maxAdvanceStart->toDateString()]
+                )
+                ->chunkById(100, function ($appointments) use ($channel, $isTest, $dryRun, $sync, $tz, $todayStart, $advanceDays, $sameDayEnabled, &$counts) {
+                    foreach ($appointments as $appointment) {
+                        $date = $appointment->scheduled_date ?? $appointment->appointment_date;
+                        if (! $date) {
+                            continue;
+                        }
+                        $appointmentDay = Carbon::parse($date->toDateString(), $tz)->startOfDay();
+                        $daysUntil = (int) $todayStart->diffInDays($appointmentDay, false);
+
+                        if ($daysUntil > 0 && in_array($daysUntil, $advanceDays, true)) {
+                            if ($this->ineligibilityReason($appointment, 'advance', $todayStart) !== null) {
+                                continue;
+                            }
+                            $counts['advance_reminders_eligible']++;
+                            $res = $this->sendAdvanceReminder($appointment, $channel, isTest: $isTest, dryRun: $dryRun, sync: $sync);
+                            if ($res['success']) {
+                                $counts['advance_reminders_sent']++;
+                            }
+                            $counts['details'][] = $res;
+                        } elseif ($sameDayEnabled && $appointmentDay->equalTo($todayStart)) {
+                            if ($this->ineligibilityReason($appointment, 'same_day', $todayStart) !== null) {
+                                continue;
+                            }
+                            $counts['same_day_reminders_eligible']++;
+                            $res = $this->sendSameDayReminder($appointment, $channel, isTest: $isTest, dryRun: $dryRun, sync: $sync);
+                            if ($res['success']) {
+                                $counts['same_day_reminders_sent']++;
+                            }
+                            $counts['details'][] = $res;
+                        } elseif ($appointmentDay->lt($todayStart)) {
+                            $milestone = $this->matchingOverdueMilestone($appointment, $todayStart);
+                            if ($milestone === null) {
+                                continue;
+                            }
+                            if ($this->ineligibilityReason($appointment, 'recall', $todayStart) !== null) {
+                                continue;
+                            }
+                            $counts['missed_recalls_eligible']++;
+                            $res = $this->sendRecallAlert($appointment, $channel, isTest: $isTest, dryRun: $dryRun, sync: $sync, overdueMilestone: $milestone);
+                            if ($res['success']) {
+                                $counts['missed_recalls_sent']++;
+                                if (! $isTest && ! $dryRun) {
+                                    $this->recordAutomatedFollowupLog($appointment, $date, $res);
+                                }
+                            }
+                            $counts['details'][] = $res;
+                        }
+                    }
+                }, 'appointment_id');
+        } finally {
+            if ($referenceDate !== null) {
+                \Carbon\Carbon::setTestNow();
             }
         }
 
-        if (!empty($dispatched)) {
-            $appointment->reminder_sent_count = ($appointment->reminder_sent_count ?? 0) + 1;
-            $appointment->last_reminded_at = now();
-            $appointment->save();
-        }
-
-        return [
-            'success' => !empty($dispatched),
-            'appointment_id' => $appointment->appointment_id,
-            'patient_name' => $patientName,
-            'station' => $station,
-            'dose_label' => $doseLabel,
-            'channels_dispatched' => $dispatched,
-            'errors' => $errors,
+        return $counts + [
+            'timestamp' => now($this->reminderTimezone())->toIso8601String(),
+            'total_dispatched' => $counts['advance_reminders_sent'] + $counts['same_day_reminders_sent'] + $counts['missed_recalls_sent'],
         ];
     }
 
     /**
-     * Run the fully automated sweep for both Tomorrow's Reminders and Past Missed Recalls.
+     * Phase 3: Write an idempotent daily entry in patient_followup_logs when automated
+     * missed-dose recall succeeds so nurses see auto-recall history inside /bite-cases.
      */
-    public function runAutomatedSweep(string $channel = 'all'): array
-    {
-        $today = Carbon::today();
-        $tomorrow = $today->copy()->addDay()->toDateString();
-        $fourteenDaysAgo = $today->copy()->subDays(14)->toDateString();
-
-        // 1. Advance Reminders for Tomorrow
-        $upcomingAppts = Appointment::with(['patient.accounts', 'clinic'])
-            ->where('status', 'scheduled')
-            ->where(function ($q) use ($tomorrow) {
-                $q->whereDate('scheduled_date', $tomorrow)
-                  ->orWhereDate('appointment_date', $tomorrow);
-            })
-            ->where(function ($q) use ($today) {
-                $q->whereNull('last_reminded_at')
-                  ->orWhereDate('last_reminded_at', '<', $today);
-            })
-            ->get();
-
-        $advanceSent = 0;
-        foreach ($upcomingAppts as $appt) {
-            $res = $this->sendAdvanceReminder($appt, $channel);
-            if ($res['success']) $advanceSent++;
+    private function recordAutomatedFollowupLog(
+        Appointment $appointment,
+        \Carbon\CarbonInterface $scheduledDate,
+        array $dispatchResult
+    ): void {
+        if (! $appointment->bite_id) {
+            return;
         }
 
-        // 2. Urgent Recalls for Missed / Overdue Appointments (Past 1 to 14 days)
-        $missedAppts = Appointment::with(['patient.accounts', 'clinic'])
-            ->where('status', 'scheduled')
-            ->where(function ($q) use ($today, $fourteenDaysAgo) {
-                $q->whereDate('scheduled_date', '<', $today->toDateString())
-                  ->whereDate('scheduled_date', '>=', $fourteenDaysAgo);
-            })
-            ->where(function ($q) use ($today) {
-                // Don't send more than once every 20 hours
-                $q->whereNull('last_reminded_at')
-                  ->orWhere('last_reminded_at', '<', Carbon::now()->subHours(20));
-            })
-            ->get();
-
-        $missedRecalled = 0;
-        foreach ($missedAppts as $appt) {
-            $res = $this->sendRecallAlert($appt, $channel);
-            if ($res['success']) $missedRecalled++;
+        $channels = $dispatchResult['channels_dispatched'] ?? [];
+        if (empty($channels)) {
+            return;
         }
 
-        return [
-            'timestamp' => now()->toIso8601String(),
-            'advance_reminders_eligible' => $upcomingAppts->count(),
-            'advance_reminders_sent' => $advanceSent,
-            'missed_recalls_eligible' => $missedAppts->count(),
-            'missed_recalls_sent' => $missedRecalled,
-            'total_dispatched' => $advanceSent + $missedRecalled,
-        ];
+        $alreadyLoggedToday = \App\Models\PatientFollowupLog::where('clinic_id', $appointment->clinic_id)
+            ->where('bite_id', $appointment->bite_id)
+            ->where('appointment_id', $appointment->appointment_id)
+            ->where('created_by_name', 'Automated Recall')
+            ->whereDate('created_at', today()->toDateString())
+            ->exists();
+
+        if ($alreadyLoggedToday) {
+            return;
+        }
+
+        $primaryChannel = in_array('sms', $channels, true)
+            ? 'sms'
+            : (in_array('email', $channels, true) ? 'email' : 'in_app');
+
+        $primaryStatus = (string) ($dispatchResult['channel_results'][$primaryChannel]['status'] ?? 'dispatched');
+        $logStatus = match (true) {
+            $primaryChannel === 'sms' && $primaryStatus === 'simulated' => 'sms_simulated',
+            $primaryChannel === 'sms' && in_array($primaryStatus, ['queued', 'processing', 'accepted'], true) => 'sms_queued',
+            $primaryChannel === 'sms' && $primaryStatus === 'delivered' => 'sms_delivered',
+            $primaryChannel === 'sms' => 'sms_sent',
+            default => 'auto_recalled',
+        };
+
+        $contactType = $primaryChannel === 'sms' ? 'sms' : 'other';
+        $doseLabel = $appointment->dose_number !== null ? "Day {$appointment->dose_number}" : 'Follow-up';
+        $daysOverdue = max(1, (int) $scheduledDate->copy()->startOfDay()->diffInDays(today()));
+        $channelList = implode(', ', array_map(fn ($c) => strtoupper(str_replace('_', ' ', (string) $c)), $channels));
+
+        \App\Models\PatientFollowupLog::create([
+            'clinic_id' => $appointment->clinic_id,
+            'bite_id' => $appointment->bite_id,
+            'patient_id' => $appointment->patient_id,
+            'appointment_id' => $appointment->appointment_id,
+            'dose_label' => $doseLabel,
+            'days_overdue' => $daysOverdue,
+            'contact_type' => $contactType,
+            'status' => $logStatus,
+            'recipient_number' => $primaryChannel === 'sms' ? ($appointment->patient?->contact_number ?: null) : null,
+            'notes' => "Automated recall dispatched via {$channelList} on " . today()->format('M j, Y') . '.',
+            'created_by' => null,
+            'created_by_name' => 'Automated Recall',
+        ]);
     }
 }

@@ -1,5 +1,5 @@
 import type { EnrolmentFormData, Patient, PatientMembership } from '../types';
-import { INITIAL_ENROLMENT_DATA } from '../types';
+import { INITIAL_ENROLMENT_DATA, normalizePatientSuffix } from '../types';
 
 type MembershipType = PatientMembership['membership_type'];
 type RecordLike = Record<string, unknown>;
@@ -390,12 +390,15 @@ export function buildEnrolmentFromPatient(patientLike: Patient | RecordLike): En
     .filter(membership => ['senior_citizen', 'pwd', 'indigenous_member', 'other'].includes(membership.membership_type))
     .map(membership => membership.membership_type === 'other' ? UI_OTHER_KEY : membership.membership_type);
 
+  const resolvedMiddleName = cleanString(patient.middle_name) ?? '';
+
   return {
     ...INITIAL_ENROLMENT_DATA,
     last_name: cleanString(patient.last_name) ?? '',
     first_name: cleanString(patient.first_name) ?? '',
-    middle_name: cleanString(patient.middle_name) ?? '',
-    suffix: cleanString(patient.suffix) ?? '',
+    middle_name: resolvedMiddleName,
+    no_middle_name: !resolvedMiddleName,
+    suffix: normalizePatientSuffix(cleanString(patient.suffix)),
     date_of_birth: formattedDob,
     sex: cleanString(patient.gender) ?? '',
     blood_type: cleanString(details.blood_type) ?? '',

@@ -38,6 +38,7 @@ interface RingCardProps {
 function RingCard({ label, value, color, trackColor, glow, loading = false, total }: RingCardProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const [hovered, setHovered] = React.useState(false);
 
   // Determine arc fill
   let rawProgress = 0;
@@ -54,8 +55,26 @@ function RingCard({ label, value, color, trackColor, glow, loading = false, tota
 
   const valStr = String(value);
 
+  const hoverShadow = isDark
+    ? color === '#f87171' || color === '#ef4444'
+      ? '0 8px 24px rgba(239, 68, 68, 0.35), 0 0 16px rgba(239, 68, 68, 0.25)'
+      : color === '#fbbf24' || color === '#f59e0b'
+      ? '0 8px 24px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.25)'
+      : color === '#38bdf8'
+      ? '0 8px 24px rgba(56, 189, 248, 0.35), 0 0 16px rgba(56, 189, 248, 0.25)'
+      : '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+    : color === '#f87171' || color === '#ef4444'
+    ? '0 8px 22px rgba(239, 68, 68, 0.28), 0 2px 8px rgba(239, 68, 68, 0.16)'
+    : color === '#fbbf24' || color === '#f59e0b'
+    ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
+    : color === '#38bdf8'
+    ? '0 8px 22px rgba(56, 189, 248, 0.30), 0 2px 8px rgba(56, 189, 248, 0.16)'
+    : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
+
   return (
     <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         borderRadius: 20,
         padding: '18px 14px 14px',
@@ -68,17 +87,17 @@ function RingCard({ label, value, color, trackColor, glow, loading = false, tota
         position: 'relative',
         overflow: 'hidden',
         cursor: 'default',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         ...(isDark
           ? {
-              background: 'linear-gradient(145deg, #0d1f13 0%, #091610 55%, #060f0b 100%)',
-              border: `1.5px solid ${color}48`,
-              boxShadow: `0 0 0 1px ${color}10, 0 8px 32px -4px rgba(0,0,0,0.75), 0 0 30px -8px ${glow}`,
+              background: '#111827',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: hovered ? hoverShadow : '0 2px 8px rgba(0, 0, 0, 0.3)',
             }
           : {
-              background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 50%, #ffffff 100%)',
-              border: '1.5px solid rgba(16, 185, 129, 0.30)',
-              boxShadow: '0 6px 24px -4px rgba(16, 185, 129, 0.15), inset 0 1px 2px rgba(255,255,255,0.9)',
+              background: '#ffffff',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: hovered ? hoverShadow : '0 1px 3px rgba(0, 0, 0, 0.04)',
             }),
       }}
     >
@@ -145,7 +164,7 @@ function RingCard({ label, value, color, trackColor, glow, loading = false, tota
                   : 'none',
               }}
             >
-              {value.toLocaleString()}
+              {(value ?? 0).toLocaleString()}
             </span>
           )}
         </div>

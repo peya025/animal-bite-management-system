@@ -1,18 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { LoginRoot } from '../styles/Login.styles';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import DraftStatusBadge from '../../../shared/components/DraftStatusBadge';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 export default function AcceptInvitationPage() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  
+
+  // Draft keyed by the invitation token — each invite link gets its own isolated draft.
+  // We never persist passwords.
+  const draft = useFormDraft(token ? `accept-invitation-${token}` : null);
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [invitation, setInvitation] = useState<any>(null);
-  
+
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
@@ -22,6 +28,17 @@ export default function AcceptInvitationPage() {
   useEffect(() => {
     validateToken();
   }, [token]);
+
+  // Restore non-sensitive draft fields after validation succeeds
+  useEffect(() => {
+    if (!invitation) return;
+    const saved = draft.readDraft<{ name: string; phone: string }>();
+    if (saved) {
+      if (saved.name) setName(saved.name);
+      if (saved.phone) setPhone(saved.phone);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invitation]);
 
   const validateToken = async () => {
     try {
@@ -64,8 +81,8 @@ export default function AcceptInvitationPage() {
       return;
     }
 
-    if (phone && phone.length !== 11) {
-      setError('Phone number must be exactly 11 digits');
+    if (phone && !/^09\d{9}$/.test(phone.trim())) {
+      setError('Mobile number must start with 09 and contain 11 digits.');
       return;
     }
 
@@ -96,6 +113,9 @@ export default function AcceptInvitationPage() {
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('userData', JSON.stringify(data.user));
       localStorage.setItem('clinicData', JSON.stringify(data.user.clinic));
+      localStorage.setItem('lastActivityAt', String(Date.now()));
+
+      draft.clearDraft();
 
       // Redirect to dashboard
       window.location.replace('/dashboard');
@@ -228,7 +248,7 @@ export default function AcceptInvitationPage() {
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                 <polyline points="22,6 12,13 2,6"/>
               </svg>
-              <input type="email" value={invitation?.email || ''} disabled 
+              <input type="email" className="auth-input login-input" value={invitation?.email || ''} disabled 
                 style={{ background: '#f9fafb', cursor: 'not-allowed' }} />
             </div>
           </div>
@@ -242,9 +262,13 @@ export default function AcceptInvitationPage() {
               </svg>
               <input 
                 type="text" 
+                className="auth-input login-input"
                 placeholder="Juan Dela Cruz"
                 value={name}
-                onChange={e => setName(e.target.value)}
+                onChange={e => {
+                  setName(e.target.value);
+                  draft.saveDraft({ name: e.target.value, phone });
+                }}
                 disabled={submitting}
                 required
               />
@@ -259,9 +283,14 @@ export default function AcceptInvitationPage() {
               </svg>
               <input 
                 type="tel" 
+                className="auth-input login-input"
                 placeholder="09123456789"
                 value={phone}
-                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                onChange={e => {
+                  const v = e.target.value.replace(/\D/g, '').slice(0, 11);
+                  setPhone(v);
+                  draft.saveDraft({ name, phone: v });
+                }}
                 maxLength={11}
                 disabled={submitting}
               />
@@ -351,6 +380,9 @@ export default function AcceptInvitationPage() {
               </>
             )}
           </button>
+          <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center' }}>
+            <DraftStatusBadge status={draft.status} savedAt={draft.savedAt} />
+          </div>
         </form>
 
         <div style={{

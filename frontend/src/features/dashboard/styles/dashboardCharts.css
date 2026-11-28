@@ -1,0 +1,351 @@
+/* ==========================================================================
+   Modern Animated Dashboard Charts (Zero-Dependency SVG & CSS)
+   Compositor-friendly animations with prefers-reduced-motion opt-in.
+   ========================================================================== */
+
+.abtc-chart-card {
+  position: relative;
+  background: var(--card-bg, #ffffff);
+  border-radius: 20px;
+  border: 1px solid var(--border-glow, #e2e8f0);
+  padding: 22px 24px;
+  box-shadow: var(--card-shadow, 0 1px 3px rgba(0, 0, 0, 0.05));
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 400px;
+  overflow: hidden;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.abtc-chart-card:hover {
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 12px 28px -8px rgba(15, 23, 42, 0.1), 0 4px 10px -4px rgba(15, 23, 42, 0.04);
+}
+
+.abtc-chart-accent-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+/* ── Card Entrance (default static, opt-in motion) ── */
+@keyframes abtcFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.abtc-chart-card {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: abtcFadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+/* ── SVG Line Draw-In ── */
+@keyframes abtcDrawLine {
+  from {
+    stroke-dashoffset: var(--line-length, 1000);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.abtc-svg-line-draw {
+  stroke-dasharray: var(--line-length, 1000);
+  stroke-dashoffset: 0;
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: abtcDrawLine 1.05s cubic-bezier(0.22, 1, 0.36, 1) var(--line-delay, 0ms) both;
+  }
+}
+
+/* ── SVG Area Wipe-In (clip-path reveal) ── */
+@keyframes abtcAreaReveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.2;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+.abtc-svg-area-reveal {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: abtcAreaReveal 1.05s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+/* ── SVG Data Point Pop-In ── */
+@keyframes abtcPointPop {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.abtc-svg-point {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: abtcPointPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) var(--pt-delay, 0ms) both;
+  }
+}
+
+/* ── Donut Segment Sweep-In ── */
+@keyframes abtcDonutSweep {
+  from {
+    stroke-dasharray: 0 999;
+    opacity: 0.3;
+  }
+  to {
+    stroke-dasharray: var(--seg-dash);
+    opacity: 1;
+  }
+}
+
+.abtc-donut-segment {
+  cursor: pointer;
+  transition: stroke-width 0.25s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease, filter 0.25s ease;
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: abtcDonutSweep 0.85s cubic-bezier(0.22, 1, 0.36, 1) var(--seg-delay, 0ms) both;
+  }
+}
+
+/* ── Horizontal Bar Grow (compositor scaleX) ── */
+@keyframes abtcBarGrow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.abtc-bar-fill {
+  transform-origin: left center;
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), filter 0.2s ease;
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: abtcBarGrow 0.75s cubic-bezier(0.22, 1, 0.36, 1) var(--bar-delay, 0ms) both;
+  }
+}
+
+/* ── Vertical Column Bar Rise-Up (compositor scaleY from bottom) ── */
+@keyframes abtcBarRiseUp {
+  0% {
+    transform: scaleY(0);
+    opacity: 0.25;
+  }
+  65% {
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.abtc-bar-rise {
+  transform-origin: bottom center;
+  transform-box: fill-box;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), filter 0.2s ease, opacity 0.2s ease;
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: abtcBarRiseUp 0.85s cubic-bezier(0.22, 1, 0.36, 1) var(--bar-delay, 0ms) both;
+  }
+}
+
+.abtc-bar-rise:hover {
+  filter: brightness(1.08);
+}
+
+/* ── Stacked Segment Entrance ── */
+.abtc-stacked-seg {
+  transition: flex-grow 0.55s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, filter 0.2s ease;
+  transform-origin: left center;
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: abtcBarGrow 0.65s cubic-bezier(0.22, 1, 0.36, 1) var(--bar-delay, 0ms) both;
+  }
+}
+
+/* ── Interactive List / Legend Row ── */
+.abtc-interactive-row {
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.abtc-interactive-row:focus-visible {
+  outline: 2px solid var(--accent-blue, #3b82f6);
+  outline-offset: 2px;
+}
+
+.abtc-interactive-row:hover,
+.abtc-interactive-row[data-active='true'] {
+  @media (prefers-reduced-motion: no-preference) {
+    transform: translateX(3px);
+  }
+}
+
+/* ── Interactive Severity Card ── */
+.abtc-severity-item {
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.22s ease, box-shadow 0.22s ease, background-color 0.22s ease;
+  cursor: pointer;
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: abtcFadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) var(--row-delay, 0ms) both;
+  }
+}
+
+.abtc-severity-item:focus-visible {
+  outline: 2px solid var(--accent-green, #10b981);
+  outline-offset: 2px;
+}
+
+.abtc-severity-item:hover,
+.abtc-severity-item[data-active='true'] {
+  @media (prefers-reduced-motion: no-preference) {
+    transform: translateY(-2px);
+  }
+}
+
+/* ── Segmented Toggle Pill ── */
+.abtc-segmented-btn {
+  padding: 5px 11px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.abtc-segmented-btn:focus-visible {
+  outline: 2px solid var(--accent-blue, #3b82f6);
+  outline-offset: 1px;
+}
+
+/* ── Floating Tooltip ── */
+@keyframes abtcTooltipIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.abtc-tooltip {
+  pointer-events: none;
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: abtcTooltipIn 0.16s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+/* ── Scroll-Driven Card Entry (native CSS view() with feature detection) ── */
+@keyframes abtcScrollCardIn {
+  from {
+    opacity: 0.35;
+    transform: translateY(22px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.abtc-scroll-reveal {
+  @media (prefers-reduced-motion: no-preference) {
+    @supports ((animation-timeline: view()) and (animation-range: entry)) {
+      animation: abtcScrollCardIn linear both;
+      animation-timeline: view(block);
+      animation-range: entry 0% entry 32%;
+    }
+  }
+}
+
+/* ── Scroll-Triggered Graph Playback (holds initial pre-animation state until scrolled into view) ── */
+@media (prefers-reduced-motion: no-preference) {
+  .abtc-scroll-watch[data-in-view='false'] .abtc-bar-rise {
+    animation: none;
+    transform: scaleY(0);
+    opacity: 0.25;
+  }
+
+  .abtc-scroll-watch[data-in-view='false'] .abtc-bar-fill,
+  .abtc-scroll-watch[data-in-view='false'] .abtc-stacked-seg {
+    animation: none;
+    transform: scaleX(0);
+  }
+
+  .abtc-scroll-watch[data-in-view='false'] .abtc-svg-line-draw {
+    animation: none;
+    stroke-dashoffset: var(--line-length, 1000);
+  }
+
+  .abtc-scroll-watch[data-in-view='false'] .abtc-svg-area-reveal {
+    animation: none;
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+  }
+
+  .abtc-scroll-watch[data-in-view='false'] .abtc-svg-point {
+    animation: none;
+    opacity: 0;
+    transform: scale(0.3);
+  }
+
+  .abtc-scroll-watch[data-in-view='false'] .abtc-donut-segment {
+    animation: none;
+    stroke-dasharray: 0 999;
+    opacity: 0.2;
+  }
+}
+
+/* ── Loading Skeleton Shimmer ── */
+@keyframes abtcShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.abtc-skeleton-box {
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary, #f1f5f9) 25%,
+    var(--card-border, #e2e8f0) 50%,
+    var(--bg-secondary, #f1f5f9) 75%
+  );
+  background-size: 200% 100%;
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: abtcShimmer 1.6s ease-in-out infinite;
+  }
+}

@@ -1,4 +1,5 @@
-import type { ConsultationTypesMap, TreatmentFormData, NewBiteData } from '../types/consultation.types';
+import type { ConsultationTypesMap, TreatmentFormData } from '../types/consultation.types';
+import { getManilaCurrentDateTime } from '../../../shared/utils';
 
 export const ANIMAL_BITE_DIAGNOSES: readonly string[] = [
   'Rabies Exposure (PEP Indicated)',
@@ -104,6 +105,7 @@ export const INITIAL_CONSULTATION_TYPES: ConsultationTypesMap = {
 };
 
 export const INITIAL_FORM_DATA: TreatmentFormData = {
+  exposure_category: '',
   last_name: '',
   first_name: '',
   middle_name: '',
@@ -116,8 +118,8 @@ export const INITIAL_FORM_DATA: TreatmentFormData = {
   pertinent_history: '',
   reason_for_referral: 'For further evaluation and management.',
   actions_taken: '',
-  date_of_consultation: new Date().toISOString().split('T')[0],
-  consultation_time: new Date().toTimeString().slice(0, 5),
+  date_of_consultation: getManilaCurrentDateTime().date,
+  consultation_time: getManilaCurrentDateTime().time,
   blood_pressure: '',
   temperature: '',
   height: '',
@@ -128,36 +130,54 @@ export const INITIAL_FORM_DATA: TreatmentFormData = {
   diagnosis: '',
   medication_treatment: '',
   prescribed_vaccine_type: '',
+  prophylaxis_orders: { tetanus_category: '', tetanus_vaccine: '', tetanus_passive: '', rig: '', tetanus_history: '', tetanus_last_dose: '', rig_weight_kg: '', rig_indication: '', notes: '' },
   name_of_provider: '',
   laboratory_findings: '',
   performed_lab_test: '',
   name_of_attending_provider: '',
   referred_by: '',
+  reassessment_decision: '',
+  reassessment_notes: '',
+  place_of_exposure: '',
+  is_referral: false,
+  transferred_to_facility: '',
+  transfer_reason: 'Requires advanced rabies care / RIG beyond ABTC clinic capacity',
+  transfer_date: getManilaCurrentDateTime().date,
 };
 
-export const INITIAL_NEW_BITE_DATA: NewBiteData = {
-  new_bite_date: '',
-  new_bite_place: '',
-  new_exposure_type: 'bite',
-  new_severity: 'moderate',
-  new_animal_type: 'dog',
-  new_animal_status: 'unknown',
-  new_site_washed: true,
-  new_body_part: '',
-  new_wound_description: '',
-};
+export function getInitialTreatmentFormData(): TreatmentFormData {
+  const { date, time } = getManilaCurrentDateTime();
+  return {
+    ...INITIAL_FORM_DATA,
+    date_of_consultation: date,
+    consultation_time: time,
+    transfer_date: date,
+  };
+}
+
+export const COMMON_REFERRAL_FACILITIES: readonly string[] = [
+  'Tagoloan Polymedic General Hospital',
+  'Northern Mindanao Medical Center (NMMC)',
+  'Misamis Oriental Provincial Hospital (MOPH)',
+  'Mayor Hilarion A. Ramiro Sr. Medical Center',
+  'Capitol University Medical Center (CUMC)',
+  'Maria Reyna - Xavier University Hospital',
+  'Cagayan de Oro Medical Center',
+  'Jasaan Municipal Health Center / RHU',
+];
+
+export const COMMON_REFERRAL_REASONS: readonly string[] = [
+  'Requires Rabies Immunoglobulin (RIG) / Care beyond clinic capacity',
+  'Category III deep / extensive transdermal bite wounds requiring surgical debridement',
+  'High-risk anatomical bite site (head, face, neck) requiring specialized physician assessment',
+  'Severe wound infection / cellulitis requiring intravenous antibiotics and hospital admission',
+  'Suspected rabies presentation / neurological symptoms requiring tertiary isolation',
+  'Severe systemic allergic reaction / adverse event requiring emergency observation',
+  'Patient relocation / continuity of PEP regimen at receiving tertiary hospital',
+];
 
 export const DEFAULT_FALLBACK_VACCINES: readonly string[] = [
   'Anti-Rabies Vaccine (ARV)',
-  'Tetanus Toxoid (TT)',
-  'Tetanus and Diphtheria (Td)',
-  'Rabies Immunoglobulin (RIG)',
-  'Human Rabies Immunoglobulin (HRIG)',
-  'Equine Rabies Immunoglobulin (ERIG)',
-  'Amoxicillin',
-  'Co-Amoxiclav (Augmentin)',
-  'Metronidazole',
-  'Wound Irrigation Solution',
 ];
 
 export const NATURE_OF_VISIT_OPTIONS: readonly { value: 'new_consultation' | 'new_admission' | 'follow_up'; label: string }[] = [

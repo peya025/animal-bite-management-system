@@ -15,6 +15,9 @@ return [
 
     'default' => env('QUEUE_CONNECTION', 'database'),
 
+    // Use a durable private Railway volume, never public/ or storage/app/public.
+    'quarantine_backup_directory' => env('QUEUE_QUARANTINE_BACKUP_DIRECTORY', storage_path('app/private/queue-quarantine')),
+
     /*
     |--------------------------------------------------------------------------
     | Queue Connections

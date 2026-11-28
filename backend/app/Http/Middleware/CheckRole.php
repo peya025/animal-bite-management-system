@@ -20,6 +20,12 @@ class CheckRole
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
+        if (!$user instanceof \App\Models\User) {
+            return response()->json([
+                'message' => 'Unauthorized. This action requires ' . implode(' or ', $roles) . ' role.',
+            ], 403);
+        }
+
         $userDirectRole = $user->role;
         $userAssignedRoles = $user->relationLoaded('roles') ? $user->roles->pluck('slug')->toArray() : $user->roles()->pluck('slug')->toArray();
         $allUserRoles = array_filter(array_unique(array_merge([$userDirectRole], $userAssignedRoles)));
@@ -34,6 +40,20 @@ class CheckRole
         // Admin alias
         if (in_array('admin', $roles) && ($user->isAdmin() || in_array('clinic_admin', $allUserRoles))) {
             return $next($request);
+        }
+
+        // Registration aliases: 'registration' or 'receptionist'
+        if (in_array('registration', $roles) || in_array('receptionist', $roles)) {
+            if ($user->isRegistration() || in_array('receptionist', $allUserRoles) || in_array('registration', $allUserRoles)) {
+                return $next($request);
+            }
+        }
+
+        // Triage / Doctor aliases: 'triage' or 'doctor'
+        if (in_array('triage', $roles) || in_array('doctor', $roles)) {
+            if ($user->isTriage() || in_array('doctor', $allUserRoles) || in_array('triage', $allUserRoles)) {
+                return $next($request);
+            }
         }
 
         $hasRole = false;

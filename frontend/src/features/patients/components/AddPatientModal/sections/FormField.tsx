@@ -13,6 +13,11 @@ interface FormFieldProps {
 
 type ControlProps = React.HTMLProps<HTMLInputElement> & { children?: React.ReactNode };
 
+function isFormControlElement(child: React.ReactElement<ControlProps>): boolean {
+  if (['input', 'select', 'textarea'].includes(String(child.type))) return true;
+  return Boolean((child.type as { isFormControl?: boolean })?.isFormControl);
+}
+
 export function FormField({ id, label, required, error, errorText, hint, children }: FormFieldProps) {
   const uid = useId();
   const errors = useContext(RegistrationErrors);
@@ -20,7 +25,7 @@ export function FormField({ id, label, required, error, errorText, hint, childre
   function collect(nodes: React.ReactNode) {
     React.Children.forEach(nodes, child => {
       if (!React.isValidElement<ControlProps>(child)) return;
-      if (['input', 'select', 'textarea'].includes(String(child.type))) controls.push(child);
+      if (isFormControlElement(child)) controls.push(child);
       else collect(child.props.children);
     });
   }
@@ -37,7 +42,7 @@ export function FormField({ id, label, required, error, errorText, hint, childre
   function decorate(nodes: React.ReactNode): React.ReactNode {
     return React.Children.map(nodes, child => {
       if (!React.isValidElement<ControlProps>(child)) return child;
-      if (['input', 'select', 'textarea'].includes(String(child.type))) {
+      if (isFormControlElement(child)) {
         return React.cloneElement(child, {
           id: child === first ? controlId : child.props.id,
           'aria-invalid': invalid || undefined,
@@ -53,8 +58,13 @@ export function FormField({ id, label, required, error, errorText, hint, childre
     <div id={id} className={`fm-field ${invalid ? 'fm-field--error' : ''}`}
       role={isGroup ? (controls.every(control => control.props.type === 'radio') ? 'radiogroup' : 'group') : undefined}
       aria-labelledby={isGroup ? labelId : undefined}
-      aria-required={isGroup && required ? true : undefined}
-      style={invalid ? { padding: '8px', border: '2px solid #ef4444', borderRadius: '8px', backgroundColor: '#fef2f2' } : undefined}>
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        width: '100%',
+        ...(invalid ? { padding: '8px', border: '2px solid #ef4444', borderRadius: '8px', backgroundColor: '#fef2f2' } : {}),
+      }}>
       {isGroup ? (
         <span id={labelId} className="fm-label">{label}{required && <span aria-hidden="true">*</span>}</span>
       ) : (

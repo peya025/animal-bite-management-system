@@ -107,4 +107,18 @@ const Map<String, String> enTranslations = {
   'privacy_export_data_desc': 'View and download summary of clinical data',
   'privacy_delete_account': 'Deactivate Account',
   'privacy_delete_account_desc': 'Disable patient portal access and revoke credentials',
+
+  // Learn More Section
+  'learn_more_section_title': 'LEARN MORE',
+  'learn_more_title': 'Learn more',
+  'learn_more_see_all': 'See all',
+  'learn_more_show_less': 'Show less',
+  'learn_more_orientation_video': 'Orientation video',
+  'learn_more_opens_browser': 'Opens in your browser',
+  'learn_more_unable_open': 'Unable to open this link.',
+  'learn_more_no_internet': 'No internet connection or link unavailable.',
+  'learn_more_video_semantics': '{title}, {tag}{duration}, opens in your browser',
+  'learn_more_link_semantics': '{title}, {domain}, opens in your browser',
+  'learn_more_minutes': '{count} minutes',
+  'learn_more_seconds': '{count} seconds',
 };

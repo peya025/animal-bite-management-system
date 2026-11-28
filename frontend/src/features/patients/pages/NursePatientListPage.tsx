@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 import {
   Alert,
@@ -6,9 +6,13 @@ import {
   Button,
   Chip,
   CircularProgress,
+  FormControl,
   IconButton,
   InputAdornment,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Snackbar,
   Stack,
   Tab,
@@ -28,15 +32,32 @@ import {
   Search01Icon,
   RefreshIcon,
   ViewIcon,
+  Cancel01Icon,
 } from '@hugeicons/core-free-icons';
 import { DataTable, TablePager } from '../../../components/data-display';
 import type { ColumnDef } from '../../../components/data-display';
 import VaccinationRecordForm from '../../vaccinations/components/VaccinationRecordForm';
 import TagoloanTreatmentCardModal from '../../vaccinations/components/TagoloanTreatmentCardModal';
-import { useNavigate } from 'react-router-dom';
+import ReturningPatientCheckInModal from '../components/ReturningPatientCheckInModal';
+import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
+import StatCard from '../../../components/common/StatCard/StatCard';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../../../shared/config/routes';
+import { useClinicModuleConfig } from '../../../hooks/useClinicModuleConfig';
+import { highlightRecordElement } from '../../../shared/utils/notificationNavigation';
+import { useAuth } from '../../../shared/contexts/AuthContext';
+import { useEcho } from '../../../shared/hooks/useEcho';
 
 import api from '../../../shared/services/api';
+import {
+  extractDateString,
+  getManilaDateString,
+  getStation2RowActionState,
+  isAppointmentDueForCheckIn,
+  isFollowUpAppointment,
+  resolveStation2CheckInEndpoint,
+  selectStation2NextAppointment,
+} from '../utils/station2FollowUpRouting';
 
 interface Patient {
   patient_id: number;
@@ -61,9 +82,15 @@ interface Patient {
 
 export default function NursePatientListPage() {
   const navigate = useNavigate();
+  const { user, clinic } = useAuth();
+  const { echo, isConnected } = useEcho();
+  const clinicId = clinic?.id ?? user?.clinic_id ?? null;
+  const { isTreatmentModuleEnabled } = useClinicModuleConfig();
+  const treatmentEnabled = isTreatmentModuleEnabled();
 
-  // Station 2 begins with the patients expected for a follow-up dose today.
-  const [tab, setTab] = useState<'needs_action' | 'due_today' | 'online' | 'upcoming' | 'overdue' | 'all'>('due_today');
+  // Default to Due Today so nurses immediately see patients requiring dose administration today
+  const [tab, setTab] = useState<'due_today' | 'online' | 'upcoming' | 'overdue' | 'all'>('due_today');
+  const [doseFilter, setDoseFilter] = useState<'all' | '3' | '7' | 'booster'>('all');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -75,10 +102,12 @@ export default function NursePatientListPage() {
   const [selectedCardPatientId, setSelectedCardPatientId] = useState<number | null>(null);
   const [showTreatmentCardModal, setShowTreatmentCardModal] = useState(false);
   const [checkingInId, setCheckingInId] = useState<number | null>(null);
+  const [checkInTarget, setCheckInTarget] = useState<{ patient: Patient; endpoint: string } | null>(null);
+  const [patientToCancelCheckIn, setPatientToCancelCheckIn] = useState<Patient | null>(null);
+  const [cancellingCheckInId, setCancellingCheckInId] = useState<number | null>(null);
 
   // Stats for top summary cards
   const [kpiStats, setKpiStats] = useState({
-    needsAction: 0,
     dueToday: 0,
     online: 0,
     upcoming: 0,
@@ -92,6 +121,26 @@ export default function NursePatientListPage() {
   const toast = (message: string, severity: 'success' | 'error' = 'success') =>
     setSnackbar({ open: true, message, severity });
 
+  const [searchParams] = useSearchParams();
+  const patientIdParam = searchParams.get('patient_id');
+  const tabParam = searchParams.get('tab');
+  const doseParam = searchParams.get('dose');
+
+  const [statusChangeAlert, setStatusChangeAlert] = useState<string | null>(null);
+  const [patientNotFound, setPatientNotFound] = useState(false);
+
+  useEffect(() => {
+    if (tabParam && ['due_today', 'online', 'upcoming', 'overdue', 'all'].includes(tabParam)) {
+      setTab(tabParam as any);
+    }
+  }, [tabParam]);
+
+  useEffect(() => {
+    if (doseParam && ['all', '3', '7', 'booster'].includes(doseParam)) {
+      setDoseFilter(doseParam as any);
+    }
+  }, [doseParam]);
+
   const loadPatients = async () => {
     setLoading(true);
     try {
@@ -99,16 +148,29 @@ export default function NursePatientListPage() {
         params: {
           tab,
           search: search || undefined,
+          dose: doseFilter !== 'all' ? doseFilter : undefined,
           page: page + 1,
           per_page: rowsPerPage,
+          patient_id: patientIdParam || undefined,
         },
       });
       const dataList = response.data.data || [];
       setPatients(dataList);
       setTotalCount(response.data.total || 0);
 
+      if (response.data.target_page && response.data.target_page - 1 !== page) {
+        setPage(response.data.target_page - 1);
+      }
+      if (response.data.target_status_changed) {
+        setStatusChangeAlert(`Notice: Patient ${response.data.target_patient_name || ''} was scheduled for this visit, but their status has changed or their vaccination dose was already completed.`);
+      } else {
+        setStatusChangeAlert(null);
+      }
+      if (response.data.target_not_found) {
+        setPatientNotFound(true);
+      }
+
       setKpiStats({
-        needsAction: response.data.needs_action_count ?? 0,
         dueToday: response.data.due_today_count ?? 0,
         online: response.data.online_count ?? 0,
         upcoming: response.data.upcoming_count ?? 0,
@@ -122,39 +184,132 @@ export default function NursePatientListPage() {
     }
   };
 
-  const handleCheckIn = async (patient: Patient) => {
-    setCheckingInId(patient.patient_id);
-    try {
-      const response = await api.post(`/appointments/patient/${patient.patient_id}/check-in`);
-      const msg = response.data?.message || 'Patient checked in successfully';
-      toast(msg, 'success');
+  useEffect(() => {
+    if (!patientIdParam || loading || patients.length === 0) return;
+    const targetId = parseInt(patientIdParam, 10);
+    const exists = patients.some(p => p.patient_id === targetId);
+    if (exists) {
+      setTimeout(() => {
+        highlightRecordElement(`nurse-patient-${targetId}`);
+      }, 350);
+    }
+  }, [patientIdParam, loading, patients]);
 
-      // A confirmed appointment is now ready for vaccination. Move the nurse
-      // directly to the Due Today worklist so Form 3 is immediately available.
-      setPage(0);
-      if (tab === 'due_today' && page === 0) {
-        await loadPatients();
-      } else {
-        setTab('due_today');
-      }
+  const handleCheckIn = (patient: Patient) => {
+    const appt = getNextAppointment(patient);
+    const todayStr = getManilaDateString();
+
+    if (appt && !isFollowUpAppointment(appt)) {
+      toast(
+        'Mobile bite consultations must be checked in from Registration using the submitted bite intake before they enter the Doctor queue.',
+        'error',
+      );
+      return;
+    }
+
+    if (appt && !isAppointmentDueForCheckIn(appt, todayStr)) {
+      const scheduledDate = parseAppointmentDate(appt);
+      const scheduledLabel = scheduledDate
+        ? scheduledDate.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })
+        : 'a future date';
+      toast(`This follow-up dose is scheduled for ${scheduledLabel} and cannot be checked in before its scheduled date.`, 'error');
+      return;
+    }
+
+    const endpoint = resolveStation2CheckInEndpoint(patient.patient_id, appt);
+    setCheckInTarget({ patient, endpoint });
+  };
+
+  const handleCancelCheckIn = async () => {
+    if (!patientToCancelCheckIn) return;
+    setCancellingCheckInId(patientToCancelCheckIn.patient_id);
+    try {
+      const response = await api.post(`/appointments/patient/${patientToCancelCheckIn.patient_id}/cancel-check-in`);
+      const msg = response.data?.message || 'Check-in cancelled successfully';
+      toast(msg, 'success');
+      setPatientToCancelCheckIn(null);
+      await loadPatients();
     } catch (err: any) {
-      toast(err.response?.data?.message || 'Failed to check in patient', 'error');
+      toast(err.response?.data?.message || 'Failed to cancel check-in', 'error');
     } finally {
-      setCheckingInId(null);
+      setCancellingCheckInId(null);
     }
   };
 
   useEffect(() => {
     loadPatients();
-  }, [tab, page, rowsPerPage]);
+  }, [tab, page, rowsPerPage, doseFilter]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) loadPatients();
     };
+    const interval = setInterval(() => {
+      if (!document.hidden) loadPatients();
+    }, 30000);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [tab, page, rowsPerPage]);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [tab, page, rowsPerPage, doseFilter]);
+
+  // Real-time WebSocket live updates for appointments and queue changes
+  const liveReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasConnectedRef = useRef<boolean>(false);
+
+  const scheduleLoadPatients = useCallback(() => {
+    if (liveReloadTimerRef.current) {
+      clearTimeout(liveReloadTimerRef.current);
+    }
+    liveReloadTimerRef.current = setTimeout(() => {
+      void loadPatients();
+      liveReloadTimerRef.current = null;
+    }, 250);
+  }, []);
+
+  // Reconnection recovery
+  useEffect(() => {
+    if (isConnected && !wasConnectedRef.current) {
+      void loadPatients();
+    }
+    wasConnectedRef.current = isConnected;
+  }, [isConnected]);
+
+  useEffect(() => {
+    if (!echo || !clinicId) return;
+
+    const channelName = `clinic.${clinicId}.queue`;
+    let channel: any;
+
+    const handleLiveEvent = () => {
+      scheduleLoadPatients();
+    };
+
+    try {
+      channel = echo.private(channelName);
+      channel.listen('.appointment.changed', handleLiveEvent);
+      channel.listen('.queue.updated', handleLiveEvent);
+    } catch (err) {
+      console.warn('[Echo] NursePatientListPage subscription warning:', err);
+    }
+
+    return () => {
+      if (liveReloadTimerRef.current) {
+        clearTimeout(liveReloadTimerRef.current);
+      }
+      if (channel) {
+        try {
+          channel.stopListening('.appointment.changed', handleLiveEvent);
+          channel.stopListening('.queue.updated', handleLiveEvent);
+        } catch {}
+      }
+    };
+  }, [echo, clinicId, scheduleLoadPatients]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -189,26 +344,24 @@ export default function NursePatientListPage() {
   };
 
   const getNextAppointment = (patient: Patient) => {
-    if (!patient.appointments || patient.appointments.length === 0) return null;
-    const scheduledAppts = patient.appointments.filter((a: any) => a.status === 'scheduled' || a.status === 'missed' || a.status === 'confirmed');
-    if (scheduledAppts.length === 0) return null;
-    // Prefer the soonest scheduled appointment (e.g. earliest scheduled_date or appointment_date)
-    scheduledAppts.sort((a: any, b: any) => {
-      const dateA = new Date(a.scheduled_date || a.appointment_date || 0).getTime();
-      const dateB = new Date(b.scheduled_date || b.appointment_date || 0).getTime();
-      return dateA - dateB;
-    });
-    return scheduledAppts[0];
+    return selectStation2NextAppointment(patient.appointments);
+  };
+
+  const parseAppointmentDate = (appt?: { scheduled_date?: string | null; appointment_date?: string | null } | null): Date | null => {
+    const rawDate = appt?.scheduled_date || appt?.appointment_date;
+    if (!rawDate) return null;
+    const parsed = new Date(rawDate);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   };
 
   const getVaccinationStatus = (patient: Patient): { label: string; color: string; bg: string; border: string; subtext?: string } => {
     const activeQueue = (patient as any).queues?.[0];
     const appt = getNextAppointment(patient);
     if (activeQueue) {
-      const apptDate = appt ? new Date(appt.scheduled_date || appt.appointment_date) : null;
+      const apptDate = parseAppointmentDate(appt);
       const todayDate = new Date();
-      const isPastAppt = apptDate && apptDate < todayDate && apptDate.toDateString() !== todayDate.toDateString();
-      const lateDays = isPastAppt ? Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+      const isPastAppt = Boolean(apptDate && apptDate < todayDate && apptDate.toDateString() !== todayDate.toDateString());
+      const lateDays = apptDate && isPastAppt ? Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
 
       if (activeQueue.status === 'waiting') {
         if (isPastAppt) {
@@ -238,8 +391,8 @@ export default function NursePatientListPage() {
     }
 
     if (!record || record.dose_number === null || record.dose_number === undefined) {
-      if (appt) {
-        const apptDate = new Date(appt.scheduled_date || appt.appointment_date);
+      const apptDate = parseAppointmentDate(appt);
+      if (apptDate) {
         const today = new Date();
         if (apptDate < today && apptDate.toDateString() !== today.toDateString()) {
           const lateDays = Math.floor((today.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -269,12 +422,12 @@ export default function NursePatientListPage() {
     }
 
     if (appt) {
-      const apptDate = new Date(appt.scheduled_date || appt.appointment_date);
+      const apptDate = parseAppointmentDate(appt);
       const today = new Date();
-      const isToday = apptDate.toDateString() === today.toDateString();
-      const isPast = apptDate < today && !isToday;
+      const isToday = Boolean(apptDate && apptDate.toDateString() === today.toDateString());
+      const isPast = Boolean(apptDate && apptDate < today && !isToday);
 
-      if (isPast) {
+      if (apptDate && isPast) {
         const lateDays = Math.floor((today.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24));
         return { label: 'Overdue', color: '#991b1b', bg: '#fef2f2', border: '#fecaca', subtext: `${lateDays}d Past Schedule` };
       }
@@ -302,7 +455,7 @@ export default function NursePatientListPage() {
       align: 'center',
       width: '100px',
       render: (patient) => (
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+        <Box data-walkthrough="nurse-col-patient-id" sx={{ display: 'flex', justifyContent: 'center' }}>
           <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.25, bgcolor: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 1.5, fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: '#374151' }}>
             #{patient.patient_id}
           </Box>
@@ -321,7 +474,7 @@ export default function NursePatientListPage() {
           ((patient as any).accounts && (patient as any).accounts.length > 0)
         );
         return (
-          <Box>
+          <Box data-walkthrough="nurse-col-patient-name">
             <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mb: 0.25 }}>
               <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: '#111827', lineHeight: 1.3 }}>
                 {patient.last_name}, {patient.first_name} {patient.middle_name || ''}
@@ -369,7 +522,7 @@ export default function NursePatientListPage() {
         const status = getDoseStatus(patient);
         const record = patient.latest_treatment_record;
         return (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 44 }}>
+          <Box data-walkthrough="nurse-col-last-dose" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 44 }}>
             <Chip
               label={status.label}
               size="small"
@@ -395,7 +548,7 @@ export default function NursePatientListPage() {
       render: (patient) => {
         const status = getVaccinationStatus(patient);
         return (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 44 }}>
+          <Box data-walkthrough="nurse-col-status" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 44 }}>
             <Chip
               label={status.label}
               size="small"
@@ -423,10 +576,10 @@ export default function NursePatientListPage() {
           return <Typography sx={{ fontSize: 12, color: '#9ca3af' }}>—</Typography>;
         }
 
-        const apptDate = new Date(appt.scheduled_date || appt.appointment_date);
+        const apptDate = parseAppointmentDate(appt);
         const todayDate = new Date();
-        const isToday = apptDate.toDateString() === todayDate.toDateString();
-        const isPast = apptDate < todayDate && !isToday;
+        const isToday = Boolean(apptDate && apptDate.toDateString() === todayDate.toDateString());
+        const isPast = Boolean(apptDate && apptDate < todayDate && !isToday);
 
         const doseMap: Record<number, string> = {
           0: 'Day 0 (Initial)',
@@ -458,7 +611,7 @@ export default function NursePatientListPage() {
 
         if (appt.status === 'confirmed') {
           return (
-            <Box>
+            <Box data-walkthrough="nurse-col-next-appointment">
               <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#047857' }}>
                 {appointmentTitle}
               </Typography>
@@ -474,12 +627,12 @@ export default function NursePatientListPage() {
 
         if (isCurrentlyInClinic) {
           return (
-            <Box>
+            <Box data-walkthrough="nurse-col-next-appointment">
               <Typography sx={{ fontSize: 13, fontWeight: 600, color: isPast ? '#b45309' : '#047857' }}>
                 {appointmentTitle}
               </Typography>
               <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: isPast ? '#d97706' : '#059669' }}>
-                {isPast 
+                {isPast && apptDate
                   ? `In Clinic Today (Queue #${activeQueue.queue_number || ''} · ${Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24))}d Late Arrival)` 
                   : `In Clinic Today (Queue #${activeQueue.queue_number || ''})`}
               </Typography>
@@ -488,16 +641,18 @@ export default function NursePatientListPage() {
         }
 
         return (
-          <Box>
+          <Box data-walkthrough="nurse-col-next-appointment">
             <Typography sx={{ fontSize: 13, fontWeight: 600, color: isPast ? '#991b1b' : isToday ? '#047857' : '#111827' }}>
               {appointmentTitle}
             </Typography>
             <Typography sx={{ fontSize: 11.5, fontWeight: isToday || isPast ? 700 : 400, color: isPast ? '#dc2626' : isToday ? '#059669' : '#6b7280' }}>
               {isToday
                 ? `Scheduled Today (${appt.time_slot || 'regular'})`
-                : isPast
+                : isPast && apptDate
                 ? `Missed / No Show (${Math.floor((todayDate.getTime() - apptDate.getTime()) / (1000 * 60 * 60 * 24))}d ago)`
-                : apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                : apptDate
+                ? apptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                : 'Unscheduled'}
             </Typography>
             {appt.schedule_drift_days && appt.schedule_drift_days !== 0 ? (
               <Tooltip title={appt.schedule_adjustment_reason || 'Schedule adjusted for clinic operating hours'}>
@@ -515,14 +670,13 @@ export default function NursePatientListPage() {
       header: 'ACTIONS',
       align: 'center',
       render: (patient) => {
-        const activeQueue = (patient as any).queues?.[0];
         const appt = getNextAppointment(patient);
-        const isBoosterAppt = appt?.appointment_type === 'booster' || appt?.notes?.toLowerCase()?.includes('booster');
+        const todayStr = getManilaDateString();
+        const actionState = getStation2RowActionState(patient, treatmentEnabled, todayStr);
 
-        // Defensive UI guard for old appointments that may still be returned by
-        // a saved filter: a booster must be registered and approved in Form 2,
+        // Defensive UI guard: boosters must be registered and approved in Form 2,
         // never checked in or recorded directly from Station 2.
-        if (isBoosterAppt) {
+        if (actionState === 'booster_requires_doctor') {
           return (
             <Tooltip title="Register the booster request, then wait for Doctor assessment and Form 2 approval.">
               <Chip
@@ -533,29 +687,54 @@ export default function NursePatientListPage() {
             </Tooltip>
           );
         }
-        const hasCompletedTriage = Boolean(
-          patient.latest_treatment_record ||
-          (patient as any).latestTreatmentRecord ||
-          (patient as any).latest_consultation_record ||
-          (patient as any).latestConsultationRecord ||
-          activeQueue?.visit_type === 'vaccination' ||
-          activeQueue?.consultation_notes?.includes('Form 2')
-        );
-        const isCheckedIn = appt?.status === 'confirmed';
-        const needsCheckIn = hasCompletedTriage && !isCheckedIn && (appt?.status === 'scheduled' || appt?.status === 'missed');
 
-        const record = patient.latest_treatment_record;
-        const isPrimaryComplete = record && record.dose_number >= 7 && record.dose_number < 90;
-        const isBoosterComplete = record && (record.dose_number >= 365 || (record.dose_number >= 90 && !appt));
-        const isSeriesCompleted = Boolean(
-          patient.status?.toLowerCase() === 'completed' ||
-          ((isPrimaryComplete || isBoosterComplete) && !appt)
-        );
+        // Defensive UI guard: mobile bite consultations must be checked in at Registration
+        // using the submitted bite intake before entering the Doctor queue.
+        if (actionState === 'consultation_requires_registration') {
+          return (
+            <Stack data-walkthrough="nurse-col-actions" direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center' }}>
+              <Tooltip title="Mobile bite consultations must be checked in from Registration using the submitted bite intake before entering the Doctor queue.">
+                <Chip
+                  label="Check in at Registration"
+                  size="small"
+                  sx={{ fontSize: 10.5, fontWeight: 700, bgcolor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}
+                />
+              </Tooltip>
+              <Tooltip title="View Treatment Record Card (Printable)">
+                <IconButton
+                  data-walkthrough="nurse-action-view-card"
+                  size="small"
+                  onClick={() => {
+                    setSelectedCardPatientId(patient.patient_id);
+                    setShowTreatmentCardModal(true);
+                  }}
+                  sx={{
+                    color: '#4b5563',
+                    bgcolor: '#f3f4f6',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 1.5,
+                    width: 32,
+                    height: 32,
+                    '&:hover': { bgcolor: '#e5e7eb', color: '#111827' },
+                  }}
+                >
+                  <HugeiconsIcon icon={ViewIcon} size={15} />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          );
+        }
+
+        const futureDateStr = extractDateString(appt?.scheduled_date || appt?.appointment_date);
+        const futureDateLabel = futureDateStr
+          ? new Date(`${futureDateStr}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : '';
 
         return (
-          <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center' }}>
-            {isSeriesCompleted ? (
+          <Stack data-walkthrough="nurse-col-actions" direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center' }}>
+            {actionState === 'series_completed' ? (
               <Button
+                data-walkthrough="nurse-action-view-card"
                 size="small"
                 variant="outlined"
                 onClick={() => {
@@ -576,10 +755,11 @@ export default function NursePatientListPage() {
                   '&:hover': { bgcolor: '#dbeafe', borderColor: '#60a5fa' },
                 }}
               >
-                Completed · Record Card
+                Completed · View Card
               </Button>
-            ) : needsCheckIn ? (
+            ) : actionState === 'check_in' ? (
               <Button
+                data-walkthrough="nurse-action-checkin"
                 size="small"
                 variant="contained"
                 disabled={checkingInId === patient.patient_id}
@@ -591,57 +771,80 @@ export default function NursePatientListPage() {
                   textTransform: 'none',
                   fontWeight: 600,
                   borderRadius: '6px',
-                  bgcolor: '#6366f1',
+                  bgcolor: '#10b981',
                   color: '#ffffff',
-                  '&:hover': { bgcolor: '#4f46e5' },
+                  '&:hover': { bgcolor: '#059669' },
                 }}
               >
                 {checkingInId === patient.patient_id ? 'Checking in...' : 'Check In'}
               </Button>
-            ) : hasCompletedTriage ? (
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => {
-                  setSelectedPatient(patient);
-                  setShowForm3(true);
-                }}
-                startIcon={<HugeiconsIcon icon={Medicine01Icon} size={15} />}
-                sx={{
-                  fontSize: 12,
-                  py: 0.4,
-                  px: 1.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  borderRadius: '6px',
-                  borderColor: '#bbf7d0',
-                  color: '#166534',
-                  bgcolor: '#f0fdf4',
-                  '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
-                }}
-              >
-                Record Dose (Form 3)
-              </Button>
-            ) : (
-              <Tooltip title="Patient must complete Doctor Assessment & Form 2 before initial Dose 1. Direct to Intake Station (Nurse 1).">
+            ) : actionState === 'scheduled_future' ? (
+              <Tooltip title="Follow-up dose can be checked in on or after its scheduled date.">
                 <Chip
-                  label="Intake — Nurse 1"
+                  label={futureDateLabel ? `Scheduled · ${futureDateLabel}` : 'Scheduled'}
                   size="small"
-                  sx={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    height: 26,
-                    color: '#475569',
-                    borderColor: '#cbd5e1',
-                    bgcolor: '#f1f5f9',
-                    border: '1px solid #cbd5e1',
-                  }}
+                  sx={{ fontSize: 11, fontWeight: 600, bgcolor: '#f3f4f6', color: '#4b5563', border: '1px solid #e5e7eb' }}
                 />
               </Tooltip>
-            )}
+            ) : actionState === 'checked_in' ? (
+              <>
+                {treatmentEnabled && (
+                  <Button
+                    data-walkthrough="nurse-action-record-dose"
+                    size="small"
+                    variant="outlined"
+                    onClick={() => {
+                      setSelectedPatient(patient);
+                      setShowForm3(true);
+                    }}
+                    startIcon={<HugeiconsIcon icon={Medicine01Icon} size={15} />}
+                    sx={{
+                      fontSize: 12,
+                      py: 0.4,
+                      px: 1.5,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      borderColor: '#bbf7d0',
+                      color: '#166534',
+                      bgcolor: '#f0fdf4',
+                      '&:hover': { bgcolor: '#dcfce7', borderColor: '#86efac' },
+                    }}
+                  >
+                    Record Dose (Form 3)
+                  </Button>
+                )}
+
+                <Tooltip title="Cancel check-in (mistakenly clicked check-in)">
+                  <Button
+                    data-walkthrough="nurse-action-cancel-checkin"
+                    size="small"
+                    variant="outlined"
+                    disabled={cancellingCheckInId === patient.patient_id}
+                    onClick={() => setPatientToCancelCheckIn(patient)}
+                    startIcon={<HugeiconsIcon icon={Cancel01Icon} size={14} />}
+                    sx={{
+                      fontSize: 12,
+                      py: 0.4,
+                      px: 1.2,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      borderColor: '#fecaca',
+                      color: '#dc2626',
+                      bgcolor: '#fef2f2',
+                      '&:hover': { bgcolor: '#fee2e2', borderColor: '#f87171' },
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Tooltip>
+              </>
+            ) : null}
 
             <Tooltip title="View Treatment Record Card (Printable)">
               <IconButton
+                data-walkthrough="nurse-action-view-card"
                 size="small"
                 onClick={() => {
                   setSelectedCardPatientId(patient.patient_id);
@@ -666,7 +869,47 @@ export default function NursePatientListPage() {
     },
   ];
 
-  const filteredPatients = patients;
+  const getPatientTargetDose = (patient: Patient): '3' | '7' | 'booster' | 'other' => {
+    const appt = getNextAppointment(patient);
+    if (appt) {
+      const isBoosterAppt = appt.appointment_type === 'booster' ||
+        appt.notes?.toLowerCase()?.includes('booster') ||
+        (typeof appt.dose_number === 'number' && appt.dose_number >= 90);
+      if (isBoosterAppt) return 'booster';
+
+      const notes = (appt.notes || '').toLowerCase();
+      if (appt.dose_number === 3 || notes.includes('day 3') || notes.includes('dose 1')) return '3';
+      if (appt.dose_number === 7 || notes.includes('day 7') || notes.includes('dose 2')) return '7';
+
+      // Fallback based on latest administered dose if appointment has no dose_number
+      const prevDose = patient.latest_treatment_record?.dose_number;
+      if (prevDose === 0) return '3';
+      if (prevDose === 3) return '7';
+      if (prevDose !== undefined && prevDose !== null && prevDose >= 7) return 'booster';
+    }
+
+    const activeQueue = (patient as any).queues?.[0];
+    if (activeQueue) {
+      const notes = ((activeQueue.check_in_notes || '') + ' ' + (activeQueue.consultation_notes || '')).toLowerCase();
+      if (activeQueue.visit_type === 'booster' || notes.includes('booster')) return 'booster';
+      if (notes.includes('day 3') || notes.includes('dose 1')) return '3';
+      if (notes.includes('day 7') || notes.includes('dose 2')) return '7';
+    }
+
+    const prevDose = patient.latest_treatment_record?.dose_number;
+    if (prevDose === 0) return '3';
+    if (prevDose === 3) return '7';
+    if (prevDose !== undefined && prevDose !== null && prevDose >= 7) return 'booster';
+
+    return 'other';
+  };
+
+  const isMatchDose = (patient: Patient, filter: 'all' | '3' | '7' | 'booster') => {
+    if (filter === 'all') return true;
+    return getPatientTargetDose(patient) === filter;
+  };
+
+  const filteredPatients = patients.filter((p) => isMatchDose(p, doseFilter));
 
   return (
     <Box sx={{ px: 3 }}>
@@ -674,26 +917,33 @@ export default function NursePatientListPage() {
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography
+            data-walkthrough="nurse-header"
             component="h1"
-            variant="h4"
             sx={{
-              fontSize: '24px',
-              fontWeight: 700,
-              color: 'var(--text-h)',
-              letterSpacing: '-0.02em',
+              fontFamily: 'Poppins',
+              fontSize: '22px',
+              fontWeight: 600,
+              lineHeight: 1.25,
+              letterSpacing: '-0.5px',
+              color: 'var(--text-h, #111827)',
               mb: 0.5,
             }}
           >
             Station 2 · Follow-up Doses
           </Typography>
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: '#77877d', margin: 0 }}>
-            {today} · Indigo Station 2: manage Doctor-prescribed scheduled follow-up doses due today, overdue, or upcoming
-          </Typography>
           {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '13px' }}>
             <button
               onClick={() => navigate(ROUTES.DASHBOARD)}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: '#3b82f6',
+                fontFamily: 'Poppins',
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
             >
               Dashboard
             </button>
@@ -704,19 +954,52 @@ export default function NursePatientListPage() {
           </div>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {loading && <CircularProgress size={18} sx={{ color: '#6366f1' }} />}
+          {loading && <CircularProgress size={18} sx={{ color: '#10b981' }} />}
           <Tooltip title="Refresh Patients List">
-            <IconButton onClick={loadPatients} disabled={loading} sx={{ bgcolor: 'var(--card-bg-solid, #ffffff)', border: '1px solid var(--border-glow, #e0eae3)', borderRadius: 2, color: 'var(--text-m, #6b7280)' }}>
+            <IconButton data-walkthrough="nurse-refresh-btn" onClick={loadPatients} disabled={loading} sx={{ bgcolor: 'var(--card-bg-solid, #ffffff)', border: '1px solid var(--border-glow, #e0eae3)', borderRadius: 2, color: 'var(--text-m, #6b7280)' }}>
               <HugeiconsIcon icon={RefreshIcon} size={18} />
             </IconButton>
           </Tooltip>
         </Box>
       </Box>
 
-      {/* ── Top Circular Ring Summary Cards (Matching Vaccine Inventory & Queue Design) ── */}
+      {!treatmentEnabled && (
+        <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 2 }}>
+          <strong>Treatment Module is currently disabled for this clinic.</strong> Direct nurse check-ins and new Form 3 dose recording are disabled while patient schedules and history remain accessible in read-only mode.
+        </Alert>
+      )}
+
+      {statusChangeAlert && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2.5, borderRadius: 2 }}
+          onClose={() => setStatusChangeAlert(null)}
+        >
+          {statusChangeAlert}
+        </Alert>
+      )}
+
+      {/* ── Top Circular Ring Summary Cards ── */}
+      <Box data-walkthrough="nurse-kpi-cards" sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 3 }}>
+        <Box data-walkthrough="nurse-kpi-due-today" sx={{ cursor: 'pointer' }} onClick={() => { setTab('due_today'); setPage(0); }}>
+          <StatCard label="DUE TODAY" value={kpiStats.dueToday} color="info" total={totalCount || 1} loading={loading} />
+        </Box>
+        <Box data-walkthrough="nurse-kpi-overdue" sx={{ cursor: 'pointer' }} onClick={() => { setTab('overdue'); setPage(0); }}>
+          <StatCard label="OVERDUE DOSES" value={kpiStats.overdue} color="error" total={totalCount || 1} loading={loading} />
+        </Box>
+        <Box data-walkthrough="nurse-kpi-online" sx={{ cursor: 'pointer' }} onClick={() => { setTab('online'); setPage(0); }}>
+          <StatCard label="ONLINE APPOINTMENTS" value={kpiStats.online} color="primary" total={totalCount || 1} loading={loading} />
+        </Box>
+        <Box data-walkthrough="nurse-kpi-upcoming" sx={{ cursor: 'pointer' }} onClick={() => { setTab('upcoming'); setPage(0); }}>
+          <StatCard label="UPCOMING DOSES" value={kpiStats.upcoming} color="success" total={totalCount || 1} loading={loading} />
+        </Box>
+        <Box data-walkthrough="nurse-kpi-total" sx={{ cursor: 'pointer' }} onClick={() => { setTab('all'); setPage(0); }}>
+          <StatCard label="TOTAL TRACKED" value={totalCount} color="info" total={totalCount || 1} loading={loading} />
+        </Box>
+      </Box>
 
       {/* ── Tabs Bar with Soft Count Badges ── */}
-      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', mb: 3 }}>
+      <Paper data-walkthrough="nurse-tabs-bar" elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', mb: 3 }}>
         <Tabs
           value={tab}
           onChange={(_, v) => { setTab(v); setPage(0); }}
@@ -729,8 +1012,8 @@ export default function NursePatientListPage() {
               fontSize: 13.5,
               minHeight: 48,
             },
-            '& .Mui-selected': { color: '#6366f1' },
-            '& .MuiTabs-indicator': { bgcolor: '#6366f1', height: 3, borderRadius: '3px 3px 0 0' },
+            '& .Mui-selected': { color: '#10b981' },
+            '& .MuiTabs-indicator': { bgcolor: '#10b981', height: 3, borderRadius: '3px 3px 0 0' },
           }}
         >
           <Tab
@@ -749,20 +1032,6 @@ export default function NursePatientListPage() {
           <Tab
             label={
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <span>Needs Action</span>
-                <Box sx={{ bgcolor: tab === 'needs_action' ? '#fef3c7' : '#f3f4f6', color: tab === 'needs_action' ? '#b45309' : '#6b7280', px: 1, py: 0.1, borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
-                  {kpiStats.needsAction}
-                </Box>
-              </Stack>
-            }
-            value="needs_action"
-            sx={{ display: 'none' }}
-            icon={<HugeiconsIcon icon={AlertCircleIcon} size={17} />}
-            iconPosition="start"
-          />
-          <Tab
-            label={
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                 <span>Online Bookings</span>
                 <Box sx={{ bgcolor: tab === 'online' ? '#e0f2fe' : '#f3f4f6', color: tab === 'online' ? '#0284c7' : '#6b7280', px: 1, py: 0.1, borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
                   {kpiStats.online}
@@ -770,7 +1039,6 @@ export default function NursePatientListPage() {
               </Stack>
             }
             value="online"
-            sx={{ display: 'none' }}
             icon={<HugeiconsIcon icon={SmartPhone01Icon} size={17} />}
             iconPosition="start"
           />
@@ -810,7 +1078,6 @@ export default function NursePatientListPage() {
               </Stack>
             }
             value="all"
-            sx={{ display: 'none' }}
             icon={<HugeiconsIcon icon={UserMultiple02Icon} size={17} />}
             iconPosition="start"
           />
@@ -818,10 +1085,11 @@ export default function NursePatientListPage() {
       </Paper>
 
       {/* ── Patient Table Container ── */}
-      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>
-        {/* Search Bar */}
-        <Box sx={{ mb: 3 }}>
+      <Paper data-walkthrough="nurse-table-container" elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', background: 'background.paper', p: 3 }}>
+        {/* Search Bar & Dose Filter */}
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 3, alignItems: 'stretch' }}>
           <TextField
+            data-walkthrough="nurse-search-bar"
             fullWidth
             size="small"
             placeholder="Search by name, patient number, or contact phone..."
@@ -837,17 +1105,58 @@ export default function NursePatientListPage() {
               },
             }}
             sx={{
+              flex: 1,
               '& .MuiOutlinedInput-root': {
                 bgcolor: '#f9fafb',
                 borderRadius: 2,
                 fontSize: 13,
+                height: 40,
                 '& fieldset': { borderColor: '#e5e7eb' },
                 '&:hover fieldset': { borderColor: '#9ca3af' },
-                '&.Mui-focused fieldset': { borderColor: '#6366f1', borderWidth: '1.5px' },
+                '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: '1.5px' },
               },
             }}
           />
-        </Box>
+
+          <FormControl data-walkthrough="nurse-dose-filter" size="small" sx={{ minWidth: { xs: '100%', sm: 220 } }}>
+            <InputLabel id="dose-filter-label" sx={{ fontSize: 13, fontWeight: 500 }}>
+              Dose Filter
+            </InputLabel>
+            <Select
+              labelId="dose-filter-label"
+              id="dose-filter-select"
+              value={doseFilter}
+              label="Dose Filter"
+              onChange={(e) => {
+                setDoseFilter(e.target.value as 'all' | '3' | '7' | 'booster');
+                setPage(0);
+              }}
+              sx={{
+                bgcolor: '#f9fafb',
+                borderRadius: 2,
+                fontSize: 13,
+                fontWeight: 600,
+                height: 40,
+                '& fieldset': { borderColor: '#e5e7eb' },
+                '&:hover fieldset': { borderColor: '#9ca3af' },
+                '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: '1.5px' },
+              }}
+            >
+              <MenuItem value="all" sx={{ fontSize: 13 }}>
+                All Doses
+              </MenuItem>
+              <MenuItem value="3" sx={{ fontSize: 13, fontWeight: 600, color: '#047857' }}>
+                Day 3 (Dose 1)
+              </MenuItem>
+              <MenuItem value="7" sx={{ fontSize: 13, fontWeight: 600, color: '#1d4ed8' }}>
+                Day 7 (Dose 2)
+              </MenuItem>
+              <MenuItem value="booster" sx={{ fontSize: 13, fontWeight: 600, color: '#7c3aed' }}>
+                Booster Doses
+              </MenuItem>
+            </Select>
+          </FormControl>
+        </Stack>
 
         <DataTable
           columns={columns}
@@ -855,9 +1164,20 @@ export default function NursePatientListPage() {
           loading={loading}
           skeletonRows={rowsPerPage}
           rowKey={(p) => p.patient_id}
+          rowId={(p) => `nurse-patient-${p.patient_id}`}
           emptyIcon={<HugeiconsIcon icon={Medicine01Icon} size={36} color="#d1d5db" />}
           emptyTitle="No patients found"
-          emptySubtitle={tab === 'due_today' ? 'No patients scheduled for dose administration today' : 'Try adjusting your search or filters'}
+          emptySubtitle={
+            tab === 'due_today'
+              ? 'No patients scheduled for dose administration today'
+              : tab === 'overdue'
+              ? 'No overdue follow-up doses'
+              : tab === 'online'
+              ? 'No online appointment bookings found'
+              : tab === 'upcoming'
+              ? 'No upcoming doses scheduled'
+              : 'Try adjusting your search or filters'
+          }
         />
 
         <TablePager
@@ -908,6 +1228,64 @@ export default function NursePatientListPage() {
             setShowTreatmentCardModal(false);
             setSelectedCardPatientId(null);
           }}
+        />
+      )}
+
+      {/* Follow-Up Check-In Vitals Modal */}
+      {checkInTarget && (
+        <ReturningPatientCheckInModal
+          open={Boolean(checkInTarget)}
+          mode="nurse"
+          patient={checkInTarget.patient as any}
+          customEndpoint={checkInTarget.endpoint}
+          onClose={() => setCheckInTarget(null)}
+          onSuccess={async (modalData) => {
+            setCheckInTarget(null);
+            toast(modalData.message || 'Patient checked in successfully', 'success');
+            setTab('due_today');
+            setPage(0);
+            await loadPatients();
+          }}
+        />
+      )}
+
+      {/* Cancel Check-in Confirmation Dialog */}
+      {patientToCancelCheckIn && (
+        <ConfirmationDialog
+          variant="warning"
+          title="Cancel Check-in?"
+          message={
+            <Box>
+              <Typography sx={{ fontSize: 14, mb: 1, color: '#374151' }}>
+                Are you sure you want to cancel the check-in for{' '}
+                <strong>
+                  {patientToCancelCheckIn.last_name}, {patientToCancelCheckIn.first_name}
+                </strong>
+                ?
+              </Typography>
+              <Typography sx={{ fontSize: 13, color: '#6b7280' }}>
+                This will remove the patient from today's treatment queue and restore their scheduled appointment.
+              </Typography>
+            </Box>
+          }
+          confirmLabel={cancellingCheckInId ? 'Cancelling...' : 'Yes, Cancel Check-in'}
+          cancelLabel="Keep Checked In"
+          loading={Boolean(cancellingCheckInId)}
+          onConfirm={handleCancelCheckIn}
+          onCancel={() => setPatientToCancelCheckIn(null)}
+          onClose={() => setPatientToCancelCheckIn(null)}
+        />
+      )}
+
+      {patientNotFound && (
+        <ConfirmationDialog
+          variant="danger"
+          title="Patient Record Not Found"
+          message={`The requested patient #${patientIdParam} could not be located in this clinic's records.`}
+          confirmLabel="Close"
+          hideCancel
+          onConfirm={() => setPatientNotFound(false)}
+          onClose={() => setPatientNotFound(false)}
         />
       )}
 

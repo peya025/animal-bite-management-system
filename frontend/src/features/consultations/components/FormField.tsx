@@ -14,6 +14,11 @@ interface FormFieldProps {
 
 type ControlProps = React.HTMLProps<HTMLInputElement> & { children?: React.ReactNode };
 
+function isFormControlElement(child: React.ReactElement<ControlProps>): boolean {
+  if (['input', 'select', 'textarea'].includes(String(child.type))) return true;
+  return Boolean((child.type as { isFormControl?: boolean })?.isFormControl);
+}
+
 export function FormField({ id, label, required, error, errorText, hint, className = '', children }: FormFieldProps) {
   const uid = useId();
   const errors = useContext(ConsultationErrors);
@@ -22,15 +27,18 @@ export function FormField({ id, label, required, error, errorText, hint, classNa
   function collect(nodes: React.ReactNode) {
     React.Children.forEach(nodes, child => {
       if (!React.isValidElement<ControlProps>(child)) return;
-      if (['input', 'select', 'textarea'].includes(String(child.type))) controls.push(child);
+      if (isFormControlElement(child)) controls.push(child);
       else collect(child.props.children);
     });
   }
   collect(children);
 
   const first = controls[0];
-  const fieldKey = first?.props.name || id?.replace(/^field-/, '');
-  const message = errorText || (fieldKey ? errors[fieldKey] : undefined);
+  const rawId = id?.replace(/^field-/, '');
+  const fieldKey = (rawId && errors[rawId] !== undefined)
+    ? rawId
+    : (first?.props.name || rawId);
+  const message = errorText || (fieldKey ? errors[fieldKey] : undefined) || (rawId ? errors[rawId] : undefined);
   const invalid = Boolean(error || message);
   const isGroup = controls.length > 1;
   const labelId = uid + '-label';
@@ -40,7 +48,7 @@ export function FormField({ id, label, required, error, errorText, hint, classNa
   function decorate(nodes: React.ReactNode): React.ReactNode {
     return React.Children.map(nodes, child => {
       if (!React.isValidElement<ControlProps>(child)) return child;
-      if (['input', 'select', 'textarea'].includes(String(child.type))) {
+      if (isFormControlElement(child)) {
         return React.cloneElement(child, {
           id: child === first ? controlId : child.props.id,
           'aria-invalid': invalid || undefined,
@@ -59,7 +67,7 @@ export function FormField({ id, label, required, error, errorText, hint, classNa
       role={isGroup ? (controls.every(control => control.props.type === 'radio') ? 'radiogroup' : 'group') : undefined}
       aria-labelledby={isGroup ? labelId : undefined}
       aria-required={isGroup && required ? true : undefined}
-      style={invalid ? { padding: '8px', border: '2px solid #ef4444', borderRadius: '8px', backgroundColor: '#fef2f2' } : undefined}
+      style={invalid && isGroup ? { padding: '8px', border: '1.5px solid #ef4444', borderRadius: '8px', backgroundColor: '#fef2f2' } : undefined}
     >
       {isGroup ? (
         <span id={labelId} className="fm-label">
@@ -73,8 +81,8 @@ export function FormField({ id, label, required, error, errorText, hint, classNa
         </label>
       )}
       {decorate(children)}
-      {hint && <span id={uid + '-hint'} className="registration-field-hint">{hint}</span>}
-      {invalid && message && <span id={uid + '-error'} className="registration-field-error">{message}</span>}
+      {hint && <span id={uid + '-hint'} className="registration-field-hint" style={{ fontFamily: "'Poppins', sans-serif" }}>{hint}</span>}
+      {invalid && message && <span id={uid + '-error'} className="registration-field-error" style={{ fontFamily: "'Poppins', sans-serif" }}>{message}</span>}
     </div>
   );
 }

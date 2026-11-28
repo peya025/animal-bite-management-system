@@ -74,7 +74,7 @@ abstract final class AppTheme {
           elevation: 0,
           shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(14),
           ),
           textStyle: const TextStyle(
             fontSize: 14,
@@ -90,23 +90,23 @@ abstract final class AppTheme {
         fillColor: AppColors.white,
         border: OutlineInputBorder(
           borderSide: const BorderSide(color: AppColors.divider, width: 0.5),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(14),
         ),
         enabledBorder: OutlineInputBorder(
           borderSide: const BorderSide(color: AppColors.divider, width: 0.5),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(14),
         ),
         focusedBorder: OutlineInputBorder(
           borderSide: const BorderSide(color: AppColors.primary, width: 1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(14),
         ),
         errorBorder: OutlineInputBorder(
           borderSide: const BorderSide(color: AppColors.error, width: 0.5),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(14),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderSide: const BorderSide(color: AppColors.error, width: 1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(14),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         hintStyle: const TextStyle(

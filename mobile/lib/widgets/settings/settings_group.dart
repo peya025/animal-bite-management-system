@@ -42,11 +42,18 @@ class SettingsGroup extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: const Color(0xFFE5E7EB),
               width: 0.5,
             ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x06111827),
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             children: [
@@ -107,13 +114,13 @@ class SettingsTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           child: Row(
             children: [
-              // 34x34 Icon Box with 10px radius
+              // 36x36 Icon Box with 12px radius
               Container(
-                width: 34,
-                height: 34,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: iconBgColor,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   border: iconBorder,
                 ),
                 alignment: Alignment.center,

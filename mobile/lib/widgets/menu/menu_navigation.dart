@@ -9,11 +9,13 @@ class MenuNavigation extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelected,
     this.showFabNotch = true,
+    this.bookTabKey,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final bool showFabNotch;
+  final GlobalKey? bookTabKey;
 
   @override
   Widget build(BuildContext context) {
@@ -65,10 +67,13 @@ class MenuNavigation extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  child: _NavigationDestination(
-                    item: items[1],
-                    selected: selectedIndex == 1,
-                    onTap: () => onSelected(1),
+                  child: KeyedSubtree(
+                    key: bookTabKey,
+                    child: _NavigationDestination(
+                      item: items[1],
+                      selected: selectedIndex == 1,
+                      onTap: () => onSelected(1),
+                    ),
                   ),
                 ),
                 if (showFabNotch) const SizedBox(width: 72),

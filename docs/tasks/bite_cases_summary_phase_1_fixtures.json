@@ -1,0 +1,684 @@
+{
+  "version": "bcs-phase1-local-v1",
+  "synthetic_only": true,
+  "timezone": "Asia/Manila",
+  "scope_note": "Normalized contract examples, not database seed data, current application output, DOH-certified formulas or clinical regimen instructions. Future-dated rows are hypothetical.",
+  "limitations": [
+    "All assessments/decisions are effective on the episode date; no revisions or late-entered evidence in this fixture.",
+    "Due dates and matching administrations align exactly here; actual dose-slot matching and historical void semantics require Phase 3 tests.",
+    "Continuing courses are a separate measure, excluded from NEW-course initiation eligibility.",
+    "Zero grace days is a fixture assumption only; the local cohort maturity definition awaits validation."
+  ],
+  "episodes": [
+    {
+      "id": "E01",
+      "patient_id": "P01",
+      "exposure_date": "2026-11-01",
+      "registered_at": "2026-11-01",
+      "date_quality": "recorded_exposure",
+      "assessment": "none",
+      "category": null,
+      "decision": "undetermined",
+      "course_id": null
+    },
+    {
+      "id": "E02",
+      "patient_id": "P02",
+      "exposure_date": "2026-11-02",
+      "registered_at": "2026-11-02",
+      "date_quality": "recorded_exposure",
+      "assessment": "draft",
+      "category": null,
+      "decision": "undetermined",
+      "course_id": null
+    },
+    {
+      "id": "E03",
+      "patient_id": "P03",
+      "exposure_date": "2026-11-03",
+      "registered_at": "2026-11-03",
+      "date_quality": "recorded_exposure",
+      "assessment": "finalized",
+      "category": null,
+      "decision": "missing",
+      "course_id": null
+    },
+    {
+      "id": "E04",
+      "patient_id": "P04",
+      "exposure_date": "2026-11-04",
+      "registered_at": "2026-11-04",
+      "date_quality": "recorded_exposure",
+      "assessment": "finalized",
+      "category": "I",
+      "decision": "no_pep",
+      "course_id": null,
+      "encounter": "closed"
+    },
+    {
+      "id": "E05",
+      "patient_id": "P05",
+      "exposure_date": "2026-11-05",
+      "registered_at": "2026-11-05",
+      "date_quality": "recorded_exposure",
+      "assessment": "finalized",
+      "category": "I",
+      "decision": "no_pep",
+      "course_id": null,
+      "encounter": "open",
+      "other_care": "TT pending"
+    },
+    {
+      "id": "E06",
+      "patient_id": "P06",
+      "exposure_date": "2026-11-06",
+      "registered_at": "2026-11-06",
+      "date_quality": "recorded_exposure",
+      "assessment": "finalized",
+      "category": "II",
+      "decision": "new_course",
+      "course_id": "C06"
+    },
+    {
+      "id": "E07",
+      "patient_id": "P07",
+      "exposure_date": "2026-11-07",
+      "registered_at": "2026-11-07",
+      "date_quality": "recorded_exposure",
+      "assessment": "finalized",
+      "category": "III",
+      "decision": "new_course",
+      "course_id": "C07",
+      "transfer_at": "2026-11-07",
+      "rig_indicated": true
+    },
+    {
+      "id": "E08",
+      "patient_id": "P08",
+      "exposure_date": "2026-11-08",
+      "registered_at": "2026-11-08",
+      "date_quality": "recorded_exposure",
+      "assessment": "finalized",
+      "category": "II",
+      "decision": "new_course",
+      "course_id": "C08"
+    },
+    {
+      "id": "E09",
+      "patient_id": "P09",
+      "exposure_date": "2026-11-09",
+      "registered_at": "2026-11-09",
+      "date_quality": "recorded_exposure",
+      "assessment": "finalized",
+      "category": "III",
+      "decision": "new_course",
+      "course_id": "C09",
+      "rig_indicated": true
+    },
+    {
+      "id": "E10",
+      "patient_id": "P10",
+      "exposure_date": "2026-11-29",
+      "registered_at": "2026-11-29",
+      "date_quality": "recorded_exposure",
+      "assessment": "finalized",
+      "category": "II",
+      "decision": "new_course",
+      "course_id": "C10"
+    },
+    {
+      "id": "E11",
+      "patient_id": "P11",
+      "exposure_date": "2026-11-11",
+      "registered_at": "2026-11-11",
+      "date_quality": "recorded_exposure",
+      "assessment": "finalized",
+      "category": "II",
+      "decision": "new_course",
+      "course_id": "C11",
+      "past_primary_completed": true
+    },
+    {
+      "id": "E12",
+      "patient_id": "P12",
+      "exposure_date": "2026-11-12",
+      "registered_at": "2026-11-12",
+      "date_quality": "recorded_exposure",
+      "assessment": "finalized",
+      "category": "III",
+      "decision": "new_course",
+      "course_id": "C12",
+      "rig_indicated": true
+    },
+    {
+      "id": "E13",
+      "patient_id": "P13",
+      "exposure_date": "2026-11-13",
+      "registered_at": "2026-11-13",
+      "date_quality": "recorded_exposure",
+      "assessment": "finalized",
+      "category": "II",
+      "decision": "new_course",
+      "course_id": "C13",
+      "past_primary_completed": true
+    },
+    {
+      "id": "E14",
+      "patient_id": "P14",
+      "exposure_date": "2026-10-31",
+      "registered_at": "2026-10-31",
+      "date_quality": "recorded_exposure",
+      "assessment": "finalized",
+      "category": "II",
+      "decision": "new_course",
+      "course_id": "C14"
+    },
+    {
+      "id": "E15",
+      "patient_id": "P15",
+      "exposure_date": "2026-12-01",
+      "registered_at": "2026-12-01",
+      "date_quality": "recorded_exposure",
+      "assessment": "finalized",
+      "category": "II",
+      "decision": "new_course",
+      "course_id": "C15"
+    },
+    {
+      "id": "E16",
+      "patient_id": "P16",
+      "exposure_date": null,
+      "registered_at": "2026-11-13",
+      "date_quality": "provisional",
+      "assessment": "none",
+      "category": null,
+      "decision": "undetermined",
+      "course_id": null,
+      "provisional_stored_bite_date": "2026-11-13"
+    },
+    {
+      "id": "E17",
+      "patient_id": "P08",
+      "exposure_date": "2026-11-15",
+      "registered_at": "2026-11-15",
+      "date_quality": "recorded_exposure",
+      "assessment": "finalized",
+      "category": "II",
+      "decision": "continue_course",
+      "course_id": "C08",
+      "continued_from": "E08",
+      "coverage_confirmed": true
+    }
+  ],
+  "courses": [
+    {
+      "id": "C06",
+      "episode_id": "E06",
+      "plan_type": "full_pep",
+      "required_due_dates": [],
+      "events": []
+    },
+    {
+      "id": "C07",
+      "episode_id": "E07",
+      "plan_type": "full_pep",
+      "required_due_dates": [],
+      "events": []
+    },
+    {
+      "id": "C08",
+      "episode_id": "E08",
+      "plan_type": "full_pep",
+      "required_due_dates": [
+        "2026-11-08",
+        "2026-11-11",
+        "2026-11-15"
+      ],
+      "events": [
+        {
+          "id": "C08-A0",
+          "kind": "ARV",
+          "date": "2026-11-08",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-11-08"
+        },
+        {
+          "id": "C08-A1",
+          "kind": "ARV",
+          "date": "2026-11-11",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-11-11"
+        },
+        {
+          "id": "C08-A2",
+          "kind": "ARV",
+          "date": "2026-11-15",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-11-15"
+        }
+      ]
+    },
+    {
+      "id": "C09",
+      "episode_id": "E09",
+      "plan_type": "full_pep",
+      "required_due_dates": [
+        "2026-11-09",
+        "2026-11-12",
+        "2026-11-16"
+      ],
+      "events": [
+        {
+          "id": "C09-A0",
+          "kind": "ARV",
+          "date": "2026-11-09",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-11-09"
+        },
+        {
+          "id": "C09-cancelled",
+          "kind": "ARV",
+          "date": "2026-11-12",
+          "status": "cancelled",
+          "source": "local",
+          "verified_at": null
+        },
+        {
+          "id": "C09-voided",
+          "kind": "ARV",
+          "date": "2026-11-16",
+          "status": "voided",
+          "source": "local",
+          "verified_at": null
+        },
+        {
+          "id": "C09-RIG",
+          "kind": "RIG",
+          "date": "2026-11-09",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-11-09"
+        }
+      ]
+    },
+    {
+      "id": "C10",
+      "episode_id": "E10",
+      "plan_type": "full_pep",
+      "required_due_dates": [
+        "2026-11-29",
+        "2026-12-02",
+        "2026-12-06"
+      ],
+      "events": [
+        {
+          "id": "C10-A0",
+          "kind": "ARV",
+          "date": "2026-11-29",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-11-29"
+        },
+        {
+          "id": "C10-A1",
+          "kind": "ARV",
+          "date": "2026-12-02",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-12-02"
+        },
+        {
+          "id": "C10-A2",
+          "kind": "ARV",
+          "date": "2026-12-06",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-12-06"
+        }
+      ]
+    },
+    {
+      "id": "C11",
+      "episode_id": "E11",
+      "plan_type": "two_dose_booster",
+      "required_due_dates": [
+        "2026-11-11",
+        "2026-11-14"
+      ],
+      "events": [
+        {
+          "id": "C11-A0",
+          "kind": "ARV",
+          "date": "2026-11-11",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-11-11"
+        },
+        {
+          "id": "C11-A1",
+          "kind": "ARV",
+          "date": "2026-11-14",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-11-14"
+        }
+      ]
+    },
+    {
+      "id": "C12",
+      "episode_id": "E12",
+      "plan_type": "full_pep",
+      "required_due_dates": [
+        "2026-11-12",
+        "2026-11-15",
+        "2026-11-19"
+      ],
+      "events": [
+        {
+          "id": "C12-A0",
+          "kind": "ARV",
+          "date": "2026-11-12",
+          "status": "administered",
+          "source": "external",
+          "verified_at": "2026-11-12"
+        },
+        {
+          "id": "C12-A1",
+          "kind": "ARV",
+          "date": "2026-11-15",
+          "status": "administered",
+          "source": "external",
+          "verified_at": "2026-11-15"
+        },
+        {
+          "id": "C12-A2",
+          "kind": "ARV",
+          "date": "2026-11-19",
+          "status": "administered",
+          "source": "external",
+          "verified_at": "2026-11-19"
+        },
+        {
+          "id": "C12-RIG",
+          "kind": "RIG",
+          "date": "2026-11-12",
+          "status": "administered",
+          "source": "external",
+          "verified_at": "2026-11-12"
+        }
+      ]
+    },
+    {
+      "id": "C13",
+      "episode_id": "E13",
+      "plan_type": "full_pep",
+      "required_due_dates": [],
+      "events": []
+    },
+    {
+      "id": "C14",
+      "episode_id": "E14",
+      "plan_type": "full_pep",
+      "required_due_dates": [
+        "2026-10-31",
+        "2026-11-03",
+        "2026-11-07"
+      ],
+      "events": [
+        {
+          "id": "C14-A0",
+          "kind": "ARV",
+          "date": "2026-10-31",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-10-31"
+        },
+        {
+          "id": "C14-A1",
+          "kind": "ARV",
+          "date": "2026-11-03",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-11-03"
+        },
+        {
+          "id": "C14-A2",
+          "kind": "ARV",
+          "date": "2026-11-07",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-11-07"
+        }
+      ]
+    },
+    {
+      "id": "C15",
+      "episode_id": "E15",
+      "plan_type": "full_pep",
+      "required_due_dates": [
+        "2026-12-01",
+        "2026-12-04",
+        "2026-12-08"
+      ],
+      "events": [
+        {
+          "id": "C15-A0",
+          "kind": "ARV",
+          "date": "2026-12-01",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-12-01"
+        },
+        {
+          "id": "C15-A1",
+          "kind": "ARV",
+          "date": "2026-12-04",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-12-04"
+        },
+        {
+          "id": "C15-A2",
+          "kind": "ARV",
+          "date": "2026-12-08",
+          "status": "administered",
+          "source": "local",
+          "verified_at": "2026-12-08"
+        }
+      ]
+    }
+  ],
+  "excluded_inputs": [
+    {
+      "id": "BOOK01",
+      "kind": "booking_only",
+      "date": "2026-11-10"
+    },
+    {
+      "id": "DRAFT01",
+      "kind": "unsubmitted_intake",
+      "date": "2026-11-10"
+    },
+    {
+      "id": "PERSON01",
+      "kind": "demographic_registration_only",
+      "date": "2026-11-10"
+    }
+  ],
+  "expected": [
+    {
+      "name": "November exposure report with November cutoff",
+      "from": "2026-11-01",
+      "to": "2026-11-30",
+      "cutoff": "2026-11-30",
+      "counts": {
+        "episodes": 14,
+        "unique_patients": 13,
+        "unassessed": 2,
+        "assessed": 12,
+        "category_I": 2,
+        "category_II": 6,
+        "category_III": 3,
+        "category_unknown_after_assessment": 1,
+        "no_pep": 2,
+        "decision_missing": 1,
+        "new_course_prescribed": 8,
+        "new_course_started": 5,
+        "new_course_no_receipt": 3,
+        "continuing_episodes": 1,
+        "mature_started_courses": 4,
+        "completed_mature_courses": 3,
+        "ongoing_not_mature_courses": 1,
+        "overdue_started_courses": 1,
+        "outstanding_dose_slots": 2,
+        "rig_indicated": 3,
+        "rig_verified": 2,
+        "transferred": 1,
+        "unknown_date_registered": 1,
+        "local_arv_events_in_service_period": 9,
+        "external_arv_events_in_service_period": 3
+      },
+      "baseline_forms": {
+        "note": "Reconciles the 3 baseline DOH Submissions forms against all recorded exposures. Continuing-course episodes (E17) remain visible in cases_total/category counts but are excluded from new-course given_pep/completed counts so course C08 is not double-counted.",
+        "recorded_episodes_bridge": {
+          "total_recorded_episodes": 14,
+          "categorized_cases_total": 11,
+          "cat_I": 2,
+          "cat_II": 6,
+          "cat_III": 3,
+          "unassessed_episodes": 2,
+          "assessed_category_missing": 1,
+          "continuing_episodes": 1
+        },
+        "abtc_monthly_form": {
+          "cases_total": 14,
+          "given_pep": 5,
+          "cat_I": 2,
+          "cat_II": 6,
+          "cat_III": 3,
+          "cat_total": 11,
+          "unassessed_or_missing_category": 3,
+          "completed_cat_I": 0,
+          "completed_cat_II": 2,
+          "completed_cat_III": 1,
+          "completed_total": 3,
+          "given_rig": 2
+        },
+        "cohort_quarterly_form_slice": {
+          "cases_cat_I": 2,
+          "cases_cat_II": 6,
+          "cases_cat_III": 3,
+          "cases_total": 11,
+          "excluded_unassessed_or_missing_cat": 3,
+          "given_pep_cat_I": 0,
+          "given_pep_cat_II": 3,
+          "given_pep_cat_III": 2,
+          "given_pep_total": 5,
+          "completed_cat_I": 0,
+          "completed_cat_II": 2,
+          "completed_cat_III": 1,
+          "completed_total": 3,
+          "given_rig_cat_I": 0,
+          "given_rig_cat_II": 0,
+          "given_rig_cat_III": 2,
+          "given_rig_total": 2
+        }
+      }
+    },
+    {
+      "name": "Q4 exposure report with December cutoff",
+      "from": "2026-10-01",
+      "to": "2026-12-31",
+      "cutoff": "2026-12-31",
+      "counts": {
+        "episodes": 16,
+        "unique_patients": 15,
+        "unassessed": 2,
+        "assessed": 14,
+        "category_I": 2,
+        "category_II": 8,
+        "category_III": 3,
+        "category_unknown_after_assessment": 1,
+        "no_pep": 2,
+        "decision_missing": 1,
+        "new_course_prescribed": 10,
+        "new_course_started": 7,
+        "new_course_no_receipt": 3,
+        "continuing_episodes": 1,
+        "mature_started_courses": 7,
+        "completed_mature_courses": 6,
+        "ongoing_not_mature_courses": 0,
+        "overdue_started_courses": 1,
+        "outstanding_dose_slots": 2,
+        "rig_indicated": 3,
+        "rig_verified": 2,
+        "transferred": 1,
+        "unknown_date_registered": 1,
+        "local_arv_events_in_service_period": 15,
+        "external_arv_events_in_service_period": 3
+      },
+      "baseline_forms": {
+        "note": "Reconciles the 3 baseline DOH Submissions forms across Q4. Continuing-course episodes (E17) are tracked separately from new-course given_pep/completed counts.",
+        "recorded_episodes_bridge": {
+          "total_recorded_episodes": 16,
+          "categorized_cases_total": 13,
+          "cat_I": 2,
+          "cat_II": 8,
+          "cat_III": 3,
+          "unassessed_episodes": 2,
+          "assessed_category_missing": 1,
+          "continuing_episodes": 1
+        },
+        "abtc_monthly_form": {
+          "cases_total": 16,
+          "given_pep": 7,
+          "cat_I": 2,
+          "cat_II": 8,
+          "cat_III": 3,
+          "cat_total": 13,
+          "unassessed_or_missing_category": 3,
+          "completed_cat_I": 0,
+          "completed_cat_II": 5,
+          "completed_cat_III": 1,
+          "completed_total": 6,
+          "given_rig": 2
+        },
+        "cohort_quarterly_form_slice": {
+          "cases_cat_I": 2,
+          "cases_cat_II": 8,
+          "cases_cat_III": 3,
+          "cases_total": 13,
+          "excluded_unassessed_or_missing_cat": 3,
+          "given_pep_cat_I": 0,
+          "given_pep_cat_II": 5,
+          "given_pep_cat_III": 2,
+          "given_pep_total": 7,
+          "completed_cat_I": 0,
+          "completed_cat_II": 5,
+          "completed_cat_III": 1,
+          "completed_total": 6,
+          "given_rig_cat_I": 0,
+          "given_rig_cat_II": 0,
+          "given_rig_cat_III": 2,
+          "given_rig_total": 2
+        }
+      }
+    }
+  ],
+  "appendix_e_reconciliation": {
+    "recorded_episodes": 100,
+    "finalized_assessments": 80,
+    "no_finalized_assessment": 20,
+    "pep_prescribed": 60,
+    "explicit_no_pep": 15,
+    "decision_missing": 5,
+    "verified_vaccine_initiation": 50,
+    "no_administration_recorded": 10,
+    "assessment_completion_pct": 80.0,
+    "documented_pep_initiation_pct": 83.3
+  }
+}

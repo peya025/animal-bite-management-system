@@ -209,7 +209,8 @@ class PatientProfile {
       contactNumber: contactNumber ?? this.contactNumber,
       email: email ?? this.email,
       emergencyContactName: emergencyContactName ?? this.emergencyContactName,
-      emergencyContactNumber: emergencyContactNumber ?? this.emergencyContactNumber,
+      emergencyContactNumber:
+          emergencyContactNumber ?? this.emergencyContactNumber,
       details: details ?? this.details,
       memberships: memberships ?? this.memberships,
       isActive: isActive ?? this.isActive,
@@ -243,7 +244,9 @@ class PatientProfile {
     final rawHasCompleted = json['has_completed_primary'];
     final bool parsedHasCompleted = (rawHasCompleted is bool)
         ? rawHasCompleted
-        : (rawHasCompleted == 1 || rawHasCompleted == '1' || rawHasCompleted == 'true');
+        : (rawHasCompleted == 1 ||
+              rawHasCompleted == '1' ||
+              rawHasCompleted == 'true');
 
     return PatientProfile(
       id: (json['patient_id'] ?? json['id']) as int,
@@ -255,13 +258,15 @@ class PatientProfile {
       patientNumber: json['patient_number'] as String?,
       middleName: middleName,
       suffix: suffix,
-      gender: json['gender'] as String?,
+      gender: (json['gender'] ?? json['sex']) as String?,
       dateOfBirth: json['date_of_birth'] as String?,
       address: json['address'] as String?,
       contactNumber: (json['contact_number'] ?? json['phone']) as String?,
       email: json['email'] as String?,
       emergencyContactName: json['emergency_contact_name'] as String?,
-      emergencyContactNumber: json['emergency_contact_number'] as String?,
+      emergencyContactNumber:
+          (json['emergency_contact_number'] ?? json['emergency_contact_phone'])
+              as String?,
       details: detailsJson == null
           ? null
           : PatientDetailsProfile.fromJson(detailsJson),

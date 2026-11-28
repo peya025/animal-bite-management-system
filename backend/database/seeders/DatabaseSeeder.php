@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
             $this->call([
                 DefaultClinicSeeder::class,
                 DualNurseDemoSeeder::class,
+                QuickLoginDemoSeeder::class,
                 DefaultClinicConfigSeeder::class,
             ]);
         } else {

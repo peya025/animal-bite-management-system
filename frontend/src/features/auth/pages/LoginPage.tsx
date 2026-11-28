@@ -1,9 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { APP_NAME } from '../../../constants';
 import { LoginRoot } from '../styles/Login.styles';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+function getApiBaseUrl(): string {
+  const envUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').trim();
+  const clean = envUrl.replace(/\/+$/, '');
+  return clean.endsWith('/api') ? clean : `${clean}/api`;
+}
+const API_BASE_URL = getApiBaseUrl();
 
 // Tier 9 — Google Identity Services type declaration (loaded via CDN script in index.html)
 declare global {
@@ -22,9 +27,10 @@ declare global {
 
 /** Role → dashboard path mapping for Google SSO redirect */
 const ROLE_DASHBOARD: Record<string, string> = {
-  treatment:    '/nurse/patients',
-  triage:       '/doctor/patients',
-  registration: '/patients',
+  treatment:    '/dashboard',
+  triage:       '/dashboard',
+  doctor:       '/dashboard',
+  registration: '/dashboard',
   admin:        '/dashboard',
   developer:    '/dashboard',
 };
@@ -36,35 +42,17 @@ function resolveLandingRoute(user: any): string {
   const hasIntake = roles.some((r: any) => r.slug === 'intake_nurse');
   const hasFollowUp = roles.some((r: any) => r.slug === 'follow_up_nurse');
 
-  // Solo / Dual-role Nurse: check active_station_mode preference
+  // Solo / Dual-role Nurse: preserve active_station_mode preference
   if (hasIntake && hasFollowUp) {
     const activeStation = localStorage.getItem('active_station_mode');
-    if (activeStation === 'follow_up') return '/nurse/patients';
-    return '/queue';
-  }
-
-  // Single-role Intake Nurse
-  if (hasIntake) {
+    if (!activeStation) localStorage.setItem('active_station_mode', 'intake');
+  } else if (hasIntake) {
     localStorage.setItem('active_station_mode', 'intake');
-    return '/queue';
-  }
-
-  // Single-role Follow-up Nurse
-  if (hasFollowUp) {
+  } else if (hasFollowUp) {
     localStorage.setItem('active_station_mode', 'follow_up');
-    return '/nurse/patients';
   }
 
-  // Roles with default_route from backend roles table
-  if (roles.length > 0 && roles[0].default_route) {
-    return roles[0].default_route;
-  }
-
-  // Legacy role fallbacks
-  if (user.role === 'triage') return '/queue';
-  if (user.role === 'registration') return '/patients';
-  if (user.role === 'treatment') return '/queue';
-
+  // All roles land on Dashboard to view operational overview and role welcome walkthrough
   return '/dashboard';
 }
 
@@ -82,6 +70,11 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleError, setGoogleError]     = useState('');
   const [gisReady, setGisReady]           = useState(false);
+  const googleBtnRef                      = useRef<HTMLDivElement>(null);
+
+  // Demo accounts quick-access buttons enabled on login page
+  const SHOW_DEMO_ACCOUNTS = true;
+  const showDemoAccounts = SHOW_DEMO_ACCOUNTS || searchParams.get('demo') === 'true' || searchParams.get('demo') === '1';
 
   // Detect ?reason=idle-timeout, show user-friendly message, and clean URL with replace: true
   useEffect(() => {
@@ -97,8 +90,8 @@ export default function Login() {
     const userData = localStorage.getItem('userData');
     const lastActivity = Number(localStorage.getItem('lastActivityAt') || 0);
 
-    // If session has expired, purge auth tokens to prevent redirect loops
-    if (token && lastActivity && Date.now() - lastActivity >= 15 * 60 * 1000) {
+    // If session has expired (60 mins inactivity), purge auth tokens to prevent redirect loops
+    if (token && lastActivity && Date.now() - lastActivity >= 60 * 60 * 1000) {
       localStorage.removeItem('authToken');
       localStorage.removeItem('userData');
       localStorage.removeItem('clinicData');
@@ -135,11 +128,27 @@ export default function Login() {
         callback: handleGoogleCredential,
         auto_select: false,
         cancel_on_tap_outside: true,
+        itp_support: true,
       });
       setGisReady(true);
     };
     document.head.appendChild(script);
   }, []);
+
+  // Render the Google Sign-In button once GIS is ready and the ref is mounted
+  useEffect(() => {
+    if (!gisReady || !googleBtnRef.current || !window.google) return;
+    googleBtnRef.current.innerHTML = '';
+    window.google.accounts.id.renderButton(googleBtnRef.current, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      text: 'signin_with',
+      shape: 'pill',
+      logo_alignment: 'left',
+      width: 360,
+    });
+  }, [gisReady]);
 
   /** Called by GIS SDK with the credential (ID Token) after user picks a Google account */
   const handleGoogleCredential = async (response: { credential: string }) => {
@@ -166,21 +175,12 @@ export default function Login() {
       localStorage.setItem('lastActivityAt', String(Date.now()));
 
       const role = data.user?.role as string ?? 'admin';
-      window.location.replace(ROLE_DASHBOARD[role] ?? '/dashboard');
+      window.location.replace(resolveLandingRoute(data.user) || ROLE_DASHBOARD[role] || '/dashboard');
     } catch {
       setGoogleError('Google Sign-In failed. Please try again or use email & password.');
     } finally {
       setGoogleLoading(false);
     }
-  };
-
-  /** Trigger the GIS One-Tap / popup flow */
-  const handleGoogleSignIn = () => {
-    if (!gisReady || !window.google) {
-      setGoogleError('Google Sign-In is not available. Check your internet connection.');
-      return;
-    }
-    window.google.accounts.id.prompt();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -297,7 +297,7 @@ export default function Login() {
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                 <polyline points="22,6 12,13 2,6"/>
               </svg>
-              <input type="email" placeholder="doctor@animalcare.org"
+              <input type="email" className="auth-input login-input" placeholder="doctor@animalcare.org"
                 value={email} onChange={e => setEmail(e.target.value)} disabled={loading} />
             </div>
           </div>
@@ -309,7 +309,7 @@ export default function Login() {
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
-              <input type={showPassword ? 'text' : 'password'} placeholder="••••••••"
+              <input type={showPassword ? 'text' : 'password'} className="auth-input login-input" placeholder="••••••••"
                 value={password} onChange={e => setPassword(e.target.value)} disabled={loading} />
               <button type="button" className="visibility-toggle" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
                 {showPassword ? (
@@ -379,35 +379,40 @@ export default function Login() {
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={loading || googleLoading || !gisReady}
-              style={{
+            {googleLoading ? (
+              <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                 width: '100%', padding: '10px 16px',
                 background: '#ffffff', border: '1.5px solid #dadce0', borderRadius: 8,
-                fontSize: 14, fontWeight: 600, color: '#3c4043', cursor: 'pointer',
-                transition: 'box-shadow 0.15s, border-color 0.15s',
-                opacity: (!gisReady || googleLoading) ? 0.6 : 1,
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 1px 4px rgba(0,0,0,0.15)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; }}
-            >
-              {googleLoading ? (
+                fontSize: 14, fontWeight: 600, color: '#3c4043',
+              }}>
                 <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2, borderColor: '#dadce0', borderTopColor: '#4285F4' }} />
-              ) : (
-                /* Official Google "G" logo */
-                <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-                  <path fill="none" d="M0 0h48v48H0z"/>
-                </svg>
-              )}
-              {googleLoading ? 'Signing in with Google…' : 'Sign in with Google'}
-            </button>
+                <span>Signing in with Google…</span>
+              </div>
+            ) : (
+              <div
+                ref={googleBtnRef}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  width: '100%',
+                  minHeight: 44,
+                }}
+              >
+                {!gisReady && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                    width: '100%', padding: '10px 16px',
+                    background: '#ffffff', border: '1.5px solid #dadce0', borderRadius: 8,
+                    fontSize: 14, fontWeight: 600, color: '#9ca3af',
+                  }}>
+                    <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2, borderColor: '#e5e7eb', borderTopColor: '#9ca3af' }} />
+                    <span>Loading Google Sign-In…</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', margin: '6px 0 0', lineHeight: 1.4 }}>
               Only verified clinic staff accounts are permitted. Unauthorized Google accounts are blocked.
             </p>
@@ -415,175 +420,177 @@ export default function Login() {
         )}
 
         {/* Seeded Demo Accounts Quick Access Grid */}
-        <div className="seeded-demo-container">
-          <div className="seeded-demo-header">
-            SEEDED DEMO ACCOUNTS — PASSWORD: password123
-          </div>
-          <div className="seeded-demo-grid">
-            <button
-              type="button"
-              className="role-demo-btn"
-              onClick={() => handleQuickRoleLogin('developer@clinic.com')}
-              disabled={loading}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-              <span>Developer</span>
-            </button>
-
-            <button
-              type="button"
-              className="role-demo-btn"
-              onClick={() => handleQuickRoleLogin('admin@clinic.com')}
-              disabled={loading}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-              <span>Administrator</span>
-            </button>
-
-            <button
-              type="button"
-              className="role-demo-btn"
-              onClick={() => handleQuickRoleLogin('registration@clinic.com')}
-              disabled={loading}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-              <span>Registration Staff</span>
-            </button>
-
-            <button
-              type="button"
-              className="role-demo-btn"
-              onClick={() => handleQuickRoleLogin('triage@clinic.com')}
-              disabled={loading}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-              <span>Triage Doctor</span>
-            </button>
-
-            {/* ── DUAL-NURSE WORKSTATIONS ── */}
-            <div style={{
-              gridColumn: 'span 2',
-              marginTop: '8px',
-              paddingTop: '10px',
-              borderTop: '1px dashed var(--gray-200, #e2e8f0)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary, #0f766e)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Nursing Workstations (Dual-Nurse Architecture)
-              </span>
+        {showDemoAccounts && (
+          <div className="seeded-demo-container">
+            <div className="seeded-demo-header">
+              SEEDED DEMO ACCOUNTS — PASSWORD: password123
             </div>
-
-            <button
-              type="button"
-              className="role-demo-btn"
-              onClick={() => handleQuickRoleLogin('nurse1@clinic.com', 'intake')}
-              disabled={loading}
-              style={{
-                borderLeft: '3px solid #0284c7',
-                background: '#f0f9ff',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                gap: '2px',
-                padding: '10px 14px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0284c7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div className="seeded-demo-grid">
+              <button
+                type="button"
+                className="role-demo-btn"
+                onClick={() => handleQuickRoleLogin('developer@clinic.com')}
+                disabled={loading}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
-                <span style={{ fontWeight: 700, color: '#0369a1', fontSize: '13.5px' }}>Nurse 1: Intake</span>
-              </div>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, paddingLeft: '24px' }}>
-                Maria Santos, RN · Day 0 / Queue
-              </span>
-            </button>
+                <span>Developer</span>
+              </button>
 
-            <button
-              type="button"
-              className="role-demo-btn"
-              onClick={() => handleQuickRoleLogin('nurse2@clinic.com', 'follow_up')}
-              disabled={loading}
-              style={{
-                borderLeft: '3px solid #059669',
-                background: '#f0fdf4',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                gap: '2px',
-                padding: '10px 14px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <button
+                type="button"
+                className="role-demo-btn"
+                onClick={() => handleQuickRoleLogin('admin@clinic.com')}
+                disabled={loading}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
-                <span style={{ fontWeight: 700, color: '#047857', fontSize: '13.5px' }}>Nurse 2: Follow-up</span>
-              </div>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, paddingLeft: '24px' }}>
-                Juan Reyes, RN · Patient List
-              </span>
-            </button>
+                <span>Administrator</span>
+              </button>
 
-            <button
-              type="button"
-              className="role-demo-btn"
-              onClick={() => handleQuickRoleLogin('treatment@clinic.com', 'combined')}
-              disabled={loading}
-              style={{
+              <button
+                type="button"
+                className="role-demo-btn"
+                onClick={() => handleQuickRoleLogin('registration@clinic.com')}
+                disabled={loading}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span>Registration Staff</span>
+              </button>
+
+              <button
+                type="button"
+                className="role-demo-btn"
+                onClick={() => handleQuickRoleLogin('triage@clinic.com')}
+                disabled={loading}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span>Triage Doctor</span>
+              </button>
+
+              {/* ── DUAL-NURSE WORKSTATIONS ── */}
+              <div style={{
                 gridColumn: 'span 2',
-                borderLeft: '3px solid #0f766e',
-                background: '#f0fdfa',
+                marginTop: '8px',
+                paddingTop: '10px',
+                borderTop: '1px dashed var(--gray-200, #e2e8f0)',
                 display: 'flex',
-                justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '12px 16px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0f766e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontWeight: 700, color: '#0f766e', fontSize: '13.5px' }}>
-                    Solo Nurse (Combined Work — Nurse 1 & 2)
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
-                    Elena Cruz, RN · Both Roles Assigned · Top Station Switcher
+                justifyContent: 'space-between',
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary, #0f766e)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Nursing Workstations (Dual-Nurse Architecture)
+                </span>
+              </div>
+
+              <button
+                type="button"
+                className="role-demo-btn"
+                onClick={() => handleQuickRoleLogin('nurse1@clinic.com', 'intake')}
+                disabled={loading}
+                style={{
+                  borderLeft: '3px solid #0284c7',
+                  background: '#f0f9ff',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: '2px',
+                  padding: '10px 14px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0284c7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <span style={{ fontWeight: 700, color: '#0369a1', fontSize: '13.5px' }}>Nurse 1: Intake</span>
+                </div>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, paddingLeft: '24px' }}>
+                  Maria Santos, RN · Day 0 / Queue
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className="role-demo-btn"
+                onClick={() => handleQuickRoleLogin('nurse2@clinic.com', 'follow_up')}
+                disabled={loading}
+                style={{
+                  borderLeft: '3px solid #059669',
+                  background: '#f0fdf4',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: '2px',
+                  padding: '10px 14px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <span style={{ fontWeight: 700, color: '#047857', fontSize: '13.5px' }}>Nurse 2: Follow-up</span>
+                </div>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, paddingLeft: '24px' }}>
+                  Juan Reyes, RN · Patient List
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className="role-demo-btn"
+                onClick={() => handleQuickRoleLogin('treatment@clinic.com', 'combined')}
+                disabled={loading}
+                style={{
+                  gridColumn: 'span 2',
+                  borderLeft: '3px solid #0f766e',
+                  background: '#f0fdfa',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '12px 16px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0f766e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: 700, color: '#0f766e', fontSize: '13.5px' }}>
+                      Solo Nurse (Combined Work — Nurse 1 & 2)
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                      Elena Cruz, RN · Both Roles Assigned · Top Station Switcher
+                    </div>
                   </div>
                 </div>
-              </div>
-              <span style={{
-                fontSize: '11px',
-                fontWeight: 700,
-                color: '#0f766e',
-                background: '#ccfbf1',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                whiteSpace: 'nowrap',
-              }}>
-                Dual Roles
-              </span>
-            </button>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#0f766e',
+                  background: '#ccfbf1',
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  whiteSpace: 'nowrap',
+                }}>
+                  Dual Roles
+                </span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </LoginRoot>
   );

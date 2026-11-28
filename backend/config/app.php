@@ -56,7 +56,9 @@ return [
     |
     */
 
-    'url' => env('APP_URL'),
+    'url' => env('APP_URL', env('APP_BASE_URL')),
+    'frontend_url' => env('FRONTEND_URL', env('APP_BASE_URL', 'http://localhost:5173')),
+    'mobile_app_base_url' => env('MOBILE_APP_BASE_URL'),
 
     /*
     |--------------------------------------------------------------------------

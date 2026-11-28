@@ -1,0 +1,56 @@
+<?php
+
+use App\Services\Messaging\Sms\FakeSmsProvider;
+use App\Services\Messaging\Sms\SemaphoreSmsProvider;
+use App\Services\Messaging\Sms\TwilioSmsProvider;
+use App\Services\Messaging\Sms\UniSmsProvider;
+
+return [
+    'queue_connection' => env('MESSAGING_QUEUE_CONNECTION', 'database'),
+    'queue' => 'notifications',
+    'sms_enabled' => env('SMS_ENABLED', false),
+    'appointment_events_enabled' => env('EMAIL_APPOINTMENT_EVENTS_ENABLED', true),
+    'email_enabled' => env('EMAIL_ENABLED', false),
+    'sms_provider' => env('SMS_PROVIDER', 'fake'),
+    'test_mode' => env('MESSAGING_TEST_MODE', true),
+    'test_recipients' => array_filter(array_map('trim', explode(',', env('MESSAGING_TEST_RECIPIENTS', '')))),
+    'sms_test_mode' => (bool) env('SMS_TEST_MODE', true),
+    'sms_test_recipients' => array_values(array_filter(array_map('trim', explode(',', (string) env('SMS_TEST_RECIPIENTS', ''))))),
+    'max_attempts' => 3,
+    'sms_per_minute' => (int) env('SMS_PER_MINUTE', 30),
+    'email_per_minute' => (int) env('EMAIL_PER_MINUTE', 30),
+    'delivery_transports' => ['smtp', 'sendmail', 'mailgun', 'ses', 'ses-v2', 'postmark', 'resend'],
+    'providers' => [
+        'fake' => FakeSmsProvider::class,
+        'twilio' => TwilioSmsProvider::class,
+        'semaphore' => SemaphoreSmsProvider::class,
+        'unisms' => UniSmsProvider::class,
+    ],
+    'twilio' => [
+        'sid' => env('TWILIO_ACCOUNT_SID'),
+        'token' => env('TWILIO_AUTH_TOKEN'),
+        'sender' => env('TWILIO_FROM'),
+    ],
+    'semaphore' => [
+        'key' => env('SEMAPHORE_API_KEY'),
+        'sender' => env('SEMAPHORE_SENDER_NAME'),
+    ],
+    'unisms' => [
+        'api_key' => env('UNISMS_API_KEY'),
+        'sender_id' => env('UNISMS_SENDER_ID'),
+        'url' => env('UNISMS_API_URL', 'https://unismsapi.com/api'),
+        'receipts_enabled' => (bool) env('UNISMS_RECEIPTS_ENABLED', false),
+    ],
+    'reminders' => [
+        'timezone' => env('REMINDER_TIMEZONE', env('APP_TIMEZONE', 'Asia/Manila')),
+        'same_day_enabled' => (bool) env('REMINDER_SAME_DAY_ENABLED', true),
+        'advance_days' => array_values(array_unique(array_filter(
+            array_map('intval', explode(',', (string) env('REMINDER_ADVANCE_DAYS', '3,2,1'))),
+            fn (int $days) => $days > 0
+        ))),
+        'overdue_milestones' => array_values(array_unique(array_filter(
+            array_map('intval', explode(',', (string) env('REMINDER_OVERDUE_MILESTONES', '1,3,7'))),
+            fn (int $days) => $days > 0
+        ))),
+    ],
+];

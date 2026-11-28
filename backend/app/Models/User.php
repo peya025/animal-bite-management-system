@@ -121,7 +121,7 @@ class User extends Authenticatable
      */
     public function isRegistration(): bool
     {
-        return $this->role === 'registration';
+        return $this->role === 'registration' || $this->role === 'receptionist' || $this->hasRole('receptionist') || $this->hasRole('registration');
     }
 
     /**
@@ -129,7 +129,7 @@ class User extends Authenticatable
      */
     public function isTriage(): bool
     {
-        return $this->role === 'triage';
+        return $this->role === 'triage' || $this->role === 'doctor' || $this->hasRole('doctor') || $this->hasRole('triage');
     }
 
     /**

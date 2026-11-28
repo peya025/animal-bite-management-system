@@ -1,15 +1,39 @@
+import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'app/app.dart';
 import 'l10n/language_controller.dart';
+import 'services/fcm_device_registration_service.dart';
 import 'services/mobile_api.dart';
 import 'services/mock_mobile_api.dart';
+import 'services/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Initialize Firebase (guarded against duplicate initialization and pending configuration)
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+      debugPrint('🔥 Firebase successfully initialized');
+    }
+  } catch (e) {
+    debugPrint('ℹ️ Firebase initialization pending configuration: $e');
+  }
+
+  // Register background message handler if Firebase is available
+  if (Firebase.apps.isNotEmpty) {
+    try {
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    } catch (e) {
+      debugPrint('ℹ️ FCM background handler registration pending or skipped: $e');
+    }
+  }
+
   // Initialize stored language preference
   await LanguageController.instance.initialize();
 
@@ -31,6 +55,21 @@ Future<void> main() async {
     // Use real backend API
     await MobileApi.instance.initialize();
     debugPrint('🔌 Running in REAL MODE - Backend required');
+  }
+
+  // Initialize FCM device registration service and synchronize on session restoration
+  await FcmDeviceRegistrationService.instance.initialize();
+
+  // Initialize push notification service, Android notification channel, and foreground listeners
+  await PushNotificationService.instance.initialize(
+    navigatorKey: AnimalCareApp.navigatorKey,
+  );
+
+  final isAuth = useMockData
+      ? MockMobileApi.instance.isAuthenticated
+      : MobileApi.instance.isAuthenticated;
+  if (isAuth) {
+    unawaited(FcmDeviceRegistrationService.instance.syncDeviceToken());
   }
   
   runApp(const AnimalCareApp());

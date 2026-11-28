@@ -1,25 +1,24 @@
-import { useState } from 'react';
 import { Box, Typography } from '@mui/material';
-import { ArrowForward as NextIcon, Phone as CallIcon, SkipNext as CallNextIcon } from '@mui/icons-material';
+import { ArrowForward as NextIcon, SkipNext as SkipIcon } from '@mui/icons-material';
 import type { QueueEntry } from '../types';
 import { VISIT_LABEL, CATEGORY_LABEL, waitTime } from '../types';
-import ConfirmationDialog from '../../../components/feedback/ConfirmationDialog';
 
 interface NextPatientBannerProps {
   entry: QueueEntry;
-  /** Called when staff confirm calling a specific patient */
-  onCall: (entry: QueueEntry) => void;
-  /** Called when staff press "Call Next" — auto-selects next eligible patient */
-  onCallNext?: () => void;
+  /** The currently-called patient (if any). Skip is only enabled when one exists. */
+  calledEntry?: QueueEntry | null;
+  /** Called when staff press "Skip" — returns called patient to waiting, then calls next */
+  onSkip?: () => void;
   showActions?: boolean;
 }
 
-export function NextPatientBanner({ entry, onCall, onCallNext, showActions = true }: NextPatientBannerProps) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
+export function NextPatientBanner({ entry, calledEntry, onSkip, showActions = true }: NextPatientBannerProps) {
   const categoryLabel = entry.queue_category
     ? (CATEGORY_LABEL[entry.queue_category] ?? entry.queue_category)
     : null;
+
+  // Skip is only possible when a patient is currently called
+  const skipDisabled = !calledEntry;
 
   return (
     <>
@@ -59,80 +58,43 @@ export function NextPatientBanner({ entry, onCall, onCallNext, showActions = tru
           </Box>
         </Box>
 
-        {showActions && (
+        {showActions && onSkip && (
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {/* Call Next — auto-select the highest-priority waiting patient */}
-            {onCallNext && (
-              <button
-                onClick={onCallNext}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '9px 16px',
-                  background: 'rgba(255,255,255,0.15)',
-                  color: '#fff',
-                  border: '1px solid rgba(255,255,255,0.4)',
-                  borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                  transition: 'all 0.2s', whiteSpace: 'nowrap',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
-              >
-                <CallNextIcon style={{ fontSize: 16 }} />
-                Call Next
-              </button>
-            )}
-
-            {/* Call This Patient — opens confirmation dialog */}
+            {/* Skip — returns the currently-called patient to waiting and calls next.
+                Disabled when no patient is currently in "called" status. */}
             <button
-              onClick={() => setConfirmOpen(true)}
+              onClick={skipDisabled ? undefined : onSkip}
+              disabled={skipDisabled}
+              title={
+                skipDisabled
+                  ? 'No patient is currently called. A patient must be called before you can skip.'
+                  : `Skip ${calledEntry ? `#${calledEntry.queue_number} · ${calledEntry.patient.name}` : ''} and call next waiting patient`
+              }
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 7,
-                padding: '9px 18px',
-                background: '#fff', color: '#059669',
-                border: 'none', borderRadius: '8px',
-                fontSize: '13px', fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'inherit',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '9px 16px',
+                background: skipDisabled ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.15)',
+                color: skipDisabled ? 'rgba(255,255,255,0.35)' : '#fff',
+                border: `1px solid ${skipDisabled ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.4)'}`,
+                borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                cursor: skipDisabled ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit',
                 transition: 'all 0.2s', whiteSpace: 'nowrap',
+                opacity: skipDisabled ? 0.5 : 1,
               }}
               onMouseEnter={e => {
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+                if (!skipDisabled) e.currentTarget.style.background = 'rgba(255,255,255,0.25)';
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+                if (!skipDisabled) e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
               }}
             >
-              <CallIcon style={{ fontSize: 16 }} />
-              Call Patient
+              <SkipIcon style={{ fontSize: 16 }} />
+              Skip
             </button>
           </Box>
         )}
       </Box>
-
-      {/* Confirmation dialog — prevents accidental calls */}
-      {showActions && confirmOpen && (
-        <ConfirmationDialog
-          variant="confirm"
-          title="Call Patient"
-          message={
-            <>
-              Call <strong>#{entry.queue_number} · {entry.patient.name}</strong> to the station?
-              {categoryLabel && (
-                <Box component="span" sx={{ display: 'block', mt: 0.5, fontSize: 12, color: '#6b7280' }}>
-                  Category: {categoryLabel}
-                </Box>
-              )}
-            </>
-          }
-          confirmLabel="Yes, Call Now"
-          cancelLabel="Cancel"
-          onConfirm={() => { setConfirmOpen(false); onCall(entry); }}
-          onCancel={() => setConfirmOpen(false)}
-        />
-      )}
     </>
   );
 }

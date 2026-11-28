@@ -46,12 +46,41 @@ class VaccineInventory extends Model
         'open_vial_doses_used' => 'integer',
     ];
 
+    protected $appends = [
+        'vaccine_category',
+    ];
+
     /**
      * Relationship: VaccineInventory belongs to Clinic
      */
     public function clinic()
     {
         return $this->belongsTo(Clinic::class, 'clinic_id', 'id');
+    }
+
+    /**
+     * Relationship: VaccineInventory belongs to VaccineTypePreset
+     */
+    public function vaccinePreset()
+    {
+        return $this->belongsTo(VaccineTypePreset::class, 'vaccine_type', 'vaccine_name');
+    }
+
+    /**
+     * Category resolved from the associated VaccineTypePreset
+     */
+    public function getVaccineCategoryAttribute()
+    {
+        if (array_key_exists('vaccine_category', $this->attributes)) {
+            return $this->attributes['vaccine_category'];
+        }
+
+        if ($this->relationLoaded('vaccinePreset')) {
+            return $this->vaccinePreset?->category;
+        }
+
+        // Safe fallback if relationship not eager loaded: load via preset model directly
+        return $this->vaccinePreset()?->value('category');
     }
 
     /**
@@ -68,5 +97,21 @@ class VaccineInventory extends Model
     public function treatmentRecords()
     {
         return $this->hasMany(TreatmentRecord::class, 'inventory_id', 'inventory_id');
+    }
+
+    /**
+     * Relationship: VaccineInventory has many VaccineVials
+     */
+    public function vials()
+    {
+        return $this->hasMany(VaccineVial::class, 'inventory_id', 'inventory_id');
+    }
+
+    /**
+     * Relationship: VaccineInventory has many VaccineVialWastages
+     */
+    public function wastages()
+    {
+        return $this->hasMany(VaccineVialWastage::class, 'inventory_id', 'inventory_id');
     }
 }

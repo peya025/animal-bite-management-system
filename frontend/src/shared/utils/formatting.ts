@@ -46,6 +46,7 @@ export function pluralize(count: number, singular: string, plural?: string): str
 
 /** Format a number with thousands separator. */
 export function formatNumber(n: number): string {
+  if (typeof n !== 'number' || isNaN(n)) return n != null ? String(n) : '0';
   return n.toLocaleString('en-US');
 }
 

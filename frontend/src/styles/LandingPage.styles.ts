@@ -7,6 +7,350 @@
  */
 export const landingPageStyles = String.raw`/* Landing Page Styles - Modern Green Theme */
 
+/* Tutorial Section - Inspired by Modern Destination Carousel Card */
+.landing-page .tutorials-section {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+  scroll-margin-top: 150px;
+}
+
+.landing-page .tutorials-container-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 28px;
+  padding: 2.75rem 2.5rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.03);
+}
+
+.landing-page .tutorials-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.landing-page .tutorials-header-left {
+  flex-shrink: 0;
+}
+
+.landing-page .tutorials-eyebrow {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+}
+
+.landing-page .tutorials-heading {
+  font-size: clamp(1.75rem, 2.5vw, 2.25rem);
+  font-weight: 800;
+  color: var(--gray-900);
+  letter-spacing: -0.03em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.landing-page .tutorials-header-right {
+  max-width: 440px;
+}
+
+.landing-page .tutorials-lead {
+  font-size: 0.95rem;
+  color: var(--gray-600);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.landing-page .tutorials-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.landing-page .tutorial-dest-card {
+  position: relative;
+  display: block;
+  text-decoration: none;
+  border-radius: 20px;
+  overflow: hidden;
+  aspect-ratio: 3 / 4;
+  min-height: 340px;
+  background: #0f172a;
+  cursor: pointer;
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.landing-page .tutorial-dest-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.2);
+}
+
+.landing-page .tutorial-dest-card:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.landing-page .tutorial-cover-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-page .tutorial-dest-card:hover .tutorial-cover-image {
+  transform: scale(1.08);
+}
+
+.landing-page .tutorial-gradient-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.05) 0%,
+    rgba(15, 23, 42, 0.2) 35%,
+    rgba(15, 23, 42, 0.75) 65%,
+    rgba(15, 23, 42, 0.95) 100%
+  );
+  pointer-events: none;
+}
+
+.landing-page .tutorial-top-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  padding: 0.28rem 0.65rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  color: #0f172a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.landing-page .tutorial-play-icon-overlay {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.85);
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.9);
+  backdrop-filter: blur(6px);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 2;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  padding-left: 2px;
+}
+
+.landing-page .tutorial-dest-card:hover .tutorial-play-icon-overlay {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.landing-page .tutorial-bottom-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1.25rem;
+  z-index: 2;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.landing-page .tutorial-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff !important;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.landing-page .tutorial-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.landing-page .meta-sep {
+  color: #64748b;
+}
+
+.landing-page .meta-rating {
+  color: #fcd34d;
+  font-weight: 600;
+}
+
+.landing-page .tutorial-card-location {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.landing-page .location-pin-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.landing-page .tutorials-bottom-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.landing-page .tutorials-view-more-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1.6rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: #ffffff !important;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28);
+}
+
+.landing-page .tutorials-view-more-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.38);
+}
+
+.landing-page .tutorials-nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.landing-page .carousel-arrow-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-page .carousel-arrow-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+  background: #ecfdf5;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.18);
+}
+
+.landing-page .carousel-arrow-btn:active {
+  transform: scale(0.96);
+}
+
+/* Dark Theme Adjustments for Tutorials Card */
+[data-theme='dark'] .landing-page .tutorials-container-card {
+  background: #0f172a;
+  border-color: #1e293b;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme='dark'] .landing-page .tutorials-heading {
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .landing-page .tutorials-lead {
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .landing-page .tutorial-top-badge {
+  background: rgba(15, 23, 42, 0.85);
+  color: #f8fafc;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .landing-page .carousel-arrow-btn {
+  border-color: #334155;
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .landing-page .carousel-arrow-btn:hover {
+  border-color: var(--primary);
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+}
+
+/* Responsive: Swipeable / Scrollable Carousel on Tablet & Mobile */
+@media (max-width: 1024px) {
+  .landing-page .tutorials-container-card {
+    padding: 2rem 1.25rem;
+    border-radius: 20px;
+  }
+
+  .landing-page .tutorials-header {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .landing-page .tutorials-lead {
+    max-width: 100%;
+  }
+
+  .landing-page .tutorials-grid {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    gap: 1rem;
+    padding-bottom: 0.75rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .landing-page .tutorials-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .landing-page .tutorial-dest-card {
+    min-width: 260px;
+    max-width: 280px;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+  }
+}
+
 /* ===== Variables ===== */
 :root {
   --primary: #10b981;
@@ -1090,7 +1434,7 @@ a {
   border-radius: 16px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   border: 1px solid var(--gray-200);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.55s ease, border-color 0.45s ease;
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -1129,7 +1473,7 @@ a {
   background: linear-gradient(135deg, var(--primary-light) 0%, var(--white) 100%);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
-  transition: all 0.3s ease;
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s ease;
 }
 
 .help-card:hover .help-icon {
@@ -1158,7 +1502,7 @@ a {
   text-decoration: none;
   font-size: 13px;
   font-weight: 600;
-  transition: all 0.3s ease;
+  transition: color 0.4s ease, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-block;
 }
 
@@ -1675,12 +2019,12 @@ a {
   animation: fadeInUp 0.6s ease-out forwards;
 }
 
-.feature-card:nth-child(1) { animation-delay: 0.1s; }
-.feature-card:nth-child(2) { animation-delay: 0.2s; }
-.feature-card:nth-child(3) { animation-delay: 0.3s; }
-.feature-card:nth-child(4) { animation-delay: 0.4s; }
-.feature-card:nth-child(5) { animation-delay: 0.5s; }
-.feature-card:nth-child(6) { animation-delay: 0.6s; }
+.feature-card:nth-of-type(1) { animation-delay: 0.1s; }
+.feature-card:nth-of-type(2) { animation-delay: 0.2s; }
+.feature-card:nth-of-type(3) { animation-delay: 0.3s; }
+.feature-card:nth-of-type(4) { animation-delay: 0.4s; }
+.feature-card:nth-of-type(5) { animation-delay: 0.5s; }
+.feature-card:nth-of-type(6) { animation-delay: 0.6s; }
 
 /* ===== Redesigned Live Vaccine Directory & Emergency Protocol Styles ===== */
 .vaccine-tracker-section {

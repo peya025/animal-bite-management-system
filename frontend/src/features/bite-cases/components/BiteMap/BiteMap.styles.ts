@@ -1,6 +1,9 @@
 import { styled } from '@mui/material/styles';
 
 export const BiteMapRoot = styled('div')(({ theme }) => ({
+  position: 'relative',
+  zIndex: 1,
+  isolation: 'isolate',
   width: '100%',
   height: '600px',
   borderRadius: theme.shape.borderRadius,

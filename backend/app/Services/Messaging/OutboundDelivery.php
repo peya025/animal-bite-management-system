@@ -1,0 +1,263 @@
+<?php
+
+namespace App\Services\Messaging;
+
+use App\Jobs\SendFcmPushNotification;
+use App\Mail\ClinicEmail;
+use App\Models\Appointment;
+use App\Models\AppointmentReminder;
+use App\Models\BiteIncident;
+use App\Models\Notification;
+use App\Models\OutboundMessage;
+use App\Services\AppointmentReminderService;
+use App\Services\Messaging\Sms\SmsManager;
+use App\Services\Messaging\Sms\SmsResult;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
+
+class OutboundDelivery
+{
+    public function deliver(int $id): void
+    {
+        // Atomic claim: duplicate queue jobs cannot both contact the provider.
+        $claimed = OutboundMessage::whereKey($id)->where('status', 'queued')
+            ->where(fn ($q) => $q->whereNull('next_attempt_at')->orWhere('next_attempt_at', '<=', now()))
+            ->update(['status' => 'processing', 'updated_at' => now()]);
+        if (! $claimed) {
+            return;
+        }
+        $message = OutboundMessage::findOrFail($id);
+        if ($message->channel === 'email') {
+            $effectiveProvider = DeliveryPolicy::emailProvider($message->provider);
+            if ($effectiveProvider !== $message->provider) {
+                $message->update(['provider' => $effectiveProvider]);
+            }
+        }
+        try {
+            $error = app(DeliveryPolicy::class)->error($message->channel, $message->recipient, $message->provider);
+            if ($error) {
+                $this->finish($message, new SmsResult('skipped', error: $error));
+
+                return;
+            }
+            $reminderService = app(AppointmentReminderService::class);
+            $todayDateString = today($reminderService->reminderTimezone())->toDateString();
+            $isEvent = $message->purpose === 'appointment_update';
+            $isEpisodeFollowup = $message->purpose === 'episode_followup';
+            $appointment = $message->appointment_id
+                ? Appointment::with(['patient.accounts', 'clinic', 'biteIncident.treatmentPlan'])->find($message->appointment_id)
+                : null;
+            $patient = $appointment?->patient;
+
+            if ($isEvent) {
+                $eventValid = $appointment && AppointmentEmailEvents::snapshot($appointment) === ($message->context['snapshot'] ?? null)
+                    && now()->lessThan($message->context['expires_at'] ?? now());
+                if (! $appointment || ! $patient || ! $appointment->clinic
+                    || $appointment->clinic_id != $message->clinic_id
+                    || $patient->clinic_id != $message->clinic_id
+                    || ! $eventValid) {
+                    $this->finish($message, new SmsResult('skipped', error: 'appointment_changed_or_message_expired'));
+
+                    return;
+                }
+            } elseif ($isEpisodeFollowup) {
+                $incident = BiteIncident::with(['patient', 'clinic', 'treatmentPlan'])->find($message->context['bite_id'] ?? null);
+                $patient = $incident?->patient;
+                $date = $appointment?->scheduled_date ?? $appointment?->appointment_date;
+                $doseDay = isset($message->context['dose_day']) ? (int) $message->context['dose_day'] : null;
+
+                $invalidEpisode = ! $incident || ! $patient || ! $incident->clinic
+                    || $incident->clinic_id != $message->clinic_id
+                    || $incident->patient_id != $message->patient_id
+                    || $patient->clinic_id != $message->clinic_id
+                    || in_array((string) ($patient->status ?? ''), AppointmentReminderService::INELIGIBLE_PATIENT_STATUSES, true)
+                    || $reminderService->isEpisodeIneligible($incident)
+                    || $todayDateString !== ($message->context['occurrence_date'] ?? null);
+
+                $invalidTarget = $message->appointment_id !== null
+                    ? (! $appointment
+                        || $reminderService->ineligibilityReason($appointment, 'recall', checkDateWindow: false) !== null
+                        || $date?->toDateString() !== ($message->context['scheduled_date'] ?? null))
+                    : ! $reminderService->isEpisodeDoseOutstanding($incident, $doseDay);
+
+                if ($invalidEpisode || $invalidTarget) {
+                    $this->finish($message, new SmsResult('skipped', error: 'appointment_changed_or_message_expired'));
+
+                    return;
+                }
+            } else {
+                $date = $appointment?->scheduled_date ?? $appointment?->appointment_date;
+                if (! $appointment || ! $patient || ! $appointment->clinic
+                    || $appointment->clinic_id != $message->clinic_id
+                    || $patient->clinic_id != $message->clinic_id
+                    || $reminderService->ineligibilityReason($appointment, $message->purpose, checkDateWindow: false) !== null
+                    || $date?->toDateString() !== ($message->context['scheduled_date'] ?? null)
+                    || $todayDateString !== ($message->context['occurrence_date'] ?? null)) {
+                    $this->finish($message, new SmsResult('skipped', error: 'appointment_changed_or_message_expired'));
+
+                    return;
+                }
+            }
+            if ($message->channel !== 'in_app') {
+                $consent = DB::table('communication_preferences')->where('patient_id', $message->patient_id)->value($message->channel);
+                $recipientType = (string) ($message->context['recipient_type'] ?? 'patient');
+                try {
+                    if ($message->channel === 'sms') {
+                        $rawContact = $recipientType === 'guardian'
+                            ? (string) $patient->emergency_contact_number
+                            : (string) $patient->contact_number;
+                        $current = SmsManager::normalize($rawContact);
+                    } else {
+                        $current = trim((string) $patient->email);
+                    }
+                } catch (\InvalidArgumentException) {
+                    $current = '';
+                }
+                if (! $consent || $current !== $message->recipient) {
+                    $this->finish($message, new SmsResult('skipped', error: 'consent_or_contact_changed'));
+
+                    return;
+                }
+                $rateKey = 'messaging:'.$message->channel.':'.$message->provider;
+                $limit = max(1, (int) config('messaging.'.$message->channel.'_per_minute', 30));
+                $allowed = Cache::lock($rateKey.':lock', 5)->get(function () use ($rateKey, $limit) {
+                    if (RateLimiter::tooManyAttempts($rateKey, $limit)) {
+                        return false;
+                    }
+                    RateLimiter::hit($rateKey, 60);
+
+                    return true;
+                });
+                if (! $allowed) {
+                    $message->update(['status' => 'queued', 'next_attempt_at' => now()->addMinute()]);
+
+                    return;
+                }
+            }
+            $message->increment('attempt_count');
+            if ($message->channel === 'sms') {
+                $result = app(SmsManager::class)->provider($message->provider)->send($message->recipient, $message->body, $message->idempotency_key);
+            } elseif ($message->channel === 'email') {
+                $result = app(EmailTransportInterface::class)->send($message->recipient, new ClinicEmail($message->subject, [$message->body]), $message->provider);
+            } else {
+                // Recheck verified account linkage; never choose an arbitrary account.
+                $account = $appointment->patient->accounts->first(fn ($a) => $a->id == $message->recipient && $a->is_active && $a->pivot->status === 'verified');
+                if (! $account) {
+                    $this->finish($message, new SmsResult('skipped', error: 'verified_account_required'));
+
+                    return;
+                }
+                DB::transaction(function () use ($message, $account) {
+                    Notification::create([
+                        'clinic_id' => $message->clinic_id, 'patient_id' => $message->patient_id,
+                        'patient_account_id' => $account->id, 'appointment_id' => $message->appointment_id,
+                        'type' => match ($message->purpose) {
+                            'advance', 'same_day' => 'upcoming_appointment_reminder',
+                            default => 'missed_appointment_recall',
+                        },
+                        'message' => $message->body, 'status' => 'sent', 'send_time' => now(),
+                    ]);
+                    $this->finish($message, new SmsResult('delivered'));
+                });
+                app(\App\Services\Mobile\MobileNotificationService::class)->invalidateNotificationCache((int) $account->id);
+
+                // Enqueue automated FCM push notification to the patient account if allowlisted
+                $pushTitle = 'Vaccination Reminder';
+                $advanceDaysBefore = (int) ($message->context['advance_days_before'] ?? 1);
+                $pushBody = match ($message->purpose) {
+                    'same_day' => 'Your vaccination appointment is scheduled for today. Open the app to view your schedule.',
+                    'advance' => in_array($advanceDaysBefore, [2, 3], true)
+                        ? "Your vaccination appointment is in {$advanceDaysBefore} days. Open the app to view your schedule."
+                        : 'You have an upcoming appointment. Open the app to view your schedule.',
+                    default => 'You have an overdue appointment. Open the app to view your schedule.',
+                };
+
+                if (app(\App\Services\Messaging\FcmService::class)->isAccountAllowed($account)) {
+                    if (! $account->allowsNotificationCategory('appointment_reminder')) {
+                        \Illuminate\Support\Facades\Log::info("Scheduled reminder FCM skipped: Category 'appointment_reminder' disabled by user preferences for account #{$account->id}.");
+
+                        return;
+                    }
+
+                    $isTest = (bool) ($message->context['is_test'] ?? false);
+                    $isSync = (bool) ($message->context['sync'] ?? false);
+                    $dryRun = (bool) ($message->context['dry_run'] ?? false);
+
+                    $pushData = [
+                        'category'       => 'appointment_reminder',
+                        'route'          => '/calendar',
+                        'appointment_id' => (string) $message->appointment_id,
+                    ];
+                    if ($isTest) {
+                        $pushData['is_test'] = 'true';
+                    }
+
+                    if ($isSync) {
+                        SendFcmPushNotification::dispatchSync(
+                            patientAccountId: (int) $account->id,
+                            title: $pushTitle,
+                            body: $pushBody,
+                            data: $pushData,
+                            idempotencyKey: hash('sha256', 'reminder|'.$account->id.'|'.$message->idempotency_key),
+                            validateOnly: $dryRun,
+                            isControlledTest: $isTest
+                        );
+                    } else {
+                        SendFcmPushNotification::dispatch(
+                            patientAccountId: (int) $account->id,
+                            title: $pushTitle,
+                            body: $pushBody,
+                            data: $pushData,
+                            idempotencyKey: hash('sha256', 'reminder|'.$account->id.'|'.$message->idempotency_key),
+                            validateOnly: $dryRun,
+                            isControlledTest: $isTest
+                        );
+                    }
+                } else {
+                    \Illuminate\Support\Facades\Log::info("Scheduled reminder FCM skipped: Patient account #{$account->id} is not in the automatic FCM allowlist.");
+                }
+
+                return;
+            }
+            $this->finish($message, $result);
+        } catch (\Throwable $e) {
+            // Do not log exception bodies, tokens, contacts or message content.
+            // An interrupted request may already have been accepted: never blindly resend.
+            $this->finish($message, new SmsResult('unknown', error: 'delivery_outcome_unknown'));
+        }
+    }
+
+    public function finish(OutboundMessage $message, SmsResult $result): void
+    {
+        $status = $result->status;
+        if ($status === 'retry') {
+            $status = $message->attempt_count < config('messaging.max_attempts') ? 'queued' : 'failed';
+        }
+        DB::transaction(function () use ($message, $result, $status) {
+            $message->update([
+                'status' => $status, 'provider_message_id' => $result->messageId,
+                'error_code' => $result->error,
+                'next_attempt_at' => $status === 'queued' ? now()->addMinutes(2 ** $message->attempt_count) : null,
+                'accepted_at' => in_array($status, ['accepted', 'delivered']) ? now() : null,
+                'delivered_at' => $status === 'delivered' ? now() : null,
+            ]);
+            $message->attempts()->create([
+                'provider' => $message->provider, 'status' => $status,
+                'error_code' => $result->error, 'provider_message_id' => $result->messageId,
+            ]);
+            if ($message->reminder_id) {
+                AppointmentReminder::whereKey($message->reminder_id)->update([
+                    'status' => in_array($status, ['accepted', 'delivered']) ? 'sent' : (in_array($status, ['queued', 'processing']) ? 'pending' : 'failed'),
+                    'error_details' => $result->error,
+                ]);
+            }
+            if ($message->appointment_id && $message->purpose !== 'appointment_update' && in_array($status, ['accepted', 'delivered']) && ! ($message->context['is_test'] ?? false)) {
+                Appointment::whereKey($message->appointment_id)->update([
+                    'reminder_sent_count' => DB::raw('COALESCE(reminder_sent_count, 0) + 1'),
+                    'last_reminded_at' => now(),
+                ]);
+            }
+        });
+    }
+}

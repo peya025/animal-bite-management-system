@@ -6,17 +6,49 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import '../app/api_config.dart';
+import '../models/announcement.dart';
+import '../models/community_bite_overview.dart';
+
 import '../models/booking_draft.dart';
 import '../models/bite_intake_draft.dart';
+import '../models/bite_intake_contract.dart';
+import '../models/form_configuration.dart';
 import '../models/appointment_summary.dart';
 import '../models/app_notification.dart';
 import '../models/patient_profile.dart';
 import '../models/patient_account_profile.dart';
+import 'fcm_device_registration_service.dart';
+import 'form_configuration_repository.dart';
 import 'psgc_service.dart';
+import 'push_notification_service.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message);
+  const ApiException(
+    this.message, {
+    this.statusCode,
+    this.code,
+    this.fieldErrors = const <String, List<String>>{},
+    this.updatedConfiguration,
+  });
+
   final String message;
+  final int? statusCode;
+  final String? code;
+  final Map<String, List<String>> fieldErrors;
+  final FormConfiguration? updatedConfiguration;
+
+  bool get isConfigConflict =>
+      statusCode == 409 && code == 'form_configuration_changed';
+
+  bool get hasProfileErrors =>
+      fieldErrors.keys.any((key) => key.startsWith('profile.'));
+
+  Map<String, List<String>> get profileErrors => {
+    for (final entry in fieldErrors.entries)
+      if (entry.key.startsWith('profile.'))
+        entry.key.substring('profile.'.length): entry.value,
+  };
 
   @override
   String toString() => message;
@@ -28,17 +60,18 @@ class MobileApi {
   static final instance = MobileApi._();
 
   // API endpoint is deployment configuration, not a hard-coded LAN address.
-  static String get _baseUrl {
-    final baseUrl = dotenv.env['API_BASE_URL']?.trim().replaceAll(' ', '');
-    if (baseUrl == null || baseUrl.isEmpty) {
-      throw StateError('API_BASE_URL must be configured in mobile/.env.');
-    }
+  static String get _baseUrl => ApiConfig.resolveBaseUrl(
+    envUrl: dotenv.isInitialized ? dotenv.env['API_BASE_URL'] : null,
+  );
 
-    return baseUrl;
-  }
-  static int get clinicId => int.parse(dotenv.env['CLINIC_ID'] ?? '1');
+  static int get clinicId =>
+      int.tryParse(
+        (dotenv.isInitialized ? dotenv.env['CLINIC_ID'] : null) ?? '1',
+      ) ??
+      1;
 
-  static const _tokenKey = 'patient_account_token';
+  // Keep local and hosted sign-in sessions separate when replacing a build.
+  static String get _tokenKey => 'patient_account_token:$_baseUrl';
   static const _requestTimeout = Duration(seconds: 20);
   static const _storage = FlutterSecureStorage();
 
@@ -46,17 +79,108 @@ class MobileApi {
 
   bool get isAuthenticated => _token != null;
 
+  /// This public feed contains only published, unexpired announcements.
+  Future<List<Announcement>> fetchAnnouncements() async {
+    final rootUrl = _baseUrl.replaceFirst(RegExp(r'/mobile$'), '');
+    final response = await http
+        .get(
+          Uri.parse('$rootUrl/public/announcements'),
+          headers: {'Accept': 'application/json'},
+        )
+        .timeout(_requestTimeout);
+    if (response.statusCode != 200) {
+      throw const ApiException('Announcements are temporarily unavailable.');
+    }
+    final data = jsonDecode(response.body) as List<dynamic>;
+    return data
+        .map((item) => Announcement.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Clinic-scoped Community Bite Awareness overview (approved advisories only, zero patient PII).
+  Future<CommunityBiteOverview> fetchCommunityBiteOverview({
+    int? clinicId,
+  }) async {
+    final rootUrl = _baseUrl.replaceFirst(RegExp(r'/mobile$'), '');
+    final targetClinicId = clinicId ?? MobileApi.clinicId;
+    final uri = Uri.parse(
+      '$rootUrl/public/community-bite-overview',
+    ).replace(queryParameters: {'clinic_id': targetClinicId.toString()});
+    final response = await http
+        .get(
+          uri,
+          headers: {
+            'Accept': 'application/json',
+            'X-Community-Awareness-Version': '2',
+          },
+        )
+        .timeout(_requestTimeout);
+    if (response.statusCode != 200) {
+      throw const ApiException(
+        'Community bite overview is temporarily unavailable.',
+      );
+    }
+    return CommunityBiteOverview.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Revalidate a single advisory by ID; handles 200 active, 410 tombstone, and 404 not found.
+  Future<CommunityAdvisoryDetailResult> fetchCommunityAdvisoryDetail(
+    int advisoryId,
+  ) async {
+    final rootUrl = _baseUrl.replaceFirst(RegExp(r'/mobile$'), '');
+    final response = await http
+        .get(
+          Uri.parse('$rootUrl/public/community-advisories/$advisoryId'),
+          headers: {'Accept': 'application/json'},
+        )
+        .timeout(_requestTimeout);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final advisoryJson = data['advisory'];
+      return CommunityAdvisoryDetailResult(
+        status: (data['status'] ?? 'active').toString(),
+        advisory: advisoryJson is Map<String, dynamic>
+            ? CommunityAdvisory.fromJson(advisoryJson)
+            : null,
+        disclaimer: (data['disclaimer'] ?? '').toString(),
+      );
+    }
+
+    if (response.statusCode == 410) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return CommunityAdvisoryDetailResult(
+        status: (data['status'] ?? 'withdrawn').toString(),
+        message: (data['message'] ?? '').toString(),
+        disclaimer: (data['disclaimer'] ?? '').toString(),
+      );
+    }
+
+    if (response.statusCode == 404) {
+      return const CommunityAdvisoryDetailResult(
+        status: 'not_found',
+        message: 'This clinic advisory is not available.',
+      );
+    }
+
+    throw const ApiException('Community advisory is temporarily unavailable.');
+  }
+
   Future<void> initialize() async {
     _token = await _storage.read(key: _tokenKey);
   }
 
   Future<void> _setToken(String token, {required bool persist}) async {
     _token = token;
+    FormConfigurationRepository.clearCache();
     if (persist) {
       await _storage.write(key: _tokenKey, value: token);
     } else {
       await _storage.delete(key: _tokenKey);
     }
+    unawaited(FcmDeviceRegistrationService.instance.syncDeviceToken());
   }
 
   Future<void> register({
@@ -153,8 +277,15 @@ class MobileApi {
   }
 
   Future<void> logout() async {
+    PushNotificationService.instance.clearNotificationState();
+    try {
+      await FcmDeviceRegistrationService.instance.unregisterDeviceToken();
+    } catch (_) {
+      // Safe fallback: network failure during logout must not prevent local session termination
+    }
     if (_token != null) await _send('POST', '/logout');
     _token = null;
+    FormConfigurationRepository.clearCache();
     await _storage.delete(key: _tokenKey);
   }
 
@@ -248,11 +379,44 @@ class MobileApi {
         .toList();
   }
 
-  Future<PatientProfile> createPatient(Map<String, dynamic> profile) async {
+  Future<BiteIntakeContract> biteIntakeContract({int? clinicIdOverride}) async {
+    final targetClinicId = clinicIdOverride ?? clinicId;
+    final query = <String, String>{
+      if (targetClinicId != null && targetClinicId > 0)
+        'clinic_id': '$targetClinicId',
+    };
+    final path = Uri(path: '/bite-intake-schema', queryParameters: query.isEmpty ? null : query).toString();
+    final data = await _send('GET', path) as Map<String, dynamic>;
+    return BiteIntakeContract.fromJson(data);
+  }
+
+  Future<FormConfiguration> formConfiguration({
+    int? clinicId,
+    int? patientId,
+    int? appointmentId,
+  }) async {
+    final query = <String, String>{
+      if (clinicId != null) 'clinic_id': '$clinicId',
+      if (patientId != null) 'patient_id': '$patientId',
+      if (appointmentId != null) 'appointment_id': '$appointmentId',
+    };
+    final path = Uri(path: '/form-configuration', queryParameters: query).toString();
+    final data = await _send('GET', path) as Map<String, dynamic>;
+    return FormConfiguration.fromJson(data);
+  }
+
+  Future<PatientProfile> createPatient(
+    Map<String, dynamic> profile, {
+    int? configRevision,
+  }) async {
     final data = await _send(
       'POST',
       '/patients',
-      body: {'clinic_id': clinicId, ...profile},
+      body: {
+        'clinic_id': clinicId,
+        if (configRevision != null) 'config_revision': configRevision,
+        ...profile,
+      },
     );
     return PatientProfile.fromJson(data as Map<String, dynamic>);
   }
@@ -260,8 +424,16 @@ class MobileApi {
   Future<PatientProfile> updatePatient({
     required int patientId,
     required Map<String, dynamic> profile,
+    int? configRevision,
   }) async {
-    final data = await _send('PATCH', '/patients/$patientId', body: profile);
+    final data = await _send(
+      'PATCH',
+      '/patients/$patientId',
+      body: {
+        if (configRevision != null) 'config_revision': configRevision,
+        ...profile,
+      },
+    );
     return PatientProfile.fromJson(data as Map<String, dynamic>);
   }
 
@@ -273,7 +445,10 @@ class MobileApi {
     required PatientProfile patient,
     required BookingDraft booking,
     BiteIntakeDraft? intake,
+    Map<String, dynamic>? intakePayload,
+    int? configRevision,
   }) async {
+    final resolvedIntake = intakePayload ?? intake?.toJson();
     await _send(
       'POST',
       '/appointments',
@@ -284,7 +459,8 @@ class MobileApi {
         'time_slot': booking.timeSlot.name,
         if (booking.notes != null && booking.notes!.trim().isNotEmpty)
           'notes': booking.notes!.trim(),
-        if (intake != null) 'intake': intake.toJson(),
+        if (configRevision != null) 'config_revision': configRevision,
+        'intake': ?resolvedIntake,
       },
     );
   }
@@ -329,14 +505,114 @@ class MobileApi {
     await _send('PATCH', '/notifications/read-all');
   }
 
+  /// Register or refresh an FCM device registration token with the backend.
+  Future<Map<String, dynamic>> registerDeviceToken({
+    required String fcmToken,
+    String? deviceId,
+    String? deviceType,
+    String? deviceName,
+  }) async {
+    final data = await _send(
+      'POST',
+      '/device-token',
+      body: {
+        'fcm_token': fcmToken,
+        // ignore: use_null_aware_elements
+        if (deviceId != null) 'device_id': deviceId,
+        // ignore: use_null_aware_elements
+        if (deviceType != null) 'device_type': deviceType,
+        // ignore: use_null_aware_elements
+        if (deviceName != null) 'device_name': deviceName,
+      },
+    );
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  /// Invalidate an FCM device registration token with the backend upon logout.
+  Future<void> deleteDeviceToken({
+    String? fcmToken,
+    String? deviceId,
+  }) async {
+    await _send(
+      'DELETE',
+      '/device-token',
+      body: {
+        // ignore: use_null_aware_elements
+        if (fcmToken != null) 'fcm_token': fcmToken,
+        // ignore: use_null_aware_elements
+        if (deviceId != null) 'device_id': deviceId,
+      },
+    );
+  }
+
+  /// Get backend notification preferences for the authenticated patient account.
+  Future<Map<String, dynamic>> getNotificationPreferences() async {
+    final data = await _send('GET', '/notification-preferences');
+    if (data is Map<String, dynamic> && data['preferences'] is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(data['preferences'] as Map);
+    }
+    return <String, dynamic>{};
+  }
+
+  /// Update backend notification preferences for the authenticated patient account.
+  Future<Map<String, dynamic>> updateNotificationPreferences(
+    Map<String, dynamic> preferences,
+  ) async {
+    final data = await _send(
+      'PUT',
+      '/notification-preferences',
+      body: preferences,
+    );
+    if (data is Map<String, dynamic> && data['preferences'] is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(data['preferences'] as Map);
+    }
+    return <String, dynamic>{};
+  }
+
   Future<Map<String, dynamic>> history({int? patientId}) async {
     final query = patientId != null ? '?patient_id=$patientId' : '';
     final data = await _send('GET', '/history$query') as Map<String, dynamic>;
     return data;
   }
 
+  Future<Map<String, dynamic>> updateAppointmentIntake({
+    required int appointmentId,
+    required Map<String, dynamic> intake,
+    int? configRevision,
+  }) async {
+    final data = await _send(
+      'PUT',
+      '/appointments/$appointmentId/intake',
+      body: {
+        if (configRevision != null) 'config_revision': configRevision,
+        'intake': intake,
+      },
+    );
+    return data is Map<String, dynamic> ? data : {};
+  }
+
+  Future<List<dynamic>> clinicFaqs() async {
+    final response = await _send('GET', '/clinic-faqs?clinic_id=$clinicId')
+        as Map<String, dynamic>;
+    return response['data'] as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> clinicResources({int? clinicId}) async {
+    final effectiveClinicId = clinicId ?? MobileApi.clinicId;
+    final data = await _send(
+      'GET',
+      '/clinic-resources?clinic_id=$effectiveClinicId',
+    );
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    return const <String, dynamic>{'data': <dynamic>[]};
+  }
+
   Future<Map<String, dynamic>> vaccinationCard(int patientId) async {
-    final data = await _send('GET', '/patients/$patientId/vaccination-card') as Map<String, dynamic>;
+    final data =
+        await _send('GET', '/patients/$patientId/vaccination-card')
+            as Map<String, dynamic>;
     return data;
   }
 
@@ -364,10 +640,12 @@ class MobileApi {
     final targetId = id ?? clinicId;
     final rootUrl = _baseUrl.replaceAll('/api/mobile', '/api');
     try {
-      final response = await http.get(
-        Uri.parse('$rootUrl/clinics/$targetId/schedule-summary'),
-        headers: {'Accept': 'application/json'},
-      ).timeout(_requestTimeout);
+      final response = await http
+          .get(
+            Uri.parse('$rootUrl/clinics/$targetId/schedule-summary'),
+            headers: {'Accept': 'application/json'},
+          )
+          .timeout(_requestTimeout);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -400,8 +678,12 @@ class MobileApi {
         request = http.get(uri, headers: headers);
       case 'POST':
         request = http.post(uri, headers: headers, body: encodedBody);
+      case 'PUT':
+        request = http.put(uri, headers: headers, body: encodedBody);
       case 'PATCH':
         request = http.patch(uri, headers: headers, body: encodedBody);
+      case 'DELETE':
+        request = http.delete(uri, headers: headers, body: encodedBody);
       default:
         throw ArgumentError.value(method, 'method');
     }
@@ -435,30 +717,71 @@ class MobileApi {
     }
 
     if (response.statusCode == 403) {
-      final msg = (decoded is Map<String, dynamic>) ? decoded['message']?.toString() : null;
-      throw ApiException(msg ?? 'You do not have permission to perform this action.');
+      final msg = (decoded is Map<String, dynamic>)
+          ? decoded['message']?.toString()
+          : null;
+      throw ApiException(
+        msg ?? 'You do not have permission to perform this action.',
+      );
     }
 
     if (response.statusCode == 404) {
-      final msg = (decoded is Map<String, dynamic>) ? decoded['message']?.toString() : null;
+      final msg = (decoded is Map<String, dynamic>)
+          ? decoded['message']?.toString()
+          : null;
       throw ApiException(msg ?? 'The requested clinic resource was not found.');
     }
 
     if (response.statusCode >= 500) {
-      throw const ApiException('Clinic server is temporarily unavailable. Please try again later.');
+      throw const ApiException(
+        'Clinic server is temporarily unavailable. Please try again later.',
+      );
     }
 
     if (decoded is Map<String, dynamic>) {
-      final errors = decoded['errors'];
-      if (errors is Map<String, dynamic> && errors.isNotEmpty) {
-        final first = errors.values.first;
-        if (first is List && first.isNotEmpty) {
-          throw ApiException(first.first.toString());
+      final errorCode = decoded['code']?.toString();
+      FormConfiguration? updatedConfig;
+      final rawConfig = decoded['configuration'];
+      if (rawConfig is Map<String, dynamic>) {
+        try {
+          updatedConfig = FormConfiguration.fromJson(rawConfig);
+        } catch (_) {}
+      }
+      final rawErrors = decoded['errors'];
+      final parsedErrors = <String, List<String>>{};
+      if (rawErrors is Map<String, dynamic>) {
+        for (final entry in rawErrors.entries) {
+          final value = entry.value;
+          if (value is List) {
+            parsedErrors[entry.key] = value.map((e) => e.toString()).toList();
+          } else if (value != null) {
+            parsedErrors[entry.key] = [value.toString()];
+          }
         }
       }
-      throw ApiException(decoded['message']?.toString() ?? 'Request failed.');
+      if (parsedErrors.isNotEmpty) {
+        final firstList = parsedErrors.values.first;
+        if (firstList.isNotEmpty) {
+          throw ApiException(
+            firstList.first,
+            statusCode: response.statusCode,
+            code: errorCode,
+            fieldErrors: parsedErrors,
+            updatedConfiguration: updatedConfig,
+          );
+        }
+      }
+      throw ApiException(
+        decoded['message']?.toString() ?? 'Request failed.',
+        statusCode: response.statusCode,
+        code: errorCode,
+        fieldErrors: parsedErrors,
+        updatedConfiguration: updatedConfig,
+      );
     }
 
-    throw const ApiException('Could not complete request with the clinic server.');
+    throw const ApiException(
+      'Could not complete request with the clinic server.',
+    );
   }
 }

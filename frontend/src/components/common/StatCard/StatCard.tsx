@@ -78,6 +78,26 @@ export default function StatCard({
   const clampedProgress = Math.min(Math.max(rawProgress, 0), 1);
   const dashArray = `${CIRCUMFERENCE * clampedProgress} ${CIRCUMFERENCE * (1 - clampedProgress)}`;
 
+  const hoverShadow = isDark
+    ? colorKey === 'error' || colorKey === 'red'
+      ? '0 8px 24px rgba(239, 68, 68, 0.35), 0 0 16px rgba(239, 68, 68, 0.25)'
+      : colorKey === 'warning' || colorKey === 'yellow' || colorKey === 'orange'
+      ? '0 8px 24px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.25)'
+      : colorKey === 'info' || colorKey === 'blue' || colorKey === 'cyan'
+      ? '0 8px 24px rgba(56, 189, 248, 0.35), 0 0 16px rgba(56, 189, 248, 0.25)'
+      : colorKey === 'purple'
+      ? '0 8px 24px rgba(167, 139, 250, 0.35), 0 0 16px rgba(167, 139, 250, 0.25)'
+      : '0 8px 24px rgba(16, 185, 129, 0.35), 0 0 16px rgba(16, 185, 129, 0.25)'
+    : colorKey === 'error' || colorKey === 'red'
+    ? '0 8px 22px rgba(239, 68, 68, 0.28), 0 2px 8px rgba(239, 68, 68, 0.16)'
+    : colorKey === 'warning' || colorKey === 'yellow' || colorKey === 'orange'
+    ? '0 8px 22px rgba(245, 158, 11, 0.28), 0 2px 8px rgba(245, 158, 11, 0.16)'
+    : colorKey === 'info' || colorKey === 'blue' || colorKey === 'cyan'
+    ? '0 8px 22px rgba(56, 189, 248, 0.30), 0 2px 8px rgba(56, 189, 248, 0.16)'
+    : colorKey === 'purple'
+    ? '0 8px 22px rgba(167, 139, 250, 0.30), 0 2px 8px rgba(167, 139, 250, 0.16)'
+    : '0 8px 22px rgba(16, 185, 129, 0.28), 0 2px 8px rgba(16, 185, 129, 0.16)';
+
   return (
     <Paper
       elevation={0}
@@ -93,34 +113,22 @@ export default function StatCard({
         position: 'relative',
         overflow: 'hidden',
         cursor: 'default',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         ...(isDark
           ? {
-              background: 'linear-gradient(145deg, #0d1f13 0%, #091610 55%, #060f0b 100%)',
-              border: '1.5px solid rgba(0, 229, 160, 0.28)',
-              boxShadow: `
-                0 0 0 1px rgba(0, 229, 160, 0.06),
-                0 8px 32px -4px rgba(0, 0, 0, 0.75),
-                0 0 30px -8px ${c.glow}
-              `,
+              background: '#111827',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
               '&:hover': {
-                transform: 'translateY(-4px)',
-                borderColor: 'rgba(0, 229, 160, 0.55)',
-                boxShadow: `
-                  0 0 0 1px rgba(0, 229, 160, 0.12),
-                  0 14px 42px -4px rgba(0, 0, 0, 0.85),
-                  0 0 45px -6px ${c.glow}
-                `,
+                boxShadow: hoverShadow,
               },
             }
           : {
-              background: 'radial-gradient(ellipse at 30% 0%, #ecfdf5 0%, #f4fbf7 45%, #ffffff 100%)',
-              border: '1.5px solid rgba(16, 185, 129, 0.30)',
-              boxShadow: '0 6px 24px -4px rgba(16, 185, 129, 0.15), inset 0 1px 2px rgba(255,255,255,0.9)',
+              background: '#ffffff',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
               '&:hover': {
-                transform: 'translateY(-4px)',
-                borderColor: 'rgba(16, 185, 129, 0.55)',
-                boxShadow: '0 12px 30px -4px rgba(16, 185, 129, 0.25)',
+                boxShadow: hoverShadow,
               },
             }),
       }}

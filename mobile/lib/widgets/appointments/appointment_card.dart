@@ -33,14 +33,23 @@ class AppointmentCard extends StatelessWidget {
 
     return Material(
       color: isScheduled ? const Color(0xFFF0FAF7) : AppColors.white,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
+          color: isScheduled ? const Color(0xFFF0FAF7) : AppColors.white,
           border: Border.all(
             color: isScheduled ? const Color(0xFFB8E4DB) : AppColors.border,
+            width: 0.8,
           ),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x08111827),
+              blurRadius: 10,
+              offset: Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           children: [
@@ -48,11 +57,11 @@ class AppointmentCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     color: leadingBackground,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
                     appointment.type == 'vaccination'
@@ -127,7 +136,7 @@ class AppointmentCard extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: AppColors.errorLight,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   reason,
@@ -135,6 +144,40 @@ class AppointmentCard extends StatelessWidget {
                     color: AppColors.errorDark,
                     fontSize: 11,
                   ),
+                ),
+              ),
+            ],
+            if (appointment.isNonCancellableFollowUp) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: Color(0xFF92400E),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Important Note: Follow-up doses (Day 3 to booster) cannot be cancelled online. Completing every dose on time is critical for complete rabies protection. If you need to reschedule due to an emergency, please contact or visit the clinic directly.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          height: 1.4,
+                          color: Color(0xFF78350F),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -158,7 +201,7 @@ class AppointmentCard extends StatelessWidget {
                     minimumSize: const Size.fromHeight(44),
                     side: const BorderSide(color: Color(0xFFF1B5B5)),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                 ),

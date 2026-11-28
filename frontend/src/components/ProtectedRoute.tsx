@@ -2,6 +2,8 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import type { ReactNode } from 'react';
 
+import { resolveDefaultAuthorizedRoute } from '../shared/utils/accessControl';
+
 interface ProtectedRouteProps {
   children: ReactNode;
   allowedRoles?: string[];
@@ -30,7 +32,8 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
 
   // Check if user has required role
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/unauthorized" state={{ from: location.pathname, requiredRoles: allowedRoles }} replace />;
+    const defaultRoute = resolveDefaultAuthorizedRoute(user);
+    return <Navigate to={defaultRoute} state={{ accessDenied: true, from: location.pathname }} replace />;
   }
 
   return <>{children}</>;

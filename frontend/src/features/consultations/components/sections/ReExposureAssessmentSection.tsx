@@ -1,11 +1,15 @@
 import { DOCTOR_RE_EXPOSURE_OPTIONS } from '../../constants/consultation.constants';
+import { SearchableSelect } from '../../../../components/forms/SearchableSelect';
 import { FormField } from '../FormField';
+
+const RE_EXPOSURE_PLAN_OPTIONS = DOCTOR_RE_EXPOSURE_OPTIONS.filter((opt) => opt.value !== '');
 
 interface ReExposureAssessmentSectionProps {
   entry: any;
   requiresReExposureDecision: boolean;
   isFormDisabled: boolean;
   treatmentPlan: string;
+  error?: string;
   onUpdateTreatmentPlan: (plan: string) => void;
 }
 
@@ -18,6 +22,7 @@ export default function ReExposureAssessmentSection({
   requiresReExposureDecision,
   isFormDisabled,
   treatmentPlan,
+  error,
   onUpdateTreatmentPlan,
 }: ReExposureAssessmentSectionProps) {
   const incident = entry?.incident || entry?.bite_incident || entry?.biteIncident;
@@ -42,18 +47,23 @@ export default function ReExposureAssessmentSection({
       </div>
 
       <div className="fm-grid fm-grid--1">
-        <FormField label="Treatment Plan" required>
-          <select
-            className="fm-select"
+        <FormField
+          id="field-treatment_plan"
+          label="Treatment Plan"
+          required
+          error={!!error}
+          errorText={error}
+        >
+          <SearchableSelect
             name="treatment_plan"
+            aria-label="Treatment Plan"
             value={treatmentPlan}
-            onChange={(event) => onUpdateTreatmentPlan(event.target.value)}
+            options={RE_EXPOSURE_PLAN_OPTIONS}
+            placeholder="Select Doctor Re-Exposure Plan…"
+            searchPlaceholder="Search treatment plan..."
+            onChange={onUpdateTreatmentPlan}
             disabled={isFormDisabled}
-          >
-            {DOCTOR_RE_EXPOSURE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
+          />
         </FormField>
       </div>
     </div>

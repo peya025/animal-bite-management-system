@@ -213,6 +213,7 @@
     </div>
 
     @php
+        $clinic = $patient->clinic ?? \App\Models\Clinic::first();
         $details = $patient->details;
         $civilStatus = strtolower($details->civil_status ?? $patient->civil_status ?? '');
         $gender = strtolower($patient->gender ?? '');
@@ -249,14 +250,15 @@
         {{-- Top Header Grid matching photo --}}
         <table class="header-grid">
             <tr>
-                <td style="width: 48%;">
-                    <div class="doh-brand">
-                        <img src="/assets/logo_doh.jpg" alt="DOH Seal" class="doh-logo-img" onerror="this.style.display='none'">
-                        <div class="doh-text">
+                <td style="width: 52%;">
+                    <div class="doh-brand" style="justify-content: space-between;">
+                        @include('prints.partials.logo', ['url' => $clinic?->left_print_logo_url ?? null, 'side' => 'Left', 'size' => 52, 'spacerSize' => 55, 'class' => 'doh-logo-img'])
+                        <div class="doh-text" style="text-align: center; flex: 1; padding: 0 6px;">
                             Republic of the Philippines<br>
-                            <strong>Department of Health</strong>
-                            Kagawaran ng Kalusugan
+                            <strong>{{ strtoupper($clinic?->name ?? 'Department of Health') }}</strong>
+                            {{ $clinic?->municipality ? $clinic->municipality . ', ' : '' }}{{ $clinic?->province ?? 'Misamis Oriental' }}
                         </div>
+                        @include('prints.partials.logo', ['url' => $clinic?->right_print_logo_url ?? null, 'side' => 'Right', 'size' => 52, 'spacerSize' => 55, 'class' => 'doh-logo-img'])
                     </div>
                 </td>
                 <td style="width: 28%;">
@@ -265,10 +267,11 @@
                 </td>
                 <td style="width: 24%;">
                     <span class="lbl">Facility Code</span>
-                    <span class="val">{{ $patient->clinic->code ?? '104324' }}</span>
+                    <span class="val">{{ $clinic?->code ?? '104324' }}</span>
                 </td>
             </tr>
         </table>
+
 
         {{-- Title Banner --}}
         <div class="title-banner">
@@ -480,8 +483,79 @@
             </tr>
         </table>
 
-        {{-- SECTION II: PATIENT'S CONSENT --}}
-        <div class="section-header-bar">II. PATIENT'S CONSENT (PAHINTULOT NG PASYENTE)</div>
+        {{-- SECTION III: CONSULTATION DETAILS & VITALS --}}
+        @php
+            // $latestConsultation may be null for patients registered before this feature
+            // was deployed. In that case the section header still prints but all fields show blank.
+            $cx = $latestConsultation ?? null;
+
+            $fmtDate = function($d) {
+                if (!$d) return '';
+                try { return \Carbon\Carbon::parse($d)->format('F d, Y'); } catch (\Throwable $e) { return $d; }
+            };
+
+            $fmtTime = function($t) {
+                if (!$t) return '';
+                try { return \Carbon\Carbon::createFromFormat('H:i', substr($t, 0, 5))->format('h:i A'); } catch (\Throwable $e) { return $t; }
+            };
+
+            $consultDate      = $cx ? $fmtDate($cx->consultation_date) : '';
+            $consultTime      = $cx ? $fmtTime($cx->consultation_time ?? '') : '';
+            $bp               = $cx->blood_pressure ?? '';
+            $temperature      = $cx->temperature ?? '';
+            $height           = $cx->height ?? '';
+            $weight           = $cx->weight ?? '';
+            $attendingProv    = $cx->attending_provider ?? '';
+            $referredBy       = $cx->referred_by ?? '';
+        @endphp
+        <div class="section-header-bar">II. CONSULTATION DETAILS &amp; VITALS</div>
+        <table class="form-table">
+            <tr>
+                <td style="width: 50%;">
+                    <span class="lbl">Date of Consultation</span>
+                    <span class="val">{{ $consultDate ?: '—' }}</span>
+                </td>
+                <td style="width: 50%;">
+                    <span class="lbl">Consultation Time</span>
+                    <span class="val">{{ $consultTime ?: '—' }}</span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <span class="lbl">Blood Pressure <span class="sub-lbl">(mmHg — Systolic / Diastolic)</span></span>
+                    <span class="val">{{ $bp ?: '—' }}</span>
+                </td>
+                <td>
+                    <span class="lbl">Temperature <span class="sub-lbl">(°C)</span></span>
+                    <span class="val">{{ $temperature ?: '—' }}</span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <span class="lbl">Height <span class="sub-lbl">(cm)</span></span>
+                    <span class="val">{{ $height ?: '—' }}</span>
+                </td>
+                <td>
+                    <span class="lbl">Weight <span class="sub-lbl">(kg)</span></span>
+                    <span class="val">{{ $weight ?: '—' }}</span>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <span class="lbl">Name of Attending Provider <span class="sub-lbl">(from referral paper)</span></span>
+                    <span class="val">{{ $attendingProv ?: '—' }}</span>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <span class="lbl">Referred By <span class="sub-lbl">(Health Center / Facility Name)</span></span>
+                    <span class="val">{{ $referredBy ?: '—' }}</span>
+                </td>
+            </tr>
+        </table>
+
+        {{-- SECTION III: PATIENT'S CONSENT --}}
+        <div class="section-header-bar">III. PATIENT'S CONSENT (PAHINTULOT NG PASYENTE)</div>
 
         <table class="consent-grid">
             <tr>

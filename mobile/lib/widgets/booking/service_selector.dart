@@ -6,13 +6,11 @@ import '../../models/booking_draft.dart';
 extension BookingServiceDetails on BookingService {
   String get description => switch (this) {
     BookingService.consultation => 'Assessment for a new bite or exposure',
-    BookingService.vaccination => 'Schedule an anti-rabies vaccine dose',
     BookingService.booster => '2-dose booster for previously vaccinated patients',
   };
 
   IconData get icon => switch (this) {
     BookingService.consultation => Icons.medical_information_outlined,
-    BookingService.vaccination => Icons.vaccines_outlined,
     BookingService.booster => Icons.shield_outlined,
   };
 }
@@ -56,7 +54,7 @@ class ServiceSelector extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: const Color(0xFFE1F5EE),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,9 +69,7 @@ class ServiceSelector extends StatelessWidget {
                 child: Text(
                   selected == BookingService.consultation
                       ? 'Consultation bookings require a bite incident intake form before submission.'
-                      : selected == BookingService.booster
-                          ? 'Rabies booster is strictly for patients with verified prior complete rabies PEP. Per DOH NRPCP guidelines, only 2 doses (Day 0 and Day 3) are scheduled and RIG is withheld.'
-                          : 'Vaccination bookings can be submitted directly without filling out a bite incident intake form.',
+                      : 'Rabies booster is strictly for patients with verified prior complete rabies PEP. Per DOH NRPCP guidelines, only 2 doses (Day 0 and Day 3) are scheduled and RIG is withheld.',
                   style: const TextStyle(
                     color: Color(0xFF085041),
                     fontSize: 11,
@@ -104,29 +100,44 @@ class _ServiceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(18),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFE1F5EE) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected ? AppColors.primary : Colors.grey.shade200,
-            width: isSelected ? 1.5 : 0.5,
+            width: isSelected ? 1.5 : 0.8,
           ),
+          boxShadow: isSelected
+              ? const [
+                  BoxShadow(
+                    color: Color(0x121D9E75),
+                    blurRadius: 10,
+                    offset: Offset(0, 3),
+                  ),
+                ]
+              : const [
+                  BoxShadow(
+                    color: Color(0x06111827),
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ],
         ),
         child: Row(
           children: [
-            // Left 36x36 icon container
+            // Left 40x40 icon container
             Container(
-              width: 36,
-              height: 36,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: isSelected
                     ? AppColors.primary.withValues(alpha: 0.15)
                     : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 service.icon,

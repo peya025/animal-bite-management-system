@@ -20,16 +20,23 @@ class ActiveCaseBanner extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
             color: const Color(0xFFE1F5EE),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: const Color(0xFFBBF7D0),
-              width: 0.5,
+              width: 0.8,
             ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x08111827),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
           child: Row(
             children: [

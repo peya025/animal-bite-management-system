@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../app/app_theme.dart';
-
 class MenuSearchHeader extends StatelessWidget {
   const MenuSearchHeader({
     super.key,
@@ -10,12 +8,14 @@ class MenuSearchHeader extends StatelessWidget {
     required this.onNotificationsPressed,
     this.userName,
     this.greeting,
+    this.hasUnreadNotifications = false,
   });
 
   final VoidCallback onSearchPressed;
   final VoidCallback onNotificationsPressed;
   final String? userName;
   final String? greeting;
+  final bool hasUnreadNotifications;
 
   String _getGreeting() {
     if (greeting != null && greeting!.trim().isNotEmpty) {
@@ -47,18 +47,15 @@ class MenuSearchHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Left: 38x38 rounded logo box (radius 10, #E1F5EE bg)
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE1F5EE),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              LucideIcons.shieldCheck,
-              color: AppColors.primary,
-              size: 20,
+          // Left: 38x38 rounded app logo box
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.asset(
+              'assets/images/abtcare-app-icon.png',
+              width: 38,
+              height: 38,
+              fit: BoxFit.cover,
+              semanticLabel: 'ABTCare app logo',
             ),
           ),
           const SizedBox(width: 12),
@@ -97,7 +94,7 @@ class MenuSearchHeader extends StatelessWidget {
             onTap: onSearchPressed,
           ),
           const SizedBox(width: 8),
-          // Right: Bell icon button with red dot
+          // Right: Bell icon button with unread indicator dot
           Stack(
             clipBehavior: Clip.none,
             children: [
@@ -105,18 +102,20 @@ class MenuSearchHeader extends StatelessWidget {
                 icon: LucideIcons.bell,
                 onTap: onNotificationsPressed,
               ),
-              Positioned(
-                top: 4,
-                right: 4,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEF4444),
-                    shape: BoxShape.circle,
+              if (hasUnreadNotifications)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    key: const ValueKey('notification-unread-dot'),
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ],

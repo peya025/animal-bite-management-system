@@ -3,7 +3,7 @@
  * Handles login, logout, registration, and local storage token management.
  */
 import api from './api';
-import type { LoginCredentials, LoginResponse, User } from '../types';
+import type { LoginCredentials, LoginResponse, User, Clinic } from '../types';
 
 class AuthService {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
@@ -50,7 +50,7 @@ class AuthService {
     }
   }
 
-  async getCurrentUser(): Promise<User> {
+  async getCurrentUser(): Promise<User & { clinic?: Clinic | null }> {
     const response = await api.get<any>('/me');
     // Backend returns flat user object (no wrapping { user: ... } key)
     return response.data.user ?? response.data;
@@ -70,6 +70,7 @@ class AuthService {
       localStorage.setItem('authToken',  res.token);
       localStorage.setItem('userData',   JSON.stringify(res.user));
       localStorage.setItem('clinicData', JSON.stringify(clinic));
+      localStorage.setItem('lastActivityAt', String(Date.now()));
     }
 
     return { token: res.token, user: res.user, clinic };

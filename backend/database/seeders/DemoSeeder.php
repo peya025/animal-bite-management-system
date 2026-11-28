@@ -45,8 +45,11 @@ class DemoSeeder extends Seeder
         );
         $doctorRole = Role::firstOrCreate(
             ['slug' => 'doctor'],
-            ['name' => 'doctor', 'display_name' => 'Doctor / Triage Officer', 'default_route' => '/doctor/patients']
+            ['name' => 'doctor', 'display_name' => 'Doctor / Triage Officer', 'default_route' => '/queue']
         );
+        if ($doctorRole->default_route !== '/queue') {
+            $doctorRole->update(['default_route' => '/queue']);
+        }
         $intakeNurseRole = Role::firstOrCreate(
             ['slug' => 'intake_nurse'],
             ['name' => 'intake_nurse', 'display_name' => 'Intake Nurse', 'default_route' => '/queue']
@@ -82,7 +85,7 @@ class DemoSeeder extends Seeder
                 'password' => Hash::make($staffPassword),
                 'role' => 'triage',
                 'is_active' => true,
-                'signature_path' => 'signatures/dr_mercer.png',
+                'signature_path' => null,
                 'professional_license_no' => 'MD-881234',
                 'phone' => '09120000001',
             ]
@@ -97,7 +100,7 @@ class DemoSeeder extends Seeder
                 'password' => Hash::make($staffPassword),
                 'role' => 'treatment',
                 'is_active' => true,
-                'signature_path' => 'signatures/nurse_clara.png',
+                'signature_path' => null,
                 'professional_license_no' => 'RN-441235',
                 'phone' => '09120000002',
             ]
@@ -112,7 +115,7 @@ class DemoSeeder extends Seeder
                 'password' => Hash::make($staffPassword),
                 'role' => 'treatment',
                 'is_active' => true,
-                'signature_path' => 'signatures/nurse_julian.png',
+                'signature_path' => null,
                 'professional_license_no' => 'RN-551236',
                 'phone' => '09120000003',
             ]

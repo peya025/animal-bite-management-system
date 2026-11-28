@@ -2,18 +2,50 @@
 // Import this instead of mobile_api.dart to test the mobile flows locally.
 
 import 'dart:convert';
+import '../models/announcement.dart';
+import '../models/community_bite_overview.dart';
 
 import '../models/app_notification.dart';
 import '../models/appointment_summary.dart';
+import '../models/bite_intake_contract.dart';
+import '../models/form_configuration.dart';
 import '../models/patient_account_profile.dart';
 import '../models/patient_profile.dart';
+import 'form_configuration_repository.dart';
 import 'mock_data.dart';
 import 'psgc_service.dart';
+import 'fcm_device_registration_service.dart';
+import 'push_notification_service.dart';
 
 class MockMobileApi {
   MockMobileApi._();
 
   static final instance = MockMobileApi._();
+
+  Future<FormConfiguration> Function({
+    int? clinicId,
+    int? patientId,
+    int? appointmentId,
+  })? debugFormConfigurationOverride;
+  void Function(Map<String, dynamic> payload)? debugOnCreatePatient;
+  void Function(int patientId, Map<String, dynamic> payload)?
+      debugOnUpdatePatient;
+  void Function(
+    PatientProfile patient,
+    dynamic booking,
+    dynamic intake,
+  )? debugOnBook;
+  void Function(int appointmentId, Map<String, dynamic> intake)?
+      debugOnUpdateIntake;
+
+  void resetDebugOverrides() {
+    debugFormConfigurationOverride = null;
+    debugOnCreatePatient = null;
+    debugOnUpdatePatient = null;
+    debugOnBook = null;
+    debugOnUpdateIntake = null;
+    _patients = _deepCopyList(MockData.samplePatients);
+  }
 
   bool _isAuthenticated = false;
   Map<String, dynamic> _account = _deepCopyMap(MockData.sampleAccount);
@@ -21,6 +53,36 @@ class MockMobileApi {
   final Set<int> _patientBoosterActive = <int>{};
 
   bool get isAuthenticated => _isAuthenticated;
+
+  Future<List<Announcement>> fetchAnnouncements() async => const [];
+
+  Future<CommunityBiteOverview> fetchCommunityBiteOverview({
+    int? clinicId,
+  }) async =>
+      const CommunityBiteOverview(
+        clinicName: 'Tagoloan Animal Bite Treatment Center',
+        municipality: 'Tagoloan',
+        status: 'information',
+        headline: 'Community Bite Awareness',
+        guidance:
+            'Keep pets vaccinated and leashed. If bitten or scratched, wash immediately with soap and running water for 15 minutes and visit the clinic.',
+        elevatedAreas: [],
+        vaccineAvailability: CommunityVaccineAvailability(
+          arvAvailable: true,
+          rigAvailable: true,
+          statusLabel: 'Anti-Rabies Vaccine & RIG Available',
+        ),
+        disclaimer:
+            'Facility-reviewed clinic guidance only. Reports of animal bites do not by themselves confirm rabies infection.',
+      );
+
+  Future<CommunityAdvisoryDetailResult> fetchCommunityAdvisoryDetail(
+    int advisoryId,
+  ) async =>
+      const CommunityAdvisoryDetailResult(
+        status: 'not_found',
+        message: 'This clinic advisory is not available.',
+      );
 
   Future<void> initialize() async {
     await Future.delayed(const Duration(milliseconds: 500));
@@ -36,6 +98,7 @@ class MockMobileApi {
     await Future.delayed(const Duration(seconds: 1));
     _account = {..._account, 'name': name, 'email': email, 'phone': phone};
     _isAuthenticated = true;
+    FcmDeviceRegistrationService.instance.syncDeviceToken().catchError((_) => false);
   }
 
   Future<String> requestPasswordReset({required String email}) async {
@@ -56,6 +119,7 @@ class MockMobileApi {
       );
     }
     _isAuthenticated = true;
+    FcmDeviceRegistrationService.instance.syncDeviceToken().catchError((_) => false);
   }
 
   Future<void> login({
@@ -70,11 +134,17 @@ class MockMobileApi {
     }
 
     _isAuthenticated = true;
+    FcmDeviceRegistrationService.instance.syncDeviceToken().catchError((_) => false);
   }
 
   Future<void> logout() async {
+    PushNotificationService.instance.clearNotificationState();
+    try {
+      await FcmDeviceRegistrationService.instance.unregisterDeviceToken();
+    } catch (_) {}
     await Future.delayed(const Duration(milliseconds: 300));
     _isAuthenticated = false;
+    FormConfigurationRepository.clearCache();
   }
 
   Future<PatientAccountProfile> account() async {
@@ -171,7 +241,77 @@ class MockMobileApi {
     };
   }
 
-  Future<PatientProfile> createPatient(Map<String, dynamic> profile) async {
+  Future<BiteIntakeContract> biteIntakeContract() async {
+    await Future.delayed(const Duration(milliseconds: 150));
+    return BiteIntakeContract.fallback;
+  }
+
+  Future<FormConfiguration> formConfiguration({
+    int? clinicId,
+    int? patientId,
+    int? appointmentId,
+  }) async {
+    if (debugFormConfigurationOverride != null) {
+      return debugFormConfigurationOverride!(
+        clinicId: clinicId,
+        patientId: patientId,
+        appointmentId: appointmentId,
+      );
+    }
+    return FormConfiguration.fromJson({
+      'schema_version': 1,
+      'revision': 1,
+      'clinic_id': clinicId ?? 1,
+      'profile': {
+        'sections': {
+          'patient_registration_enabled': true,
+          'address_section_enabled': true,
+          'socioeconomic_section_enabled': true,
+          'gov_programs_section_enabled': true,
+        },
+        'field_rules': _profileDefaults,
+      },
+      'intake': {
+        'sections': {'bite_intake_section_enabled': true},
+        'field_rules': _intakeDefaults,
+        'payload_aliases': {
+          'bite_date': 'date_of_exposure',
+          'bite_place': 'place_of_exposure',
+          'exposure_type': 'reported_mode_of_exposure',
+          'animal_type': 'animal_species',
+          'animal_status': 'animal_ownership',
+          'wound_location': 'body_part_detail',
+          'patient_description': 'incident_narrative',
+        },
+      },
+    });
+  }
+
+  static const _profileDefaults = <String, String>{
+    'blood_type': 'optional', 'mother_maiden_name': 'optional',
+    'civil_status': 'optional', 'spouse_name': 'optional',
+    'address_municipality': 'required', 'address_barangay': 'required',
+    'address_purok': 'optional', 'province': 'required',
+    'educational_attainment': 'optional', 'employment_status': 'optional',
+    'family_member': 'optional', 'philhealth_member': 'optional',
+    'philhealth_status': 'optional', 'philhealth_no': 'optional',
+    'philhealth_category': 'optional', 'fourps_member': 'optional',
+    'dswd_nhts': 'optional',
+  };
+
+  static const _intakeDefaults = <String, String>{
+    'bite_date': 'required', 'bite_place': 'required',
+    'site_washed': 'required', 'exposure_type': 'required',
+    'animal_type': 'required', 'animal_status': 'required',
+    'animal_captured': 'optional', 'wound_location': 'required',
+    'patient_description': 'optional',
+  };
+
+  Future<PatientProfile> createPatient(
+    Map<String, dynamic> profile, {
+    int? configRevision,
+  }) async {
+    debugOnCreatePatient?.call(Map<String, dynamic>.from(profile));
     await Future.delayed(const Duration(seconds: 1));
 
     final nextId =
@@ -197,7 +337,9 @@ class MockMobileApi {
   Future<PatientProfile> updatePatient({
     required int patientId,
     required Map<String, dynamic> profile,
+    int? configRevision,
   }) async {
+    debugOnUpdatePatient?.call(patientId, Map<String, dynamic>.from(profile));
     await Future.delayed(const Duration(seconds: 1));
 
     final index = _patients.indexWhere(
@@ -248,11 +390,17 @@ class MockMobileApi {
     required PatientProfile patient,
     required dynamic booking,
     dynamic intake,
+    Map<String, dynamic>? intakePayload,
+    int? configRevision,
   }) async {
+    debugOnBook?.call(patient, booking, intakePayload ?? intake);
     await Future.delayed(const Duration(seconds: 1));
-    final service = booking is Map ? booking['service'] : (booking?.service?.toString() ?? '');
+    final service = booking is Map
+        ? booking['service']
+        : (booking?.service?.toString() ?? '');
     final apptType = booking is Map ? booking['appointment_type'] : '';
-    if (service.toString().toLowerCase().contains('booster') || apptType.toString().toLowerCase().contains('booster')) {
+    if (service.toString().toLowerCase().contains('booster') ||
+        apptType.toString().toLowerCase().contains('booster')) {
       _patientBoosterActive.add(patient.id);
     }
   }
@@ -290,12 +438,15 @@ class MockMobileApi {
     await Future.delayed(const Duration(milliseconds: 500));
   }
 
+  Future<Map<String, dynamic>> clinicResources({int? clinicId}) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return const <String, dynamic>{'data': <dynamic>[]};
+  }
+
   Future<bool> checkConnectivity() async {
     await Future.delayed(const Duration(milliseconds: 200));
     return true;
   }
-
-
 
   Map<String, dynamic> _buildPatientJson({
     required int patientId,
@@ -405,6 +556,29 @@ class MockMobileApi {
       },
       'records': [
         {
+          'id': 'app-2',
+          'appointment_id': 2,
+          'type': 'appointments',
+          'title': 'Bite consultation',
+          'date_time': 'March 18, 2026 · 9:30 AM',
+          'status': 'scheduled',
+          'patient_name': 'Bird Dodo',
+          'relationship': 'self',
+          'intake': {
+            'intake_id': 1,
+            'date_of_exposure': '2026-03-17',
+            'time_of_exposure': '02:30 PM',
+            'place_of_exposure': 'Barangay Poblacion, Tagoloan',
+            'reported_mode_of_exposure': 'bite',
+            'animal_species': 'dog',
+            'animal_ownership': 'owned',
+            'body_part_group': 'lower_extremities',
+            'body_part_detail': 'Right calf',
+            'site_washed': true,
+            'incident_narrative': 'Bitten by neighbor dog while jogging',
+          },
+        },
+        {
           'id': 'app-1',
           'type': 'appointments',
           'title': 'Bite consultation',
@@ -436,15 +610,37 @@ class MockMobileApi {
     };
   }
 
+  Future<Map<String, dynamic>> updateAppointmentIntake({
+    required int appointmentId,
+    required Map<String, dynamic> intake,
+    int? configRevision,
+  }) async {
+    debugOnUpdateIntake?.call(appointmentId, Map<String, dynamic>.from(intake));
+    await Future.delayed(const Duration(milliseconds: 300));
+    return {
+      'appointment_id': appointmentId,
+      'message': 'Bite intake updated successfully.',
+      'intake': intake,
+    };
+  }
+
   Future<Map<String, dynamic>> vaccinationCard(int patientId) async {
     await Future.delayed(const Duration(milliseconds: 300));
     final patient = _patients.firstWhere(
       (p) => p['id'] == patientId || p['patient_id'] == patientId,
-      orElse: () => _patients.isNotEmpty ? _patients.first : {'id': patientId, 'patient_id': patientId, 'name': 'Juan Dela Cruz', 'patient_number': 'P-2026-0042'},
+      orElse: () => _patients.isNotEmpty
+          ? _patients.first
+          : {
+              'id': patientId,
+              'patient_id': patientId,
+              'name': 'Juan Dela Cruz',
+              'patient_number': 'P-2026-0042',
+            },
     );
 
     final bool hasCompletedPrimary = patient['has_completed_primary'] == true;
-    final bool hasBooster = hasCompletedPrimary && _patientBoosterActive.contains(patientId);
+    final bool hasBooster =
+        hasCompletedPrimary && _patientBoosterActive.contains(patientId);
 
     final List<Map<String, dynamic>> doses = [];
     if (hasCompletedPrimary) {
@@ -534,15 +730,19 @@ class MockMobileApi {
       });
     }
 
-    final String cardStatus = (hasCompletedPrimary && !hasBooster) ? 'COMPLETED' : 'ACTIVE';
-    final int completedCount = doses.where((d) => d['status'] == 'completed').length;
+    final String cardStatus = (hasCompletedPrimary && !hasBooster)
+        ? 'COMPLETED'
+        : 'ACTIVE';
+    final int completedCount = doses
+        .where((d) => d['status'] == 'completed')
+        .length;
     final int totalCount = doses.length;
 
     final String doseLabel = hasBooster
         ? 'Booster: 0 of 2 doses (Primary 3/3 complete)'
         : (hasCompletedPrimary
-            ? '3 of 3 doses (Completed)'
-            : '$completedCount of $totalCount doses');
+              ? '3 of 3 doses (Completed)'
+              : '$completedCount of $totalCount doses');
 
     final Map<String, dynamic>? nextDose = hasBooster
         ? {
@@ -551,12 +751,12 @@ class MockMobileApi {
             'due_text': 'Due in 3 days',
           }
         : (hasCompletedPrimary
-            ? null
-            : {
-                'name': 'Day 7',
-                'scheduled_date': 'March 17, 2026',
-                'due_text': 'Due in 4 days',
-              });
+              ? null
+              : {
+                  'name': 'Day 7',
+                  'scheduled_date': 'March 17, 2026',
+                  'due_text': 'Due in 4 days',
+                });
 
     return {
       'clinic': {
@@ -582,7 +782,8 @@ class MockMobileApi {
         'place_of_exposure': 'Poblacion, Tagoloan',
       },
       'card_token': 'vc_demo_token_${patient['id'] ?? 101}',
-      'qr_payload': 'https://clinic.gov.ph/verify/card/vc_demo_token_${patient['id'] ?? 101}',
+      'qr_payload':
+          'https://clinic.gov.ph/verify/card/vc_demo_token_${patient['id'] ?? 101}',
       'status': cardStatus,
       'has_booster': hasBooster,
       'progress': {
@@ -601,10 +802,30 @@ class MockMobileApi {
     return {
       'open_days_of_week': [2, 3, 4, 5],
       'schedules': {
-        '2': {'day_of_week': 2, 'is_open': true, 'open_time_label': '8:00 AM', 'close_time_label': '5:00 PM'},
-        '3': {'day_of_week': 3, 'is_open': true, 'open_time_label': '8:00 AM', 'close_time_label': '5:00 PM'},
-        '4': {'day_of_week': 4, 'is_open': true, 'open_time_label': '8:00 AM', 'close_time_label': '5:00 PM'},
-        '5': {'day_of_week': 5, 'is_open': true, 'open_time_label': '8:00 AM', 'close_time_label': '5:00 PM'},
+        '2': {
+          'day_of_week': 2,
+          'is_open': true,
+          'open_time_label': '8:00 AM',
+          'close_time_label': '5:00 PM',
+        },
+        '3': {
+          'day_of_week': 3,
+          'is_open': true,
+          'open_time_label': '8:00 AM',
+          'close_time_label': '5:00 PM',
+        },
+        '4': {
+          'day_of_week': 4,
+          'is_open': true,
+          'open_time_label': '8:00 AM',
+          'close_time_label': '5:00 PM',
+        },
+        '5': {
+          'day_of_week': 5,
+          'is_open': true,
+          'open_time_label': '8:00 AM',
+          'close_time_label': '5:00 PM',
+        },
       },
       'exceptions': <String, dynamic>{},
       'urgent_policy': {
@@ -612,6 +833,68 @@ class MockMobileApi {
         'facility_name': 'Tagoloan Animal Bite Treatment Center',
       },
     };
+  }
+
+  final List<Map<String, dynamic>> _mockDeviceTokens = [];
+
+  Future<Map<String, dynamic>> registerDeviceToken({
+    required String fcmToken,
+    String? deviceId,
+    String? deviceType,
+    String? deviceName,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    _mockDeviceTokens.removeWhere(
+      (t) => t['fcm_token'] == fcmToken || (deviceId != null && t['device_id'] == deviceId),
+    );
+    final entry = {
+      'id': _mockDeviceTokens.length + 1,
+      'fcm_token': fcmToken,
+      'device_id': deviceId,
+      'device_type': deviceType ?? 'android',
+      'device_name': deviceName,
+      'masked_token': fcmToken.length > 10
+          ? '${fcmToken.substring(0, 6)}...${fcmToken.substring(fcmToken.length - 4)}'
+          : '***',
+      'last_used_at': DateTime.now().toIso8601String(),
+    };
+    _mockDeviceTokens.add(entry);
+    return {'status': 'success', 'device': entry};
+  }
+
+  Future<void> deleteDeviceToken({
+    String? fcmToken,
+    String? deviceId,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    if (fcmToken != null) {
+      _mockDeviceTokens.removeWhere((t) => t['fcm_token'] == fcmToken);
+    } else if (deviceId != null) {
+      _mockDeviceTokens.removeWhere((t) => t['device_id'] == deviceId);
+    }
+  }
+
+  final Map<String, dynamic> _mockNotificationPreferences = {
+    'push_enabled': true,
+    'appointment_updates': true,
+    'reminders': true,
+    'digital_card': true,
+    'announcements': true,
+  };
+
+  /// Mock get notification preferences
+  Future<Map<String, dynamic>> getNotificationPreferences() async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    return Map<String, dynamic>.from(_mockNotificationPreferences);
+  }
+
+  /// Mock update notification preferences
+  Future<Map<String, dynamic>> updateNotificationPreferences(
+    Map<String, dynamic> preferences,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    _mockNotificationPreferences.addAll(preferences);
+    return Map<String, dynamic>.from(_mockNotificationPreferences);
   }
 
   String _resolveString(

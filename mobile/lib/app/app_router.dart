@@ -8,6 +8,7 @@ import '../views/bite_intake_view.dart';
 import '../views/booster_guidance_view.dart';
 import '../views/booking_view.dart';
 import '../views/appointments_view.dart';
+import '../views/community_advisory_view.dart';
 import '../views/history_view.dart';
 import '../views/login_view.dart';
 import '../views/menu_view.dart';
@@ -29,11 +30,14 @@ abstract final class AppRouter {
       AppRoutes.login => const LoginView(),
       AppRoutes.signUp => const SignUpView(),
       AppRoutes.patientActivation => PatientActivationView(
-        initialToken: settings.arguments is String ? settings.arguments as String : null,
+        initialToken: settings.arguments is String
+            ? settings.arguments as String
+            : null,
       ),
       AppRoutes.menu => const MenuView(),
       AppRoutes.booking => switch (settings.arguments) {
         BookingService service => BookingView(initialService: service),
+        'walkthrough' => const BookingView(startWalkthrough: true),
         _ => const BookingView(),
       },
       AppRoutes.boosterGuidance => const BoosterGuidanceView(),
@@ -68,6 +72,10 @@ abstract final class AppRouter {
             : const BookingView(),
       AppRoutes.appointments => const AppointmentsView(),
       AppRoutes.calendar => const ScheduleCalendarView(),
+      AppRoutes.communityAdvisory =>
+        settings.arguments is int && (settings.arguments! as int) > 0
+            ? CommunityAdvisoryView(advisoryId: settings.arguments! as int)
+            : const MenuView(),
       _ => const WelcomeView(),
     };
 

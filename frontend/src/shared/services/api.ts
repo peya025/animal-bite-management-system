@@ -5,22 +5,96 @@
 import axios, { AxiosError } from 'axios';
 import type { AxiosInstance } from 'axios';
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+/**
+ * Resolves and normalizes the API base URL.
+ * Ensures consistent `/api` suffix without trailing slashes or duplicate `/api/api`.
+ * Provides runtime error diagnostics in production if configuration is missing or pointing to localhost.
+ */
+export const resolveApiBaseUrl = (): string => {
+  const envUrl =
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL);
+
+  const isProd = typeof import.meta !== 'undefined' && Boolean(import.meta.env?.PROD);
+
+  if (!envUrl) {
+    if (isProd) {
+      console.error(
+        '[API Configuration Error] VITE_API_URL is missing in production! ' +
+        'Set VITE_API_URL in your Vercel project environment variables (e.g. https://your-railway-backend.up.railway.app/api).'
+      );
+    }
+    return 'http://localhost:8000/api';
+  }
+
+  // Strip trailing slashes and whitespace
+  let cleanUrl = envUrl.trim().replace(/\/+$/, '');
+
+  // Guard against accidental duplicate /api/api
+  if (cleanUrl.endsWith('/api/api')) {
+    cleanUrl = cleanUrl.slice(0, -4);
+  }
+
+  // Ensure path ends with /api
+  if (!cleanUrl.endsWith('/api')) {
+    cleanUrl = `${cleanUrl}/api`;
+  }
+
+  // Production security check: warn if production build points to localhost or private LAN IP
+  if (isProd) {
+    try {
+      const parsed = new URL(cleanUrl);
+      const host = parsed.hostname.toLowerCase();
+      const isLocalHost =
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '::1' ||
+        host.endsWith('.local') ||
+        /^10\./.test(host) ||
+        /^192\.168\./.test(host) ||
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host);
+
+      if (isLocalHost) {
+        console.warn(
+          `[API Configuration Warning] Production build is targeting a local address (${cleanUrl}). ` +
+          'Configure a public Railway backend URL in Vercel environment variables.'
+        );
+      }
+    } catch {
+      console.error(`[API Configuration Error] Malformed VITE_API_URL: "${cleanUrl}".`);
+    }
+  }
+
+  return cleanUrl;
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
+const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
 const LAST_ACTIVITY_KEY = 'lastActivityAt';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json',
     Accept: 'application/json',
   },
   withCredentials: false,
 });
 
-// Attach the auth token to every request
+// Attach the auth token to every request and ensure FormData headers are clean
 api.interceptors.request.use(
   config => {
+    // If sending FormData, remove Content-Type so the browser/Axios sets multipart/form-data with the boundary
+    if (config.data instanceof FormData) {
+      if (config.headers) {
+        delete (config.headers as any)['Content-Type'];
+        delete (config.headers as any)['content-type'];
+        if (typeof (config.headers as any).delete === 'function') {
+          (config.headers as any).delete('Content-Type');
+          (config.headers as any).delete('content-type');
+        }
+      }
+    }
+
     const token = localStorage.getItem('authToken');
     const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY) || 0);
     if (token && lastActivity && Date.now() - lastActivity >= IDLE_TIMEOUT_MS) {
@@ -37,7 +111,9 @@ api.interceptors.request.use(
   error => Promise.reject(error),
 );
 
-// On 401, clear storage and bounce to login
+let last403NotificationTime = 0;
+
+// Handle response errors: 401 unauthenticated redirect vs 403 permission-denied popup
 api.interceptors.response.use(
   response => response,
   (error: AxiosError) => {
@@ -47,7 +123,29 @@ api.interceptors.response.use(
       localStorage.removeItem('clinicData');
       localStorage.removeItem(LAST_ACTIVITY_KEY);
       window.location.href = '/login'; // Can't import ROUTES here — circular dep risk, literal is safe
+      return Promise.reject(error);
     }
+
+    if (error.response?.status === 403) {
+      // Allow specific background/polling calls to opt-out of global access denied modal
+      if ((error.config as any)?.skipAccessDeniedModal || (error.config as any)?.silentAuthError) {
+        return Promise.reject(error);
+      }
+
+      // Debounce 403 popups so concurrent forbidden calls don't fire multiple alerts
+      const now = Date.now();
+      if (now - last403NotificationTime > 1500) {
+        last403NotificationTime = now;
+        const serverMessage = (error.response.data as any)?.message;
+        window.dispatchEvent(
+          new CustomEvent('app-access-denied', {
+            detail: { message: serverMessage || undefined },
+          })
+        );
+      }
+      return Promise.reject(error);
+    }
+
     return Promise.reject(error);
   },
 );

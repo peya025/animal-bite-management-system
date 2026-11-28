@@ -27,6 +27,7 @@ class MeUserResource extends JsonResource
             'is_solo_nurse'           => method_exists($this->resource, 'isSoloNurse') ? $this->isSoloNurse() : false,
             'is_nursing'              => method_exists($this->resource, 'isNursing') ? $this->isNursing() : false,
             'last_login_at'           => $this->last_login_at,
+            'has_seen_walkthrough'    => (bool) $this->has_seen_walkthrough,
             'clinic'                  => $this->clinic,
         ];
     }

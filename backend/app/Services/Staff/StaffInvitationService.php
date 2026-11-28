@@ -217,6 +217,7 @@ class StaffInvitationService
                 'signature_path' => null,
                 'professional_license_no' => $validated['professional_license_no'] ?? null,
                 'is_active' => true,
+                'has_seen_walkthrough' => false,
                 'email_verified_at' => now(),
             ]);
 
@@ -267,6 +268,7 @@ class StaffInvitationService
                         'role' => $user->role,
                         'phone' => $user->phone,
                         'is_active' => $user->is_active,
+                        'has_seen_walkthrough' => (bool) $user->has_seen_walkthrough,
                         'clinic' => $user->clinic,
                     ],
                     'token' => $authToken,

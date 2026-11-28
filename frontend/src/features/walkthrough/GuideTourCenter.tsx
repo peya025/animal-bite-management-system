@@ -118,6 +118,7 @@ export const GuideTourCenter: React.FC = () => {
 
   const showIndicator =
     Boolean(user?.id) &&
+    user?.has_seen_walkthrough !== false &&
     isDashboard &&
     !isLandingOrPublic &&
     !indicatorDismissed &&

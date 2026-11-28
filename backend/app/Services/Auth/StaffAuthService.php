@@ -137,6 +137,7 @@ class StaffAuthService
             'password' => Hash::make($validated['password']),
             'role' => 'admin',
             'is_active' => true,
+            'has_seen_walkthrough' => false,
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;

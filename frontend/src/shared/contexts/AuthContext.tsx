@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useState, useEffect, useRef, type ReactNode } from 'react';
 import type { User, Clinic, LoginCredentials, AuthContextType } from '../types';
 import authService from '../services/auth.service';
 import { disconnectEcho } from '../services/echo';
@@ -128,6 +128,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const revision = clinicRevision.current;
       try {
         const currentUser = await authService.getCurrentUser();
+        if (active && authService.getToken() === token && currentUser?.id) {
+          setUser((prev) => {
+            if (!prev) {
+              localStorage.setItem('userData', JSON.stringify(currentUser));
+              return currentUser;
+            }
+            const nextHasSeen =
+              prev.id === currentUser.id && prev.has_seen_walkthrough === true
+                ? true
+                : (currentUser.has_seen_walkthrough ?? prev.has_seen_walkthrough);
+            if (
+              prev.id === currentUser.id &&
+              prev.has_seen_walkthrough === nextHasSeen &&
+              prev.name === currentUser.name &&
+              prev.role === currentUser.role
+            ) {
+              return prev;
+            }
+            const merged: User = {
+              ...prev,
+              ...currentUser,
+              has_seen_walkthrough: nextHasSeen,
+            };
+            localStorage.setItem('userData', JSON.stringify(merged));
+            return merged;
+          });
+        }
         // A Save Changes response takes precedence over an older in-flight refresh.
         if (active && revision === clinicRevision.current && authService.getToken() === token && currentUser.clinic) {
           setClinic(currentUser.clinic);
@@ -251,6 +278,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.dispatchEvent(new CustomEvent('clinic-updated', { detail: newClinic }));
   };
 
+  const markWalkthroughSeen = useCallback(async () => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated: User = { ...prev, has_seen_walkthrough: true };
+      localStorage.setItem('userData', JSON.stringify(updated));
+      return updated;
+    });
+
+    try {
+      await authService.markWalkthroughSeen();
+    } catch (error) {
+      console.error('Failed to persist walkthrough seen status:', error);
+    }
+  }, []);
+
   const login = async (credentials: LoginCredentials) => {
     setIsLoading(true);
     try {
@@ -302,6 +344,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     updateClinic,
+    markWalkthroughSeen,
     isAuthenticated: !!token && !!user,
     isLoading,
   };

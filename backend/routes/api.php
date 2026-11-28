@@ -249,6 +249,7 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/me', [AuthController::class, 'updateProfile']);
+    Route::post('/me/walkthrough-seen', [AuthController::class, 'markWalkthroughSeen']);
 
     // Staff Invitations (admin only)
     Route::middleware('role:admin')->group(function () {

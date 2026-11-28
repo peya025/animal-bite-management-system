@@ -54,6 +54,7 @@ class UserManagementService
                 'phone'                   => $data['phone'] ?? null,
                 'professional_license_no' => $data['professional_license_no'] ?? null,
                 'is_active'               => $data['is_active'] ?? true,
+                'has_seen_walkthrough'    => false,
             ]);
 
             // Attach workstation roles

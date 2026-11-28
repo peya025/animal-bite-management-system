@@ -31,6 +31,7 @@ class User extends Authenticatable
         'signature_path',
         'professional_license_no',
         'last_login_at',
+        'has_seen_walkthrough',
         'google_id',
     ];
 
@@ -56,6 +57,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
+            'has_seen_walkthrough' => 'boolean',
         ];
     }
 

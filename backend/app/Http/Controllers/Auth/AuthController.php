@@ -86,6 +86,26 @@ class AuthController extends Controller
     }
 
     /**
+     * Mark the welcome walkthrough as seen for the authenticated user.
+     */
+    public function markWalkthroughSeen(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user->has_seen_walkthrough) {
+            $user->forceFill(['has_seen_walkthrough' => true])->save();
+        }
+
+        $user->load(['clinic', 'roles']);
+
+        return response()->json([
+            'message' => 'Walkthrough marked as seen',
+            'has_seen_walkthrough' => true,
+            'user' => (new MeUserResource($user))->resolve(),
+        ]);
+    }
+
+    /**
      * Authenticate a clinical staff member via Google ID Token.
      */
     public function googleLogin(GoogleLoginRequest $request): JsonResponse

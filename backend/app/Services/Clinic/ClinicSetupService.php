@@ -74,8 +74,9 @@ class ClinicSetupService
                 'email'           => $validated['admin_email'],
                 'password'        => Hash::make($validated['admin_password']),
                 'role'            => 'admin',
-                'assigned_module' => 'all',
-                'is_active'       => true,
+                'assigned_module'      => 'all',
+                'is_active'            => true,
+                'has_seen_walkthrough' => false,
             ]);
 
             // 3. Create default module config

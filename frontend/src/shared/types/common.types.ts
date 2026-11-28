@@ -28,6 +28,7 @@ export interface User {
   is_nursing?: boolean;
   is_active: boolean;
   last_login_at?: string;
+  has_seen_walkthrough?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -78,6 +79,7 @@ export interface AuthContextType {
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void> | void;
   updateClinic?: (clinic: Clinic) => void;
+  markWalkthroughSeen?: () => Promise<void>;
   isAuthenticated: boolean;
   isLoading: boolean;
 }

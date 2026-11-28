@@ -21,6 +21,9 @@ class AuthService {
       localStorage.setItem('userData',   JSON.stringify(data.user));
       localStorage.setItem('clinicData', JSON.stringify(clinic));
       localStorage.setItem('lastActivityAt', String(Date.now()));
+      if (data.user?.id) {
+        localStorage.removeItem(`abtc_walkthrough_indicator_dismissed_${data.user.id}`);
+      }
     }
 
     // Normalise to the shape AuthContext expects: { token, user, clinic }
@@ -54,6 +57,29 @@ class AuthService {
     const response = await api.get<any>('/me');
     // Backend returns flat user object (no wrapping { user: ... } key)
     return response.data.user ?? response.data;
+  }
+
+  async markWalkthroughSeen(): Promise<User | null> {
+    const response = await api.post<any>('/me/walkthrough-seen');
+    const updatedUser: User | null = response.data?.user ?? null;
+
+    if (updatedUser) {
+      const existing = this.getUser();
+      const merged = existing
+        ? { ...existing, ...updatedUser, has_seen_walkthrough: true }
+        : { ...updatedUser, has_seen_walkthrough: true };
+      localStorage.setItem('userData', JSON.stringify(merged));
+      return merged;
+    }
+
+    const existing = this.getUser();
+    if (existing) {
+      const merged = { ...existing, has_seen_walkthrough: true };
+      localStorage.setItem('userData', JSON.stringify(merged));
+      return merged;
+    }
+
+    return null;
   }
 
   async register(data: {

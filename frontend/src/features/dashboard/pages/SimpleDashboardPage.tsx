@@ -358,7 +358,7 @@ export function SimpleDashboardPage() {
             Overview · {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </Typography>
         </div>
-        <div className="sd-dash-tabs" data-walkthrough="dashboard-tabs" data-tour="dashboard-tabs" style={{ flexWrap: 'wrap' }}>
+        <div className="sd-dash-tabs" data-walkthrough="dashboard-tabs" data-tour="dashboard-tabs" style={{ flexWrap: 'wrap', marginTop: '22px' }}>
           <button
             className={`sd-dash-tab ${activeTab === 'overview' ? 'sd-dash-tab--active' : ''}`}
             onClick={() => setActiveTab('overview')}

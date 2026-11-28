@@ -173,6 +173,9 @@ export default function Login() {
       localStorage.setItem('userData', JSON.stringify(data.user));
       localStorage.setItem('clinicData', JSON.stringify(data.user?.clinic ?? null));
       localStorage.setItem('lastActivityAt', String(Date.now()));
+      if (data.user?.id) {
+        localStorage.removeItem(`abtc_walkthrough_indicator_dismissed_${data.user.id}`);
+      }
 
       const role = data.user?.role as string ?? 'admin';
       window.location.replace(resolveLandingRoute(data.user) || ROLE_DASHBOARD[role] || '/dashboard');
@@ -207,6 +210,9 @@ export default function Login() {
       // clinic is nested inside user in the backend response
       localStorage.setItem('clinicData', JSON.stringify(data.user?.clinic ?? null));
       localStorage.setItem('lastActivityAt', String(Date.now()));
+      if (data.user?.id) {
+        localStorage.removeItem(`abtc_walkthrough_indicator_dismissed_${data.user.id}`);
+      }
       window.location.replace(resolveLandingRoute(data.user));
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
@@ -238,6 +244,9 @@ export default function Login() {
       localStorage.setItem('userData', JSON.stringify(data.user));
       localStorage.setItem('clinicData', JSON.stringify(data.user?.clinic ?? null));
       localStorage.setItem('lastActivityAt', String(Date.now()));
+      if (data.user?.id) {
+        localStorage.removeItem(`abtc_walkthrough_indicator_dismissed_${data.user.id}`);
+      }
       window.location.replace(resolveLandingRoute(data.user));
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');

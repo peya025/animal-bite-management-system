@@ -26,6 +26,7 @@ class AuthUserResource extends JsonResource
             'roles'                   => $this->roles,
             'is_solo_nurse'           => method_exists($this->resource, 'isSoloNurse') ? $this->isSoloNurse() : false,
             'is_nursing'              => method_exists($this->resource, 'isNursing') ? $this->isNursing() : false,
+            'has_seen_walkthrough'    => (bool) $this->has_seen_walkthrough,
             'clinic'                  => $this->clinic,
         ];
     }

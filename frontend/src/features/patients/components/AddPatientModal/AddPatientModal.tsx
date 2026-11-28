@@ -438,11 +438,13 @@ export default function AddPatientModal({
       const hasDia = Boolean(dia && dia.trim());
       if (!hasSys || !hasDia) {
         newFieldErrors.reg_blood_pressure = 'Blood pressure (both systolic and diastolic) is required.';
+      } else if (!/^\d{1,3}\/\d{1,3}$/.test(bp)) {
+        newFieldErrors.reg_blood_pressure = 'Blood pressure must be numeric in 000/000 format (max 3 digits each, e.g. 120/080).';
       } else {
         const s = Number(sys);
         const d = Number(dia);
         if (isNaN(s) || isNaN(d) || s < 40 || s > 300 || d < 20 || d > 200) {
-          newFieldErrors.reg_blood_pressure = 'Please enter a valid blood pressure (e.g. 120/80).';
+          newFieldErrors.reg_blood_pressure = 'Please enter a valid blood pressure (e.g. 120/080).';
         }
       }
 
@@ -748,6 +750,7 @@ export default function AddPatientModal({
             onDirectChange={(key, value) => handleDirectChange(key, value)}
             errors={fieldErrors}
             sectionStartNumber={3}
+            strictBpFormat
           />
           <RegistrationFeesSection
             data={enrolment.registration_fee}

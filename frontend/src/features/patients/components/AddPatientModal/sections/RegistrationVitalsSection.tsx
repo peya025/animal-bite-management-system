@@ -1,5 +1,5 @@
 import OnlineReferralPhoto from '../../OnlineReferralPhoto';
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { FormField } from './FormField';
 import { SearchableSelect } from '../../../../../components/forms/SearchableSelect';
 import { RegistrationErrors } from '../registrationAccessibility';
@@ -138,6 +138,7 @@ export interface RegistrationVitalsSectionProps<T extends RegistrationVitalsFiel
   layout?: 'default' | 'two-column';
   errors?: Record<string, string>;
   sectionStartNumber?: 2 | 3;
+  strictBpFormat?: boolean;
 }
 
 /**
@@ -169,6 +170,7 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
   errors: propsErrors,
   referralPatient,
   sectionStartNumber = 2,
+  strictBpFormat = false,
 }: RegistrationVitalsSectionProps<T>) {
   const contextErrors = useContext(RegistrationErrors);
   const errors = propsErrors || contextErrors || {};
@@ -177,6 +179,9 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
   const sectionLabels = sectionStartNumber === 3
     ? { personnel: 'III', vitals: 'IV' }
     : { personnel: 'II', vitals: 'III' };
+
+  const systolicInputRef = useRef<HTMLInputElement>(null);
+  const diastolicInputRef = useRef<HTMLInputElement>(null);
 
   // --- Blood pressure split/combine ---
   const splitBP = (bp: string) => {
@@ -187,15 +192,84 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
   const { systolic, diastolic } = splitBP(data.reg_blood_pressure);
 
   const handleSystolicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (strictBpFormat) {
+      const raw = e.target.value;
+      if (raw.includes('/')) {
+        const [left = '', right = ''] = raw.split('/');
+        const sys = left.replace(/\D/g, '').slice(0, 3);
+        const dia = right.replace(/\D/g, '').slice(0, 3);
+        const combined = sys || dia ? `${sys}/${dia}` : '';
+        onDirectChange('reg_blood_pressure', combined);
+        diastolicInputRef.current?.focus();
+        return;
+      }
+      const digits = raw.replace(/\D/g, '');
+      if (digits.length > 3 && !diastolic) {
+        const sys = digits.slice(0, 3);
+        const dia = digits.slice(3, 6);
+        onDirectChange('reg_blood_pressure', `${sys}/${dia}`);
+        diastolicInputRef.current?.focus();
+        return;
+      }
+      const sys = digits.slice(0, 3);
+      const combined = sys || diastolic ? `${sys}/${diastolic}` : '';
+      onDirectChange('reg_blood_pressure', combined);
+      if (sys.length === 3 && systolic.length < 3) {
+        diastolicInputRef.current?.focus();
+      }
+      return;
+    }
     const sys = e.target.value;
     const combined = sys || diastolic ? `${sys}/${diastolic}` : '';
     onDirectChange('reg_blood_pressure', combined);
   };
 
   const handleDiastolicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (strictBpFormat) {
+      const dia = e.target.value.replace(/\D/g, '').slice(0, 3);
+      const combined = systolic || dia ? `${systolic}/${dia}` : '';
+      onDirectChange('reg_blood_pressure', combined);
+      return;
+    }
     const dia = e.target.value;
     const combined = systolic || dia ? `${systolic}/${dia}` : '';
     onDirectChange('reg_blood_pressure', combined);
+  };
+
+  const handleBpKeyDown = (side: 'systolic' | 'diastolic') => (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!strictBpFormat) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+    const allowedKeys = [
+      'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+      'ArrowLeft', 'ArrowRight', 'Home', 'End',
+    ];
+
+    if (side === 'systolic' && e.key === '/') {
+      e.preventDefault();
+      diastolicInputRef.current?.focus();
+      return;
+    }
+
+    if (side === 'diastolic' && e.key === 'Backspace' && diastolic.length === 0) {
+      systolicInputRef.current?.focus();
+      return;
+    }
+
+    if (allowedKeys.includes(e.key)) return;
+
+    if (!/^\d$/.test(e.key)) {
+      e.preventDefault();
+      return;
+    }
+
+    const input = e.currentTarget;
+    const hasSelection = input.selectionStart !== null
+      && input.selectionEnd !== null
+      && input.selectionStart !== input.selectionEnd;
+    if (!hasSelection && input.value.length >= 3) {
+      e.preventDefault();
+    }
   };
 
   // --- Referred By: municipality/barangay cascade (same logic as ReferralLocationSelector) ---
@@ -606,12 +680,17 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                 }}
               >
                 <input
-                  type="number"
-                  min={0}
-                  max={300}
+                  ref={systolicInputRef}
+                  type={strictBpFormat ? 'text' : 'number'}
+                  inputMode={strictBpFormat ? 'numeric' : undefined}
+                  pattern={strictBpFormat ? '[0-9]{1,3}' : undefined}
+                  maxLength={strictBpFormat ? 3 : undefined}
+                  min={strictBpFormat ? undefined : 0}
+                  max={strictBpFormat ? undefined : 300}
                   name="bp_systolic"
                   value={systolic}
                   onChange={handleSystolicChange}
+                  onKeyDown={handleBpKeyDown('systolic')}
                   placeholder="120"
                   aria-label="Systolic Blood Pressure"
                   style={{
@@ -639,13 +718,18 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                   /
                 </span>
                 <input
-                  type="number"
-                  min={0}
-                  max={200}
+                  ref={diastolicInputRef}
+                  type={strictBpFormat ? 'text' : 'number'}
+                  inputMode={strictBpFormat ? 'numeric' : undefined}
+                  pattern={strictBpFormat ? '[0-9]{1,3}' : undefined}
+                  maxLength={strictBpFormat ? 3 : undefined}
+                  min={strictBpFormat ? undefined : 0}
+                  max={strictBpFormat ? undefined : 200}
                   name="bp_diastolic"
                   value={diastolic}
                   onChange={handleDiastolicChange}
-                  placeholder="80"
+                  onKeyDown={handleBpKeyDown('diastolic')}
+                  placeholder={strictBpFormat ? '080' : '80'}
                   aria-label="Diastolic Blood Pressure"
                   style={{
                     flex: 1,
@@ -840,12 +924,17 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                 }}
               >
                 <input
-                  type="number"
-                  min={0}
-                  max={300}
+                  ref={systolicInputRef}
+                  type={strictBpFormat ? 'text' : 'number'}
+                  inputMode={strictBpFormat ? 'numeric' : undefined}
+                  pattern={strictBpFormat ? '[0-9]{1,3}' : undefined}
+                  maxLength={strictBpFormat ? 3 : undefined}
+                  min={strictBpFormat ? undefined : 0}
+                  max={strictBpFormat ? undefined : 300}
                   name="bp_systolic"
                   value={systolic}
                   onChange={handleSystolicChange}
+                  onKeyDown={handleBpKeyDown('systolic')}
                   placeholder="120"
                   style={{
                     width: '45%',
@@ -863,13 +952,18 @@ export function RegistrationVitalsSection<T extends RegistrationVitalsFields = a
                   /
                 </span>
                 <input
-                  type="number"
-                  min={0}
-                  max={200}
+                  ref={diastolicInputRef}
+                  type={strictBpFormat ? 'text' : 'number'}
+                  inputMode={strictBpFormat ? 'numeric' : undefined}
+                  pattern={strictBpFormat ? '[0-9]{1,3}' : undefined}
+                  maxLength={strictBpFormat ? 3 : undefined}
+                  min={strictBpFormat ? undefined : 0}
+                  max={strictBpFormat ? undefined : 200}
                   name="bp_diastolic"
                   value={diastolic}
                   onChange={handleDiastolicChange}
-                  placeholder="80"
+                  onKeyDown={handleBpKeyDown('diastolic')}
+                  placeholder={strictBpFormat ? '080' : '80'}
                   style={{
                     width: '45%',
                     padding: '8px',
